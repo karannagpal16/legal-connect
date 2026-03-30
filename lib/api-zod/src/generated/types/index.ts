@@ -6,8 +6,16 @@
  * OpenAPI spec version: 0.2.0
  */
 
+export * from "./booking";
+export * from "./bookingLegalIssueType";
+export * from "./bookingPreferredTime";
+export * from "./bookingStatus";
 export * from "./case";
 export * from "./caseStatus";
+export * from "./createBookingRequest";
+export * from "./createBookingRequestLegalIssueType";
+export * from "./createBookingRequestPreferredTime";
+export * from "./createBookingRequestStatus";
 export * from "./createCaseRequest";
 export * from "./createCaseRequestStatus";
 export * from "./createInternQuestRequest";
@@ -26,6 +34,10 @@ export * from "./revenueAnalytics";
 export * from "./task";
 export * from "./taskStatus";
 export * from "./taskTaskType";
+export * from "./updateBookingRequest";
+export * from "./updateBookingRequestLegalIssueType";
+export * from "./updateBookingRequestPreferredTime";
+export * from "./updateBookingRequestStatus";
 export * from "./updateCaseRequest";
 export * from "./updateCaseRequestStatus";
 export * from "./updateInternQuestRequest";

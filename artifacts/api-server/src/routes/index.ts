@@ -5,6 +5,7 @@ import casesRouter from "./cases";
 import tasksRouter from "./tasks";
 import internQuestsRouter from "./intern_quests";
 import analyticsRouter from "./analytics";
+import bookingsRouter from "./bookings";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(casesRouter);
 router.use(tasksRouter);
 router.use(internQuestsRouter);
 router.use(analyticsRouter);
+router.use(bookingsRouter);
 
 export default router;

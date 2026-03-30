@@ -1,13 +1,13 @@
 packages:
-  "recharts": "For Revenue Tracker analytics charts and visual data representation"
-  "date-fns": "For formatting dates in Dashboard, My Diary, and Intern Quests"
-  "framer-motion": "For page transitions and interactive micro-animations"
-  "@hookform/resolvers": "Zod validation for forms"
-  "react-hook-form": "Form state management"
-  "zod": "Schema validation"
-  "clsx": "Class name merging"
-  "tailwind-merge": "Tailwind class merging"
-  "lucide-react": "Icons"
-
+  "react-hook-form": "Form handling and validation"
+  "@hookform/resolvers": "Zod validation for react-hook-form"
+  "zod": "Schema definition and validation"
+  "date-fns": "Date manipulation and formatting"
+  "framer-motion": "Smooth page transitions and component animations"
+images:
+  - path: "artifacts/law-firm/public/images/law-library-bg.png"
+    description: "Dark moody aesthetic of a premium law firm library, deep navy tones, soft warm gold lighting, out of focus background, bokeh effect"
+    aspect_ratio: "16:9"
 notes:
-  - "Using API client hooks from @workspace/api-client-react"
+  - Added new bookings endpoints, matching the provided OpenAPI schema
+  - Used native date input styled for premium feel for simplicity and mobile friendliness

@@ -12,6 +12,7 @@ tags:
   - name: tasks
   - name: intern-quests
   - name: analytics
+  - name: bookings
 paths:
   /healthz:
     get:
@@ -401,6 +402,76 @@ paths:
         "204":
           description: Deleted
 
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List all client bookings
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Book a lawyer consultation (public)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /bookings/{id}:
+    put:
+      operationId: updateBooking
+      tags: [bookings]
+      summary: Update a booking status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookingRequest"
+      responses:
+        "200":
+          description: Booking updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    delete:
+      operationId: deleteBooking
+      tags: [bookings]
+      summary: Delete a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /analytics/revenue:
     get:
       operationId: getRevenueAnalytics
@@ -735,3 +806,91 @@ components:
         - singaporeProgress
         - totalUsers
         - openProxyTasks
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+        clientPhone:
+          type: string
+        legalIssueType:
+          type: string
+          enum: [Criminal, Civil, Family, Property, Corporate, Labour, Other]
+        preferredLawyer:
+          type: string
+          nullable: true
+        preferredDate:
+          type: string
+        preferredTime:
+          type: string
+          enum: ["9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"]
+        briefDescription:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Pending, Confirmed, Cancelled, Completed]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, clientName, clientEmail, clientPhone, legalIssueType, preferredDate, preferredTime, status, createdAt]
+
+    CreateBookingRequest:
+      type: object
+      properties:
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+        clientPhone:
+          type: string
+        legalIssueType:
+          type: string
+          enum: [Criminal, Civil, Family, Property, Corporate, Labour, Other]
+        preferredLawyer:
+          type: string
+          nullable: true
+        preferredDate:
+          type: string
+        preferredTime:
+          type: string
+          enum: ["9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"]
+        briefDescription:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Pending, Confirmed, Cancelled, Completed]
+      required: [clientName, clientEmail, clientPhone, legalIssueType, preferredDate, preferredTime, status]
+
+    UpdateBookingRequest:
+      type: object
+      properties:
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+        clientPhone:
+          type: string
+        legalIssueType:
+          type: string
+          enum: [Criminal, Civil, Family, Property, Corporate, Labour, Other]
+        preferredLawyer:
+          type: string
+          nullable: true
+        preferredDate:
+          type: string
+        preferredTime:
+          type: string
+          enum: ["9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"]
+        briefDescription:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Pending, Confirmed, Cancelled, Completed]

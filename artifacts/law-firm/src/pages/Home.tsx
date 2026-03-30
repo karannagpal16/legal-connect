@@ -1,12 +1,12 @@
 import { Link } from "wouter";
-import { ArrowRight, Scale, ShieldCheck, Clock, BookOpen } from "lucide-react";
+import { ArrowRight, Scale, BookOpen, CalendarCheck } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/30 selection:text-primary-foreground">
       {/* Navigation */}
-      <nav className="fixed w-full z-50 top-0 border-b border-white/10 bg-background/50 backdrop-blur-md">
+      <nav className="fixed w-full z-50 top-0 border-b border-white/10 bg-background/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Scale className="w-8 h-8 text-primary" />
@@ -16,9 +16,9 @@ export function Home() {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Client Portal</Link>
-            <Link href="/dashboard" className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:-translate-y-0.5">
-              Admin Login
+            <Link href="/book" className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors uppercase tracking-wider">Book Consultation</Link>
+            <Link href="/dashboard" className="hidden md:inline-flex bg-secondary hover:bg-secondary/80 border border-border text-foreground px-6 py-2.5 rounded-full text-sm font-bold shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5">
+              Staff Login
             </Link>
           </div>
         </div>
@@ -37,7 +37,7 @@ export function Home() {
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="flex-1 text-left"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary mb-8 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-xs font-semibold uppercase tracking-widest">Delhi High Court & Supreme Court Practice</span>
             </div>
@@ -54,9 +54,9 @@ export function Home() {
             </p>
             
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <Link href="/diary" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 rounded-xl text-base font-bold shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:-translate-y-1">
-                <BookOpen className="w-5 h-5" />
-                Add New Case
+              <Link href="/book" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 rounded-xl text-base font-bold shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:-translate-y-1">
+                <CalendarCheck className="w-5 h-5" />
+                Book a Consultation
               </Link>
               <Link href="/dashboard" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 px-8 py-4 rounded-xl text-base font-bold transition-all hover:-translate-y-1">
                 Firm Dashboard

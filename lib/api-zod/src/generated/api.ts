@@ -357,6 +357,153 @@ export const DeleteInternQuestParams = zod.object({
 });
 
 /**
+ * @summary List all client bookings
+ */
+export const ListBookingsResponseItem = zod.object({
+  id: zod.number(),
+  clientName: zod.string(),
+  clientEmail: zod.string(),
+  clientPhone: zod.string(),
+  legalIssueType: zod.enum([
+    "Criminal",
+    "Civil",
+    "Family",
+    "Property",
+    "Corporate",
+    "Labour",
+    "Other",
+  ]),
+  preferredLawyer: zod.string().nullish(),
+  preferredDate: zod.string(),
+  preferredTime: zod.enum([
+    "9:00 AM",
+    "10:00 AM",
+    "11:00 AM",
+    "12:00 PM",
+    "2:00 PM",
+    "3:00 PM",
+    "4:00 PM",
+    "5:00 PM",
+  ]),
+  briefDescription: zod.string().nullish(),
+  status: zod.enum(["Pending", "Confirmed", "Cancelled", "Completed"]),
+  createdAt: zod.coerce.date(),
+});
+export const ListBookingsResponse = zod.array(ListBookingsResponseItem);
+
+/**
+ * @summary Book a lawyer consultation (public)
+ */
+export const CreateBookingBody = zod.object({
+  clientName: zod.string(),
+  clientEmail: zod.string(),
+  clientPhone: zod.string(),
+  legalIssueType: zod.enum([
+    "Criminal",
+    "Civil",
+    "Family",
+    "Property",
+    "Corporate",
+    "Labour",
+    "Other",
+  ]),
+  preferredLawyer: zod.string().nullish(),
+  preferredDate: zod.string(),
+  preferredTime: zod.enum([
+    "9:00 AM",
+    "10:00 AM",
+    "11:00 AM",
+    "12:00 PM",
+    "2:00 PM",
+    "3:00 PM",
+    "4:00 PM",
+    "5:00 PM",
+  ]),
+  briefDescription: zod.string().nullish(),
+  status: zod.enum(["Pending", "Confirmed", "Cancelled", "Completed"]),
+});
+
+/**
+ * @summary Update a booking status (admin)
+ */
+export const UpdateBookingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateBookingBody = zod.object({
+  clientName: zod.string().optional(),
+  clientEmail: zod.string().optional(),
+  clientPhone: zod.string().optional(),
+  legalIssueType: zod
+    .enum([
+      "Criminal",
+      "Civil",
+      "Family",
+      "Property",
+      "Corporate",
+      "Labour",
+      "Other",
+    ])
+    .optional(),
+  preferredLawyer: zod.string().nullish(),
+  preferredDate: zod.string().optional(),
+  preferredTime: zod
+    .enum([
+      "9:00 AM",
+      "10:00 AM",
+      "11:00 AM",
+      "12:00 PM",
+      "2:00 PM",
+      "3:00 PM",
+      "4:00 PM",
+      "5:00 PM",
+    ])
+    .optional(),
+  briefDescription: zod.string().nullish(),
+  status: zod
+    .enum(["Pending", "Confirmed", "Cancelled", "Completed"])
+    .optional(),
+});
+
+export const UpdateBookingResponse = zod.object({
+  id: zod.number(),
+  clientName: zod.string(),
+  clientEmail: zod.string(),
+  clientPhone: zod.string(),
+  legalIssueType: zod.enum([
+    "Criminal",
+    "Civil",
+    "Family",
+    "Property",
+    "Corporate",
+    "Labour",
+    "Other",
+  ]),
+  preferredLawyer: zod.string().nullish(),
+  preferredDate: zod.string(),
+  preferredTime: zod.enum([
+    "9:00 AM",
+    "10:00 AM",
+    "11:00 AM",
+    "12:00 PM",
+    "2:00 PM",
+    "3:00 PM",
+    "4:00 PM",
+    "5:00 PM",
+  ]),
+  briefDescription: zod.string().nullish(),
+  status: zod.enum(["Pending", "Confirmed", "Cancelled", "Completed"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a booking
+ */
+export const DeleteBookingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Founder revenue analytics
  */
 export const GetRevenueAnalyticsResponse = zod.object({

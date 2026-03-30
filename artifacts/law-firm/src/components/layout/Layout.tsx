@@ -11,28 +11,34 @@ import {
   Home,
   Library,
   Target,
-  BarChart3
+  BarChart3,
+  CalendarCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-
-const navigation = [
-  { name: "Home", href: "/", icon: Home },
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "My Diary", href: "/diary", icon: BookOpen },
-  { name: "Proxy Hub", href: "/proxy-hub", icon: Briefcase },
-  { name: "Intern Quests", href: "/intern-quests", icon: Target },
-  { name: "Revenue Tracker", href: "/revenue-tracker", icon: BarChart3 },
-  { name: "Legal Library", href: "/legal-library", icon: Library },
-  { name: "Users", href: "/users", icon: Users },
-];
+import { useListBookings } from "@workspace/api-client-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [location] = useLocation();
 
+  const { data: bookings = [] } = useListBookings();
+  const pendingBookingsCount = bookings.filter(b => b.status === "Pending").length;
+
+  const navigation = [
+    { name: "Home", href: "/", icon: Home },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "My Diary", href: "/diary", icon: BookOpen },
+    { name: "Proxy Hub", href: "/proxy-hub", icon: Briefcase },
+    { name: "Intern Quests", href: "/intern-quests", icon: Target },
+    { name: "Revenue Tracker", href: "/revenue-tracker", icon: BarChart3 },
+    { name: "Bookings", href: "/bookings", icon: CalendarCheck, badge: pendingBookingsCount },
+    { name: "Legal Library", href: "/legal-library", icon: Library },
+    { name: "Users", href: "/users", icon: Users },
+  ];
+
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row selection:bg-primary/30 selection:text-primary-foreground">
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -95,6 +101,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 )}
                 <item.icon className={cn("w-5 h-5 transition-colors", isActive ? "text-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80")} />
                 {item.name}
+                
+                {!!item.badge && item.badge > 0 && (
+                  <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

@@ -13,6 +13,8 @@ import { InternQuests } from "@/pages/InternQuests";
 import { RevenueTracker } from "@/pages/RevenueTracker";
 import { Users } from "@/pages/Users";
 import { LegalLibrary } from "@/pages/LegalLibrary";
+import { BookLawyer } from "@/pages/BookLawyer";
+import { Bookings } from "@/pages/Bookings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +30,11 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      
+      {/* Public Pages Without Layout */}
+      <Route path="/book" component={BookLawyer} />
+
+      {/* Protected/Admin Routes wrapped in Layout */}
       <Route path="/dashboard">
         <Layout><Dashboard /></Layout>
       </Route>
@@ -43,12 +50,16 @@ function Router() {
       <Route path="/revenue-tracker">
         <Layout><RevenueTracker /></Layout>
       </Route>
+      <Route path="/bookings">
+        <Layout><Bookings /></Layout>
+      </Route>
       <Route path="/users">
         <Layout><Users /></Layout>
       </Route>
       <Route path="/legal-library">
         <Layout><LegalLibrary /></Layout>
       </Route>
+      
       <Route component={NotFound} />
     </Switch>
   );

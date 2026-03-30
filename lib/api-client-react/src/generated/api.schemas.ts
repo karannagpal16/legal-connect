@@ -293,6 +293,154 @@ export interface RevenueAnalytics {
   openProxyTasks: number;
 }
 
+export type BookingLegalIssueType =
+  (typeof BookingLegalIssueType)[keyof typeof BookingLegalIssueType];
+
+export const BookingLegalIssueType = {
+  Criminal: "Criminal",
+  Civil: "Civil",
+  Family: "Family",
+  Property: "Property",
+  Corporate: "Corporate",
+  Labour: "Labour",
+  Other: "Other",
+} as const;
+
+export type BookingPreferredTime =
+  (typeof BookingPreferredTime)[keyof typeof BookingPreferredTime];
+
+export const BookingPreferredTime = {
+  "9:00_AM": "9:00 AM",
+  "10:00_AM": "10:00 AM",
+  "11:00_AM": "11:00 AM",
+  "12:00_PM": "12:00 PM",
+  "2:00_PM": "2:00 PM",
+  "3:00_PM": "3:00 PM",
+  "4:00_PM": "4:00 PM",
+  "5:00_PM": "5:00 PM",
+} as const;
+
+export type BookingStatus = (typeof BookingStatus)[keyof typeof BookingStatus];
+
+export const BookingStatus = {
+  Pending: "Pending",
+  Confirmed: "Confirmed",
+  Cancelled: "Cancelled",
+  Completed: "Completed",
+} as const;
+
+export interface Booking {
+  id: number;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  legalIssueType: BookingLegalIssueType;
+  preferredLawyer?: string | null;
+  preferredDate: string;
+  preferredTime: BookingPreferredTime;
+  briefDescription?: string | null;
+  status: BookingStatus;
+  createdAt: string;
+}
+
+export type CreateBookingRequestLegalIssueType =
+  (typeof CreateBookingRequestLegalIssueType)[keyof typeof CreateBookingRequestLegalIssueType];
+
+export const CreateBookingRequestLegalIssueType = {
+  Criminal: "Criminal",
+  Civil: "Civil",
+  Family: "Family",
+  Property: "Property",
+  Corporate: "Corporate",
+  Labour: "Labour",
+  Other: "Other",
+} as const;
+
+export type CreateBookingRequestPreferredTime =
+  (typeof CreateBookingRequestPreferredTime)[keyof typeof CreateBookingRequestPreferredTime];
+
+export const CreateBookingRequestPreferredTime = {
+  "9:00_AM": "9:00 AM",
+  "10:00_AM": "10:00 AM",
+  "11:00_AM": "11:00 AM",
+  "12:00_PM": "12:00 PM",
+  "2:00_PM": "2:00 PM",
+  "3:00_PM": "3:00 PM",
+  "4:00_PM": "4:00 PM",
+  "5:00_PM": "5:00 PM",
+} as const;
+
+export type CreateBookingRequestStatus =
+  (typeof CreateBookingRequestStatus)[keyof typeof CreateBookingRequestStatus];
+
+export const CreateBookingRequestStatus = {
+  Pending: "Pending",
+  Confirmed: "Confirmed",
+  Cancelled: "Cancelled",
+  Completed: "Completed",
+} as const;
+
+export interface CreateBookingRequest {
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  legalIssueType: CreateBookingRequestLegalIssueType;
+  preferredLawyer?: string | null;
+  preferredDate: string;
+  preferredTime: CreateBookingRequestPreferredTime;
+  briefDescription?: string | null;
+  status: CreateBookingRequestStatus;
+}
+
+export type UpdateBookingRequestLegalIssueType =
+  (typeof UpdateBookingRequestLegalIssueType)[keyof typeof UpdateBookingRequestLegalIssueType];
+
+export const UpdateBookingRequestLegalIssueType = {
+  Criminal: "Criminal",
+  Civil: "Civil",
+  Family: "Family",
+  Property: "Property",
+  Corporate: "Corporate",
+  Labour: "Labour",
+  Other: "Other",
+} as const;
+
+export type UpdateBookingRequestPreferredTime =
+  (typeof UpdateBookingRequestPreferredTime)[keyof typeof UpdateBookingRequestPreferredTime];
+
+export const UpdateBookingRequestPreferredTime = {
+  "9:00_AM": "9:00 AM",
+  "10:00_AM": "10:00 AM",
+  "11:00_AM": "11:00 AM",
+  "12:00_PM": "12:00 PM",
+  "2:00_PM": "2:00 PM",
+  "3:00_PM": "3:00 PM",
+  "4:00_PM": "4:00 PM",
+  "5:00_PM": "5:00 PM",
+} as const;
+
+export type UpdateBookingRequestStatus =
+  (typeof UpdateBookingRequestStatus)[keyof typeof UpdateBookingRequestStatus];
+
+export const UpdateBookingRequestStatus = {
+  Pending: "Pending",
+  Confirmed: "Confirmed",
+  Cancelled: "Cancelled",
+  Completed: "Completed",
+} as const;
+
+export interface UpdateBookingRequest {
+  clientName?: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  legalIssueType?: UpdateBookingRequestLegalIssueType;
+  preferredLawyer?: string | null;
+  preferredDate?: string;
+  preferredTime?: UpdateBookingRequestPreferredTime;
+  briefDescription?: string | null;
+  status?: UpdateBookingRequestStatus;
+}
+
 export type ListCasesParams = {
   /**
    * Filter cases with next_date = today
