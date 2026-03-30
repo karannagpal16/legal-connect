@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Scale, Home, BookOpen, Briefcase, Library, Bell,
-  BarChart3, Users, Menu, X, Gavel, Video, CalendarCheck
+  BarChart3, Users, Menu, X, Gavel, Video, CalendarCheck, MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,7 @@ const navigation = [
   { name: "Dashboard", href: "/advocate", icon: Home },
   { name: "My Diary", href: "/advocate/diary", icon: BookOpen },
   { name: "Client Calls", href: "/advocate/calls", icon: Video },
+  { name: "Client Messages", href: "/advocate/chat", icon: MessageSquare },
   { name: "Proxy Hub", href: "/advocate/proxy", icon: Briefcase },
   { name: "Case Reminders", href: "/advocate/reminders", icon: Bell },
   { name: "Bookings", href: "/advocate/bookings", icon: CalendarCheck },
