@@ -58,8 +58,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Scale className="w-5 h-5 text-primary" />
             </div>
             <div className="flex flex-col">
-              <span className="font-serif font-bold text-lg leading-tight text-sidebar-foreground tracking-wide">Rishika Nagpal</span>
-              <span className="text-[10px] uppercase tracking-widest text-primary font-semibold">& Associates</span>
+              <span className="font-serif font-bold text-lg leading-tight text-sidebar-foreground tracking-wide">Rishika Nagpal & Associates</span>
+              <span className="text-[10px] uppercase tracking-widest text-primary font-semibold">Legal Connect App</span>
             </div>
           </Link>
           <button 

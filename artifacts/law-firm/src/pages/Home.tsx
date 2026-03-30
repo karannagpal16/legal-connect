@@ -11,8 +11,8 @@ export function Home() {
           <div className="flex items-center gap-3">
             <Scale className="w-8 h-8 text-primary" />
             <div className="flex flex-col">
-              <span className="font-serif font-bold text-xl leading-tight text-white tracking-wide">Rishika Nagpal</span>
-              <span className="text-[10px] uppercase tracking-widest text-primary font-semibold">& Associates</span>
+              <span className="font-serif font-bold text-xl leading-tight text-white tracking-wide">Rishika Nagpal & Associates</span>
+              <span className="text-[10px] uppercase tracking-widest text-primary font-semibold">Legal Connect App</span>
             </div>
           </div>
           <div className="flex items-center gap-6">
