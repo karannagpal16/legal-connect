@@ -60,52 +60,46 @@
 }
 
 :root, .dark {
-  /* Peacock Feather Theme — Iridescent Teal, Jewel Blue, Indigo & Gold */
-
-  --background: 192 65% 7%;        /* Deep teal-black (quill base) */
-  --foreground: 180 30% 94%;       /* Luminous off-white */
-
-  --card: 190 45% 11%;             /* Dark iridescent teal */
-  --card-foreground: 180 25% 92%;
-  --card-border: 188 40% 18%;
-
-  --popover: 190 45% 11%;
-  --popover-foreground: 180 25% 92%;
-  --popover-border: 188 40% 18%;
-
-  --primary: 174 80% 40%;          /* Peacock teal — the iconic feather colour */
-  --primary-foreground: 192 65% 5%;
-
-  --secondary: 220 55% 28%;        /* Iridescent indigo-blue */
-  --secondary-foreground: 180 30% 94%;
-
-  --muted: 190 35% 14%;
-  --muted-foreground: 185 22% 58%; /* Soft teal-grey */
-
-  --accent: 43 92% 52%;            /* Gold eye of the feather */
-  --accent-foreground: 192 65% 6%;
-
-  --destructive: 0 62% 30%;
-  --destructive-foreground: 180 30% 96%;
-
-  --border: 188 38% 20%;
-  --input: 190 40% 14%;
-  --ring: 174 80% 40%;             /* Teal focus ring */
-
-  --sidebar: 192 70% 5%;           /* Deepest quill-black teal */
-  --sidebar-foreground: 180 25% 92%;
-  --sidebar-border: 190 40% 12%;
-  --sidebar-primary: 174 80% 40%;
-  --sidebar-primary-foreground: 192 65% 5%;
-  --sidebar-accent: 190 40% 12%;
-  --sidebar-accent-foreground: 180 25% 92%;
-  --sidebar-ring: 174 80% 40%;
-
-  --chart-1: 174 80% 40%;          /* Peacock teal */
-  --chart-2: 43 92% 52%;           /* Gold */
-  --chart-3: 220 70% 55%;          /* Jewel blue */
-  --chart-4: 270 60% 55%;          /* Peacock purple */
-  --chart-5: 155 60% 40%;          /* Deep emerald */
+  /* High-end Law Firm Theme - Navy, Charcoal, Gold */
+  
+  --background: 220 50% 13%; /* Navy Blue */
+  --foreground: 210 40% 96%; /* Off-white */
+  
+  --card: 220 15% 18%; /* Charcoal */
+  --card-foreground: 210 40% 96%;
+  --card-border: 220 15% 25%;
+  
+  --popover: 220 15% 18%;
+  --popover-foreground: 210 40% 96%;
+  --popover-border: 220 15% 25%;
+  
+  --primary: 43 74% 49%; /* Gold */
+  --primary-foreground: 220 50% 13%;
+  
+  --secondary: 220 15% 25%; /* Lighter Charcoal */
+  --secondary-foreground: 210 40% 96%;
+  
+  --muted: 220 15% 18%;
+  --muted-foreground: 215 20% 65%; /* Slate gray */
+  
+  --accent: 43 74% 49%; /* Gold */
+  --accent-foreground: 220 50% 13%;
+  
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  
+  --border: 220 15% 25%;
+  --input: 220 15% 22%;
+  --ring: 43 74% 49%; /* Gold focus ring */
+  
+  --sidebar: 220 55% 10%; /* Deep Navy */
+  --sidebar-foreground: 210 40% 96%;
+  --sidebar-border: 220 15% 18%;
+  --sidebar-primary: 43 74% 49%;
+  --sidebar-primary-foreground: 220 50% 13%;
+  --sidebar-accent: 220 15% 18%;
+  --sidebar-accent-foreground: 210 40% 96%;
+  --sidebar-ring: 43 74% 49%;
 
   --radius: 0.5rem;
   
