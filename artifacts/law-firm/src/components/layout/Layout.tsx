@@ -8,7 +8,8 @@ import {
   Menu, 
   X,
   Scale,
-  Home
+  Home,
+  Library
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Diary", href: "/diary", icon: BookOpen },
   { name: "Proxy Hub", href: "/proxy-hub", icon: Briefcase },
+  { name: "Legal Library", href: "/legal-library", icon: Library },
   { name: "Users", href: "/users", icon: Users },
 ];
 

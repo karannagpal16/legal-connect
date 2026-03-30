@@ -10,6 +10,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { MyDiary } from "@/pages/MyDiary";
 import { ProxyHub } from "@/pages/ProxyHub";
 import { Users } from "@/pages/Users";
+import { LegalLibrary } from "@/pages/LegalLibrary";
 
 // Custom QueryClient setup
 const queryClient = new QueryClient({
@@ -39,6 +40,9 @@ function Router() {
       </Route>
       <Route path="/users">
         <Layout><Users /></Layout>
+      </Route>
+      <Route path="/legal-library">
+        <Layout><LegalLibrary /></Layout>
       </Route>
 
       <Route component={NotFound} />
