@@ -57,7 +57,7 @@ export function Home() {
               </h1>
               
               <p className="text-lg text-white/70 mb-10 leading-relaxed max-w-xl">
-                A premier boutique law firm based in Subhash Nagar, New Delhi. 
+                A leading law firm in New Delhi. 
                 Delivering strategic counsel, rigorous representation, and unwavering 
                 commitment to our clients' success.
               </p>
