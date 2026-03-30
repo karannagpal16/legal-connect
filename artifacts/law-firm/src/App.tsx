@@ -24,6 +24,9 @@ import { ClientHome } from "@/pages/client/ClientHome";
 import { ClientBookAdvocate } from "@/pages/client/ClientBookAdvocate";
 import { ClientReminders } from "@/pages/client/ClientReminders";
 import { ClientLibrary } from "@/pages/client/ClientLibrary";
+import { ClientLegalGuide } from "@/pages/client/ClientLegalGuide";
+import { ClientDIYDocs } from "@/pages/client/ClientDIYDocs";
+import { ClientAIAssistant } from "@/pages/client/ClientAIAssistant";
 
 import { AdvocateDashboard } from "@/pages/advocate/AdvocateDashboard";
 import { AdvocateCalls } from "@/pages/advocate/AdvocateCalls";
@@ -41,6 +44,8 @@ import { InternXP } from "@/pages/intern/InternXP";
 import { InternLeaderboard } from "@/pages/intern/InternLeaderboard";
 import { InternBadges } from "@/pages/intern/InternBadges";
 import { InternLibrary } from "@/pages/intern/InternLibrary";
+import { InternDoubtPortal } from "@/pages/intern/InternDoubtPortal";
+import { InternAIAssistant } from "@/pages/intern/InternAIAssistant";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -96,6 +101,15 @@ function Router() {
       <Route path="/client/reminders">
         <ClientLayout><ClientReminders /></ClientLayout>
       </Route>
+      <Route path="/client/legal-guide">
+        <ClientLayout><ClientLegalGuide /></ClientLayout>
+      </Route>
+      <Route path="/client/diy-docs">
+        <ClientLayout><ClientDIYDocs /></ClientLayout>
+      </Route>
+      <Route path="/client/ai-assistant">
+        <ClientLayout><ClientAIAssistant /></ClientLayout>
+      </Route>
       <Route path="/client/library">
         <ClientLayout><ClientLibrary /></ClientLayout>
       </Route>
@@ -144,6 +158,12 @@ function Router() {
       </Route>
       <Route path="/intern/badges">
         <InternLayout><InternBadges /></InternLayout>
+      </Route>
+      <Route path="/intern/doubts">
+        <InternLayout><InternDoubtPortal /></InternLayout>
+      </Route>
+      <Route path="/intern/ai-assistant">
+        <InternLayout><InternAIAssistant /></InternLayout>
       </Route>
       <Route path="/intern/library">
         <InternLayout><InternLibrary /></InternLayout>
