@@ -1,0 +1,20 @@
+packages:
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod validation for forms"
+  "zod": "Schema validation"
+  "framer-motion": "Smooth page transitions and micro-interactions"
+  "date-fns": "Date formatting"
+  "clsx": "Classname utility"
+  "tailwind-merge": "Classname utility"
+
+images:
+  - path: "artifacts/law-firm/public/images/hero-bg.png"
+    description: "Sophisticated abstract legal background with deep navy blue and gold accents, professional, modern, depth, dark mode, high end"
+    aspect_ratio: "16:9"
+  - path: "artifacts/law-firm/public/images/logo-mark.png"
+    description: "Minimalist modern law firm logo mark, geometric scales of justice in metallic gold on transparent background"
+    aspect_ratio: "1:1"
+
+notes:
+  - Expects @workspace/api-client-react to export React Query hooks (useListCases, useCreateCase, etc.)
+  - App is designed in a dark-professional theme natively using provided HSL values.
