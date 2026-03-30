@@ -7,7 +7,8 @@ import {
   Users, 
   Menu, 
   X,
-  Scale
+  Scale,
+  Home
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -18,6 +19,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 const navigation = [
+  { name: "Home", href: "/", icon: Home },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Diary", href: "/diary", icon: BookOpen },
   { name: "Proxy Hub", href: "/proxy-hub", icon: Briefcase },
