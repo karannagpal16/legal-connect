@@ -7,7 +7,9 @@ export const usersTable = pgTable("users", {
   name: text("name").notNull(),
   barId: text("bar_id"),
   email: text("email").notNull().unique(),
-  role: text("role", { enum: ["Admin", "Advocate", "Intern"] }).notNull().default("Intern"),
+  phone: text("phone"),
+  role: text("role", { enum: ["Admin", "Associate", "Intern", "Proxy"] }).notNull().default("Intern"),
+  locationBase: text("location_base"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

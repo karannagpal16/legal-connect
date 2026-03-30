@@ -33,10 +33,7 @@ router.get("/users/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
     res.json(user);
   } catch (err) {
     req.log.error({ err }, "Failed to get user");
@@ -48,15 +45,9 @@ router.put("/users/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const parsed = insertUserSchema.partial().safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
     const [user] = await db.update(usersTable).set(parsed.data).where(eq(usersTable.id, id)).returning();
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
     res.json(user);
   } catch (err) {
     req.log.error({ err }, "Failed to update user");

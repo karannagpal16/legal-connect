@@ -9,21 +9,20 @@ import {
   X,
   Scale,
   Home,
-  Library
+  Library,
+  Target,
+  BarChart3
 } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Diary", href: "/diary", icon: BookOpen },
   { name: "Proxy Hub", href: "/proxy-hub", icon: Briefcase },
+  { name: "Intern Quests", href: "/intern-quests", icon: Target },
+  { name: "Revenue Tracker", href: "/revenue-tracker", icon: BarChart3 },
   { name: "Legal Library", href: "/legal-library", icon: Library },
   { name: "Users", href: "/users", icon: Users },
 ];
@@ -34,7 +33,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      {/* Mobile sidebar overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -47,7 +45,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
       <motion.div
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-72 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
@@ -82,6 +79,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-3.5 rounded-xl font-medium transition-all duration-200 group relative overflow-hidden",
                   isActive 
@@ -108,20 +106,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
               RN
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-sidebar-foreground">Admin User</span>
-              <span className="text-xs text-muted-foreground">admin@firm.com</span>
+              <span className="text-sm font-semibold text-sidebar-foreground">Founder & Admin</span>
+              <span className="text-xs text-muted-foreground">rishika@rna.law</span>
             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        {/* Mobile Header */}
         <header className="h-16 flex items-center justify-between px-4 border-b border-border bg-background/80 backdrop-blur-md md:hidden sticky top-0 z-30">
           <div className="flex items-center gap-2">
             <Scale className="w-6 h-6 text-primary" />
-            <span className="font-serif font-bold text-lg">RNA</span>
+            <span className="font-serif font-bold text-lg">RNA Connect</span>
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
@@ -132,7 +128,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 relative">
-          {/* Subtle background glow effect */}
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
           <motion.div
             initial={{ opacity: 0, y: 10 }}

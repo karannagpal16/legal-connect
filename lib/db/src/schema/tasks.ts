@@ -1,13 +1,16 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const tasksTable = pgTable("tasks", {
   id: serial("id").primaryKey(),
   taskDescription: text("task_description").notNull(),
+  caseRef: integer("case_ref"),
+  taskType: text("task_type", { enum: ["Pass-over", "Adjournment", "Evidence", "Arguments", "Other"] }),
   fee: text("fee"),
   location: text("location"),
-  status: text("status", { enum: ["Pending", "In Progress", "Completed", "Cancelled"] }).notNull().default("Pending"),
+  assignedToId: integer("assigned_to_id"),
+  status: text("status", { enum: ["Open", "Accepted", "Completed", "Cancelled"] }).notNull().default("Open"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

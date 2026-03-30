@@ -6,12 +6,11 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type CreateTaskRequestStatus =
-  (typeof CreateTaskRequestStatus)[keyof typeof CreateTaskRequestStatus];
+export type InternQuestStatus =
+  (typeof InternQuestStatus)[keyof typeof InternQuestStatus];
 
-export const CreateTaskRequestStatus = {
+export const InternQuestStatus = {
   Open: "Open",
-  Accepted: "Accepted",
+  In_Progress: "In Progress",
   Completed: "Completed",
-  Cancelled: "Cancelled",
 } as const;

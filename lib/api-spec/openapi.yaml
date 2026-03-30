@@ -1,20 +1,17 @@
 openapi: 3.1.0
 info:
   title: Api
-  version: 0.1.0
-  description: Rishika Nagpal & Associates - Law Firm Management API
+  version: 0.2.0
+  description: RNA Legal Connect - Rishika Nagpal & Associates
 servers:
   - url: /api
-    description: Base API path
 tags:
   - name: health
-    description: Health operations
   - name: users
-    description: User management
   - name: cases
-    description: Case management
   - name: tasks
-    description: Task management
+  - name: intern-quests
+  - name: analytics
 paths:
   /healthz:
     get:
@@ -80,7 +77,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
         "404":
-          description: User not found
+          description: Not found
           content:
             application/json:
               schema:
@@ -120,13 +117,20 @@ paths:
             type: integer
       responses:
         "204":
-          description: User deleted
+          description: Deleted
 
   /cases:
     get:
       operationId: listCases
       tags: [cases]
       summary: List all cases
+      parameters:
+        - name: today
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter cases with next_date = today
       responses:
         "200":
           description: List of cases
@@ -173,7 +177,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Case"
         "404":
-          description: Case not found
+          description: Not found
           content:
             application/json:
               schema:
@@ -213,13 +217,13 @@ paths:
             type: integer
       responses:
         "204":
-          description: Case deleted
+          description: Deleted
 
   /tasks:
     get:
       operationId: listTasks
       tags: [tasks]
-      summary: List all tasks
+      summary: List all proxy tasks
       responses:
         "200":
           description: List of tasks
@@ -232,7 +236,7 @@ paths:
     post:
       operationId: createTask
       tags: [tasks]
-      summary: Create a new task
+      summary: Create a new proxy task
       requestBody:
         required: true
         content:
@@ -266,7 +270,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Task"
         "404":
-          description: Task not found
+          description: Not found
           content:
             application/json:
               schema:
@@ -306,7 +310,109 @@ paths:
             type: integer
       responses:
         "204":
-          description: Task deleted
+          description: Deleted
+
+  /tasks/{id}/accept:
+    post:
+      operationId: acceptTask
+      tags: [tasks]
+      summary: Accept a proxy task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /intern-quests:
+    get:
+      operationId: listInternQuests
+      tags: [intern-quests]
+      summary: List all intern quests
+      responses:
+        "200":
+          description: List of intern quests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InternQuest"
+    post:
+      operationId: createInternQuest
+      tags: [intern-quests]
+      summary: Create a new intern quest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInternQuestRequest"
+      responses:
+        "201":
+          description: Quest created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternQuest"
+
+  /intern-quests/{id}:
+    put:
+      operationId: updateInternQuest
+      tags: [intern-quests]
+      summary: Update an intern quest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInternQuestRequest"
+      responses:
+        "200":
+          description: Quest updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternQuest"
+    delete:
+      operationId: deleteInternQuest
+      tags: [intern-quests]
+      summary: Delete an intern quest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /analytics/revenue:
+    get:
+      operationId: getRevenueAnalytics
+      tags: [analytics]
+      summary: Founder revenue analytics
+      responses:
+        "200":
+          description: Revenue analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueAnalytics"
 
 components:
   schemas:
@@ -315,16 +421,14 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
 
     User:
       type: object
@@ -338,18 +442,19 @@ components:
           nullable: true
         email:
           type: string
+        phone:
+          type: string
+          nullable: true
         role:
           type: string
-          enum: [Admin, Advocate, Intern]
+          enum: [Admin, Associate, Intern, Proxy]
+        locationBase:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - name
-        - email
-        - role
-        - createdAt
+      required: [id, name, email, role, createdAt]
 
     CreateUserRequest:
       type: object
@@ -361,13 +466,16 @@ components:
           nullable: true
         email:
           type: string
+        phone:
+          type: string
+          nullable: true
         role:
           type: string
-          enum: [Admin, Advocate, Intern]
-      required:
-        - name
-        - email
-        - role
+          enum: [Admin, Associate, Intern, Proxy]
+        locationBase:
+          type: string
+          nullable: true
+      required: [name, email, role]
 
     UpdateUserRequest:
       type: object
@@ -379,9 +487,15 @@ components:
           nullable: true
         email:
           type: string
+        phone:
+          type: string
+          nullable: true
         role:
           type: string
-          enum: [Admin, Advocate, Intern]
+          enum: [Admin, Associate, Intern, Proxy]
+        locationBase:
+          type: string
+          nullable: true
 
     Case:
       type: object
@@ -394,22 +508,22 @@ components:
           type: string
         courtName:
           type: string
+        courtRoomNo:
+          type: string
+          nullable: true
+        judgeName:
+          type: string
+          nullable: true
         nextDate:
           type: string
           nullable: true
         status:
           type: string
-          enum: [Active, Pending, Closed, Adjourned]
+          enum: [Active, Pending, Disposed, Adjourned]
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - caseTitle
-        - caseNumber
-        - courtName
-        - status
-        - createdAt
+      required: [id, caseTitle, caseNumber, courtName, status, createdAt]
 
     CreateCaseRequest:
       type: object
@@ -420,17 +534,19 @@ components:
           type: string
         courtName:
           type: string
+        courtRoomNo:
+          type: string
+          nullable: true
+        judgeName:
+          type: string
+          nullable: true
         nextDate:
           type: string
           nullable: true
         status:
           type: string
-          enum: [Active, Pending, Closed, Adjourned]
-      required:
-        - caseTitle
-        - caseNumber
-        - courtName
-        - status
+          enum: [Active, Pending, Disposed, Adjourned]
+      required: [caseTitle, caseNumber, courtName, status]
 
     UpdateCaseRequest:
       type: object
@@ -441,12 +557,18 @@ components:
           type: string
         courtName:
           type: string
+        courtRoomNo:
+          type: string
+          nullable: true
+        judgeName:
+          type: string
+          nullable: true
         nextDate:
           type: string
           nullable: true
         status:
           type: string
-          enum: [Active, Pending, Closed, Adjourned]
+          enum: [Active, Pending, Disposed, Adjourned]
 
     Task:
       type: object
@@ -455,53 +577,161 @@ components:
           type: integer
         taskDescription:
           type: string
+        caseRef:
+          type: integer
+          nullable: true
+        taskType:
+          type: string
+          enum: [Pass-over, Adjournment, Evidence, Arguments, Other]
+          nullable: true
         fee:
           type: string
           nullable: true
         location:
           type: string
           nullable: true
+        assignedToId:
+          type: integer
+          nullable: true
         status:
           type: string
-          enum: [Pending, In Progress, Completed, Cancelled]
+          enum: [Open, Accepted, Completed, Cancelled]
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - taskDescription
-        - status
-        - createdAt
+      required: [id, taskDescription, status, createdAt]
 
     CreateTaskRequest:
       type: object
       properties:
         taskDescription:
           type: string
+        caseRef:
+          type: integer
+          nullable: true
+        taskType:
+          type: string
+          enum: [Pass-over, Adjournment, Evidence, Arguments, Other]
+          nullable: true
         fee:
           type: string
           nullable: true
         location:
           type: string
           nullable: true
+        assignedToId:
+          type: integer
+          nullable: true
         status:
           type: string
-          enum: [Pending, In Progress, Completed, Cancelled]
-      required:
-        - taskDescription
-        - status
+          enum: [Open, Accepted, Completed, Cancelled]
+      required: [taskDescription, status]
 
     UpdateTaskRequest:
       type: object
       properties:
         taskDescription:
           type: string
+        caseRef:
+          type: integer
+          nullable: true
+        taskType:
+          type: string
+          enum: [Pass-over, Adjournment, Evidence, Arguments, Other]
+          nullable: true
         fee:
           type: string
           nullable: true
         location:
           type: string
           nullable: true
+        assignedToId:
+          type: integer
+          nullable: true
         status:
           type: string
-          enum: [Pending, In Progress, Completed, Cancelled]
+          enum: [Open, Accepted, Completed, Cancelled]
+
+    InternQuest:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        xpPoints:
+          type: integer
+        deadline:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Open, In Progress, Completed]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, description, xpPoints, status, createdAt]
+
+    CreateInternQuestRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        xpPoints:
+          type: integer
+        deadline:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Open, In Progress, Completed]
+      required: [title, description, xpPoints, status]
+
+    UpdateInternQuestRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        xpPoints:
+          type: integer
+        deadline:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Open, In Progress, Completed]
+
+    RevenueAnalytics:
+      type: object
+      properties:
+        totalActiveCases:
+          type: integer
+        totalManagedRevenue:
+          type: number
+        completedProxyTasks:
+          type: integer
+        marketplaceProfit:
+          type: number
+        singaporeGoal:
+          type: number
+        singaporeProgress:
+          type: number
+        totalUsers:
+          type: integer
+        openProxyTasks:
+          type: integer
+      required:
+        - totalActiveCases
+        - totalManagedRevenue
+        - completedProxyTasks
+        - marketplaceProfit
+        - singaporeGoal
+        - singaporeProgress
+        - totalUsers
+        - openProxyTasks

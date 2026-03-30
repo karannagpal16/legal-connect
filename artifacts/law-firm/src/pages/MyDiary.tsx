@@ -1,47 +1,27 @@
 import { useState } from "react";
-import { useListCases, useDeleteCase, getListCasesQueryKey, type Case } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit2, Trash2, Calendar, FileText } from "lucide-react";
-import { format } from "date-fns";
+import { useListCases, useCreateCase, useUpdateCase, useDeleteCase } from "@workspace/api-client-react";
+import type { Case, CreateCaseRequestStatus } from "@workspace/api-client-react";
+import { Plus, Search, Edit2, Trash2, Calendar, MapPin, Scale, User as UserIcon } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { CaseDialog } from "@/components/forms/CaseDialog";
+import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { CaseDialog } from "@/components/forms/CaseDialog";
 
 export function MyDiary() {
   const { data: cases, isLoading } = useListCases();
   const [search, setSearch] = useState("");
-  
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+  const [editingCase, setEditingCase] = useState<Case | null>(null);
   
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [caseToDelete, setCaseToDelete] = useState<number | null>(null);
-
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
-  const deleteMutation = useDeleteCase({
+  
+  const { mutate: deleteCase, isPending: isDeleting } = useDeleteCase({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListCasesQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
         toast({ title: "Case deleted successfully" });
-        setDeleteOpen(false);
-      },
-      onError: (err: any) => {
-        toast({ title: "Failed to delete case", description: err.message, variant: "destructive" });
       }
     }
   });
@@ -52,150 +32,123 @@ export function MyDiary() {
     c.courtName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleEdit = (c: Case) => {
-    setSelectedCase(c);
+  const handleDelete = (id: number) => {
+    if (confirm("Are you sure you want to delete this case?")) {
+      deleteCase({ id });
+    }
+  };
+
+  const openEdit = (c: Case) => {
+    setEditingCase(c);
     setDialogOpen(true);
   };
 
-  const handleAdd = () => {
-    setSelectedCase(null);
+  const openCreate = () => {
+    setEditingCase(null);
     setDialogOpen(true);
-  };
-
-  const confirmDelete = (id: number) => {
-    setCaseToDelete(id);
-    setDeleteOpen(true);
   };
 
   return (
-    <div className="space-y-6 pb-10">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 pb-6">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">My Diary</h1>
-          <p className="text-muted-foreground mt-1">Manage and track all ongoing and past matters.</p>
+          <p className="mt-1 text-muted-foreground">Manage all your ongoing and pending matters.</p>
         </div>
-        <Button 
-          onClick={handleAdd}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-6 rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:-translate-y-0.5 transition-all"
+        <button 
+          onClick={openCreate}
+          className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-4 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:-translate-y-1 hover:shadow-xl w-full sm:w-auto min-h-[48px]"
         >
-          <Plus className="w-5 h-5 mr-2" />
+          <Plus className="w-5 h-5" />
           Add New Case
-        </Button>
-      </header>
-
-      <div className="bg-card rounded-2xl border border-border/60 shadow-xl shadow-black/10 overflow-hidden">
-        <div className="p-4 border-b border-border/50 bg-background/50 flex flex-col sm:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search by title, case number, or court..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 bg-background border-border/50 focus-visible:ring-primary/30 h-10 rounded-xl"
-            />
-          </div>
-          <div className="text-sm text-muted-foreground font-medium">
-            {filteredCases?.length || 0} Case(s)
-          </div>
-        </div>
-
-        <div className="overflow-x-auto min-h-[400px]">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground bg-background/30">
-                <th className="px-6 py-4 font-medium">Case Info</th>
-                <th className="px-6 py-4 font-medium">Court Details</th>
-                <th className="px-6 py-4 font-medium">Next Hearing</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/30">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td className="px-6 py-4"><Skeleton className="h-10 w-48 bg-muted/50" /></td>
-                    <td className="px-6 py-4"><Skeleton className="h-6 w-32 bg-muted/50" /></td>
-                    <td className="px-6 py-4"><Skeleton className="h-6 w-24 bg-muted/50" /></td>
-                    <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full bg-muted/50" /></td>
-                    <td className="px-6 py-4"><Skeleton className="h-8 w-16 ml-auto bg-muted/50" /></td>
-                  </tr>
-                ))
-              ) : filteredCases?.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
-                      <div className="w-16 h-16 rounded-full bg-background border border-border/50 flex items-center justify-center mb-4">
-                        <FileText className="w-8 h-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="text-lg font-medium text-foreground mb-1">No cases found</h3>
-                      <p className="text-sm">We couldn't find any cases matching your current search or there are no cases in the diary.</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredCases?.map((c) => (
-                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="font-serif font-semibold text-foreground text-base mb-1">{c.caseTitle}</div>
-                      <div className="text-xs text-muted-foreground font-mono bg-background inline-block px-2 py-0.5 rounded border border-border/50">{c.caseNumber}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-foreground/90 font-medium">{c.courtName}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {c.nextDate ? (
-                        <div className="flex items-center text-sm font-medium text-primary">
-                          <Calendar className="w-4 h-4 mr-2" />
-                          {format(new Date(c.nextDate), "MMMM dd, yyyy")}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground italic">TBD</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={c.status} />
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(c)} className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => confirmDelete(c.id)} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        </button>
       </div>
 
-      <CaseDialog open={dialogOpen} onOpenChange={setDialogOpen} caseItem={selectedCase} />
-      
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent className="bg-card border-border/50">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-foreground">Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the case
-              and remove its data from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border-border hover:bg-white/5">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => caseToDelete && deleteMutation.mutate({ id: caseToDelete })}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold"
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete Case"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <input 
+          type="text"
+          placeholder="Search by case title, number, or court..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-12 pr-4 py-4 bg-card border-2 border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-base"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4">
+          {[1, 2, 3].map(i => <div key={i} className="h-32 bg-card rounded-2xl animate-pulse border border-border" />)}
+        </div>
+      ) : filteredCases?.length === 0 ? (
+        <div className="text-center py-20 bg-card rounded-2xl border border-border">
+          <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-foreground">No cases found</h3>
+          <p className="text-muted-foreground mt-2">Try adjusting your search or add a new case.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredCases?.map((c) => (
+            <div key={c.id} className="bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-colors shadow-sm flex flex-col">
+              <div className="flex justify-between items-start mb-3 gap-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-foreground leading-tight">{c.caseTitle}</h3>
+                  <span className="text-sm font-mono text-muted-foreground mt-1 inline-block bg-background px-2 py-0.5 rounded border border-border">{c.caseNumber}</span>
+                </div>
+                <StatusBadge status={c.status} />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-y-3 gap-x-4 mt-2 mb-4 flex-1">
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <Scale className="w-4 h-4 text-primary" />
+                  <span className="truncate" title={c.courtName}>{c.courtName}</span>
+                </div>
+                {c.courtRoomNo && (
+                  <div className="flex items-center gap-2 text-sm text-foreground">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    <span>Room: {c.courtRoomNo}</span>
+                  </div>
+                )}
+                {c.judgeName && (
+                  <div className="flex items-center gap-2 text-sm text-foreground col-span-2">
+                    <UserIcon className="w-4 h-4 text-primary" />
+                    <span>Hon'ble {c.judgeName}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-sm text-foreground col-span-2 font-medium">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <span className={c.nextDate === format(new Date(), 'yyyy-MM-dd') ? "text-primary" : ""}>
+                    Next Date: {c.nextDate ? format(new Date(c.nextDate), 'dd MMM yyyy') : 'TBD'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border mt-auto">
+                <button 
+                  onClick={() => openEdit(c)}
+                  className="p-2.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                  title="Edit Case"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => handleDelete(c.id)}
+                  disabled={isDeleting}
+                  className="p-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                  title="Delete Case"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <CaseDialog 
+        open={dialogOpen} 
+        onOpenChange={setDialogOpen} 
+        editingCase={editingCase}
+      />
     </div>
   );
 }

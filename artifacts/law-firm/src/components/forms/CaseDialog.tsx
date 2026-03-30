@@ -1,201 +1,134 @@
-import { useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useCreateCase, useUpdateCase } from "@workspace/api-client-react";
+import type { CreateCaseRequestStatus } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCreateCase, useUpdateCase, getListCasesQueryKey, type Case } from "@workspace/api-client-react";
-import { caseSchema, type CaseFormValues } from "@/lib/schemas";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
 
-interface CaseDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  caseItem?: Case | null;
-}
+const DELHI_COURTS = [
+  "Tis Hazari",
+  "Patiala House",
+  "Saket",
+  "Rohini",
+  "Dwarka",
+  "Karkardooma",
+  "Delhi High Court",
+  "Supreme Court of India",
+  "Other",
+];
 
-export function CaseDialog({ open, onOpenChange, caseItem }: CaseDialogProps) {
-  const isEditing = !!caseItem;
-  const { toast } = useToast();
+const caseSchema = z.object({
+  caseTitle: z.string().min(1, "Title required"),
+  caseNumber: z.string().min(1, "Number required"),
+  courtName: z.string().min(1, "Court required"),
+  courtRoomNo: z.string().optional().nullable(),
+  judgeName: z.string().optional().nullable(),
+  nextDate: z.string().optional().nullable(),
+  status: z.enum(["Active", "Pending", "Disposed", "Adjourned"]),
+});
+
+export function CaseDialog({ open, onOpenChange, editingCase }: any) {
   const queryClient = useQueryClient();
-
-  const form = useForm<CaseFormValues>({
+  const { toast } = useToast();
+  
+  const form = useForm({
     resolver: zodResolver(caseSchema),
-    defaultValues: {
+    defaultValues: editingCase || {
       caseTitle: "",
       caseNumber: "",
-      courtName: "",
+      courtName: "Tis Hazari",
+      courtRoomNo: "",
+      judgeName: "",
       nextDate: "",
-      status: "Active",
-    },
+      status: "Active" as CreateCaseRequestStatus
+    }
   });
 
-  useEffect(() => {
-    if (open && caseItem) {
-      form.reset({
-        caseTitle: caseItem.caseTitle,
-        caseNumber: caseItem.caseNumber,
-        courtName: caseItem.courtName,
-        nextDate: caseItem.nextDate ? new Date(caseItem.nextDate).toISOString().split('T')[0] : "",
-        status: caseItem.status as any,
-      });
-    } else if (open && !caseItem) {
-      form.reset({
-        caseTitle: "",
-        caseNumber: "",
-        courtName: "",
-        nextDate: "",
-        status: "Active",
-      });
-    }
-  }, [open, caseItem, form]);
-
-  const createMutation = useCreateCase({
+  const { mutate: create } = useCreateCase({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListCasesQueryKey() });
-        toast({ title: "Case created successfully", variant: "default" });
+        queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
         onOpenChange(false);
-      },
-      onError: (err: any) => {
-        toast({ title: "Failed to create case", description: err.message, variant: "destructive" });
+        form.reset();
+        toast({ title: "Case created" });
       }
     }
   });
 
-  const updateMutation = useUpdateCase({
+  const { mutate: update } = useUpdateCase({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListCasesQueryKey() });
-        toast({ title: "Case updated successfully" });
+        queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
         onOpenChange(false);
-      },
-      onError: (err: any) => {
-        toast({ title: "Failed to update case", description: err.message, variant: "destructive" });
+        toast({ title: "Case updated" });
       }
     }
   });
 
-  const onSubmit = (data: CaseFormValues) => {
-    // Convert empty string date to null if needed, but schema allows string
-    const payload = {
-      ...data,
-      nextDate: data.nextDate || null,
-    };
-
-    if (isEditing && caseItem) {
-      updateMutation.mutate({ id: caseItem.id, data: payload as any });
+  const onSubmit = (data: any) => {
+    if (editingCase) {
+      update({ id: editingCase.id, data });
     } else {
-      createMutation.mutate({ data: payload as any });
+      create({ data });
     }
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-card border-border/50 shadow-2xl">
+      <DialogContent className="sm:max-w-[600px] bg-card border-border p-6 sm:p-8">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-serif text-primary">{isEditing ? "Edit Case" : "Add New Case"}</DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            {isEditing ? "Update the details of the existing case." : "Enter the details for the new case record."}
-          </DialogDescription>
+          <DialogTitle className="text-2xl font-serif text-foreground">{editingCase ? "Edit Case Record" : "Add New Case"}</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 py-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-4">
           <div className="space-y-2">
-            <Label htmlFor="caseTitle" className="text-foreground/90">Case Title</Label>
-            <Input 
-              id="caseTitle" 
-              placeholder="e.g. State vs. Sharma" 
-              className="bg-background border-border/50 focus-visible:ring-primary/30 h-11"
-              {...form.register("caseTitle")} 
-            />
-            {form.formState.errors.caseTitle && (
-              <p className="text-sm text-destructive">{form.formState.errors.caseTitle.message}</p>
-            )}
+            <label className="text-sm font-semibold text-foreground">Case Title</label>
+            <input {...form.register("caseTitle")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground" placeholder="e.g. State v. Ramesh" />
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="caseNumber" className="text-foreground/90">Case Number</Label>
-              <Input 
-                id="caseNumber" 
-                placeholder="e.g. CS-102/24" 
-                className="bg-background border-border/50 focus-visible:ring-primary/30 h-11"
-                {...form.register("caseNumber")} 
-              />
-              {form.formState.errors.caseNumber && (
-                <p className="text-sm text-destructive">{form.formState.errors.caseNumber.message}</p>
-              )}
+              <label className="text-sm font-semibold text-foreground">Case Number</label>
+              <input {...form.register("caseNumber")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground" />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="courtName" className="text-foreground/90">Court Name</Label>
-              <Input 
-                id="courtName" 
-                placeholder="e.g. Delhi High Court" 
-                className="bg-background border-border/50 focus-visible:ring-primary/30 h-11"
-                {...form.register("courtName")} 
-              />
-              {form.formState.errors.courtName && (
-                <p className="text-sm text-destructive">{form.formState.errors.courtName.message}</p>
-              )}
+              <label className="text-sm font-semibold text-foreground">Status</label>
+              <select {...form.register("status")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground appearance-none">
+                <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
+                <option value="Disposed">Disposed</option>
+                <option value="Adjourned">Adjourned</option>
+              </select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground">Court Name</label>
+            <select {...form.register("courtName")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground appearance-none">
+              {DELHI_COURTS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="nextDate" className="text-foreground/90">Next Date</Label>
-              <Input 
-                id="nextDate" 
-                type="date"
-                className="bg-background border-border/50 focus-visible:ring-primary/30 h-11 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert"
-                {...form.register("nextDate")} 
-              />
+              <label className="text-sm font-semibold text-foreground">Court Room No.</label>
+              <input {...form.register("courtRoomNo")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground" />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="status" className="text-foreground/90">Status</Label>
-              <Select 
-                onValueChange={(val) => form.setValue("status", val as any)} 
-                defaultValue={form.getValues("status")}
-              >
-                <SelectTrigger className="bg-background border-border/50 focus-visible:ring-primary/30 h-11">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                  <SelectItem value="Adjourned">Adjourned</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-semibold text-foreground">Judge Name</label>
+              <input {...form.register("judgeName")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground" placeholder="e.g. Hon'ble Sharma J." />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="bg-transparent border-border hover:bg-white/5 h-11 px-6 rounded-xl"
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={isPending}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-11 px-8 rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl transition-all"
-            >
-              {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEditing ? "Save Changes" : "Create Case"}
-            </Button>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground">Next Date of Hearing</label>
+            <input type="date" {...form.register("nextDate")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground" />
           </div>
+
+          <button type="submit" className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl mt-6 hover:shadow-lg hover:shadow-primary/20 transition-all text-lg">
+            {editingCase ? "Save Case Record" : "Add to Diary"}
+          </button>
         </form>
       </DialogContent>
     </Dialog>

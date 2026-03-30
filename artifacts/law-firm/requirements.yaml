@@ -1,20 +1,13 @@
 packages:
-  "react-hook-form": "Form state management"
+  "recharts": "For Revenue Tracker analytics charts and visual data representation"
+  "date-fns": "For formatting dates in Dashboard, My Diary, and Intern Quests"
+  "framer-motion": "For page transitions and interactive micro-animations"
   "@hookform/resolvers": "Zod validation for forms"
+  "react-hook-form": "Form state management"
   "zod": "Schema validation"
-  "framer-motion": "Smooth page transitions and micro-interactions"
-  "date-fns": "Date formatting"
-  "clsx": "Classname utility"
-  "tailwind-merge": "Classname utility"
-
-images:
-  - path: "artifacts/law-firm/public/images/hero-bg.png"
-    description: "Sophisticated abstract legal background with deep navy blue and gold accents, professional, modern, depth, dark mode, high end"
-    aspect_ratio: "16:9"
-  - path: "artifacts/law-firm/public/images/logo-mark.png"
-    description: "Minimalist modern law firm logo mark, geometric scales of justice in metallic gold on transparent background"
-    aspect_ratio: "1:1"
+  "clsx": "Class name merging"
+  "tailwind-merge": "Tailwind class merging"
+  "lucide-react": "Icons"
 
 notes:
-  - Expects @workspace/api-client-react to export React Query hooks (useListCases, useCreateCase, etc.)
-  - App is designed in a dark-professional theme natively using provided HSL values.
+  - "Using API client hooks from @workspace/api-client-react"

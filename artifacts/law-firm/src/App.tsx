@@ -9,16 +9,17 @@ import { Home } from "@/pages/Home";
 import { Dashboard } from "@/pages/Dashboard";
 import { MyDiary } from "@/pages/MyDiary";
 import { ProxyHub } from "@/pages/ProxyHub";
+import { InternQuests } from "@/pages/InternQuests";
+import { RevenueTracker } from "@/pages/RevenueTracker";
 import { Users } from "@/pages/Users";
 import { LegalLibrary } from "@/pages/LegalLibrary";
 
-// Custom QueryClient setup
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
     },
   },
 });
@@ -27,8 +28,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      
-      {/* Protected/Admin Routes wrapped in Layout */}
       <Route path="/dashboard">
         <Layout><Dashboard /></Layout>
       </Route>
@@ -38,13 +37,18 @@ function Router() {
       <Route path="/proxy-hub">
         <Layout><ProxyHub /></Layout>
       </Route>
+      <Route path="/intern-quests">
+        <Layout><InternQuests /></Layout>
+      </Route>
+      <Route path="/revenue-tracker">
+        <Layout><RevenueTracker /></Layout>
+      </Route>
       <Route path="/users">
         <Layout><Users /></Layout>
       </Route>
       <Route path="/legal-library">
         <Layout><LegalLibrary /></Layout>
       </Route>
-
       <Route component={NotFound} />
     </Switch>
   );

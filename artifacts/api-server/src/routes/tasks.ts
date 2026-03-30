@@ -17,10 +17,7 @@ router.get("/tasks", async (req, res) => {
 router.post("/tasks", async (req, res) => {
   try {
     const parsed = insertTaskSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
     const [task] = await db.insert(tasksTable).values(parsed.data).returning();
     res.status(201).json(task);
   } catch (err) {
@@ -33,13 +30,27 @@ router.get("/tasks/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, id));
-    if (!task) {
-      res.status(404).json({ error: "Task not found" });
-      return;
-    }
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
     res.json(task);
   } catch (err) {
     req.log.error({ err }, "Failed to get task");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/tasks/:id/accept", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, id));
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    if (task.status !== "Open") {
+      res.status(400).json({ error: "Task is not open for acceptance" });
+      return;
+    }
+    const [updated] = await db.update(tasksTable).set({ status: "Accepted" }).where(eq(tasksTable.id, id)).returning();
+    res.json(updated);
+  } catch (err) {
+    req.log.error({ err }, "Failed to accept task");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -48,15 +59,9 @@ router.put("/tasks/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const parsed = insertTaskSchema.partial().safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
     const [updatedTask] = await db.update(tasksTable).set(parsed.data).where(eq(tasksTable.id, id)).returning();
-    if (!updatedTask) {
-      res.status(404).json({ error: "Task not found" });
-      return;
-    }
+    if (!updatedTask) { res.status(404).json({ error: "Task not found" }); return; }
     res.json(updatedTask);
   } catch (err) {
     req.log.error({ err }, "Failed to update task");
