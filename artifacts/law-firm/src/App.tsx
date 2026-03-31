@@ -29,6 +29,9 @@ import { ClientDIYDocs } from "@/pages/client/ClientDIYDocs";
 import { ClientAIAssistant } from "@/pages/client/ClientAIAssistant";
 import { ClientChat } from "@/pages/client/ClientChat";
 import { ClientConnectChat } from "@/pages/client/ClientConnectChat";
+import { ClientWellness } from "@/pages/client/ClientWellness";
+import { ClientRightsFeed } from "@/pages/client/ClientRightsFeed";
+import { ClientCaseTracker } from "@/pages/client/ClientCaseTracker";
 
 import { AdvocateDashboard } from "@/pages/advocate/AdvocateDashboard";
 import { AdvocateCalls } from "@/pages/advocate/AdvocateCalls";
@@ -100,6 +103,15 @@ function Router() {
       </Route>
       <Route path="/client/connect">
         <ClientLayout><ClientConnectChat /></ClientLayout>
+      </Route>
+      <Route path="/client/wellness">
+        <ClientLayout><ClientWellness /></ClientLayout>
+      </Route>
+      <Route path="/client/rights">
+        <ClientLayout><ClientRightsFeed /></ClientLayout>
+      </Route>
+      <Route path="/client/cases">
+        <ClientLayout><ClientCaseTracker /></ClientLayout>
       </Route>
       <Route path="/client/book">
         <ClientLayout><ClientBookAdvocate /></ClientLayout>

@@ -1,19 +1,23 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Scale, Home, Phone, Bell, Library, Menu, X, User, Sparkles, FileText, BookOpen, Pen, MessageSquare, Zap } from "lucide-react";
+import { Scale, Home, Phone, Bell, Library, Menu, X, User, Sparkles, FileText, BookOpen, Pen, MessageSquare, Zap, Star, Newspaper, MapPin, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { SOSButton } from "@/components/SOSButton";
 
 const navigation = [
-  { name: "Home", href: "/client", icon: Home },
-  { name: "Connect with Advocate", href: "/client/connect", icon: Zap },
-  { name: "Book an Advocate", href: "/client/book", icon: Phone },
-  { name: "My Advocate Chat", href: "/client/chat", icon: MessageSquare },
-  { name: "Case Reminders", href: "/client/reminders", icon: Bell },
-  { name: "Law Made Simple", href: "/client/legal-guide", icon: BookOpen },
-  { name: "DIY Documents", href: "/client/diy-docs", icon: Pen },
-  { name: "AI Assistant", href: "/client/ai-assistant", icon: Sparkles },
-  { name: "Legal Library", href: "/client/library", icon: Library },
+  { name: "Home", href: "/client", icon: Home, section: null },
+  { name: "Connect with Advocate", href: "/client/connect", icon: Zap, section: "Legal Help" },
+  { name: "Book an Advocate", href: "/client/book", icon: Phone, section: "Legal Help" },
+  { name: "My Advocate Chat", href: "/client/chat", icon: MessageSquare, section: "Legal Help" },
+  { name: "My Cases", href: "/client/cases", icon: BarChart2, section: "Legal Help" },
+  { name: "Legal Health Quiz", href: "/client/wellness", icon: Star, section: "Daily Tools" },
+  { name: "Know Your Rights", href: "/client/rights", icon: Newspaper, section: "Daily Tools" },
+  { name: "Case Reminders", href: "/client/reminders", icon: Bell, section: "Daily Tools" },
+  { name: "Law Made Simple", href: "/client/legal-guide", icon: BookOpen, section: "Resources" },
+  { name: "DIY Documents", href: "/client/diy-docs", icon: Pen, section: "Resources" },
+  { name: "AI Assistant", href: "/client/ai-assistant", icon: Sparkles, section: "Resources" },
+  { name: "Legal Library", href: "/client/library", icon: Library, section: "Resources" },
 ];
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -55,30 +59,40 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex-1 px-4 py-8 space-y-1 overflow-y-auto">
-          <div className="px-3 mb-4 text-xs font-semibold text-white/30 uppercase tracking-wider">Client Menu</div>
-          {navigation.map((item) => {
-            const isActive = location === item.href;
+        <nav className="flex-1 px-4 py-6 overflow-y-auto">
+          {(() => {
+            const sections = ["Legal Help", "Daily Tools", "Resources"];
+            const homeItem = navigation.find(n => !n.section);
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-3.5 rounded-xl font-medium transition-all duration-200 group relative",
-                  isActive
-                    ? "text-blue-400 bg-blue-500/10 border border-blue-500/20"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
+              <>
+                {homeItem && (
+                  <Link key={homeItem.name} href={homeItem.href} onClick={() => setSidebarOpen(false)} className={cn("flex items-center gap-3 px-3 py-3 rounded-xl font-medium transition-all duration-200 group relative mb-2", location === homeItem.href ? "text-blue-400 bg-blue-500/10 border border-blue-500/20" : "text-white/60 hover:text-white hover:bg-white/5")}>
+                    {location === homeItem.href && <motion.div layoutId="clientActiveTab" className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r-full" />}
+                    <homeItem.icon className={cn("w-5 h-5", location === homeItem.href ? "text-blue-400" : "text-white/40 group-hover:text-white/60")} />
+                    {homeItem.name}
+                  </Link>
                 )}
-              >
-                {isActive && (
-                  <motion.div layoutId="clientActiveTab" className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r-full" />
-                )}
-                <item.icon className={cn("w-5 h-5", isActive ? "text-blue-400" : "text-white/40 group-hover:text-white/60")} />
-                {item.name}
-              </Link>
+                {sections.map(section => {
+                  const items = navigation.filter(n => n.section === section);
+                  return (
+                    <div key={section} className="mb-4">
+                      <div className="px-3 mb-1.5 mt-3 text-[10px] font-bold text-white/25 uppercase tracking-widest">{section}</div>
+                      {items.map(item => {
+                        const isActive = location === item.href;
+                        return (
+                          <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all duration-200 group relative", isActive ? "text-blue-400 bg-blue-500/10 border border-blue-500/20" : "text-white/60 hover:text-white hover:bg-white/5")}>
+                            {isActive && <motion.div layoutId="clientActiveTab" className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r-full" />}
+                            <item.icon className={cn("w-4 h-4", isActive ? "text-blue-400" : "text-white/40 group-hover:text-white/60")} />
+                            <span className="text-sm">{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </>
             );
-          })}
+          })()}
         </nav>
 
         <div className="p-6 border-t border-blue-500/20">
@@ -119,6 +133,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
           </motion.div>
         </main>
       </div>
+      <SOSButton />
     </div>
   );
 }
