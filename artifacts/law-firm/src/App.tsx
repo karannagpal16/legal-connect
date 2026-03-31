@@ -28,6 +28,7 @@ import { ClientLegalGuide } from "@/pages/client/ClientLegalGuide";
 import { ClientDIYDocs } from "@/pages/client/ClientDIYDocs";
 import { ClientAIAssistant } from "@/pages/client/ClientAIAssistant";
 import { ClientChat } from "@/pages/client/ClientChat";
+import { ClientConnectChat } from "@/pages/client/ClientConnectChat";
 
 import { AdvocateDashboard } from "@/pages/advocate/AdvocateDashboard";
 import { AdvocateCalls } from "@/pages/advocate/AdvocateCalls";
@@ -96,6 +97,9 @@ function Router() {
       {/* CLIENT PORTAL */}
       <Route path="/client">
         <ClientLayout><ClientHome /></ClientLayout>
+      </Route>
+      <Route path="/client/connect">
+        <ClientLayout><ClientConnectChat /></ClientLayout>
       </Route>
       <Route path="/client/book">
         <ClientLayout><ClientBookAdvocate /></ClientLayout>

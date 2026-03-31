@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Scale, Home, Phone, Bell, Library, Menu, X, User, Sparkles, FileText, BookOpen, Pen, MessageSquare } from "lucide-react";
+import { Scale, Home, Phone, Bell, Library, Menu, X, User, Sparkles, FileText, BookOpen, Pen, MessageSquare, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navigation = [
   { name: "Home", href: "/client", icon: Home },
+  { name: "Connect with Advocate", href: "/client/connect", icon: Zap },
   { name: "Book an Advocate", href: "/client/book", icon: Phone },
   { name: "My Advocate Chat", href: "/client/chat", icon: MessageSquare },
   { name: "Case Reminders", href: "/client/reminders", icon: Bell },
