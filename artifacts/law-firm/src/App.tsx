@@ -27,6 +27,7 @@ import { ClientLibrary } from "@/pages/client/ClientLibrary";
 import { ClientLegalGuide } from "@/pages/client/ClientLegalGuide";
 import { ClientDIYDocs } from "@/pages/client/ClientDIYDocs";
 import { ClientAIAssistant } from "@/pages/client/ClientAIAssistant";
+import { ClientChat } from "@/pages/client/ClientChat";
 
 import { AdvocateDashboard } from "@/pages/advocate/AdvocateDashboard";
 import { AdvocateCalls } from "@/pages/advocate/AdvocateCalls";
@@ -37,6 +38,7 @@ import { AdvocateBookings } from "@/pages/advocate/AdvocateBookings";
 import { AdvocateLibrary } from "@/pages/advocate/AdvocateLibrary";
 import { AdvocateRevenue } from "@/pages/advocate/AdvocateRevenue";
 import { AdvocateTeam } from "@/pages/advocate/AdvocateTeam";
+import { AdvocateChat } from "@/pages/advocate/AdvocateChat";
 
 import { InternDashboard } from "@/pages/intern/InternDashboard";
 import { InternQuestsPage } from "@/pages/intern/InternQuestsPage";
@@ -110,6 +112,9 @@ function Router() {
       <Route path="/client/ai-assistant">
         <ClientLayout><ClientAIAssistant /></ClientLayout>
       </Route>
+      <Route path="/client/chat">
+        <ClientLayout><ClientChat /></ClientLayout>
+      </Route>
       <Route path="/client/library">
         <ClientLayout><ClientLibrary /></ClientLayout>
       </Route>
@@ -141,6 +146,9 @@ function Router() {
       </Route>
       <Route path="/advocate/team">
         <AdvocateLayout><AdvocateTeam /></AdvocateLayout>
+      </Route>
+      <Route path="/advocate/chat">
+        <AdvocateLayout><AdvocateChat /></AdvocateLayout>
       </Route>
 
       {/* INTERN PORTAL */}
