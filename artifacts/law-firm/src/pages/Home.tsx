@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper } from "lucide-react";
-import { motion, AnimatePresence, useInView } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
 
 const quotes = [
   {
@@ -47,42 +47,16 @@ const quotes = [
 ];
 
 const legalNews = [
-  { tag: "SC", tagColor: "#ef4444", title: "Supreme Court upholds Right to Privacy as Fundamental Right in digital data case", source: "Supreme Court", date: "Apr 2026" },
-  { tag: "HC", tagColor: "#3b82f6", title: "Delhi HC directs expedited hearing for 2.3 lakh pending matrimonial cases under Fast Track scheme", source: "Delhi HC", date: "Apr 2026" },
-  { tag: "LAW", tagColor: "#22c55e", title: "Digital Personal Data Protection Rules 2025 notified — consent framework to go live June 2026", source: "MeitY", date: "Mar 2026" },
-  { tag: "SC", tagColor: "#ef4444", title: "All High Courts must display cause lists 48 hrs in advance, opens portal for live order access", source: "Supreme Court", date: "Mar 2026" },
-  { tag: "NEW", tagColor: "#f59e0b", title: "Bharatiya Nyaya Sanhita 2023 fully operative — IPC repealed across all 28 states", source: "MHA", date: "Feb 2026" },
-  { tag: "HC", tagColor: "#3b82f6", title: "High Court mandates e-filing for all civil suits above ₹10 lakh — paperless courts by 2027", source: "Delhi HC", date: "Feb 2026" },
-  { tag: "SC", tagColor: "#ef4444", title: "SC expands Legal Aid to include free online consultations for below poverty line citizens", source: "Supreme Court", date: "Jan 2026" },
-  { tag: "LAW", tagColor: "#22c55e", title: "Mediation Act 2023 rules notified — mandatory pre-litigation mediation for commercial disputes", source: "Law Ministry", date: "Jan 2026" },
+  { tag: "SC", tagColor: "#ef4444", title: "Supreme Court upholds Right to Privacy as Fundamental Right in digital data case", source: "Supreme Court", date: "Apr 2026", img: "/news/news-1.png" },
+  { tag: "HC", tagColor: "#3b82f6", title: "Delhi HC directs expedited hearing for 2.3 lakh pending matrimonial cases under Fast Track scheme", source: "Delhi HC", date: "Apr 2026", img: "/news/news-2.png" },
+  { tag: "LAW", tagColor: "#22c55e", title: "Digital Personal Data Protection Rules 2025 notified — consent framework to go live June 2026", source: "MeitY", date: "Mar 2026", img: "/news/news-3.png" },
+  { tag: "SC", tagColor: "#ef4444", title: "All High Courts must display cause lists 48 hrs in advance, opens portal for live order access", source: "Supreme Court", date: "Mar 2026", img: "/news/news-4.png" },
+  { tag: "NEW", tagColor: "#f59e0b", title: "Bharatiya Nyaya Sanhita 2023 fully operative — IPC repealed across all 28 states", source: "MHA", date: "Feb 2026", img: "/news/news-5.png" },
+  { tag: "HC", tagColor: "#3b82f6", title: "High Court mandates e-filing for all civil suits above ₹10 lakh — paperless courts by 2027", source: "Delhi HC", date: "Feb 2026", img: "/news/news-6.png" },
+  { tag: "SC", tagColor: "#ef4444", title: "SC expands Legal Aid to include free online consultations for below poverty line citizens", source: "Supreme Court", date: "Jan 2026", img: "/news/news-7.png" },
+  { tag: "LAW", tagColor: "#22c55e", title: "Mediation Act 2023 rules notified — mandatory pre-litigation mediation for commercial disputes", source: "Law Ministry", date: "Jan 2026", img: "/news/news-8.png" },
 ];
 
-const stats = [
-  { label: "Cases Handled", value: 2400, suffix: "+" },
-  { label: "Advocates", value: 48, suffix: "" },
-  { label: "Happy Clients", value: 1800, suffix: "+" },
-  { label: "Years of Practice", value: 8, suffix: "" },
-];
-
-function CountUp({ to, duration = 1.5 }: { to: number; duration?: number }) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-
-  useEffect(() => {
-    if (!inView) return;
-    let start = 0;
-    const step = to / (duration * 60);
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= to) { setVal(to); clearInterval(timer); }
-      else setVal(Math.floor(start));
-    }, 1000 / 60);
-    return () => clearInterval(timer);
-  }, [inView, to, duration]);
-
-  return <span ref={ref}>{val.toLocaleString()}</span>;
-}
 
 function DharmaChakra({ size = 120 }: { size?: number }) {
   const r = size / 2;
@@ -202,30 +176,65 @@ function QuotesBox() {
 }
 
 function LiveNewsPanel() {
-  const [activeRow, setActiveRow] = useState(0);
+  const [active, setActive] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setActiveRow(p => (p + 1) % legalNews.length), 3000);
+    const t = setInterval(() => setActive(p => (p + 1) % legalNews.length), 5000);
     return () => clearInterval(t);
   }, []);
+  const item = legalNews[active];
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="flex items-center gap-2 mb-5">
         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
         <Newspaper className="w-4 h-4 text-[#d4af37]/70" />
         <span className="text-[11px] uppercase tracking-[0.2em] text-[#d4af37]/70 font-bold">Live Legal Updates · India</span>
         <div className="flex-1 h-px bg-gradient-to-r from-[#d4af37]/20 to-transparent" />
       </div>
-      <div className="rounded-xl overflow-hidden" style={{ background: "rgba(6,14,36,0.8)", border: "1px solid rgba(212,175,55,0.15)" }}>
-        {legalNews.map((item, i) => (
-          <div key={i} className="flex items-start gap-3 px-4 py-3 transition-all duration-500" style={{ background: i === activeRow ? "rgba(212,175,55,0.06)" : "transparent", borderBottom: i < legalNews.length - 1 ? "1px solid rgba(212,175,55,0.07)" : "none" }}>
-            <span className="flex-shrink-0 mt-0.5 text-[9px] font-bold px-2 py-0.5 rounded text-white" style={{ background: item.tagColor }}>{item.tag}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/80 text-sm leading-snug">{item.title}</p>
-              <p className="text-white/30 text-[11px] mt-1">{item.source} · {item.date}</p>
-            </div>
-            {i === activeRow && <div className="w-1.5 h-1.5 rounded-full bg-[#d4af37] mt-2 flex-shrink-0 animate-pulse" />}
-          </div>
-        ))}
+
+      <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(6,14,36,0.85)", border: "1px solid rgba(212,175,55,0.15)" }}>
+        <div className="relative w-full aspect-[16/7] overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={active}
+              src={item.img}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover"
+              initial={{ opacity: 0, scale: 1.08 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.8 }}
+            />
+          </AnimatePresence>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#060e24] via-[#060e24]/60 to-transparent" />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={active}
+              className="absolute bottom-0 left-0 right-0 p-5 sm:p-7"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+            >
+              <span className="inline-block text-[10px] font-bold px-2.5 py-1 rounded text-white mb-3" style={{ background: item.tagColor }}>{item.tag}</span>
+              <h3 className="text-white text-base sm:text-lg font-semibold leading-snug mb-2">{item.title}</h3>
+              <p className="text-white/40 text-xs">{item.source} · {item.date}</p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <div className="flex gap-1.5 px-5 py-3 overflow-x-auto scrollbar-hide">
+          {legalNews.map((n, i) => (
+            <button
+              key={i}
+              onClick={() => setActive(i)}
+              className="relative flex-shrink-0 w-14 h-10 sm:w-20 sm:h-14 rounded-lg overflow-hidden transition-all duration-300"
+              style={{ border: i === active ? "2px solid #d4af37" : "2px solid transparent", opacity: i === active ? 1 : 0.45 }}
+            >
+              <img src={n.img} alt="" className="w-full h-full object-cover" />
+              {i === active && <div className="absolute inset-0 bg-[#d4af37]/10" />}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -359,27 +368,6 @@ export function Home() {
           <div className="hidden lg:flex self-end pb-2">
             <PeacockFeather size={0.75} />
           </div>
-        </div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pb-10">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {stats.map((s, i) => (
-            <motion.div
-              key={s.label}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 * i }}
-              className="text-center"
-            >
-              <div className="text-3xl sm:text-4xl font-serif font-bold text-white mb-1">
-                <CountUp to={s.value} />
-                <span className="text-[#d4af37]">{s.suffix}</span>
-              </div>
-              <div className="text-white/35 text-xs uppercase tracking-widest">{s.label}</div>
-            </motion.div>
-          ))}
         </div>
       </div>
 
