@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper, Shield, Users, Award, Clock } from "lucide-react";
+import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 
@@ -317,42 +317,6 @@ function Marquee() {
   );
 }
 
-function StatsStrip() {
-  const stats = [
-    { icon: Shield, label: "Cases Won", value: "2400+" },
-    { icon: Users, label: "Active Advocates", value: "48" },
-    { icon: Award, label: "Happy Clients", value: "1800+" },
-    { icon: Clock, label: "Years of Practice", value: "8" },
-  ];
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.8 }}
-      className="w-full max-w-4xl mx-auto"
-    >
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.1, duration: 0.5 }}
-            className="relative text-center py-4 px-3 rounded-xl group"
-            style={{ background: "rgba(212,175,55,0.03)", border: "1px solid rgba(212,175,55,0.08)" }}
-          >
-            <div className="absolute inset-0 rounded-xl animate-shimmer pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
-            <s.icon className="w-5 h-5 text-[#d4af37]/50 mx-auto mb-2" strokeWidth={1.5} />
-            <div className="text-2xl sm:text-3xl font-serif font-bold text-white mb-0.5">{s.value}</div>
-            <div className="text-white/30 text-[10px] uppercase tracking-widest">{s.label}</div>
-          </motion.div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
 
 function PeacockFeather({ size = 1 }: { size?: number }) {
   const w = 120 * size, h = 200 * size;
@@ -516,10 +480,6 @@ export function Home() {
             <PeacockFeather size={0.75} />
           </div>
         </div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pb-6">
-        <StatsStrip />
       </div>
 
       <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pb-8">
