@@ -1,467 +1,451 @@
 import { Link } from "wouter";
-import { Scale, Shield, Gavel, BookMarked, ArrowRight, CheckCircle, Zap, MessageCircle, FileText, BookOpen, ExternalLink, ChevronRight, Sparkles, TrendingUp, Bell, Lock } from "lucide-react";
-import { motion, useInView, AnimatePresence } from "framer-motion";
-import { useRef, useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Star } from "lucide-react";
 
-/* ── animated counter ── */
-function CountUp({ to, duration = 1.5 }: { to: number; duration?: number }) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-  useEffect(() => {
-    if (!inView) return;
-    let start = 0;
-    const step = to / (duration * 60);
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= to) { setVal(to); clearInterval(timer); }
-      else setVal(Math.floor(start));
-    }, 1000 / 60);
-    return () => clearInterval(timer);
-  }, [inView, to, duration]);
-  return <span ref={ref}>{val.toLocaleString()}</span>;
+/* ── Dharma Chakra SVG ── */
+function DharmaChakra({ size = 120 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" className="drop-shadow-[0_0_30px_rgba(212,175,55,0.6)]">
+      {/* Outer ring */}
+      <circle cx="60" cy="60" r="56" fill="none" stroke="url(#goldGrad)" strokeWidth="3.5" />
+      <circle cx="60" cy="60" r="48" fill="none" stroke="url(#goldGrad)" strokeWidth="1" opacity="0.4" />
+      {/* Inner hub */}
+      <circle cx="60" cy="60" r="9" fill="url(#goldGrad)" />
+      <circle cx="60" cy="60" r="6" fill="#030d2e" />
+      <circle cx="60" cy="60" r="2.5" fill="url(#goldGrad)" />
+      {/* 24 spokes */}
+      {Array.from({ length: 24 }).map((_, i) => {
+        const angle = (i * 360) / 24;
+        const rad = (angle * Math.PI) / 180;
+        const x1 = 60 + 9 * Math.cos(rad), y1 = 60 + 9 * Math.sin(rad);
+        const x2 = 60 + 47 * Math.cos(rad), y2 = 60 + 47 * Math.sin(rad);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="url(#goldGrad)" strokeWidth={i % 3 === 0 ? "1.5" : "0.7"} opacity={i % 3 === 0 ? "1" : "0.5"} />;
+      })}
+      {/* Decorative outer dots */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const angle = (i * 45) * Math.PI / 180;
+        const x = 60 + 54 * Math.cos(angle), y = 60 + 54 * Math.sin(angle);
+        return <circle key={i} cx={x} cy={y} r="2.5" fill="url(#goldGrad)" />;
+      })}
+      <defs>
+        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f5d078" />
+          <stop offset="40%" stopColor="#d4af37" />
+          <stop offset="70%" stopColor="#b8860b" />
+          <stop offset="100%" stopColor="#f5d078" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
 }
 
-/* ── data ── */
-const marqueeItems = [
-  "⚖️  Delhi High Court", "🏛️  Supreme Court Practice", "📋  Criminal Law",
-  "🏠  Property Disputes", "👨‍👩‍👧  Family Law", "💼  Corporate Law",
-  "🛒  Consumer Protection", "📄  Contract Drafting", "🔒  NDA & IP", "🚗  Motor Accident Claims",
-];
+/* ── Phone Mockup ── */
+function PhoneMockup() {
+  return (
+    <div className="relative flex items-center justify-center">
+      {/* Glow */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#d4af37]/20 to-transparent rounded-[40px] blur-3xl scale-110 pointer-events-none" />
+      {/* Phone shell */}
+      <div className="relative w-[200px] sm:w-[220px] bg-gradient-to-b from-[#1a1a2e] via-[#0d1117] to-[#0a0f20] rounded-[36px] shadow-2xl border border-[#d4af37]/20" style={{ boxShadow: "0 0 0 6px #111827, 0 0 0 7px #d4af3740, 0 30px 80px rgba(0,0,0,0.8)" }}>
+        {/* Notch */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-20 h-5 bg-[#0d1117] rounded-full z-10 flex items-center justify-center">
+          <div className="w-8 h-2 bg-black rounded-full" />
+        </div>
+        {/* Screen */}
+        <div className="mx-[6px] mt-[6px] mb-[6px] bg-gradient-to-b from-[#060e24] to-[#030a1a] rounded-[30px] overflow-hidden min-h-[420px] flex flex-col">
+          {/* Scroll/parchment UI */}
+          <div className="flex-1 px-5 pt-10 pb-6 flex flex-col">
+            {/* Top badge */}
+            <div className="flex justify-center mb-4">
+              <div className="w-8 h-8 rounded-full border border-[#d4af37]/60 flex items-center justify-center bg-[#d4af37]/10">
+                <Scale className="w-4 h-4 text-[#d4af37]" />
+              </div>
+            </div>
 
-const portals = [
-  {
-    role: "Client", href: "/client", icon: Shield,
-    gradient: "from-blue-600/30 via-blue-500/10 to-transparent",
-    glow: "shadow-blue-500/20", border: "border-blue-500/40", accent: "text-blue-400",
-    badgeBg: "bg-blue-500/20 text-blue-300 border-blue-500/40",
-    features: ["Book an advocate in 60 seconds", "Video & audio consultations", "DIY document drafting", "Encrypted advocate chat", "AI legal assistant"],
-    cta: "Enter Client Portal", tagline: "Your legal rights, protected.",
-  },
-  {
-    role: "Advocate", href: "/advocate", icon: Gavel,
-    gradient: "from-amber-600/30 via-amber-500/10 to-transparent",
-    glow: "shadow-amber-500/20", border: "border-amber-500/40", accent: "text-amber-400",
-    badgeBg: "bg-amber-500/20 text-amber-300 border-amber-500/40",
-    features: ["Digital case diary", "Client call management", "Encrypted client chat", "Consultation bookings & rates", "Revenue analytics"],
-    cta: "Enter Advocate Portal", tagline: "Practice smarter, not harder.",
-  },
-  {
-    role: "Intern", href: "/intern", icon: BookMarked,
-    gradient: "from-emerald-600/30 via-emerald-500/10 to-transparent",
-    glow: "shadow-emerald-500/20", border: "border-emerald-500/40", accent: "text-emerald-400",
-    badgeBg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-    features: ["XP & leveling system", "Leaderboard & badges", "Doubt Q&A portal", "AI learning assistant", "Daily challenges"],
-    cta: "Enter Intern Portal", tagline: "Level up your legal career.",
-  },
-];
+            {/* Title */}
+            <div className="text-center mb-4">
+              <div className="text-[10px] uppercase tracking-[0.25em] text-[#d4af37]/60 font-semibold mb-1">Legal Portal</div>
+              <div className="text-[#d4af37] font-serif text-xs font-bold">Rishika Nagpal & Associates</div>
+            </div>
 
-const stats = [
-  { label: "Cases Handled", value: 2400, suffix: "+" },
-  { label: "Advocates", value: 48, suffix: "" },
-  { label: "Happy Clients", value: 1800, suffix: "+" },
-  { label: "Years of Practice", value: 8, suffix: "" },
-];
+            {/* Divider */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#d4af37]/40 to-transparent" />
+              <div className="w-1 h-1 rounded-full bg-[#d4af37]/40" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#d4af37]/40 to-transparent" />
+            </div>
 
-const features = [
-  { icon: Zap, label: "Instant Matching", desc: "Uber-style advocate booking" },
-  { icon: Lock, label: "Encrypted Chat", desc: "E2E encrypted client–advocate messaging" },
-  { icon: FileText, label: "DIY Documents", desc: "Draft legal docs in minutes" },
-  { icon: MessageCircle, label: "AI Legal Chat", desc: "Ask anything, get real answers" },
-  { icon: BookOpen, label: "Law Made Simple", desc: "Plain-language legal guides" },
-  { icon: TrendingUp, label: "Earn XP & Badges", desc: "Gamified intern learning" },
-];
+            {/* Sanskrit shloka */}
+            <div className="text-center mb-3">
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                यदा यदा हि धर्मस्य
+              </p>
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                ग्लानिर्भवति भारत ।
+              </p>
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                अभ्युत्थानमधर्मस्य
+              </p>
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                तदात्मानं सृजाम्यहम् ॥
+              </p>
+            </div>
+            <div className="text-center mb-3">
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                परित्राणाय साधूनां
+              </p>
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                विनाशाय च दुष्कृताम् ।
+              </p>
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                धर्मसंस्थापनार्थाय
+              </p>
+              <p className="text-[#f5d078]/90 text-[9px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>
+                सम्भवामि युगे युगे ॥
+              </p>
+            </div>
 
-const judgements = [
-  {
-    title: "State of Maharashtra v. Vijay Mohan Jadhav",
-    court: "Supreme Court of India",
-    bench: "J. D.Y. Chandrachud, J. J.B. Pardiwala",
-    date: "Mar 28, 2026",
-    citation: "2026 SCC 412",
-    category: "Criminal",
-    categoryColor: "text-rose-400 bg-rose-500/10 border-rose-500/20",
-    summary: "Held that confession recorded by a police officer is inadmissible under Section 25 of the Indian Evidence Act even if made voluntarily. The court emphasized that the fundamental right against self-incrimination under Article 20(3) acts as a constitutional shield for the accused.",
-    headnote: "Police confession · Art. 20(3) · Inadmissibility",
-  },
-  {
-    title: "Ramesh Kumar v. Union of India & Ors.",
-    court: "Delhi High Court",
-    bench: "J. Prathiba M. Singh",
-    date: "Mar 25, 2026",
-    citation: "2026 DHC 189",
-    category: "Property",
-    categoryColor: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-    summary: "The court held that a tenant cannot be evicted without due process merely on the basis of an expired rent agreement. Landlord must approach the Rent Controller and obtain a formal eviction order. Immediate eviction notices served without legal process were quashed.",
-    headnote: "Tenant eviction · Rent Controller · Due process",
-  },
-  {
-    title: "XYZ Pvt. Ltd. v. National Consumer Disputes Redressal Commission",
-    court: "Supreme Court of India",
-    bench: "J. Sanjiv Khanna, J. Sanjay Kumar",
-    date: "Mar 20, 2026",
-    citation: "2026 SCC 388",
-    category: "Consumer",
-    categoryColor: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    summary: "Supreme Court expanded the definition of 'deficiency in service' under the Consumer Protection Act 2019 to include digital services. E-commerce platforms cannot disclaim liability for defective products sold by third-party sellers on their platform.",
-    headnote: "Consumer protection · E-commerce · Third-party liability",
-  },
-  {
-    title: "Seema Mishra v. Sanjay Mishra",
-    court: "Delhi High Court",
-    bench: "J. Rekha Palli",
-    date: "Mar 15, 2026",
-    citation: "2026 DHC 175",
-    category: "Family",
-    categoryColor: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-    summary: "Interim maintenance awarded at ₹35,000/month pending divorce proceedings. Court held that a wife's educational qualifications do not automatically disentitle her from maintenance — financial dependency is a matter of fact, not presumption.",
-    headnote: "Interim maintenance · Financial dependency · Divorce",
-  },
-  {
-    title: "Aryan Industries v. State of Haryana",
-    court: "Punjab & Haryana High Court",
-    bench: "J. G.S. Sandhawalia, J. H.S. Madaan",
-    date: "Mar 10, 2026",
-    citation: "2026 PHC 204",
-    category: "Corporate",
-    categoryColor: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
-    summary: "An unregistered partnership firm can still pursue legal remedies for breach of contract provided the partnership's existence can be proven by other documentary evidence. Court distinguished between enforcing partnership rights vs. breach of contract claims.",
-    headnote: "Unregistered firm · Contract enforcement · Partnership Act",
-  },
-  {
-    title: "Pooja Chawla v. HDFC Bank Ltd.",
-    court: "National Consumer Forum",
-    bench: "Presiding Officer A.K. Sharma",
-    date: "Mar 5, 2026",
-    citation: "2026 NCDRC 91",
-    category: "Banking",
-    categoryColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    summary: "Bank held liable for deficiency of service for debiting EMIs after loan foreclosure. The forum directed refund of all wrongly debited amounts with 9% interest p.a., along with ₹50,000 compensation for mental agony and ₹10,000 litigation costs.",
-    headnote: "Loan foreclosure · Wrongful debit · Bank liability",
-  },
-];
+            {/* Divider */}
+            <div className="flex items-center gap-2 my-3">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#d4af37]/30 to-transparent" />
+              <div className="text-[#d4af37]/40 text-[8px]">✦</div>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#d4af37]/30 to-transparent" />
+            </div>
 
-const legalTips = [
-  "Always get a written acknowledgment when submitting documents to any government office.",
-  "A FIR can be filed at any police station — not just the one in whose jurisdiction the offence occurred (Zero FIR).",
-  "You have the right to a free copy of the FIR if you are the victim or informant.",
-  "An oral will (Nuncupative will) is valid in India only for soldiers, airmen, and mariners during active duty.",
-  "Your employer must give you a payslip every month — it is your right under labour law.",
-  "You can challenge a cheque bounce case even after conviction within 30 days of the judgment.",
-  "A minor cannot enter into a contract — any contract with a minor is void from the beginning.",
-  "Right to Information (RTI) applications must be replied to within 30 days by government authorities.",
-];
+            {/* English translation */}
+            <div className="text-center space-y-2">
+              <p className="text-[#d4af37]/60 text-[7.5px] leading-relaxed italic">
+                "Whenever righteousness declines and unrighteousness rises — I descend Myself."
+              </p>
+              <p className="text-[#d4af37]/60 text-[7.5px] leading-relaxed italic">
+                "For the protection of the good, destruction of the wicked, and establishment of Dharma — I manifest in every age."
+              </p>
+            </div>
 
-const liveActivity = [
-  { text: "New consultation booked · Criminal law", time: "2 min ago", color: "text-blue-400" },
-  { text: "Judgement added · Supreme Court 2026", time: "8 min ago", color: "text-amber-400" },
-  { text: "Client connected with Adv. Rishika Nagpal", time: "15 min ago", color: "text-emerald-400" },
-  { text: "Intern Aanya earned 'Criminal Law' badge", time: "22 min ago", color: "text-violet-400" },
-  { text: "Legal notice drafted · Consumer complaint", time: "35 min ago", color: "text-rose-400" },
-];
+            <div className="mt-4 text-center">
+              <div className="text-[8px] text-[#d4af37]/40 uppercase tracking-widest">— Bhagavad Gita 4:7–8 —</div>
+            </div>
+          </div>
+        </div>
+        {/* Bottom bar */}
+        <div className="flex justify-center py-3">
+          <div className="w-24 h-1 bg-[#d4af37]/20 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-/* ── component ── */
+/* ── Portal Card ── */
+interface PortalCardProps {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  subLabel?: string;
+  delay?: number;
+  emoji?: string;
+}
+
+function PortalCard({ href, icon: Icon, label, subLabel, delay = 0, emoji }: PortalCardProps) {
+  return (
+    <Link href={href}>
+      <motion.div
+        initial={{ opacity: 1, y: 0 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -8, scale: 1.04 }}
+        whileTap={{ scale: 0.97 }}
+        className="group relative cursor-pointer"
+      >
+        {/* Card outer glow on hover */}
+        <div className="absolute -inset-1 bg-gradient-to-b from-[#d4af37]/30 to-[#d4af37]/5 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        {/* Card body */}
+        <div
+          className="relative rounded-2xl p-5 text-center transition-all duration-300"
+          style={{
+            background: "linear-gradient(160deg, rgba(30,55,110,0.92) 0%, rgba(15,28,70,0.96) 100%)",
+            border: "1.5px solid rgba(212,175,55,0.55)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.7), inset 0 1px 0 rgba(212,175,55,0.35), inset 0 -1px 0 rgba(212,175,55,0.1), 0 0 12px rgba(212,175,55,0.08)",
+          }}
+        >
+          {/* Shimmer line at top */}
+          <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#d4af37]/50 to-transparent rounded-full" />
+          {/* Icon */}
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 transition-all duration-300 group-hover:scale-110"
+            style={{
+              background: "radial-gradient(circle, rgba(212,175,55,0.25) 0%, rgba(184,134,11,0.08) 100%)",
+              border: "1px solid rgba(212,175,55,0.4)",
+              boxShadow: "0 0 20px rgba(212,175,55,0.15)"
+            }}
+          >
+            {emoji ? (
+              <span className="text-xl">{emoji}</span>
+            ) : (
+              <Icon className="w-6 h-6 text-[#d4af37]" strokeWidth={1.5} />
+            )}
+          </div>
+          <p className="text-[#f5d078] font-bold text-sm uppercase tracking-widest leading-tight">{label}</p>
+          {subLabel && <p className="text-[#d4af37]/50 text-[10px] mt-0.5 uppercase tracking-widest">{subLabel}</p>}
+          {/* Arrow */}
+          <div className="mt-3 flex items-center justify-center gap-1 text-[#d4af37]/50 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            Enter <ArrowRight className="w-3 h-3" />
+          </div>
+        </div>
+      </motion.div>
+    </Link>
+  );
+}
+
+/* ── Peacock Feather SVG ── */
+function PeacockFeather() {
+  return (
+    <svg width="180" height="280" viewBox="0 0 180 280" className="opacity-80 drop-shadow-[0_0_20px_rgba(0,100,200,0.3)]">
+      {/* Main quill */}
+      <path d="M90 280 Q88 200 85 150 Q82 100 90 20" stroke="url(#featherGrad)" strokeWidth="2" fill="none" />
+      {/* Barbs */}
+      {Array.from({ length: 18 }).map((_, i) => {
+        const t = i / 17;
+        const y = 280 - t * 240;
+        const x = 85 + t * 5;
+        const spread = 12 + t * 55;
+        const curvature = 30 + t * 40;
+        return (
+          <g key={i}>
+            <path d={`M${x} ${y} Q${x - spread * 0.4} ${y - curvature * 0.5} ${x - spread} ${y - curvature}`} stroke={t > 0.5 ? "url(#barb1)" : "url(#barb2)"} strokeWidth={t > 0.6 ? "1.5" : "1"} fill="none" opacity={0.4 + t * 0.6} />
+            <path d={`M${x} ${y} Q${x + spread * 0.4} ${y - curvature * 0.5} ${x + spread} ${y - curvature}`} stroke={t > 0.5 ? "url(#barb1)" : "url(#barb3)"} strokeWidth={t > 0.6 ? "1.5" : "1"} fill="none" opacity={0.4 + t * 0.6} />
+          </g>
+        );
+      })}
+      {/* Eye */}
+      <ellipse cx="90" cy="34" rx="14" ry="20" fill="url(#eyeGrad)" opacity="0.9" />
+      <ellipse cx="90" cy="34" rx="9" ry="13" fill="#1a0a4a" />
+      <ellipse cx="90" cy="34" rx="5" ry="7" fill="#3d2080" />
+      <ellipse cx="90" cy="34" rx="2.5" ry="3.5" fill="#6040c0" />
+      <ellipse cx="88.5" cy="32.5" rx="1.2" ry="1.5" fill="rgba(255,255,255,0.5)" />
+      <defs>
+        <linearGradient id="featherGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#d4af37" />
+          <stop offset="100%" stopColor="#8B6914" />
+        </linearGradient>
+        <linearGradient id="barb1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1a8a6a" />
+          <stop offset="50%" stopColor="#2563eb" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+        <linearGradient id="barb2" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#065f46" />
+          <stop offset="100%" stopColor="#1d4ed8" />
+        </linearGradient>
+        <linearGradient id="barb3" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#1d4ed8" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+        <radialGradient id="eyeGrad">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="40%" stopColor="#2563eb" />
+          <stop offset="70%" stopColor="#1a5c3a" />
+          <stop offset="100%" stopColor="#d4af37" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+}
+
+/* ── Floor grid ── */
+function FloorGrid() {
+  return (
+    <div className="absolute bottom-0 left-0 right-0 h-48 overflow-hidden pointer-events-none">
+      <svg width="100%" height="100%" viewBox="0 0 800 200" preserveAspectRatio="none">
+        <defs>
+          <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(212,175,55,0.12)" strokeWidth="0.5" />
+          </pattern>
+          <linearGradient id="floorFade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="transparent" />
+            <stop offset="100%" stopColor="rgba(212,175,55,0.05)" />
+          </linearGradient>
+        </defs>
+        <rect width="800" height="200" fill="url(#grid)" />
+        <rect width="800" height="200" fill="url(#floorFade)" />
+      </svg>
+    </div>
+  );
+}
+
+/* ── Main Component ── */
 export function Home() {
-  const [expandedJ, setExpandedJ] = useState<number | null>(null);
-  const [tipIndex, setTipIndex] = useState(0);
-  const [activityIdx, setActivityIdx] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(() => setTipIndex(i => (i + 1) % legalTips.length), 6000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    const t = setInterval(() => setActivityIdx(i => (i + 1) % liveActivity.length), 4000);
-    return () => clearInterval(t);
-  }, []);
+  const mounted = true;
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 overflow-x-hidden">
-      {/* Ambient background */}
+    <div
+      className="min-h-screen flex flex-col overflow-x-hidden relative"
+      style={{ background: "radial-gradient(ellipse 120% 80% at 50% 0%, #0d1a3a 0%, #060e24 40%, #030a16 100%)" }}
+    >
+      {/* Ambient glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px]" />
-        <div className="absolute top-1/2 -left-40 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]" />
-        <div className="absolute bottom-0 right-1/3 w-[500px] h-[300px] rounded-full bg-emerald-500/4 blur-[120px]" />
-        <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-[#d4af37]/5 blur-[120px]" />
+        <div className="absolute top-1/2 left-0 w-[400px] h-[400px] rounded-full bg-blue-900/20 blur-[100px]" />
+        <div className="absolute top-1/2 right-0 w-[400px] h-[400px] rounded-full bg-indigo-900/15 blur-[100px]" />
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] rounded-full bg-[#d4af37]/8 blur-[80px]" />
+        {/* Fine dot grid overlay */}
+        <div className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: "radial-gradient(circle, #d4af37 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
       </div>
 
-      {/* Navbar */}
-      <nav className="fixed w-full z-50 top-0 border-b border-white/8 bg-background/70 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
+      {/* ── DHARMA CHAKRA + HEADER ── */}
+      <div className="relative z-10 flex flex-col items-center pt-10 pb-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.5, rotate: -30 }}
+          animate={mounted ? { opacity: 1, scale: 1, rotate: 0 } : {}}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="mb-6"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+          >
+            <DharmaChakra size={110} />
+          </motion.div>
+        </motion.div>
+
+        {/* Firm name */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={mounted ? { opacity: 1, y: 0 } : {}}
+          transition={{ delay: 0.4, duration: 0.7 }}
+          className="text-center px-6"
+        >
+          {/* RN monogram */}
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="relative">
-              <Scale className="w-8 h-8 text-primary" />
-              <div className="absolute inset-0 bg-primary/30 blur-xl rounded-full" />
-            </div>
-            <div>
-              <span className="font-serif font-bold text-xl text-white tracking-wide">Rishika Nagpal & Associates</span>
-              <div className="text-[10px] uppercase tracking-[0.25em] text-primary/80 font-semibold">Legal Connect App</div>
-            </div>
-          </motion.div>
-          {/* Live activity ticker */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activityIdx}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="hidden md:flex items-center gap-2 text-xs"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-              <span className={`${liveActivity[activityIdx].color} font-semibold`}>{liveActivity[activityIdx].text}</span>
-              <span className="text-white/25">{liveActivity[activityIdx].time}</span>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </nav>
-
-      <main className="pt-20 relative">
-        {/* Hero */}
-        <div className="max-w-6xl mx-auto px-6 pt-24 pb-16 text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-            <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-primary/10 border border-primary/25 text-primary mb-10 shadow-lg shadow-primary/10">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-[0.2em]">India's Premier Legal Connect Platform</span>
-            </div>
-            <h1 className="text-5xl sm:text-6xl lg:text-8xl font-serif font-bold tracking-tight text-white mb-6 leading-[1.05]">
-              Justice{" "}
-              <span className="relative inline-block">
-                <span className="text-primary">Within Reach.</span>
-                <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.6 }} className="absolute -bottom-2 left-0 right-0 h-[3px] bg-gradient-to-r from-primary/0 via-primary to-primary/0 rounded-full origin-left" />
-              </span>
-            </h1>
-            <p className="text-xl text-white/50 max-w-2xl mx-auto mb-12 leading-relaxed">
-              One platform for clients seeking justice, advocates managing practice, and interns building a career — powered by AI.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-              <Link href="/client">
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="flex items-center gap-2.5 bg-primary hover:bg-primary/90 text-background px-8 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-primary/30 transition-all">
-                  <Shield className="w-5 h-5" /> I Need Legal Help <ArrowRight className="w-5 h-5" />
-                </motion.button>
-              </Link>
-              <Link href="/advocate">
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="flex items-center gap-2.5 bg-white/10 hover:bg-white/15 text-white border border-white/20 px-8 py-4 rounded-2xl font-bold text-lg transition-all backdrop-blur-sm">
-                  <Gavel className="w-5 h-5" /> I'm an Advocate
-                </motion.button>
-              </Link>
-            </div>
-            <p className="text-white/25 text-xs">No sign-up required to explore</p>
-          </motion.div>
-        </div>
-
-        {/* Marquee */}
-        <div className="border-y border-white/8 bg-white/3 py-4 overflow-hidden mb-20">
-          <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} className="flex gap-10 whitespace-nowrap">
-            {[...marqueeItems, ...marqueeItems].map((item, i) => <span key={i} className="text-white/30 text-sm font-medium">{item}</span>)}
-          </motion.div>
-        </div>
-
-        {/* Stats */}
-        <div className="max-w-5xl mx-auto px-6 mb-28">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-            {stats.map((s, i) => (
-              <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 * i }} className="text-center">
-                <div className="text-4xl sm:text-5xl font-serif font-bold text-white mb-1"><CountUp to={s.value} /><span className="text-primary">{s.suffix}</span></div>
-                <div className="text-white/40 text-sm">{s.label}</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* Legal Tip of the Day */}
-        <div className="max-w-6xl mx-auto px-6 mb-20">
-          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="relative overflow-hidden bg-gradient-to-r from-primary/15 via-primary/8 to-transparent border border-primary/25 rounded-2xl p-6 flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <p className="text-primary text-xs font-bold uppercase tracking-widest mb-2">⚡ Legal Tip of the Day</p>
-              <AnimatePresence mode="wait">
-                <motion.p key={tipIndex} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="text-white/80 text-base leading-relaxed">
-                  {legalTips[tipIndex]}
-                </motion.p>
-              </AnimatePresence>
-            </div>
-            <div className="flex gap-1 flex-shrink-0 mt-1">
-              {legalTips.map((_, i) => (
-                <button key={i} onClick={() => setTipIndex(i)} className={`w-1.5 h-1.5 rounded-full transition-all ${i === tipIndex ? "bg-primary" : "bg-white/20"}`} />
-              ))}
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Portal Cards */}
-        <div className="max-w-6xl mx-auto px-6 mb-28">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-white mb-3">Choose Your Portal</h2>
-            <p className="text-white/40">Three portals, one powerful platform.</p>
-          </motion.div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {portals.map((portal, i) => (
-              <motion.div key={portal.role} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.15 * i }}>
-                <Link href={portal.href}>
-                  <motion.div whileHover={{ y: -8, transition: { duration: 0.2 } }} className={`group relative bg-card/40 backdrop-blur-xl border ${portal.border} hover:border-opacity-80 rounded-3xl p-8 cursor-pointer transition-colors duration-300 shadow-2xl ${portal.glow} flex flex-col h-full overflow-hidden`}>
-                    <div className={`absolute inset-0 bg-gradient-to-br ${portal.gradient} rounded-3xl opacity-60 group-hover:opacity-100 transition-opacity duration-300`} />
-                    <div className="relative z-10 flex flex-col h-full">
-                      <div className="flex items-start justify-between mb-6">
-                        <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                          <portal.icon className={`w-7 h-7 ${portal.accent}`} strokeWidth={1.5} />
-                        </div>
-                        <span className={`text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full border ${portal.badgeBg}`}>{portal.role}</span>
-                      </div>
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${portal.accent} mb-2 opacity-70`}>{portal.tagline}</p>
-                      <h2 className="text-2xl font-serif font-bold text-white mb-5">{portal.role} Portal</h2>
-                      <ul className="space-y-2.5 mb-8 flex-1">
-                        {portal.features.map((f) => (
-                          <li key={f} className="flex items-center gap-2.5 text-sm text-white/60">
-                            <CheckCircle className={`w-4 h-4 ${portal.accent} flex-shrink-0`} /> {f}
-                          </li>
-                        ))}
-                      </ul>
-                      <div className={`flex items-center gap-2 text-sm font-bold ${portal.accent} group-hover:gap-3 transition-all mt-auto`}>
-                        {portal.cta} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </div>
-                  </motion.div>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── JUDGEMENTS SECTION ── */}
-        <div className="max-w-6xl mx-auto px-6 mb-28">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="flex items-end justify-between mb-10">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                <span className="text-amber-400 text-xs font-bold uppercase tracking-widest">Live Updates</span>
+              <div className="text-5xl sm:text-6xl font-black tracking-tight leading-none"
+                style={{ background: "linear-gradient(135deg, #f5d078 0%, #d4af37 40%, #b8860b 70%, #f5d078 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif", textShadow: "none", filter: "drop-shadow(0 2px 8px rgba(212,175,55,0.4))" }}>
+                RN
               </div>
-              <h2 className="text-3xl sm:text-4xl font-serif font-bold text-white">Recent Judgements</h2>
-              <p className="text-white/40 mt-1">Landmark rulings from Indian courts — updated regularly.</p>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-white/30 text-sm">
-              <Bell className="w-4 h-4" /> 6 new this month
-            </div>
-          </motion.div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {judgements.map((j, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.07 * i }}
-                className="bg-card/40 border border-white/10 hover:border-white/20 rounded-2xl overflow-hidden transition-all cursor-pointer group"
-                onClick={() => setExpandedJ(expandedJ === i ? null : i)}
-              >
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${j.categoryColor}`}>{j.category}</span>
-                    <span className="text-white/25 text-xs flex-shrink-0">{j.date}</span>
-                  </div>
-                  <h3 className="text-white font-bold text-sm leading-snug mb-1 group-hover:text-primary transition-colors">{j.title}</h3>
-                  <p className="text-white/35 text-xs mb-3">{j.court} · {j.citation}</p>
-                  <p className="text-white/50 text-xs font-medium italic">{j.headnote}</p>
-                </div>
-
-                <AnimatePresence>
-                  {expandedJ === i && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="border-t border-white/8 bg-white/3 px-5 py-4"
-                    >
-                      <div className="text-white/30 text-[10px] font-semibold uppercase tracking-wider mb-2">Bench: {j.bench}</div>
-                      <p className="text-white/65 text-xs leading-relaxed">{j.summary}</p>
-                      <div className="flex gap-2 mt-4">
-                        <Link href="/client/ai-assistant">
-                          <button className="flex items-center gap-1.5 text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-all" onClick={e => e.stopPropagation()}>
-                            <Sparkles className="w-3 h-3" /> Ask AI about this
-                          </button>
-                        </Link>
-                        <Link href="/client/book">
-                          <button className="flex items-center gap-1.5 text-[10px] font-bold text-white/40 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all" onClick={e => e.stopPropagation()}>
-                            <Gavel className="w-3 h-3" /> Consult an Advocate
-                          </button>
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <div className={`px-5 py-2 flex items-center justify-between border-t border-white/5 bg-white/2 text-[10px] text-white/25`}>
-                  <span>{expandedJ === i ? "Click to collapse" : "Click to read summary"}</span>
-                  <ChevronRight className={`w-3 h-3 transition-transform ${expandedJ === i ? "rotate-90" : ""}`} />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Category filter strip */}
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="mt-8 flex flex-wrap gap-2 justify-center">
-            {["All", "Criminal", "Property", "Consumer", "Family", "Corporate", "Banking"].map(cat => (
-              <button key={cat} className="text-xs px-4 py-2 rounded-full border border-white/10 bg-white/5 text-white/40 hover:text-white hover:border-white/25 transition-all font-medium">
-                {cat}
-              </button>
-            ))}
-          </motion.div>
-        </div>
-
-        {/* Feature highlights */}
-        <div className="max-w-6xl mx-auto px-6 mb-28">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-white mb-3">Everything You Need</h2>
-            <p className="text-white/40">Built for every stakeholder in the legal system.</p>
-          </motion.div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-            {features.map((f, i) => (
-              <motion.div key={f.label} initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.08 * i }} whileHover={{ scale: 1.03 }} className="bg-card/30 border border-white/8 hover:border-white/20 rounded-2xl p-5 transition-all cursor-default">
-                <f.icon className="w-7 h-7 text-primary mb-3" strokeWidth={1.5} />
-                <h3 className="text-white font-bold mb-1">{f.label}</h3>
-                <p className="text-white/40 text-sm">{f.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA Banner */}
-        <div className="max-w-5xl mx-auto px-6 mb-20">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="relative overflow-hidden bg-gradient-to-r from-primary/20 via-primary/10 to-blue-500/10 border border-primary/30 rounded-3xl p-10 sm:p-14 text-center">
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-primary/10 blur-[80px] rounded-full" />
-            </div>
-            <div className="relative z-10">
-              <Scale className="w-10 h-10 text-primary mx-auto mb-5" strokeWidth={1.5} />
-              <h2 className="text-3xl sm:text-4xl font-serif font-bold text-white mb-3">Don't face legal issues alone.</h2>
-              <p className="text-white/50 mb-8 text-lg max-w-xl mx-auto">Connect with an experienced advocate from Rishika Nagpal & Associates in under 60 seconds.</p>
-              <Link href="/client/book">
-                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="inline-flex items-center gap-3 bg-primary hover:bg-primary/90 text-background px-10 py-4 rounded-2xl font-bold text-lg shadow-2xl shadow-primary/30 transition-all">
-                  <Gavel className="w-5 h-5" /> Book a Consultation <ArrowRight className="w-5 h-5" />
-                </motion.button>
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Footer */}
-        <footer className="border-t border-white/8 py-10">
-          <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-white/25 text-xs">
-            <div className="flex items-center gap-2">
-              <Scale className="w-4 h-4 text-primary/40" />
-              <span>Rishika Nagpal & Associates · New Delhi · Est. 2018</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <span>Delhi High Court</span>
-              <span>Supreme Court of India</span>
-              <span>Bar Council of Delhi</span>
+            <div className="h-12 w-px bg-gradient-to-b from-transparent via-[#d4af37]/40 to-transparent" />
+            <div className="text-left">
+              <div className="text-lg sm:text-2xl font-black tracking-wider leading-tight"
+                style={{ background: "linear-gradient(135deg, #f5d078, #d4af37, #b8860b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif" }}>
+                RISHIKA NAGPAL
+              </div>
+              <div className="text-lg sm:text-2xl font-black tracking-wider"
+                style={{ background: "linear-gradient(135deg, #f5d078, #d4af37)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif" }}>
+                & ASSOCIATES
+              </div>
             </div>
           </div>
-        </footer>
-      </main>
+          <div className="flex items-center gap-3 justify-center">
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#d4af37]/50" />
+            <p className="text-[#d4af37]/60 text-xs sm:text-sm tracking-[0.3em] uppercase font-semibold">Advocates & Consultants</p>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#d4af37]/50" />
+          </div>
+        </motion.div>
+      </div>
+
+      {/* ── MAIN CONTENT AREA ── */}
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-6 pb-8">
+        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 justify-center">
+
+          {/* Left: Phone mockup */}
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+            style={{ transform: "rotate(-4deg)" }}
+            className="flex-shrink-0"
+          >
+            <PhoneMockup />
+          </motion.div>
+
+          {/* Right: Portal cards + info */}
+          <div className="flex flex-col items-center w-full max-w-lg">
+
+            {/* Section label */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+              className="text-center mb-6"
+            >
+              <p className="text-[#d4af37]/60 text-xs tracking-[0.35em] uppercase font-semibold mb-2">Enter Your Portal</p>
+              <div className="flex items-center gap-3 justify-center">
+                <div className="h-px w-10 bg-gradient-to-r from-transparent to-[#d4af37]/40" />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#d4af37]/60" />
+                <div className="h-px w-10 bg-gradient-to-l from-transparent to-[#d4af37]/40" />
+              </div>
+            </motion.div>
+
+            {/* Portal grid — 3 cards */}
+            <div className="grid grid-cols-3 gap-4 w-full mb-8">
+              <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" delay={0.6} />
+              <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" delay={0.75} />
+              <PortalCard href="/intern" icon={BookOpen} label="Knowledge" subLabel="Base" delay={0.9} emoji="📚" />
+            </div>
+
+            {/* Dharma tagline */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.1, duration: 0.8 }}
+              className="text-center mb-6"
+            >
+              <div className="flex items-center gap-3 justify-center mb-2">
+                <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#d4af37]/30" />
+                <Star className="w-3 h-3 text-[#d4af37]/50" fill="currentColor" />
+                <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#d4af37]/30" />
+              </div>
+              <p className="text-[#d4af37]/50 text-xs tracking-[0.25em] uppercase font-medium">Dharmo Rakshati Rakshitah</p>
+              <p className="text-[#d4af37]/30 text-[10px] mt-1 tracking-widest">धर्मो रक्षति रक्षितः</p>
+            </motion.div>
+
+            {/* Quick links */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.3, duration: 0.6 }}
+              className="flex flex-wrap gap-x-5 gap-y-2 justify-center"
+            >
+              {[
+                { label: "Wellness Quiz", href: "/client/wellness" },
+                { label: "Know Your Rights", href: "/client/rights" },
+                { label: "Connect Advocate", href: "/client/connect" },
+              ].map(l => (
+                <Link key={l.href} href={l.href}>
+                  <button className="text-[#d4af37]/35 hover:text-[#d4af37]/70 text-[11px] tracking-wide transition-colors flex items-center gap-1 group">
+                    {l.label} <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                </Link>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* Peacock feather — hidden on smaller screens */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.8, duration: 1 }}
+            className="hidden xl:flex flex-shrink-0 self-end pb-4"
+          >
+            <PeacockFeather />
+          </motion.div>
+        </div>
+      </div>
+
+      {/* ── FLOOR ── */}
+      <FloorGrid />
+
+      {/* ── BOTTOM ATTRIBUTION ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={mounted ? { opacity: 1 } : {}}
+        transition={{ delay: 1.8, duration: 0.6 }}
+        className="relative z-10 text-center py-5 border-t border-[#d4af37]/10"
+      >
+        <p className="text-[#d4af37]/25 text-[10px] tracking-[0.3em] uppercase">
+          Subhash Nagar, New Delhi &nbsp;·&nbsp; Est. 2018 &nbsp;·&nbsp; Delhi High Court &amp; Supreme Court
+        </p>
+      </motion.div>
     </div>
   );
 }
