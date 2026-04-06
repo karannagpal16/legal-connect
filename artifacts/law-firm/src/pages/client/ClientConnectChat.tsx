@@ -41,28 +41,46 @@ const ADVOCATES: Advocate[] = [
     responseTime: "Responds in ~5 min", color: "from-amber-500 to-orange-500",
   },
   {
-    id: "adv-2", name: "Adv. Vikram Sharma", title: "Family Law Specialist", initials: "VS",
-    specialisations: ["Divorce", "Child Custody", "Matrimonial"],
-    experience: "9 years", fee: 2500, rating: 4.8, reviews: 94, available: true,
-    responseTime: "Responds in ~10 min", color: "from-blue-500 to-violet-500",
-  },
-  {
-    id: "adv-3", name: "Adv. Priya Mehrotra", title: "Corporate & Consumer", initials: "PM",
-    specialisations: ["Consumer Protection", "Corporate Law", "Contracts"],
-    experience: "11 years", fee: 3500, rating: 4.9, reviews: 121, available: false,
-    responseTime: "Available from 3 PM", color: "from-emerald-500 to-teal-500",
-  },
-  {
-    id: "adv-4", name: "Adv. Arjun Nair", title: "Labour & Employment", initials: "AN",
-    specialisations: ["Labour Law", "Employment Disputes", "Wrongful Termination"],
-    experience: "7 years", fee: 2000, rating: 4.7, reviews: 67, available: true,
-    responseTime: "Responds in ~15 min", color: "from-rose-500 to-pink-500",
-  },
-  {
-    id: "adv-5", name: "Adv. Sunita Joshi", title: "Civil & Property", initials: "SJ",
+    id: "adv-2", name: "Adv. Sunita Joshi", title: "Senior Advocate", initials: "SJ",
     specialisations: ["Civil Disputes", "Property Law", "Landlord-Tenant"],
     experience: "14 years", fee: 2800, rating: 4.9, reviews: 183, available: true,
     responseTime: "Responds in ~8 min", color: "from-cyan-500 to-blue-500",
+  },
+  {
+    id: "adv-3", name: "Adv. Priya Mehrotra", title: "Senior Advocate", initials: "PM",
+    specialisations: ["Consumer Protection", "Corporate Law", "Contracts"],
+    experience: "11 years", fee: 2500, rating: 4.9, reviews: 121, available: false,
+    responseTime: "Available from 3 PM", color: "from-emerald-500 to-teal-500",
+  },
+  {
+    id: "adv-4", name: "Adv. Arjun Mehta", title: "Advocate", initials: "AM",
+    specialisations: ["Family & Matrimonial", "Divorce", "Child Custody"],
+    experience: "8 years", fee: 2000, rating: 4.7, reviews: 94, available: true,
+    responseTime: "Responds in ~10 min", color: "from-blue-500 to-violet-500",
+  },
+  {
+    id: "adv-5", name: "Adv. Vikram Bose", title: "Advocate", initials: "VB",
+    specialisations: ["Tax Law", "Regulatory", "ITAT Matters"],
+    experience: "7 years", fee: 1500, rating: 4.6, reviews: 67, available: true,
+    responseTime: "Responds in ~15 min", color: "from-violet-500 to-purple-500",
+  },
+  {
+    id: "adv-6", name: "Adv. Neha Kapoor", title: "Associate Advocate", initials: "NK",
+    specialisations: ["Cyber Crime", "IT Law", "Online Fraud"],
+    experience: "4 years", fee: 1000, rating: 4.5, reviews: 45, available: true,
+    responseTime: "Responds in ~5 min", color: "from-rose-500 to-pink-500",
+  },
+  {
+    id: "adv-7", name: "Adv. Rahul Verma", title: "Junior Advocate", initials: "RV",
+    specialisations: ["Labour Law", "Employment Disputes", "PF/ESI"],
+    experience: "2 years", fee: 700, rating: 4.4, reviews: 28, available: true,
+    responseTime: "Responds in ~3 min", color: "from-teal-500 to-green-500",
+  },
+  {
+    id: "adv-8", name: "Adv. Ananya Singh", title: "Junior Advocate", initials: "AS",
+    specialisations: ["Consumer Disputes", "RTI", "Legal Research"],
+    experience: "1 year", fee: 500, rating: 4.3, reviews: 15, available: true,
+    responseTime: "Responds in ~2 min", color: "from-pink-500 to-fuchsia-500",
   },
 ];
 
