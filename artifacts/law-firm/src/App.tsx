@@ -53,6 +53,8 @@ import { InternBadges } from "@/pages/intern/InternBadges";
 import { InternLibrary } from "@/pages/intern/InternLibrary";
 import { InternDoubtPortal } from "@/pages/intern/InternDoubtPortal";
 import { InternAIAssistant } from "@/pages/intern/InternAIAssistant";
+import { AdvocateCaseTracker } from "@/pages/advocate/AdvocateCaseTracker";
+import { InternCaseTracker } from "@/pages/intern/InternCaseTracker";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -170,6 +172,9 @@ function Router() {
       <Route path="/advocate/judges">
         <AdvocateLayout><AdvocateJudges /></AdvocateLayout>
       </Route>
+      <Route path="/advocate/cases">
+        <AdvocateLayout><AdvocateCaseTracker /></AdvocateLayout>
+      </Route>
 
       {/* INTERN PORTAL */}
       <Route path="/intern">
@@ -195,6 +200,9 @@ function Router() {
       </Route>
       <Route path="/intern/library">
         <InternLayout><InternLibrary /></InternLayout>
+      </Route>
+      <Route path="/intern/cases">
+        <InternLayout><InternCaseTracker /></InternLayout>
       </Route>
 
       <Route component={NotFound} />

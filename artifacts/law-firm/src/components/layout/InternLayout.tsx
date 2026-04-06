@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Scale, Home, Target, Trophy, Library, BookMarked, Star, Menu, X, TrendingUp, MessageCircle, Sparkles } from "lucide-react";
+import { Scale, Home, Target, Trophy, Library, BookMarked, Star, Menu, X, TrendingUp, MessageCircle, Sparkles, FileSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,6 +10,7 @@ const navigation = [
   { name: "XP & Levels", href: "/intern/xp", icon: TrendingUp },
   { name: "Leaderboard", href: "/intern/leaderboard", icon: Trophy },
   { name: "Skill Badges", href: "/intern/badges", icon: Star },
+  { name: "Case Tracker", href: "/intern/cases", icon: FileSearch },
   { name: "Doubt Portal", href: "/intern/doubts", icon: MessageCircle },
   { name: "AI Assistant", href: "/intern/ai-assistant", icon: Sparkles },
   { name: "Legal Library", href: "/intern/library", icon: Library },

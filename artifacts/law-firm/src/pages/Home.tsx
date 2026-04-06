@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper } from "lucide-react";
+import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper, Landmark } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 
@@ -400,10 +400,11 @@ export function Home() {
               </div>
             </motion.div>
 
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-lg mx-auto w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto w-full">
               <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0} />
               <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" idx={1} />
               <PortalCard href="/intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2} />
+              <PortalCard href="/client/cases" icon={Landmark} label="eCourt" subLabel="Services" idx={3} />
             </div>
 
             <HeroTagline />
