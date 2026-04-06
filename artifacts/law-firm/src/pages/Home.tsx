@@ -1,255 +1,246 @@
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Star, ExternalLink, Newspaper, Radio } from "lucide-react";
+import { Scale, Gavel, BookOpen, ArrowRight, Newspaper, Radio, ExternalLink } from "lucide-react";
 
 /* ═══════════════════════════════════════════════
-   DHARMA CHAKRA — precise 24-spoke Ashoka wheel
+   DHARMA CHAKRA — ornate sun-wheel, embossed 3D
 ═══════════════════════════════════════════════ */
-function DharmaChakra({ size = 130 }: { size?: number }) {
-  const cx = 64, cy = 64, R = 60;
-  const spokeInner = 11, spokeOuter = 49;
-  const outerDotR = 56.5;
-
-  const spokes = Array.from({ length: 24 }, (_, i) => {
-    const a = ((i * 360) / 24 - 90) * (Math.PI / 180);
-    return {
-      x1: cx + spokeInner * Math.cos(a), y1: cy + spokeInner * Math.sin(a),
-      x2: cx + spokeOuter * Math.cos(a), y2: cy + spokeOuter * Math.sin(a),
-      major: i % 3 === 0,
-    };
-  });
-
-  const outerDots = Array.from({ length: 24 }, (_, i) => {
-    const a = ((i * 360) / 24 - 90) * (Math.PI / 180);
-    return { x: cx + outerDotR * Math.cos(a), y: cy + outerDotR * Math.sin(a), major: i % 3 === 0 };
-  });
-
+function DharmaChakra({ size = 160 }: { size?: number }) {
   return (
-    <svg
-      width={size} height={size} viewBox="0 0 128 128"
-      style={{ filter: "drop-shadow(0 0 18px rgba(212,175,55,0.7)) drop-shadow(0 0 6px rgba(245,208,120,0.5))" }}
-    >
-      <defs>
-        <radialGradient id="chakraBody" cx="40%" cy="35%" r="65%">
-          <stop offset="0%" stopColor="#fff8dc" />
-          <stop offset="25%" stopColor="#f5d078" />
-          <stop offset="55%" stopColor="#d4af37" />
-          <stop offset="80%" stopColor="#a07820" />
-          <stop offset="100%" stopColor="#6b4e10" />
-        </radialGradient>
-        <radialGradient id="hubGrad" cx="35%" cy="30%" r="70%">
-          <stop offset="0%" stopColor="#fffbe8" />
-          <stop offset="40%" stopColor="#f5d078" />
-          <stop offset="100%" stopColor="#8B6514" />
-        </radialGradient>
-        <linearGradient id="spokeFill" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f5d078" />
-          <stop offset="50%" stopColor="#d4af37" />
-          <stop offset="100%" stopColor="#a07820" />
-        </linearGradient>
-        <filter id="glow"><feGaussianBlur stdDeviation="0.8" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-      </defs>
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      {/* Outer warm glow halo */}
+      <div className="absolute rounded-full pointer-events-none"
+        style={{ inset: "-60%", background: "radial-gradient(ellipse, rgba(255,180,30,0.22) 0%, rgba(212,140,20,0.12) 35%, transparent 65%)" }} />
+      <div className="absolute rounded-full pointer-events-none"
+        style={{ inset: "-30%", background: "radial-gradient(ellipse, rgba(255,200,60,0.15) 0%, transparent 65%)" }} />
+      <svg width={size} height={size} viewBox="0 0 160 160">
+        <defs>
+          <radialGradient id="ckg" cx="38%" cy="32%" r="68%">
+            <stop offset="0%" stopColor="#fff8d0" />
+            <stop offset="20%" stopColor="#f5d470" />
+            <stop offset="50%" stopColor="#c9950a" />
+            <stop offset="80%" stopColor="#8B6200" />
+            <stop offset="100%" stopColor="#5a3e00" />
+          </radialGradient>
+          <radialGradient id="hubkg" cx="35%" cy="30%" r="72%">
+            <stop offset="0%" stopColor="#fff8dc" />
+            <stop offset="35%" stopColor="#f5d070" />
+            <stop offset="75%" stopColor="#9a7010" />
+            <stop offset="100%" stopColor="#5c3e00" />
+          </radialGradient>
+          <radialGradient id="sunkg" cx="40%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#fffbe0" />
+            <stop offset="30%" stopColor="#ffd84a" />
+            <stop offset="65%" stopColor="#d4900a" />
+            <stop offset="100%" stopColor="#7a5200" />
+          </radialGradient>
+          <filter id="chakraGlow">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <filter id="softGlow">
+            <feGaussianBlur stdDeviation="0.8" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
 
-      {/* Outer decorative thin ring */}
-      <circle cx={cx} cy={cy} r={R + 2} fill="none" stroke="url(#spokeFill)" strokeWidth="0.4" opacity="0.5" />
-      {/* Main outer rim */}
-      <circle cx={cx} cy={cy} r={R} fill="none" stroke="url(#chakraBody)" strokeWidth="4.5" />
-      {/* Inner rim edge line */}
-      <circle cx={cx} cy={cy} r={spokeOuter + 1.5} fill="none" stroke="url(#spokeFill)" strokeWidth="0.5" opacity="0.7" />
-      <circle cx={cx} cy={cy} r={spokeOuter - 0.5} fill="none" stroke="rgba(212,175,55,0.3)" strokeWidth="0.3" />
+        {/* ── Outer decorative halo ring ── */}
+        <circle cx="80" cy="80" r="77" fill="none" stroke="url(#ckg)" strokeWidth="0.5" opacity="0.4" />
 
-      {/* 24 spokes */}
-      {spokes.map((s, i) => (
-        <line
-          key={i}
-          x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
-          stroke={s.major ? "url(#chakraBody)" : "url(#spokeFill)"}
-          strokeWidth={s.major ? "1.6" : "0.8"}
-          strokeLinecap="round"
-          opacity={s.major ? 1 : 0.7}
-          filter={s.major ? "url(#glow)" : undefined}
-        />
-      ))}
+        {/* ── 16 outer flame-spokes radiating from beyond rim ── */}
+        {Array.from({ length: 16 }, (_, i) => {
+          const a = (i * 22.5 - 90) * (Math.PI / 180);
+          const inner = 67, outer = 78;
+          const x1 = 80 + inner * Math.cos(a), y1 = 80 + inner * Math.sin(a);
+          const x2 = 80 + outer * Math.cos(a), y2 = 80 + outer * Math.sin(a);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="url(#ckg)" strokeWidth={i % 2 === 0 ? "2" : "1"} strokeLinecap="round" opacity={i % 2 === 0 ? "0.9" : "0.5"} />;
+        })}
 
-      {/* 24 rim dots */}
-      {outerDots.map((d, i) => (
-        <circle key={i} cx={d.x} cy={d.y} r={d.major ? 1.8 : 0.9} fill="url(#chakraBody)" opacity={d.major ? 1 : 0.6} />
-      ))}
+        {/* ── Outer thick rim ── */}
+        <circle cx="80" cy="80" r="66" fill="none" stroke="url(#ckg)" strokeWidth="6" />
+        {/* ── Inner rim ring ── */}
+        <circle cx="80" cy="80" r="60" fill="none" stroke="url(#ckg)" strokeWidth="1.2" opacity="0.6" />
+        <circle cx="80" cy="80" r="58.5" fill="none" stroke="rgba(212,175,55,0.3)" strokeWidth="0.5" />
 
-      {/* Hub outer ring */}
-      <circle cx={cx} cy={cy} r={spokeInner + 1.5} fill="none" stroke="url(#chakraBody)" strokeWidth="1" opacity="0.6" />
-      {/* Hub fill */}
-      <circle cx={cx} cy={cy} r={spokeInner + 0.5} fill="url(#hubGrad)" />
-      {/* Hub dark center */}
-      <circle cx={cx} cy={cy} r={5.5} fill="#0a0f25" />
-      {/* Hub highlight dot */}
-      <circle cx={cx} cy={cy} r={2.5} fill="url(#hubGrad)" />
-      <circle cx={cx - 0.8} cy={cy - 0.8} r={1} fill="rgba(255,255,255,0.6)" />
-    </svg>
+        {/* ── 24 wheel spokes ── */}
+        {Array.from({ length: 24 }, (_, i) => {
+          const a = ((i * 15) - 90) * (Math.PI / 180);
+          const x1 = 80 + 14 * Math.cos(a), y1 = 80 + 14 * Math.sin(a);
+          const x2 = 80 + 59 * Math.cos(a), y2 = 80 + 59 * Math.sin(a);
+          const major = i % 3 === 0;
+          return (
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke="url(#ckg)" strokeWidth={major ? "2.2" : "1"}
+              strokeLinecap="round" opacity={major ? 1 : 0.65}
+              filter={major ? "url(#softGlow)" : undefined} />
+          );
+        })}
+
+        {/* ── 24 rim dots ── */}
+        {Array.from({ length: 24 }, (_, i) => {
+          const a = ((i * 15) - 90) * (Math.PI / 180);
+          const r = 63.5;
+          return <circle key={i} cx={80 + r * Math.cos(a)} cy={80 + r * Math.sin(a)} r={i % 3 === 0 ? 2.2 : 1.1} fill="url(#ckg)" opacity={i % 3 === 0 ? 1 : 0.55} />;
+        })}
+
+        {/* ── Sun-face center medallion ── */}
+        {/* 8 sun rays behind hub */}
+        {Array.from({ length: 8 }, (_, i) => {
+          const a = (i * 45 - 90) * (Math.PI / 180);
+          const x1 = 80 + 10 * Math.cos(a), y1 = 80 + 10 * Math.sin(a);
+          const x2 = 80 + 22 * Math.cos(a), y2 = 80 + 22 * Math.sin(a);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="url(#sunkg)" strokeWidth="3" strokeLinecap="round" opacity="0.85" />;
+        })}
+        {/* 8 diagonal smaller rays */}
+        {Array.from({ length: 8 }, (_, i) => {
+          const a = (i * 45 - 67.5) * (Math.PI / 180);
+          const x1 = 80 + 10 * Math.cos(a), y1 = 80 + 10 * Math.sin(a);
+          const x2 = 80 + 18 * Math.cos(a), y2 = 80 + 18 * Math.sin(a);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="url(#sunkg)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />;
+        })}
+
+        {/* Hub outer ring */}
+        <circle cx="80" cy="80" r="14" fill="url(#hubkg)" />
+        <circle cx="80" cy="80" r="10" fill="#0a0d22" />
+        {/* Hub inner gold disc */}
+        <circle cx="80" cy="80" r="7" fill="url(#sunkg)" />
+        {/* Face detail */}
+        <circle cx="80" cy="80" r="4" fill="#080b1e" />
+        <circle cx="80" cy="80" r="2" fill="url(#sunkg)" />
+        {/* Specular */}
+        <circle cx="78.5" cy="78.5" r="1" fill="rgba(255,255,255,0.65)" />
+      </svg>
+    </div>
   );
 }
 
 /* ═══════════════════════════════════════════════
-   SHLOKAS — rotating content for phone screen
+   ROTATING SHLOKAS
 ═══════════════════════════════════════════════ */
 const SHLOKAS = [
   {
     id: 1,
-    sanskrit: ["यदा यदा हि धर्मस्य", "ग्लानिर्भवति भारत ।", "अभ्युत्थानमधर्मस्य", "तदात्मानं सृजाम्यहम् ॥"],
+    lines: ["यदा यदा हि धर्मस्य", "ग्लानिर्भवति भारत ।", "अभ्युत्थानमधर्मस्य", "तदात्मानं सृजाम्यहम् ॥"],
     ref: "Bhagavad Gita · 4:7",
-    english: "Whenever righteousness declines and unrighteousness rises — I descend Myself.",
+    en: "Whenever righteousness declines and unrighteousness rises — I descend Myself.",
   },
   {
     id: 2,
-    sanskrit: ["परित्राणाय साधूनां", "विनाशाय च दुष्कृताम् ।", "धर्मसंस्थापनार्थाय", "सम्भवामि युगे युगे ॥"],
+    lines: ["परित्राणाय साधूनां", "विनाशाय च दुष्कृताम् ।", "धर्मसंस्थापनार्थाय", "सम्भवामि युगे युगे ॥"],
     ref: "Bhagavad Gita · 4:8",
-    english: "For protection of the good, destruction of the wicked, and establishment of Dharma — I manifest in every age.",
+    en: "For protection of the good, destruction of the wicked, and establishment of Dharma — I manifest in every age.",
   },
   {
     id: 3,
-    sanskrit: ["कर्मण्येवाधिकारस्ते", "मा फलेषु कदाचन ।", "मा कर्मफलहेतुर्भूः", "मा ते सङ्गोऽस्त्वकर्मणि ॥"],
+    lines: ["कर्मण्येवाधिकारस्ते", "मा फलेषु कदाचन ।", "मा कर्मफलहेतुर्भूः", "मा ते सङ्गोऽस्त्वकर्मणि ॥"],
     ref: "Bhagavad Gita · 2:47",
-    english: "You have a right to perform your duty, but never claim ownership of its fruits. Let not the fruits of action be your motive.",
+    en: "You have a right to perform your duty, but never to claim its fruits. Let not the fruits of action be your motive.",
   },
   {
     id: 4,
-    sanskrit: ["सत्यमेव जयते", "नानृतम् ।", "सत्येन पन्था", "विततो देवयानः ॥"],
+    lines: ["सत्यमेव जयते", "नानृतम् ।", "सत्येन पन्था विततो", "देवयानः ॥"],
     ref: "Mundaka Upanishad · 3:1:6",
-    english: "Truth alone triumphs, not falsehood. Through truth the divine path is spread out — the path by which the seers reach their goal.",
+    en: "Truth alone triumphs, not falsehood. Through truth the divine path is spread out.",
   },
   {
     id: 5,
-    sanskrit: ["धर्मो रक्षति", "रक्षितः ।", "धर्मं न रक्षन्तं", "नाशयते धर्मः ॥"],
+    lines: ["धर्मो रक्षति", "रक्षितः ।", "धर्मं न रक्षन्तं", "नाशयते धर्मः ॥"],
     ref: "Manusmriti · 8:15",
-    english: "Dharma protects those who protect it. Dharma destroys those who destroy it.",
+    en: "Dharma protects those who protect it. Dharma destroys those who destroy it.",
   },
 ];
 
 /* ═══════════════════════════════════════════════
-   PHONE MOCKUP with rotating shlokas
+   PHONE MOCKUP
 ═══════════════════════════════════════════════ */
 function PhoneMockup() {
   const [idx, setIdx] = useState(0);
-
   useEffect(() => {
     const t = setInterval(() => setIdx(p => (p + 1) % SHLOKAS.length), 4500);
     return () => clearInterval(t);
   }, []);
-
-  const shloka = SHLOKAS[idx];
-
+  const s = SHLOKAS[idx];
   return (
-    <div className="relative flex items-center justify-center">
-      {/* Ambient glow behind phone */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 70% 80% at 50% 60%, rgba(212,175,55,0.18) 0%, transparent 70%)", borderRadius: "40px", transform: "scale(1.15)" }} />
-
-      {/* Phone shell */}
-      <div
-        className="relative w-[210px] bg-gradient-to-b from-[#1c1c2e] via-[#0d1020] to-[#080c18] rounded-[38px]"
+    <div className="relative" style={{ width: 195 }}>
+      {/* Phone ambient glow */}
+      <div className="absolute pointer-events-none" style={{ inset: "-40px", background: "radial-gradient(ellipse 70% 80% at 50% 55%, rgba(212,175,55,0.14), transparent 70%)" }} />
+      {/* Shell */}
+      <div className="relative rounded-[36px] overflow-visible"
         style={{
-          boxShadow: "0 0 0 1.5px rgba(212,175,55,0.25), 0 0 0 5px #0d1020, 0 0 0 6px rgba(212,175,55,0.15), 0 40px 100px rgba(0,0,0,0.9)",
-        }}
-      >
-        {/* Side buttons */}
-        <div className="absolute -right-[3px] top-24 w-[3px] h-12 bg-gradient-to-b from-[#2a2a40] to-[#1a1a30] rounded-r-sm" />
-        <div className="absolute -left-[3px] top-20 w-[3px] h-8 bg-gradient-to-b from-[#2a2a40] to-[#1a1a30] rounded-l-sm" />
-        <div className="absolute -left-[3px] top-32 w-[3px] h-8 bg-gradient-to-b from-[#2a2a40] to-[#1a1a30] rounded-l-sm" />
+          width: 195, background: "linear-gradient(170deg,#1e1e32,#0c0e1e,#060810)",
+          boxShadow: "0 0 0 1.5px rgba(212,175,55,0.2), 0 0 0 5px #08091a, 0 0 0 6.5px rgba(212,175,55,0.12), 0 30px 90px rgba(0,0,0,0.95), 4px 0 16px rgba(0,0,0,0.6)",
+        }}>
+        {/* Power button */}
+        <div className="absolute -right-[3px] top-24 w-[3px] h-10 rounded-r" style={{ background: "linear-gradient(#2a2a42,#181828)" }} />
+        {/* Volume buttons */}
+        <div className="absolute -left-[3px] top-20 w-[3px] h-7 rounded-l" style={{ background: "linear-gradient(#2a2a42,#181828)" }} />
+        <div className="absolute -left-[3px] top-32 w-[3px] h-7 rounded-l" style={{ background: "linear-gradient(#2a2a42,#181828)" }} />
 
         {/* Notch */}
-        <div className="absolute top-[10px] left-1/2 -translate-x-1/2 w-[70px] h-[22px] bg-[#080c18] rounded-full z-20 flex items-center justify-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#1a1a30]" />
-          <div className="w-1 h-1 rounded-full bg-[#2a2a40]" />
+        <div className="absolute top-[10px] left-1/2 -translate-x-1/2 w-[68px] h-[22px] rounded-full z-20 flex items-center justify-center gap-2" style={{ background: "#060810" }}>
+          <div className="w-2 h-2 rounded-full" style={{ background: "#1a1a2e" }} />
+          <div className="w-1 h-1 rounded-full" style={{ background: "#252538" }} />
         </div>
 
-        {/* Screen glass */}
-        <div
-          className="mx-[7px] mt-[7px] mb-[7px] rounded-[31px] overflow-hidden flex flex-col"
-          style={{ minHeight: "440px", background: "linear-gradient(175deg, #060d22 0%, #030814 100%)" }}
-        >
+        {/* Screen */}
+        <div className="mx-[7px] mt-[7px] mb-[7px] rounded-[29px] overflow-hidden flex flex-col" style={{ minHeight: 430, background: "linear-gradient(175deg,#04081a 0%,#020510 100%)" }}>
           {/* Status bar */}
-          <div className="flex justify-between items-center px-6 pt-8 pb-0">
-            <span className="text-[8px] text-[#d4af37]/40 font-mono">9:41</span>
-            <span className="text-[7px] text-[#d4af37]/30">●●●</span>
+          <div className="flex justify-between px-5 pt-7 pb-0">
+            <span style={{ fontSize: 8, color: "rgba(212,175,55,0.4)", fontFamily: "monospace" }}>9:41</span>
+            <span style={{ fontSize: 7, color: "rgba(212,175,55,0.25)", letterSpacing: 2 }}>● ● ●</span>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 flex flex-col px-5 pt-3 pb-5">
-            {/* Badge */}
-            <div className="flex justify-center mb-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center"
-                style={{ background: "radial-gradient(circle, rgba(212,175,55,0.25), rgba(212,175,55,0.05))", border: "1px solid rgba(212,175,55,0.5)" }}>
-                <Scale className="w-4 h-4 text-[#d4af37]" />
+          {/* Screen content: scroll parchment style */}
+          <div className="flex-1 flex flex-col items-center px-4 pt-2 pb-4">
+            {/* Scroll top decoration */}
+            <div className="w-full flex flex-col items-center mb-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center mb-2"
+                style={{ background: "radial-gradient(circle, rgba(212,175,55,0.2), rgba(212,175,55,0.04))", border: "1px solid rgba(212,175,55,0.45)" }}>
+                <Scale style={{ width: 14, height: 14, color: "#d4af37" }} strokeWidth={1.5} />
               </div>
+              <p style={{ fontSize: 9, letterSpacing: "0.28em", color: "rgba(212,175,55,0.55)", fontWeight: 700, textTransform: "uppercase" }}>Legal Portal</p>
+              <p style={{ fontSize: 10, color: "rgba(245,208,120,0.8)", fontFamily: "Georgia, serif", fontWeight: 700, letterSpacing: 1 }}>Rishika Nagpal & Associates</p>
             </div>
 
-            {/* Title */}
-            <div className="text-center mb-3">
-              <p className="text-[9px] uppercase tracking-[0.28em] text-[#d4af37]/55 font-semibold">Legal Portal</p>
-              <p className="text-[10px] text-[#f5d078]/80 font-bold tracking-wide" style={{ fontFamily: "serif" }}>Rishika Nagpal & Associates</p>
-            </div>
-
-            {/* Gold divider */}
-            <div className="flex items-center gap-2 mb-4">
+            {/* Gold rule */}
+            <div className="w-full flex items-center gap-1.5 mb-3">
               <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.5))" }} />
-              <span className="text-[#d4af37]/50 text-[8px]">✦</span>
+              <span style={{ color: "rgba(212,175,55,0.5)", fontSize: 8 }}>✦</span>
               <div className="flex-1 h-px" style={{ background: "linear-gradient(to left, transparent, rgba(212,175,55,0.5))" }} />
             </div>
 
             {/* Rotating shloka */}
-            <div className="flex-1 flex flex-col justify-center">
+            <div className="flex-1 flex flex-col justify-center w-full">
               <AnimatePresence mode="wait">
-                <motion.div
-                  key={shloka.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.6 }}
-                  className="text-center"
-                >
-                  {/* Sanskrit lines */}
-                  <div className="mb-3 space-y-0.5">
-                    {shloka.sanskrit.map((line, li) => (
-                      <p key={li} className="text-[9.5px] leading-snug font-medium" style={{ color: "rgba(245,208,120,0.92)", fontFamily: "serif" }}>
-                        {line}
-                      </p>
+                <motion.div key={s.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.55 }} className="text-center">
+                  <div className="mb-2.5 space-y-0.5">
+                    {s.lines.map((l, i) => (
+                      <p key={i} style={{ fontSize: 9.5, color: "rgba(245,208,120,0.92)", fontFamily: "Georgia,serif", lineHeight: 1.5 }}>{l}</p>
                     ))}
                   </div>
-
-                  {/* Divider */}
-                  <div className="flex items-center gap-1.5 justify-center mb-3">
-                    <div className="h-px w-8" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.4))" }} />
-                    <div className="w-1 h-1 rounded-full bg-[#d4af37]/40" />
-                    <div className="h-px w-8" style={{ background: "linear-gradient(to left, transparent, rgba(212,175,55,0.4))" }} />
+                  <div className="flex items-center gap-1 justify-center my-2.5">
+                    <div className="h-px w-7" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.4))" }} />
+                    <div className="w-1 h-1 rounded-full" style={{ background: "rgba(212,175,55,0.4)" }} />
+                    <div className="h-px w-7" style={{ background: "linear-gradient(to left, transparent, rgba(212,175,55,0.4))" }} />
                   </div>
-
-                  {/* English */}
-                  <p className="text-[7.5px] leading-relaxed italic text-center px-1" style={{ color: "rgba(212,175,55,0.65)" }}>
-                    "{shloka.english}"
-                  </p>
-
-                  {/* Ref */}
-                  <p className="mt-2 text-[7px] tracking-widest uppercase" style={{ color: "rgba(212,175,55,0.38)" }}>
-                    — {shloka.ref} —
-                  </p>
+                  <p style={{ fontSize: 7.5, color: "rgba(212,175,55,0.62)", fontStyle: "italic", lineHeight: 1.5, padding: "0 4px" }}>"{s.en}"</p>
+                  <p style={{ fontSize: 7, color: "rgba(212,175,55,0.35)", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 6 }}>— {s.ref} —</p>
                 </motion.div>
               </AnimatePresence>
             </div>
 
-            {/* Dots indicator */}
-            <div className="flex justify-center gap-1 mt-3">
+            {/* Dot progress */}
+            <div className="flex justify-center gap-1 mt-2">
               {SHLOKAS.map((_, i) => (
-                <div key={i} className="rounded-full transition-all duration-300"
-                  style={{ width: i === idx ? "14px" : "4px", height: "4px", background: i === idx ? "rgba(212,175,55,0.8)" : "rgba(212,175,55,0.25)" }} />
+                <div key={i} className="rounded-full transition-all duration-300" style={{ width: i === idx ? 12 : 4, height: 4, background: i === idx ? "rgba(212,175,55,0.8)" : "rgba(212,175,55,0.22)" }} />
               ))}
             </div>
           </div>
         </div>
-
-        {/* Home indicator */}
+        {/* Home bar */}
         <div className="flex justify-center py-2.5">
-          <div className="w-20 h-[3px] rounded-full" style={{ background: "rgba(212,175,55,0.2)" }} />
+          <div className="w-20 h-[3px] rounded-full" style={{ background: "rgba(212,175,55,0.18)" }} />
         </div>
       </div>
     </div>
@@ -257,48 +248,44 @@ function PhoneMockup() {
 }
 
 /* ═══════════════════════════════════════════════
-   PORTAL CARD
+   PORTAL CARD — stone slab style
 ═══════════════════════════════════════════════ */
-interface PortalCardProps {
-  href: string;
-  icon: React.ElementType;
-  label: string;
-  subLabel?: string;
-  emoji?: string;
-  color?: string;
-}
-
-function PortalCard({ href, icon: Icon, label, subLabel, emoji, color = "#d4af37" }: PortalCardProps) {
+function PortalCard({ href, label, subLabel, icon: Icon, emoji }: { href: string; label: string; subLabel: string; icon?: React.ElementType; emoji?: string }) {
   return (
     <Link href={href}>
-      <motion.div
-        whileHover={{ y: -6, scale: 1.04 }}
-        whileTap={{ scale: 0.97 }}
-        className="group relative cursor-pointer"
-      >
-        <div className="absolute -inset-0.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-400 blur-sm"
-          style={{ background: `linear-gradient(135deg, ${color}40, ${color}10)` }} />
-        <div
-          className="relative rounded-2xl p-4 text-center"
+      <motion.div whileHover={{ y: -10, scale: 1.05 }} whileTap={{ scale: 0.96 }}
+        className="relative cursor-pointer group" style={{ width: 120 }}>
+        {/* Card glow on hover */}
+        <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-400 blur-lg pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(212,175,55,0.35), transparent 70%)" }} />
+        {/* Stone slab body */}
+        <div className="relative rounded-xl flex flex-col items-center"
           style={{
-            background: "linear-gradient(145deg, rgba(25,45,100,0.95) 0%, rgba(12,22,58,0.98) 100%)",
-            border: `1.5px solid rgba(212,175,55,0.50)`,
-            boxShadow: "0 6px 28px rgba(0,0,0,0.7), inset 0 1px 0 rgba(212,175,55,0.28), inset 0 0 20px rgba(212,175,55,0.04)",
-          }}
-        >
+            background: "linear-gradient(170deg, rgba(40,50,90,0.98) 0%, rgba(20,28,60,0.99) 50%, rgba(10,15,38,1) 100%)",
+            border: "1px solid rgba(212,175,55,0.45)",
+            boxShadow: "0 10px 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(212,175,55,0.3), inset 0 0 30px rgba(212,175,55,0.03), 0 0 0 0.5px rgba(212,175,55,0.1)",
+            padding: "18px 12px 14px",
+          }}>
           {/* Top shimmer */}
-          <div className="absolute top-0 inset-x-5 h-px rounded-full"
-            style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.6), transparent)" }} />
-          {/* Icon */}
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2.5 transition-transform duration-300 group-hover:scale-110"
-            style={{ background: "radial-gradient(circle, rgba(212,175,55,0.2), rgba(212,175,55,0.04))", border: "1px solid rgba(212,175,55,0.45)", boxShadow: "0 0 16px rgba(212,175,55,0.12)" }}>
-            {emoji ? <span className="text-lg">{emoji}</span> : <Icon className="w-5 h-5" style={{ color }} strokeWidth={1.5} />}
+          <div className="absolute top-0 inset-x-4 h-px rounded-full" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.7), transparent)" }} />
+          {/* Icon area — bronze medallion */}
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
+            style={{
+              background: "radial-gradient(circle at 38% 32%, rgba(212,175,55,0.35), rgba(140,100,10,0.15) 60%, rgba(80,55,5,0.1))",
+              border: "1.5px solid rgba(212,175,55,0.55)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(212,175,55,0.4), 0 0 20px rgba(212,175,55,0.12)",
+            }}>
+            {emoji ? (
+              <span style={{ fontSize: 22 }}>{emoji}</span>
+            ) : (
+              <Icon className="w-7 h-7" style={{ color: "#d4af37" }} strokeWidth={1.2} />
+            )}
           </div>
-          <p className="text-[11px] font-bold uppercase tracking-widest leading-tight" style={{ color: "#f5d078" }}>{label}</p>
-          {subLabel && <p className="text-[9px] mt-0.5 uppercase tracking-widest" style={{ color: "rgba(212,175,55,0.45)" }}>{subLabel}</p>}
-          <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-0.5 text-[9px]" style={{ color: "rgba(212,175,55,0.6)" }}>
-            Enter <ArrowRight className="w-2.5 h-2.5" />
-          </div>
+          {/* Label */}
+          <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f5d078", textAlign: "center", lineHeight: 1.3 }}>{label}</p>
+          <p style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(212,175,55,0.45)", textAlign: "center", marginTop: 2 }}>{subLabel}</p>
+          {/* Bottom shimmer */}
+          <div className="absolute bottom-0 inset-x-4 h-px rounded-full" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.3), transparent)" }} />
         </div>
       </motion.div>
     </Link>
@@ -306,96 +293,196 @@ function PortalCard({ href, icon: Icon, label, subLabel, emoji, color = "#d4af37
 }
 
 /* ═══════════════════════════════════════════════
-   LIVE LEGAL NEWS TABLE
+   REALISTIC PEACOCK FEATHER
 ═══════════════════════════════════════════════ */
-const LEGAL_NEWS = [
-  { tag: "SC", color: "#ef4444", headline: "Supreme Court upholds Right to Privacy as Fundamental Right in digital data case", date: "Apr 2026", court: "Supreme Court" },
-  { tag: "HC", color: "#f59e0b", headline: "Delhi HC directs expedited hearing for 2.3 lakh pending matrimonial cases under Fast Track scheme", date: "Apr 2026", court: "Delhi HC" },
-  { tag: "NEW", color: "#22c55e", headline: "Digital Personal Data Protection Rules 2025 notified — consent framework to go live June 2026", date: "Mar 2026", court: "MeitY" },
-  { tag: "SC", color: "#ef4444", headline: "SC: All High Courts must display cause lists 48 hrs in advance, opens portal for live order access", date: "Mar 2026", court: "Supreme Court" },
-  { tag: "LAW", color: "#8b5cf6", headline: "Bharatiya Nyaya Sanhita 2023 fully operative — IPC repealed across all 28 states", date: "Feb 2026", court: "MHA" },
-  { tag: "HC", color: "#f59e0b", headline: "Delhi HC: Builders must compensate flat buyers ₹50,000/month for delayed possession beyond 2 years", date: "Feb 2026", court: "Delhi HC" },
-  { tag: "NEW", color: "#22c55e", headline: "NDA launches 'Legal Aid Express' app for free legal consultations in 200 district HQs", date: "Jan 2026", court: "Dept of Justice" },
-  { tag: "SC", color: "#ef4444", headline: "SC: Accused can't be denied bail solely on media trial — orders guidelines for coverage of sub-judice matters", date: "Jan 2026", court: "Supreme Court" },
-  { tag: "LAW", color: "#8b5cf6", headline: "Consumer Protection Amendment 2025 — product liability expanded; 30-day return window mandatory", date: "Dec 2025", court: "MCA" },
-  { tag: "HC", color: "#f59e0b", headline: "Delhi HC strikes down arbitrary termination of contractual govt employees, awards 3-year back pay", date: "Dec 2025", court: "Delhi HC" },
+function PeacockFeather({ size = 1 }: { size?: number }) {
+  const w = 220 * size, h = 380 * size;
+  return (
+    <svg width={w} height={h} viewBox="0 0 220 380" style={{ filter: "drop-shadow(0 8px 30px rgba(0,80,180,0.35)) drop-shadow(0 0 15px rgba(0,150,100,0.2))" }}>
+      <defs>
+        <linearGradient id="pq" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#c9a227" /><stop offset="100%" stopColor="#6b4e0a" /></linearGradient>
+        <linearGradient id="pb1" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#064e3b" /><stop offset="35%" stopColor="#0d9488" /><stop offset="65%" stopColor="#2563eb" /><stop offset="100%" stopColor="#7c3aed" /></linearGradient>
+        <linearGradient id="pb2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#065f46" /><stop offset="50%" stopColor="#1e40af" /><stop offset="100%" stopColor="#6d28d9" /></linearGradient>
+        <linearGradient id="pb3" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#064e3b" /><stop offset="50%" stopColor="#1e3a8a" /><stop offset="100%" stopColor="#4c1d95" /></linearGradient>
+        <radialGradient id="eye1"><stop offset="0%" stopColor="#bfdbfe" /><stop offset="25%" stopColor="#60a5fa" /><stop offset="50%" stopColor="#1d4ed8" /><stop offset="72%" stopColor="#065f46" /><stop offset="90%" stopColor="#c9a227" /><stop offset="100%" stopColor="#78350f" /></radialGradient>
+        <radialGradient id="eye2"><stop offset="0%" stopColor="#93c5fd" /><stop offset="40%" stopColor="#1e40af" /><stop offset="100%" stopColor="#0d1a3a" /></radialGradient>
+      </defs>
+      {/* Quill */}
+      <path d="M110 380 Q107 300 104 230 Q100 160 108 50" stroke="url(#pq)" strokeWidth="2.5" fill="none" />
+      {/* 22 pairs of barbs */}
+      {Array.from({ length: 22 }).map((_, i) => {
+        const t = i / 21;
+        const y = 370 - t * 295;
+        const x = 104 + t * 4;
+        const sp = 14 + t * 80;
+        const cv = 25 + t * 55;
+        const w1 = t > 0.55 ? 1.8 : 1;
+        const op = 0.3 + t * 0.7;
+        return (
+          <g key={i}>
+            <path d={`M${x} ${y} Q${x - sp * 0.35} ${y - cv * 0.45} ${x - sp} ${y - cv}`}
+              stroke={t > 0.45 ? "url(#pb1)" : "url(#pb2)"} strokeWidth={w1} fill="none" opacity={op} />
+            <path d={`M${x} ${y} Q${x + sp * 0.35} ${y - cv * 0.45} ${x + sp} ${y - cv}`}
+              stroke={t > 0.45 ? "url(#pb1)" : "url(#pb3)"} strokeWidth={w1} fill="none" opacity={op} />
+            {/* Secondary fine barbs */}
+            {t > 0.3 && <>
+              <path d={`M${x - sp * 0.4} ${y - cv * 0.3} Q${x - sp * 0.65} ${y - cv * 0.55} ${x - sp * 0.85} ${y - cv * 0.75}`}
+                stroke="url(#pb2)" strokeWidth="0.5" fill="none" opacity={op * 0.5} />
+              <path d={`M${x + sp * 0.4} ${y - cv * 0.3} Q${x + sp * 0.65} ${y - cv * 0.55} ${x + sp * 0.85} ${y - cv * 0.75}`}
+                stroke="url(#pb1)" strokeWidth="0.5" fill="none" opacity={op * 0.5} />
+            </>}
+          </g>
+        );
+      })}
+      {/* Eye of the feather */}
+      <ellipse cx="108" cy="55" rx="20" ry="30" fill="url(#eye1)" opacity="0.95" />
+      <ellipse cx="108" cy="55" rx="14" ry="21" fill="#0a0f2e" />
+      <ellipse cx="108" cy="55" rx="9" ry="13" fill="url(#eye2)" />
+      <ellipse cx="108" cy="55" rx="5.5" ry="8" fill="#0d1740" />
+      <ellipse cx="108" cy="55" rx="3" ry="4.5" fill="#3730a3" />
+      <ellipse cx="108" cy="55" rx="1.5" ry="2" fill="#6d28d9" />
+      <ellipse cx="106.5" cy="53" rx="1.2" ry="1.7" fill="rgba(255,255,255,0.6)" />
+      {/* Iridescent sheen overlay on barbs */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const t = 0.5 + (i / 7) * 0.5;
+        const y = 370 - t * 295;
+        const x = 104 + t * 4;
+        const sp = 14 + t * 80;
+        const cv = 25 + t * 55;
+        return (
+          <g key={i} opacity="0.25">
+            <path d={`M${x} ${y} Q${x - sp * 0.5} ${y - cv * 0.5} ${x - sp * 0.95} ${y - cv * 0.92}`}
+              stroke="rgba(200,230,255,1)" strokeWidth="0.8" fill="none" />
+            <path d={`M${x} ${y} Q${x + sp * 0.5} ${y - cv * 0.5} ${x + sp * 0.95} ${y - cv * 0.92}`}
+              stroke="rgba(200,230,255,1)" strokeWidth="0.8" fill="none" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   FLOOR TILES — dark stone + gold grid
+═══════════════════════════════════════════════ */
+function FloorTiles() {
+  return (
+    <div className="absolute bottom-0 left-0 right-0 pointer-events-none overflow-hidden" style={{ height: 200 }}>
+      <svg width="100%" height="200" viewBox="0 0 1280 200" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="floorBg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(3,8,20,0)" />
+            <stop offset="40%" stopColor="rgba(5,10,28,0.7)" />
+            <stop offset="100%" stopColor="rgba(3,6,16,0.95)" />
+          </linearGradient>
+          <pattern id="tiles" width="100" height="100" patternUnits="userSpaceOnUse">
+            <rect width="100" height="100" fill="rgba(8,12,30,0.3)" />
+            <rect width="98" height="98" x="1" y="1" fill="none" stroke="rgba(212,175,55,0.18)" strokeWidth="0.5" />
+            <rect width="2" height="2" x="49" y="49" fill="rgba(212,175,55,0.1)" />
+          </pattern>
+          <linearGradient id="tilesFade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="transparent" />
+            <stop offset="100%" stopColor="rgba(212,175,55,0.04)" />
+          </linearGradient>
+          {/* Perspective transform for tiles */}
+          <linearGradient id="tilesTop" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(212,175,55,0)" />
+            <stop offset="100%" stopColor="rgba(212,175,55,0.06)" />
+          </linearGradient>
+        </defs>
+        <rect width="1280" height="200" fill="url(#floorBg)" />
+        <rect width="1280" height="200" fill="url(#tiles)" opacity="0.9" />
+        <rect width="1280" height="200" fill="url(#tilesTop)" />
+      </svg>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   MARBLE TABLE
+═══════════════════════════════════════════════ */
+function MarbleTable({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative flex flex-col items-center">
+      {children}
+      {/* Table surface */}
+      <div className="relative mt-4 w-full" style={{ height: 18 }}>
+        <div className="absolute inset-0 rounded-sm"
+          style={{
+            background: "linear-gradient(180deg, rgba(30,40,80,0.9) 0%, rgba(18,25,55,0.95) 40%, rgba(10,15,38,0.98) 100%)",
+            border: "1px solid rgba(212,175,55,0.4)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(212,175,55,0.35), inset 0 -1px 0 rgba(212,175,55,0.1)",
+          }} />
+        {/* Gold trim edge */}
+        <div className="absolute top-0 left-0 right-0 h-[1.5px] rounded-t-sm"
+          style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.7) 20%, rgba(212,175,55,0.9) 50%, rgba(212,175,55,0.7) 80%, transparent)" }} />
+      </div>
+      {/* Table leg suggestion */}
+      <div className="w-[92%] h-2 rounded-b"
+        style={{ background: "linear-gradient(180deg, rgba(15,20,50,0.9), rgba(8,12,30,0.95))", borderLeft: "1px solid rgba(212,175,55,0.2)", borderRight: "1px solid rgba(212,175,55,0.2)", borderBottom: "1px solid rgba(212,175,55,0.15)" }} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   LIVE LEGAL NEWS
+═══════════════════════════════════════════════ */
+const NEWS = [
+  { tag: "SC", c: "#ef4444", h: "Supreme Court upholds Right to Privacy as Fundamental Right in digital data case", src: "Supreme Court", d: "Apr 2026" },
+  { tag: "HC", c: "#f59e0b", h: "Delhi HC directs expedited hearing for 2.3 lakh pending matrimonial cases under Fast Track scheme", src: "Delhi HC", d: "Apr 2026" },
+  { tag: "LAW", c: "#22c55e", h: "Digital Personal Data Protection Rules 2025 notified — consent framework to go live June 2026", src: "MeitY", d: "Mar 2026" },
+  { tag: "SC", c: "#ef4444", h: "All High Courts must display cause lists 48 hrs in advance, opens portal for live order access", src: "Supreme Court", d: "Mar 2026" },
+  { tag: "NEW", c: "#8b5cf6", h: "Bharatiya Nyaya Sanhita 2023 fully operative — IPC repealed across all 28 states", src: "MHA", d: "Feb 2026" },
+  { tag: "HC", c: "#f59e0b", h: "Delhi HC: Builders must compensate flat buyers ₹50,000/month for delayed possession", src: "Delhi HC", d: "Feb 2026" },
+  { tag: "SC", c: "#ef4444", h: "Accused can't be denied bail solely on media trial — SC orders guidelines for coverage of sub-judice matters", src: "Supreme Court", d: "Jan 2026" },
+  { tag: "NEW", c: "#22c55e", h: "Consumer Protection Amendment 2025 — product liability expanded; 30-day return window mandatory", src: "MCA", d: "Dec 2025" },
 ];
 
-function LiveNewsTable() {
+function LiveNews() {
   const [active, setActive] = useState(0);
-
   useEffect(() => {
-    const t = setInterval(() => setActive(p => (p + 1) % LEGAL_NEWS.length), 3200);
+    const t = setInterval(() => setActive(p => (p + 1) % NEWS.length), 2800);
     return () => clearInterval(t);
   }, []);
-
   return (
-    <div
-      className="w-full rounded-2xl overflow-hidden"
-      style={{
-        background: "linear-gradient(170deg, rgba(15,28,65,0.98) 0%, rgba(8,16,42,0.99) 100%)",
-        border: "1.5px solid rgba(212,175,55,0.3)",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.2)",
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#d4af37]/15"
-        style={{ background: "linear-gradient(to right, rgba(212,175,55,0.08), rgba(212,175,55,0.03))" }}>
+    <div className="w-full rounded-2xl overflow-hidden"
+      style={{ background: "linear-gradient(170deg,rgba(12,22,55,0.98),rgba(6,12,36,0.99))", border: "1.5px solid rgba(212,175,55,0.28)", boxShadow: "0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(212,175,55,0.18)" }}>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4af37]/12"
+        style={{ background: "linear-gradient(to right,rgba(212,175,55,0.07),rgba(212,175,55,0.02))" }}>
         <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-        <Newspaper className="w-3.5 h-3.5 text-[#d4af37]/70" />
-        <span className="text-[10px] uppercase tracking-[0.25em] font-bold text-[#d4af37]/80">Live Legal Updates</span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <Radio className="w-3 h-3 text-[#d4af37]/40 animate-pulse" />
-          <span className="text-[8px] text-[#d4af37]/35 uppercase tracking-wider">India · 2026</span>
-        </div>
+        <Newspaper style={{ width: 12, height: 12, color: "rgba(212,175,55,0.7)" }} />
+        <span style={{ fontSize: 9, letterSpacing: "0.28em", fontWeight: 700, color: "rgba(212,175,55,0.75)", textTransform: "uppercase" }}>Live Legal Updates · India</span>
+        <Radio style={{ width: 10, height: 10, color: "rgba(212,175,55,0.35)", marginLeft: "auto" }} className="animate-pulse" />
       </div>
-
-      {/* News rows */}
-      <div className="divide-y divide-[#d4af37]/08">
-        {LEGAL_NEWS.map((item, i) => (
-          <motion.div
-            key={i}
-            animate={{ backgroundColor: i === active ? "rgba(212,175,55,0.06)" : "rgba(0,0,0,0)" }}
-            transition={{ duration: 0.4 }}
-            className="flex items-start gap-3 px-4 py-2.5 cursor-default"
-          >
-            {/* Tag badge */}
+      <div>
+        {NEWS.map((item, i) => (
+          <motion.div key={i}
+            animate={{ backgroundColor: i === active ? "rgba(212,175,55,0.055)" : "rgba(0,0,0,0)" }}
+            transition={{ duration: 0.35 }}
+            className="flex items-start gap-3 px-4 py-2 border-b border-[#d4af37]/06 last:border-0">
             <div className="flex-shrink-0 mt-0.5">
-              <span
-                className="text-[7.5px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider"
-                style={{ backgroundColor: `${item.color}18`, color: item.color, border: `1px solid ${item.color}40` }}
-              >
-                {item.tag}
-              </span>
+              <span style={{ fontSize: 7, fontWeight: 900, padding: "2px 5px", borderRadius: 3, textTransform: "uppercase", letterSpacing: "0.08em", backgroundColor: `${item.c}18`, color: item.c, border: `1px solid ${item.c}38` }}>{item.tag}</span>
             </div>
-            {/* Headline */}
             <div className="flex-1 min-w-0">
-              <p className={`text-[10px] leading-snug transition-colors duration-300 ${i === active ? "text-[#f5d078]" : "text-[#d4af37]/55"}`}>
-                {item.headline}
-              </p>
+              <p style={{ fontSize: 10, lineHeight: 1.45, color: i === active ? "#f5d078" : "rgba(212,175,55,0.5)", transition: "color 0.3s" }}>{item.h}</p>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[8px] text-[#d4af37]/30">{item.court}</span>
-                <span className="text-[#d4af37]/20">·</span>
-                <span className="text-[8px] text-[#d4af37]/25">{item.date}</span>
+                <span style={{ fontSize: 8, color: "rgba(212,175,55,0.28)" }}>{item.src}</span>
+                <span style={{ color: "rgba(212,175,55,0.18)" }}>·</span>
+                <span style={{ fontSize: 8, color: "rgba(212,175,55,0.22)" }}>{item.d}</span>
               </div>
             </div>
-            {/* Active indicator */}
-            {i === active && (
-              <div className="flex-shrink-0 mt-1.5">
-                <div className="w-1 h-1 rounded-full bg-[#d4af37]/60 animate-pulse" />
-              </div>
-            )}
+            {i === active && <div className="w-1 h-1 rounded-full mt-2 flex-shrink-0 animate-pulse" style={{ background: "rgba(212,175,55,0.6)" }} />}
           </motion.div>
         ))}
       </div>
-
-      {/* Footer */}
-      <div className="px-4 py-2.5 border-t border-[#d4af37]/10 flex items-center justify-between"
-        style={{ background: "rgba(212,175,55,0.02)" }}>
-        <p className="text-[8px] text-[#d4af37]/25 italic">Updates compiled from SC, Delhi HC & legislative records</p>
+      <div className="px-4 py-2 border-t border-[#d4af37]/08 flex items-center justify-between"
+        style={{ background: "rgba(212,175,55,0.015)" }}>
+        <p style={{ fontSize: 8, color: "rgba(212,175,55,0.2)", fontStyle: "italic" }}>SC · HC · Ministry records · 2025–26</p>
         <Link href="/client/rights">
-          <button className="text-[8px] text-[#d4af37]/40 hover:text-[#d4af37]/70 flex items-center gap-0.5 transition-colors">
-            Know your rights <ExternalLink className="w-2 h-2" />
+          <button className="flex items-center gap-0.5 transition-colors" style={{ fontSize: 8, color: "rgba(212,175,55,0.38)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "rgba(212,175,55,0.7)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "rgba(212,175,55,0.38)")}>
+            Know your rights <ExternalLink style={{ width: 8, height: 8 }} />
           </button>
         </Link>
       </div>
@@ -404,205 +491,150 @@ function LiveNewsTable() {
 }
 
 /* ═══════════════════════════════════════════════
-   PEACOCK FEATHER
-═══════════════════════════════════════════════ */
-function PeacockFeather() {
-  return (
-    <svg width="90" height="200" viewBox="0 0 90 200" className="opacity-75">
-      <defs>
-        <linearGradient id="pfq" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#d4af37" /><stop offset="100%" stopColor="#7a5c10" /></linearGradient>
-        <linearGradient id="pfb1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#059669" /><stop offset="50%" stopColor="#2563eb" /><stop offset="100%" stopColor="#7c3aed" /></linearGradient>
-        <linearGradient id="pfb2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#064e3b" /><stop offset="100%" stopColor="#1e40af" /></linearGradient>
-        <radialGradient id="pfe"><stop offset="0%" stopColor="#93c5fd" /><stop offset="35%" stopColor="#2563eb" /><stop offset="65%" stopColor="#065f46" /><stop offset="100%" stopColor="#d4af37" /></radialGradient>
-      </defs>
-      <path d="M45 200 Q43 155 41 120 Q39 80 45 15" stroke="url(#pfq)" strokeWidth="1.5" fill="none" />
-      {Array.from({ length: 14 }).map((_, i) => {
-        const t = i / 13, y = 200 - t * 170, x = 42 + t * 3, sp = 8 + t * 35, cv = 18 + t * 25;
-        return (
-          <g key={i}>
-            <path d={`M${x} ${y} Q${x - sp * 0.4} ${y - cv * 0.5} ${x - sp} ${y - cv}`} stroke={t > 0.5 ? "url(#pfb1)" : "url(#pfb2)"} strokeWidth={t > 0.6 ? "1.2" : "0.7"} fill="none" opacity={0.35 + t * 0.65} />
-            <path d={`M${x} ${y} Q${x + sp * 0.4} ${y - cv * 0.5} ${x + sp} ${y - cv}`} stroke="url(#pfb1)" strokeWidth={t > 0.6 ? "1.2" : "0.7"} fill="none" opacity={0.35 + t * 0.65} />
-          </g>
-        );
-      })}
-      <ellipse cx="45" cy="22" rx="10" ry="14" fill="url(#pfe)" opacity="0.9" />
-      <ellipse cx="45" cy="22" rx="6" ry="9" fill="#0f0a30" />
-      <ellipse cx="45" cy="22" rx="3.5" ry="5" fill="#3730a3" />
-      <ellipse cx="45" cy="22" rx="1.8" ry="2.5" fill="#6d28d9" />
-      <ellipse cx="44" cy="21" rx="0.8" ry="1.1" fill="rgba(255,255,255,0.55)" />
-    </svg>
-  );
-}
-
-/* ═══════════════════════════════════════════════
    HOME PAGE
 ═══════════════════════════════════════════════ */
 export function Home() {
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden relative"
-      style={{ background: "radial-gradient(ellipse 140% 90% at 50% -10%, #0d1f45 0%, #050d28 45%, #020810 100%)" }}>
+    <div className="min-h-screen flex flex-col relative overflow-hidden select-none"
+      style={{ background: "radial-gradient(ellipse 160% 100% at 50% -5%, #0e1d48 0%, #060d28 35%, #030818 70%, #010510 100%)" }}>
 
-      {/* ── Background atmosphere ── */}
+      {/* ── Atmosphere layers ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full" style={{ width: "900px", height: "350px", background: "radial-gradient(ellipse, rgba(212,175,55,0.07) 0%, transparent 70%)" }} />
-        <div className="absolute top-1/3 left-0 rounded-full" style={{ width: "500px", height: "500px", background: "radial-gradient(ellipse, rgba(30,60,140,0.18) 0%, transparent 70%)" }} />
-        <div className="absolute top-1/3 right-0 rounded-full" style={{ width: "450px", height: "450px", background: "radial-gradient(ellipse, rgba(60,30,120,0.14) 0%, transparent 70%)" }} />
-        {/* Subtle dot matrix */}
-        <div className="absolute inset-0 opacity-[0.025]"
-          style={{ backgroundImage: "radial-gradient(circle, rgba(212,175,55,1) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
-        {/* Gold floor glow */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none"
-          style={{ background: "linear-gradient(to top, rgba(212,175,55,0.04), transparent)" }} />
+        {/* Wall texture — subtle noise grain */}
+        <div className="absolute inset-0 opacity-[0.018]"
+          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat" }} />
+        {/* Spot light top center */}
+        <div className="absolute" style={{ top: "-10%", left: "50%", transform: "translateX(-50%)", width: 700, height: 500, background: "radial-gradient(ellipse, rgba(255,190,50,0.1) 0%, rgba(200,140,20,0.06) 30%, transparent 65%)", borderRadius: "50%" }} />
+        {/* Left blue ambient */}
+        <div className="absolute" style={{ top: "30%", left: "-5%", width: 500, height: 600, background: "radial-gradient(ellipse, rgba(20,60,160,0.14), transparent 70%)" }} />
+        {/* Right violet ambient */}
+        <div className="absolute" style={{ top: "30%", right: "-5%", width: 450, height: 550, background: "radial-gradient(ellipse, rgba(60,20,140,0.10), transparent 70%)" }} />
+        {/* Bottom gold shimmer */}
+        <div className="absolute bottom-0 left-0 right-0" style={{ height: 250, background: "linear-gradient(to top, rgba(212,175,55,0.05), transparent)" }} />
       </div>
 
-      {/* ── HEADER: Chakra + Firm Name ── */}
+      {/* ── SECTION 1: Header (Chakra + Logo) ── */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="relative z-10 flex flex-col items-center pt-8 pb-5"
+        transition={{ duration: 0.75 }}
+        className="relative z-10 flex flex-col items-center pt-6 pb-4"
       >
-        {/* Chakra with rotation */}
-        <div className="mb-5 relative">
-          <div className="absolute inset-0 rounded-full" style={{ background: "radial-gradient(circle, rgba(212,175,55,0.15), transparent 60%)", transform: "scale(1.8)" }} />
-          <motion.div animate={{ rotate: 360 }} transition={{ duration: 60, repeat: Infinity, ease: "linear" }}>
-            <DharmaChakra size={120} />
-          </motion.div>
-        </div>
+        {/* Dharma Chakra */}
+        <motion.div className="mb-4" animate={{ rotate: 360 }} transition={{ duration: 70, repeat: Infinity, ease: "linear" }}>
+          <DharmaChakra size={148} />
+        </motion.div>
 
-        {/* RN + Name */}
-        <div className="flex items-center gap-4 mb-2">
-          <span className="font-black leading-none tracking-tight"
-            style={{ fontSize: "clamp(2.5rem, 6vw, 4rem)", fontFamily: "Georgia, serif", background: "linear-gradient(135deg, #ffe680 0%, #f5d078 20%, #d4af37 50%, #a07820 75%, #f5d078 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", filter: "drop-shadow(0 2px 12px rgba(212,175,55,0.35))" }}>
-            RN
-          </span>
-          <div className="h-14 w-px" style={{ background: "linear-gradient(to bottom, transparent, rgba(212,175,55,0.5), transparent)" }} />
-          <div>
-            <div className="font-black tracking-widest leading-tight"
-              style={{ fontSize: "clamp(0.95rem, 2.5vw, 1.6rem)", fontFamily: "Georgia, serif", background: "linear-gradient(120deg, #f5e070, #d4af37, #b8860b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              RISHIKA NAGPAL
+        {/* RN Logo + Firm Name */}
+        <div className="flex items-start gap-3 mb-1.5 px-4">
+          <div className="relative flex-shrink-0">
+            {/* Peacock feather accent above RN */}
+            <div className="absolute -top-4 left-0 text-lg leading-none" style={{ filter: "drop-shadow(0 0 4px rgba(0,180,120,0.6))" }}>🪶</div>
+            <span style={{ fontSize: "clamp(2.8rem,7vw,4.2rem)", fontFamily: "Georgia,serif", fontWeight: 900, lineHeight: 1, background: "linear-gradient(145deg,#fff8c0 0%,#f5d070 18%,#d4af37 45%,#a07818 72%,#f0cc55 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", filter: "drop-shadow(0 3px 14px rgba(212,175,55,0.4))" }}>
+              RN
+            </span>
+          </div>
+          <div className="pt-1">
+            <div style={{ fontFamily: "Georgia,serif", fontWeight: 900, fontSize: "clamp(1rem,2.8vw,1.75rem)", letterSpacing: "0.08em", lineHeight: 1.15, background: "linear-gradient(120deg,#f5e070,#d4af37,#c09020,#f0cc50)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              RISHIKA NAGPAL &
             </div>
-            <div className="font-black tracking-widest"
-              style={{ fontSize: "clamp(0.95rem, 2.5vw, 1.6rem)", fontFamily: "Georgia, serif", background: "linear-gradient(120deg, #d4af37, #a07820)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              & ASSOCIATES
+            <div style={{ fontFamily: "Georgia,serif", fontWeight: 900, fontSize: "clamp(1rem,2.8vw,1.75rem)", letterSpacing: "0.08em", lineHeight: 1.15, background: "linear-gradient(120deg,#d4af37,#b8900a,#d4af37)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              ASSOCIATES
+            </div>
+            <div style={{ fontSize: "clamp(0.6rem,1.5vw,0.85rem)", letterSpacing: "0.32em", color: "rgba(212,175,55,0.55)", fontWeight: 600, textTransform: "uppercase", marginTop: 2 }}>
+              Advocates & Consultants
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="h-px w-16" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.5))" }} />
-          <span className="text-[11px] tracking-[0.35em] uppercase font-semibold" style={{ color: "rgba(212,175,55,0.55)" }}>Advocates & Consultants</span>
-          <div className="h-px w-16" style={{ background: "linear-gradient(to left, transparent, rgba(212,175,55,0.5))" }} />
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 mt-1">
+          <div className="h-px w-20" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.45))" }} />
+          <div className="w-1 h-1 rounded-full" style={{ background: "rgba(212,175,55,0.5)" }} />
+          <div className="h-px w-20" style={{ background: "linear-gradient(to left, transparent, rgba(212,175,55,0.45))" }} />
         </div>
       </motion.div>
 
-      {/* ── MAIN AREA ── */}
-      <div className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 pb-6">
-        <div className="flex flex-col lg:flex-row items-start gap-8 lg:gap-10 justify-center">
+      {/* ── SECTION 2: Phone + Table + Cards ── */}
+      <div className="relative z-10 flex-1 w-full max-w-5xl mx-auto px-4 pb-4">
+        {/* Grid: [phone] [cards+news] [feather] */}
+        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 120px", alignItems: "start", gap: "1.5rem" }}>
 
-          {/* ─ LEFT: Phone ─ */}
+          {/* ── Col 1: Phone ── */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2, duration: 0.7 }}
-            className="flex-shrink-0 self-center lg:self-start lg:mt-4"
-            style={{ transform: "perspective(800px) rotateY(4deg) rotateZ(-3deg)" }}
+            style={{ transform: "perspective(900px) rotateY(5deg) rotateZ(-2deg)", marginBottom: 24, flexShrink: 0 }}
           >
             <PhoneMockup />
           </motion.div>
 
-          {/* ─ RIGHT: Portals + News ─ */}
-          <div className="flex-1 flex flex-col gap-5 min-w-0">
+          {/* ── Col 2: Cards + News ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: 0 }}>
 
-            {/* Portal header */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35, duration: 0.5 }}
-              className="text-center"
-            >
-              <p className="text-[10px] uppercase tracking-[0.38em] font-bold mb-1.5" style={{ color: "rgba(212,175,55,0.6)" }}>Enter Your Portal</p>
-              <div className="flex items-center gap-3 justify-center">
-                <div className="h-px w-10" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.4))" }} />
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: "rgba(212,175,55,0.6)" }} />
-                <div className="h-px w-10" style={{ background: "linear-gradient(to left, transparent, rgba(212,175,55,0.4))" }} />
+            {/* Portal cards on marble table */}
+            <div>
+              <div className="text-center mb-3">
+                <p style={{ fontSize: 9, letterSpacing: "0.38em", fontWeight: 700, color: "rgba(212,175,55,0.55)", textTransform: "uppercase" }}>Enter Your Portal</p>
               </div>
-            </motion.div>
+              <MarbleTable>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem", justifyContent: "center", padding: "0 8px" }}>
+                  <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" />
+                  <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" />
+                  <PortalCard href="/intern" icon={BookOpen} label="Knowledge" subLabel="Base" />
+                </div>
+              </MarbleTable>
+            </div>
 
-            {/* Portal cards */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45, duration: 0.5 }}
-              className="grid grid-cols-3 gap-3"
-            >
-              <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" color="#f59e0b" />
-              <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" color="#60a5fa" />
-              <PortalCard href="/intern" icon={BookOpen} label="Intern" subLabel="Knowledge" emoji="📚" color="#a78bfa" />
-            </motion.div>
-
-            {/* Quick links row */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6, duration: 0.5 }}
-              className="flex flex-wrap gap-x-4 gap-y-1.5 justify-center"
-            >
+            {/* Quick links */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0 1rem", justifyContent: "center" }}>
               {[
-                { label: "Wellness Quiz", href: "/client/wellness" },
-                { label: "Know Your Rights", href: "/client/rights" },
-                { label: "Connect Advocate", href: "/client/connect" },
-                { label: "Case Tracker", href: "/client/cases" },
-              ].map(l => (
-                <Link key={l.href} href={l.href}>
-                  <button className="group text-[10px] tracking-wide transition-colors flex items-center gap-0.5" style={{ color: "rgba(212,175,55,0.35)" }}
+                { l: "Wellness Quiz", h: "/client/wellness" },
+                { l: "Know Your Rights", h: "/client/rights" },
+                { l: "Connect Advocate", h: "/client/connect" },
+                { l: "Case Tracker", h: "/client/cases" },
+              ].map(item => (
+                <Link key={item.h} href={item.h}>
+                  <button style={{ fontSize: 10, color: "rgba(212,175,55,0.32)", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 2, transition: "color 0.2s", background: "none", border: "none", cursor: "pointer" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "rgba(212,175,55,0.7)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(212,175,55,0.35)")}>
-                    {l.label} <ChevronRight className="w-2.5 h-2.5" />
+                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(212,175,55,0.32)")}>
+                    {item.l} <ArrowRight style={{ width: 10, height: 10 }} />
                   </button>
                 </Link>
               ))}
-            </motion.div>
+            </div>
 
-            {/* Tagline */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="flex items-center gap-3 justify-center"
-            >
-              <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(212,175,55,0.2))" }} />
-              <Star className="w-2.5 h-2.5" style={{ color: "rgba(212,175,55,0.4)" }} fill="rgba(212,175,55,0.4)" />
-              <span className="text-[9px] uppercase tracking-[0.28em] font-medium" style={{ color: "rgba(212,175,55,0.38)" }}>धर्मो रक्षति रक्षितः</span>
-              <Star className="w-2.5 h-2.5" style={{ color: "rgba(212,175,55,0.4)" }} fill="rgba(212,175,55,0.4)" />
-              <div className="h-px flex-1" style={{ background: "linear-gradient(to left, transparent, rgba(212,175,55,0.2))" }} />
-            </motion.div>
+            {/* Dharma tagline */}
+            <p style={{ textAlign: "center", fontSize: 9, letterSpacing: "0.25em", color: "rgba(212,175,55,0.3)", textTransform: "uppercase", margin: 0 }}>
+              ✦ &nbsp; धर्मो रक्षति रक्षितः &nbsp; ✦
+            </p>
 
-            {/* ─ Live News Table ─ */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.6 }}
-            >
-              <LiveNewsTable />
-            </motion.div>
+            {/* Live news */}
+            <div>
+              <LiveNews />
+            </div>
           </div>
 
-          {/* ─ Peacock (xl only) ─ */}
+          {/* ── Col 3: Peacock feather ── */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6, duration: 0.8 }}
-            className="hidden xl:flex flex-shrink-0 self-end pb-2"
+            transition={{ delay: 0.5, duration: 1.0 }}
+            style={{ flexShrink: 0, alignSelf: "flex-end", marginBottom: -8 }}
           >
-            <PeacockFeather />
+            <PeacockFeather size={0.82} />
           </motion.div>
         </div>
       </div>
 
-      {/* ── FOOTER ── */}
-      <div className="relative z-10 text-center py-4 border-t" style={{ borderColor: "rgba(212,175,55,0.08)" }}>
-        <p className="text-[9px] uppercase tracking-[0.3em]" style={{ color: "rgba(212,175,55,0.22)" }}>
-          Subhash Nagar, New Delhi &nbsp;·&nbsp; Est. 2018 &nbsp;·&nbsp; Delhi High Court & Supreme Court
+      {/* ── Floor tiles ── */}
+      <FloorTiles />
+
+      {/* ── Footer ── */}
+      <div className="relative z-10 text-center py-3 border-t" style={{ borderColor: "rgba(212,175,55,0.07)" }}>
+        <p style={{ fontSize: 9, letterSpacing: "0.28em", color: "rgba(212,175,55,0.2)", textTransform: "uppercase" }}>
+          Subhash Nagar, New Delhi · Est. 2018 · Delhi High Court & Supreme Court
         </p>
       </div>
     </div>
