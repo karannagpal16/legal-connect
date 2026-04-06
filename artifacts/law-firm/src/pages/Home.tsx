@@ -1,27 +1,6 @@
 import { Link } from "wouter";
 import { Scale, Shield, Gavel, BookMarked, ArrowRight, Star, Users, CheckCircle, Zap, MessageCircle, FileText, BookOpen } from "lucide-react";
-import { motion, useInView } from "framer-motion";
-import { useRef, useEffect, useState } from "react";
-
-function CountUp({ to, duration = 1.5 }: { to: number; duration?: number }) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-
-  useEffect(() => {
-    if (!inView) return;
-    let start = 0;
-    const step = to / (duration * 60);
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= to) { setVal(to); clearInterval(timer); }
-      else setVal(Math.floor(start));
-    }, 1000 / 60);
-    return () => clearInterval(timer);
-  }, [inView, to, duration]);
-
-  return <span ref={ref}>{val.toLocaleString()}</span>;
-}
+import { motion } from "framer-motion";
 
 const marqueeItems = [
   "⚖️  Delhi High Court",
@@ -79,13 +58,6 @@ const portals = [
     cta: "Enter Intern Portal",
     tagline: "Level up your legal career.",
   },
-];
-
-const stats = [
-  { label: "Cases Handled", value: 2400, suffix: "+" },
-  { label: "Advocates", value: 48, suffix: "" },
-  { label: "Happy Clients", value: 1800, suffix: "+" },
-  { label: "Years of Practice", value: 8, suffix: "" },
 ];
 
 const features = [
@@ -216,28 +188,6 @@ export function Home() {
               <span key={i} className="text-white/30 text-sm font-medium">{item}</span>
             ))}
           </motion.div>
-        </div>
-
-        {/* Stats Strip */}
-        <div className="max-w-5xl mx-auto px-6 mb-28">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-            {stats.map((s, i) => (
-              <motion.div
-                key={s.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 * i }}
-                className="text-center"
-              >
-                <div className="text-4xl sm:text-5xl font-serif font-bold text-white mb-1">
-                  <CountUp to={s.value} />
-                  <span className="text-primary">{s.suffix}</span>
-                </div>
-                <div className="text-white/40 text-sm">{s.label}</div>
-              </motion.div>
-            ))}
-          </div>
         </div>
 
         {/* Portal Cards */}
