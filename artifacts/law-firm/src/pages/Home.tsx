@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { motion, AnimatePresence, useInView } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
 
 const quotes = [
   {
@@ -56,6 +56,33 @@ const legalNews = [
   { tag: "SC", tagColor: "#ef4444", title: "SC expands Legal Aid to include free online consultations for below poverty line citizens", source: "Supreme Court", date: "Jan 2026" },
   { tag: "LAW", tagColor: "#22c55e", title: "Mediation Act 2023 rules notified — mandatory pre-litigation mediation for commercial disputes", source: "Law Ministry", date: "Jan 2026" },
 ];
+
+const stats = [
+  { label: "Cases Handled", value: 2400, suffix: "+" },
+  { label: "Advocates", value: 48, suffix: "" },
+  { label: "Happy Clients", value: 1800, suffix: "+" },
+  { label: "Years of Practice", value: 8, suffix: "" },
+];
+
+function CountUp({ to, duration = 1.5 }: { to: number; duration?: number }) {
+  const [val, setVal] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+
+  useEffect(() => {
+    if (!inView) return;
+    let start = 0;
+    const step = to / (duration * 60);
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= to) { setVal(to); clearInterval(timer); }
+      else setVal(Math.floor(start));
+    }, 1000 / 60);
+    return () => clearInterval(timer);
+  }, [inView, to, duration]);
+
+  return <span ref={ref}>{val.toLocaleString()}</span>;
+}
 
 function DharmaChakra({ size = 120 }: { size?: number }) {
   const r = size / 2;
@@ -332,6 +359,27 @@ export function Home() {
           <div className="hidden lg:flex self-end pb-2">
             <PeacockFeather size={0.75} />
           </div>
+        </div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pb-10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          {stats.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 * i }}
+              className="text-center"
+            >
+              <div className="text-3xl sm:text-4xl font-serif font-bold text-white mb-1">
+                <CountUp to={s.value} />
+                <span className="text-[#d4af37]">{s.suffix}</span>
+              </div>
+              <div className="text-white/35 text-xs uppercase tracking-widest">{s.label}</div>
+            </motion.div>
+          ))}
         </div>
       </div>
 
