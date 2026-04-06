@@ -293,13 +293,17 @@ export function ClientBookAdvocate() {
                             onClick={() => handleBook(advocate, "video")}
                             className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg hover:shadow-blue-500/30 flex-1 justify-center"
                           >
-                            <Video className="w-4 h-4" /> Video Call
+                            <Video className="w-4 h-4" />
+                            <span>Video</span>
+                            <span className="text-white/60 text-[10px] font-semibold">₹{advocate.fee.toLocaleString("en-IN")}/hr</span>
                           </button>
                           <button
                             onClick={() => handleBook(advocate, "audio")}
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-3 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 justify-center border border-white/10"
                           >
-                            <Phone className="w-4 h-4" /> Audio Call
+                            <Phone className="w-4 h-4" />
+                            <span>Audio</span>
+                            <span className="text-white/40 text-[10px] font-semibold">₹{advocate.fee.toLocaleString("en-IN")}/hr</span>
                           </button>
                           <button
                             onClick={() => toggleChat(advocate.id)}
