@@ -1,7 +1,7 @@
 import { Link } from "wouter";
-import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper } from "lucide-react";
+import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper, Shield, Users, Award, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 const quotes = [
   {
@@ -57,6 +57,42 @@ const legalNews = [
   { tag: "LAW", tagColor: "#22c55e", title: "Mediation Act 2023 rules notified — mandatory pre-litigation mediation for commercial disputes", source: "Law Ministry", date: "Jan 2026", img: "/news/news-8.png" },
 ];
 
+const marqueeItems = [
+  "Delhi High Court", "Supreme Court of India", "Family Law", "Criminal Defence", "Corporate Law",
+  "Civil Litigation", "Property Disputes", "Cyber Crime", "Constitutional Law", "Mediation & Arbitration",
+];
+
+function GoldParticles() {
+  const particles = useMemo(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      size: 1 + Math.random() * 3,
+      delay: Math.random() * 12,
+      duration: 8 + Math.random() * 10,
+      opacity: 0.15 + Math.random() * 0.35,
+    })), []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-[1]">
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.left}%`,
+            bottom: "-10px",
+            width: p.size,
+            height: p.size,
+            background: `radial-gradient(circle, #d4af37 0%, transparent 70%)`,
+            opacity: p.opacity,
+            animation: `float-up ${p.duration}s ${p.delay}s ease-out infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function DharmaChakra({ size = 120 }: { size?: number }) {
   const r = size / 2;
@@ -68,7 +104,7 @@ function DharmaChakra({ size = 120 }: { size?: number }) {
   const spokeStart = r * 0.17;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="animate-glow-pulse">
       <defs>
         <radialGradient id="ckGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#d4af37" stopOpacity="0.6" />
@@ -104,18 +140,26 @@ function DharmaChakra({ size = 120 }: { size?: number }) {
   );
 }
 
-function PortalCard({ href, icon: Icon, label, subLabel }: { href: string; icon: React.ElementType; label: string; subLabel: string }) {
+function PortalCard({ href, icon: Icon, label, subLabel, idx }: { href: string; icon: React.ElementType; label: string; subLabel: string; idx: number }) {
   return (
     <Link href={href}>
-      <motion.div whileHover={{ y: -6, scale: 1.03 }} whileTap={{ scale: 0.97 }} className="group relative cursor-pointer">
-        <div className="absolute -inset-1 bg-gradient-to-b from-[#d4af37]/25 to-transparent rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <div className="relative rounded-2xl p-5 text-center transition-all duration-300" style={{ background: "linear-gradient(160deg, rgba(30,55,110,0.92) 0%, rgba(15,28,70,0.96) 100%)", border: "1.5px solid rgba(212,175,55,0.5)", boxShadow: "0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.3)" }}>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 + idx * 0.15, duration: 0.6 }}
+        whileHover={{ y: -8, scale: 1.04 }}
+        whileTap={{ scale: 0.97 }}
+        className="group relative cursor-pointer"
+      >
+        <div className="absolute -inset-1 bg-gradient-to-b from-[#d4af37]/30 to-transparent rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="relative rounded-2xl p-5 text-center transition-all duration-300 overflow-hidden" style={{ background: "linear-gradient(160deg, rgba(30,55,110,0.92) 0%, rgba(15,28,70,0.96) 100%)", border: "1.5px solid rgba(212,175,55,0.5)", boxShadow: "0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.3)" }}>
+          <div className="absolute inset-0 animate-shimmer pointer-events-none" />
           <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#d4af37]/50 to-transparent" />
-          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform" style={{ background: "radial-gradient(circle, rgba(212,175,55,0.2) 0%, rgba(184,134,11,0.06) 100%)", border: "1px solid rgba(212,175,55,0.35)" }}>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-300" style={{ background: "radial-gradient(circle, rgba(212,175,55,0.2) 0%, rgba(184,134,11,0.06) 100%)", border: "1px solid rgba(212,175,55,0.35)" }}>
             <Icon className="w-6 h-6 text-[#d4af37]" strokeWidth={1.5} />
           </div>
-          <p className="text-[#f5d078] font-bold text-sm uppercase tracking-widest">{label}</p>
-          <p className="text-[#d4af37]/45 text-[10px] mt-0.5 uppercase tracking-widest">{subLabel}</p>
+          <p className="text-[#f5d078] font-bold text-sm uppercase tracking-widest relative z-10">{label}</p>
+          <p className="text-[#d4af37]/45 text-[10px] mt-0.5 uppercase tracking-widest relative z-10">{subLabel}</p>
           <div className="mt-2 flex items-center justify-center gap-1 text-[#d4af37]/40 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
             Enter <ArrowRight className="w-3 h-3" />
           </div>
@@ -133,8 +177,13 @@ function QuotesBox() {
   }, []);
   const q = quotes[idx];
   return (
-    <div className="relative w-full max-w-sm mx-auto">
-      <div className="absolute -inset-2 bg-gradient-to-b from-[#d4af37]/15 to-transparent rounded-3xl blur-2xl pointer-events-none" />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.8, duration: 0.6 }}
+      className="relative w-full max-w-sm mx-auto"
+    >
+      <div className="absolute -inset-3 bg-gradient-to-b from-[#d4af37]/10 via-[#d4af37]/5 to-transparent rounded-3xl blur-2xl pointer-events-none" />
       <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(180deg, rgba(6,14,36,0.95) 0%, rgba(3,10,26,0.98) 100%)", border: "1.5px solid rgba(212,175,55,0.3)", boxShadow: "0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.2)" }}>
         <div className="px-6 pt-5 pb-2 flex items-center justify-center gap-2">
           <div className="w-6 h-6 rounded-full border border-[#d4af37]/50 flex items-center justify-center bg-[#d4af37]/10">
@@ -167,11 +216,11 @@ function QuotesBox() {
         </div>
         <div className="flex justify-center gap-1.5 pb-4 pt-2">
           {quotes.map((_, i) => (
-            <button key={i} onClick={() => setIdx(i)} className="w-1.5 h-1.5 rounded-full transition-all duration-300" style={{ background: i === idx ? "#d4af37" : "rgba(212,175,55,0.2)" }} />
+            <button key={i} onClick={() => setIdx(i)} className="w-1.5 h-1.5 rounded-full transition-all duration-300" style={{ background: i === idx ? "#d4af37" : "rgba(212,175,55,0.2)", boxShadow: i === idx ? "0 0 6px rgba(212,175,55,0.5)" : "none" }} />
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -183,7 +232,13 @@ function LiveNewsPanel() {
   }, []);
   const item = legalNews[active];
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.7 }}
+      className="w-full max-w-5xl mx-auto"
+    >
       <div className="flex items-center gap-2 mb-5">
         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
         <Newspaper className="w-4 h-4 text-[#d4af37]/70" />
@@ -191,35 +246,40 @@ function LiveNewsPanel() {
         <div className="flex-1 h-px bg-gradient-to-r from-[#d4af37]/20 to-transparent" />
       </div>
 
-      <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(6,14,36,0.85)", border: "1px solid rgba(212,175,55,0.15)" }}>
+      <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(6,14,36,0.85)", border: "1px solid rgba(212,175,55,0.15)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
         <div className="relative w-full aspect-[16/7] overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.img
               key={active}
               src={item.img}
               alt={item.title}
-              className="absolute inset-0 w-full h-full object-cover"
-              initial={{ opacity: 0, scale: 1.08 }}
+              className="absolute inset-0 w-full h-full object-cover animate-ken-burns"
+              initial={{ opacity: 0, scale: 1.05 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.97 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.8 }}
             />
           </AnimatePresence>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#060e24] via-[#060e24]/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#060e24] via-[#060e24]/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#060e24]/40 to-transparent" />
           <AnimatePresence mode="wait">
             <motion.div
               key={active}
               className="absolute bottom-0 left-0 right-0 p-5 sm:p-7"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.6, delay: 0.15 }}
             >
-              <span className="inline-block text-[10px] font-bold px-2.5 py-1 rounded text-white mb-3" style={{ background: item.tagColor }}>{item.tag}</span>
-              <h3 className="text-white text-base sm:text-lg font-semibold leading-snug mb-2">{item.title}</h3>
-              <p className="text-white/40 text-xs">{item.source} · {item.date}</p>
+              <span className="inline-block text-[10px] font-bold px-2.5 py-1 rounded text-white mb-3 shadow-lg" style={{ background: item.tagColor }}>{item.tag}</span>
+              <h3 className="text-white text-base sm:text-xl font-bold leading-snug mb-2 drop-shadow-lg">{item.title}</h3>
+              <p className="text-white/45 text-xs">{item.source} · {item.date}</p>
             </motion.div>
           </AnimatePresence>
+          <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-white/60 text-[9px] uppercase tracking-wider font-bold">Live</span>
+          </div>
         </div>
 
         <div className="flex gap-1.5 px-5 py-3 overflow-x-auto scrollbar-hide">
@@ -227,16 +287,70 @@ function LiveNewsPanel() {
             <button
               key={i}
               onClick={() => setActive(i)}
-              className="relative flex-shrink-0 w-14 h-10 sm:w-20 sm:h-14 rounded-lg overflow-hidden transition-all duration-300"
-              style={{ border: i === active ? "2px solid #d4af37" : "2px solid transparent", opacity: i === active ? 1 : 0.45 }}
+              className="relative flex-shrink-0 w-14 h-10 sm:w-20 sm:h-14 rounded-lg overflow-hidden transition-all duration-300 group/thumb"
+              style={{ border: i === active ? "2px solid #d4af37" : "2px solid transparent", opacity: i === active ? 1 : 0.4, boxShadow: i === active ? "0 0 12px rgba(212,175,55,0.3)" : "none" }}
             >
-              <img src={n.img} alt="" className="w-full h-full object-cover" />
+              <img src={n.img} alt="" className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300" />
               {i === active && <div className="absolute inset-0 bg-[#d4af37]/10" />}
             </button>
           ))}
         </div>
       </div>
+    </motion.div>
+  );
+}
+
+function Marquee() {
+  return (
+    <div className="relative overflow-hidden py-3">
+      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#060e24] to-transparent z-10" />
+      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#060e24] to-transparent z-10" />
+      <div className="flex animate-marquee whitespace-nowrap">
+        {[...marqueeItems, ...marqueeItems].map((item, i) => (
+          <span key={i} className="mx-6 text-[#d4af37]/25 text-[10px] uppercase tracking-[0.3em] font-semibold flex items-center gap-3">
+            {item}
+            <span className="text-[#d4af37]/15">◆</span>
+          </span>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function StatsStrip() {
+  const stats = [
+    { icon: Shield, label: "Cases Won", value: "2400+" },
+    { icon: Users, label: "Active Advocates", value: "48" },
+    { icon: Award, label: "Happy Clients", value: "1800+" },
+    { icon: Clock, label: "Years of Practice", value: "8" },
+  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.8 }}
+      className="w-full max-w-4xl mx-auto"
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {stats.map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.1, duration: 0.5 }}
+            className="relative text-center py-4 px-3 rounded-xl group"
+            style={{ background: "rgba(212,175,55,0.03)", border: "1px solid rgba(212,175,55,0.08)" }}
+          >
+            <div className="absolute inset-0 rounded-xl animate-shimmer pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
+            <s.icon className="w-5 h-5 text-[#d4af37]/50 mx-auto mb-2" strokeWidth={1.5} />
+            <div className="text-2xl sm:text-3xl font-serif font-bold text-white mb-0.5">{s.value}</div>
+            <div className="text-white/30 text-[10px] uppercase tracking-widest">{s.label}</div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
   );
 }
 
@@ -292,6 +406,8 @@ function FloorTiles() {
 export function Home() {
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden relative" style={{ background: "radial-gradient(ellipse 120% 80% at 50% 0%, #0d1a3a 0%, #060e24 40%, #030a16 100%)" }}>
+      <GoldParticles />
+
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-[#d4af37]/5 blur-[120px]" />
         <div className="absolute top-1/2 left-0 w-[400px] h-[400px] rounded-full bg-blue-900/20 blur-[100px]" />
@@ -299,57 +415,88 @@ export function Home() {
         <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "radial-gradient(circle, #d4af37 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center pt-8 pb-4">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 45, repeat: Infinity, ease: "linear" }}>
-          <DharmaChakra size={100} />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1 }}
+        className="relative z-10 flex flex-col items-center pt-8 pb-4"
+      >
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1, rotate: 360 }}
+          transition={{ scale: { duration: 0.8, ease: "easeOut" }, opacity: { duration: 0.8 }, rotate: { duration: 45, repeat: Infinity, ease: "linear" } }}
+        >
+          <DharmaChakra size={110} />
         </motion.div>
 
-        <div className="text-center px-6 mt-4">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.7 }}
+          className="text-center px-6 mt-4"
+        >
           <div className="flex items-center justify-center gap-3 mb-2">
-            <span className="text-4xl sm:text-5xl font-black tracking-tight leading-none" style={{ background: "linear-gradient(135deg, #f5d078 0%, #d4af37 40%, #b8860b 70%, #f5d078 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif", filter: "drop-shadow(0 2px 8px rgba(212,175,55,0.4))" }}>
+            <span className="text-5xl sm:text-6xl font-black tracking-tight leading-none" style={{ background: "linear-gradient(135deg, #f5d078 0%, #d4af37 40%, #b8860b 70%, #f5d078 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif", filter: "drop-shadow(0 2px 12px rgba(212,175,55,0.5))" }}>
               RN
             </span>
-            <div className="h-10 w-px bg-gradient-to-b from-transparent via-[#d4af37]/40 to-transparent" />
+            <div className="h-12 w-px bg-gradient-to-b from-transparent via-[#d4af37]/50 to-transparent" />
             <div className="text-left">
-              <div className="text-base sm:text-xl font-black tracking-wider leading-tight" style={{ background: "linear-gradient(135deg, #f5d078, #d4af37, #b8860b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif" }}>
+              <div className="text-lg sm:text-2xl font-black tracking-wider leading-tight" style={{ background: "linear-gradient(135deg, #f5d078, #d4af37, #b8860b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif" }}>
                 RISHIKA NAGPAL &<br />ASSOCIATES
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 justify-center">
-            <div className="h-px w-10 bg-gradient-to-r from-transparent to-[#d4af37]/50" />
+          <div className="flex items-center gap-3 justify-center mt-1">
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#d4af37]/50" />
             <p className="text-[#d4af37]/55 text-[10px] sm:text-xs tracking-[0.3em] uppercase font-semibold">Advocates & Consultants</p>
-            <div className="h-px w-10 bg-gradient-to-l from-transparent to-[#d4af37]/50" />
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#d4af37]/50" />
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pb-6">
+      <Marquee />
+
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pb-6 pt-2">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 items-start">
           <div className="flex flex-col gap-6">
-            <div className="text-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="text-center"
+            >
               <p className="text-[#d4af37]/50 text-[10px] tracking-[0.35em] uppercase font-semibold mb-3">Enter Your Portal</p>
               <div className="flex items-center gap-3 justify-center mb-4">
                 <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#d4af37]/40" />
                 <div className="w-1.5 h-1.5 rounded-full bg-[#d4af37]/50" />
                 <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#d4af37]/40" />
               </div>
-            </div>
+            </motion.div>
 
             <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-lg mx-auto w-full">
-              <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" />
-              <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" />
-              <PortalCard href="/intern" icon={BookOpen} label="Knowledge" subLabel="Base" />
+              <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0} />
+              <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" idx={1} />
+              <PortalCard href="/intern" icon={BookOpen} label="Knowledge" subLabel="Base" idx={2} />
             </div>
 
             <QuotesBox />
 
-            <div className="text-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1, duration: 0.5 }}
+              className="text-center"
+            >
               <p className="text-[#d4af37]/40 text-[10px] tracking-[0.2em] uppercase">धर्मो रक्षति रक्षितः</p>
               <p className="text-[#d4af37]/25 text-[9px] mt-0.5 tracking-widest">Dharmo Rakshati Rakshitah</p>
-            </div>
+            </motion.div>
 
-            <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.1, duration: 0.5 }}
+              className="flex flex-wrap gap-x-4 gap-y-1 justify-center"
+            >
               {[
                 { label: "Wellness Quiz", href: "/client/wellness" },
                 { label: "Know Your Rights", href: "/client/rights" },
@@ -362,7 +509,7 @@ export function Home() {
                   </button>
                 </Link>
               ))}
-            </div>
+            </motion.div>
           </div>
 
           <div className="hidden lg:flex self-end pb-2">
@@ -371,16 +518,25 @@ export function Home() {
         </div>
       </div>
 
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pb-6">
+        <StatsStrip />
+      </div>
+
       <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pb-8">
         <LiveNewsPanel />
       </div>
 
       <FloorTiles />
 
-      <div className="relative z-10 text-center py-4 border-t border-[#d4af37]/10">
-        <p className="text-[#d4af37]/20 text-[10px] tracking-[0.3em] uppercase">
+      <div className="relative z-10 text-center py-5 border-t border-[#d4af37]/10">
+        <motion.p
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="text-[#d4af37]/25 text-[10px] tracking-[0.3em] uppercase"
+        >
           Subhash Nagar, New Delhi · Est. 2018 · Delhi High Court & Supreme Court
-        </p>
+        </motion.p>
       </div>
     </div>
   );
