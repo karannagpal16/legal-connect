@@ -3,48 +3,6 @@ import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper } from "luc
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 
-const quotes = [
-  {
-    sanskrit: "यदा यदा हि धर्मस्य ग्लानिर्भवति भारत ।\nअभ्युत्थानमधर्मस्य तदात्मानं सृजाम्यहम् ॥",
-    english: "Whenever righteousness declines and unrighteousness rises — I descend Myself.",
-    source: "Bhagavad Gita 4:7",
-  },
-  {
-    sanskrit: "परित्राणाय साधूनां विनाशाय च दुष्कृताम् ।\nधर्मसंस्थापनार्थाय सम्भवामि युगे युगे ॥",
-    english: "For the protection of the good, destruction of the wicked, and establishment of Dharma — I manifest in every age.",
-    source: "Bhagavad Gita 4:8",
-  },
-  {
-    sanskrit: "कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।\nमा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि ॥",
-    english: "You have a right to perform your duty, but never to its fruits. Let not the fruit of action be your motive.",
-    source: "Bhagavad Gita 2:47",
-  },
-  {
-    sanskrit: "यतो धर्मस्ततो जयः",
-    english: "Where there is Dharma, there is victory.",
-    source: "Mahabharata",
-  },
-  {
-    sanskrit: "अहिंसा परमो धर्मः धर्म हिंसा तथैव च ।",
-    english: "Non-violence is the highest Dharma, and so is righteous defence of justice.",
-    source: "Mahabharata, Adi Parva",
-  },
-  {
-    sanskrit: "सत्यमेव जयते नानृतं सत्येन पन्था विततो देवयानः",
-    english: "Truth alone triumphs, not falsehood. Through truth, the divine path is spread out.",
-    source: "Mundaka Upanishad 3:1:6",
-  },
-  {
-    sanskrit: "धर्म एव हतो हन्ति धर्मो रक्षति रक्षितः ।",
-    english: "Dharma destroys those who destroy it; Dharma protects those who protect it.",
-    source: "Manusmriti 8:15",
-  },
-  {
-    sanskrit: "न जातु कामान्न भयान्न लोभाद् धर्मं त्यजेज्जीवितस्यापि हेतोः ।",
-    english: "One should never abandon Dharma out of desire, fear, or greed — not even for the sake of one's life.",
-    source: "Mahabharata, Udyoga Parva",
-  },
-];
 
 const legalNews = [
   { tag: "SC", tagColor: "#ef4444", title: "Supreme Court upholds Right to Privacy as Fundamental Right in digital data case", source: "Supreme Court", date: "Apr 2026", img: "/news/news-1.png" },
@@ -169,55 +127,60 @@ function PortalCard({ href, icon: Icon, label, subLabel, idx }: { href: string; 
   );
 }
 
-function QuotesBox() {
+const heroTaglines = [
+  { line1: "Justice", line2: "Delivered.", accent: "Every Single Time." },
+  { line1: "Your Rights.", line2: "Our Fight.", accent: "No Compromise." },
+  { line1: "Fearless", line2: "Defence.", accent: "Trusted Counsel." },
+  { line1: "One Firm.", line2: "Every Court.", accent: "All of India." },
+  { line1: "We Don't", line2: "Settle.", accent: "We Win." },
+];
+
+function HeroTagline() {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setIdx(p => (p + 1) % quotes.length), 5000);
+    const t = setInterval(() => setIdx(p => (p + 1) % heroTaglines.length), 4000);
     return () => clearInterval(t);
   }, []);
-  const q = quotes[idx];
+  const h = heroTaglines[idx];
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.8, duration: 0.6 }}
-      className="relative w-full max-w-sm mx-auto"
+      className="relative w-full max-w-md mx-auto"
     >
-      <div className="absolute -inset-3 bg-gradient-to-b from-[#d4af37]/10 via-[#d4af37]/5 to-transparent rounded-3xl blur-2xl pointer-events-none" />
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(180deg, rgba(6,14,36,0.95) 0%, rgba(3,10,26,0.98) 100%)", border: "1.5px solid rgba(212,175,55,0.3)", boxShadow: "0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.2)" }}>
-        <div className="px-6 pt-5 pb-2 flex items-center justify-center gap-2">
-          <div className="w-6 h-6 rounded-full border border-[#d4af37]/50 flex items-center justify-center bg-[#d4af37]/10">
-            <Scale className="w-3 h-3 text-[#d4af37]" />
-          </div>
-          <span className="text-[10px] uppercase tracking-[0.3em] text-[#d4af37]/60 font-semibold">Words of Dharma</span>
-        </div>
-        <div className="px-6 py-1">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#d4af37]/30 to-transparent" />
-            <div className="text-[#d4af37]/30 text-[8px]">✦</div>
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#d4af37]/30 to-transparent" />
-          </div>
-        </div>
-        <div className="px-6 min-h-[180px] flex flex-col justify-center">
+      <div className="absolute -inset-4 bg-gradient-to-b from-[#d4af37]/10 via-[#d4af37]/5 to-transparent rounded-3xl blur-2xl pointer-events-none" />
+      <div className="relative rounded-2xl overflow-hidden py-8 px-6" style={{ background: "linear-gradient(160deg, rgba(30,55,110,0.5) 0%, rgba(6,14,36,0.95) 100%)", border: "1.5px solid rgba(212,175,55,0.25)", boxShadow: "0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.2)" }}>
+        <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-[#d4af37]/40 to-transparent" />
+        <div className="text-center min-h-[130px] flex flex-col items-center justify-center">
           <AnimatePresence mode="wait">
-            <motion.div key={idx} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.5 }}>
-              <div className="text-center mb-3">
-                {q.sanskrit.split("\n").map((line, i) => (
-                  <p key={i} className="text-[#f5d078]/85 text-[11px] leading-relaxed font-medium" style={{ fontFamily: "serif" }}>{line}</p>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 my-2">
-                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#d4af37]/25 to-transparent" />
-              </div>
-              <p className="text-center text-[#d4af37]/55 text-[10px] leading-relaxed italic">"{q.english}"</p>
-              <p className="text-center text-[#d4af37]/35 text-[9px] mt-2 uppercase tracking-widest">— {q.source} —</p>
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.5 }}
+              className="text-center"
+            >
+              <p className="text-3xl sm:text-4xl font-black leading-none tracking-tight" style={{ background: "linear-gradient(135deg, #f5d078 0%, #d4af37 40%, #b8860b 70%, #f5d078 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "serif", filter: "drop-shadow(0 2px 8px rgba(212,175,55,0.4))" }}>
+                {h.line1}<br />{h.line2}
+              </p>
+              <p className="text-white/50 text-sm sm:text-base font-semibold mt-2 tracking-wide">{h.accent}</p>
             </motion.div>
           </AnimatePresence>
         </div>
-        <div className="flex justify-center gap-1.5 pb-4 pt-2">
-          {quotes.map((_, i) => (
-            <button key={i} onClick={() => setIdx(i)} className="w-1.5 h-1.5 rounded-full transition-all duration-300" style={{ background: i === idx ? "#d4af37" : "rgba(212,175,55,0.2)", boxShadow: i === idx ? "0 0 6px rgba(212,175,55,0.5)" : "none" }} />
+        <div className="flex justify-center gap-2 mt-4">
+          {heroTaglines.map((_, i) => (
+            <button key={i} onClick={() => setIdx(i)} className="transition-all duration-300" style={{ width: i === idx ? 20 : 6, height: 6, borderRadius: 3, background: i === idx ? "#d4af37" : "rgba(212,175,55,0.2)", boxShadow: i === idx ? "0 0 8px rgba(212,175,55,0.5)" : "none" }} />
           ))}
+        </div>
+        <div className="mt-5 flex items-center justify-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-emerald-400/70 text-[10px] font-bold uppercase tracking-wider">8 Advocates Online</span>
+          </div>
+          <div className="w-px h-3 bg-white/10" />
+          <span className="text-white/25 text-[10px] font-semibold uppercase tracking-wider">24/7 AI Assistance</span>
         </div>
       </div>
     </motion.div>
@@ -440,10 +403,10 @@ export function Home() {
             <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-lg mx-auto w-full">
               <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0} />
               <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" idx={1} />
-              <PortalCard href="/intern" icon={BookOpen} label="Knowledge" subLabel="Base" idx={2} />
+              <PortalCard href="/intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2} />
             </div>
 
-            <QuotesBox />
+            <HeroTagline />
 
             <motion.div
               initial={{ opacity: 0 }}
