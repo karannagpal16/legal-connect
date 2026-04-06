@@ -25,7 +25,7 @@ export function AdvocateLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: "radial-gradient(ellipse 120% 80% at 50% 0%, #0d1a3a 0%, #060e24 40%, #030a16 100%)" }}>
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -40,18 +40,19 @@ export function AdvocateLayout({ children }: { children: React.ReactNode }) {
 
       <motion.div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 bg-sidebar border-r border-amber-500/20 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
+          "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        style={{ background: "linear-gradient(180deg, #060e24 0%, #030a16 100%)", borderRight: "1px solid rgba(212,175,55,0.15)" }}
       >
-        <div className="flex items-center justify-between h-20 px-6 border-b border-amber-500/20 bg-amber-500/5">
+        <div className="flex items-center justify-between h-20 px-6" style={{ borderBottom: "1px solid rgba(212,175,55,0.15)", background: "rgba(212,175,55,0.03)" }}>
           <Link href="/advocate" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
-              <Gavel className="w-5 h-5 text-amber-400" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)" }}>
+              <Gavel className="w-5 h-5 text-[#d4af37]" />
             </div>
             <div className="flex flex-col">
               <span className="font-serif font-bold text-base leading-tight text-white tracking-wide">Advocate Portal</span>
-              <span className="text-[10px] uppercase tracking-widest text-amber-400 font-semibold">RNA Legal Connect</span>
+              <span className="text-[10px] uppercase tracking-widest text-[#d4af37]/70 font-semibold">RNA Legal Connect</span>
             </div>
           </Link>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/60 hover:text-white p-2">
@@ -60,7 +61,7 @@ export function AdvocateLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 px-4 py-8 space-y-1 overflow-y-auto">
-          <div className="px-3 mb-2 text-xs font-semibold text-white/30 uppercase tracking-wider">Practice Management</div>
+          <div className="px-3 mb-2 text-[10px] font-bold text-[#d4af37]/25 uppercase tracking-widest">Practice Management</div>
           {navigation.slice(0, 5).map((item) => {
             const isActive = location === item.href;
             return (
@@ -70,21 +71,18 @@ export function AdvocateLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-3.5 rounded-xl font-medium transition-all duration-200 group relative",
-                  isActive
-                    ? "text-amber-400 bg-amber-500/10 border border-amber-500/20"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
+                  isActive ? "text-[#d4af37] bg-[#d4af37]/10" : "text-white/60 hover:text-white hover:bg-white/5"
                 )}
+                style={isActive ? { border: "1px solid rgba(212,175,55,0.2)" } : {}}
               >
-                {isActive && (
-                  <motion.div layoutId="advocateActiveTab" className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400 rounded-r-full" />
-                )}
-                <item.icon className={cn("w-5 h-5", isActive ? "text-amber-400" : "text-white/40 group-hover:text-white/60")} />
+                {isActive && <motion.div layoutId="advocateActiveTab" className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full" style={{ background: "#d4af37" }} />}
+                <item.icon className={cn("w-5 h-5", isActive ? "text-[#d4af37]" : "text-white/40 group-hover:text-white/60")} />
                 {item.name}
               </Link>
             );
           })}
 
-          <div className="px-3 mt-6 mb-2 text-xs font-semibold text-white/30 uppercase tracking-wider">Administration</div>
+          <div className="px-3 mt-6 mb-2 text-[10px] font-bold text-[#d4af37]/25 uppercase tracking-widest">Administration</div>
           {navigation.slice(5).map((item) => {
             const isActive = location === item.href;
             return (
@@ -94,41 +92,38 @@ export function AdvocateLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-3.5 rounded-xl font-medium transition-all duration-200 group relative",
-                  isActive
-                    ? "text-amber-400 bg-amber-500/10 border border-amber-500/20"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
+                  isActive ? "text-[#d4af37] bg-[#d4af37]/10" : "text-white/60 hover:text-white hover:bg-white/5"
                 )}
+                style={isActive ? { border: "1px solid rgba(212,175,55,0.2)" } : {}}
               >
-                {isActive && (
-                  <motion.div layoutId="advocateActiveTab" className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400 rounded-r-full" />
-                )}
-                <item.icon className={cn("w-5 h-5", isActive ? "text-amber-400" : "text-white/40 group-hover:text-white/60")} />
+                {isActive && <motion.div layoutId="advocateActiveTab" className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full" style={{ background: "#d4af37" }} />}
+                <item.icon className={cn("w-5 h-5", isActive ? "text-[#d4af37]" : "text-white/40 group-hover:text-white/60")} />
                 {item.name}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-6 border-t border-amber-500/20">
-          <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-            <div className="w-8 h-8 rounded-full bg-amber-500/30 flex items-center justify-center">
-              <Gavel className="w-4 h-4 text-amber-300" />
+        <div className="p-6" style={{ borderTop: "1px solid rgba(212,175,55,0.15)" }}>
+          <div className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.15)" }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(212,175,55,0.2)" }}>
+              <Gavel className="w-4 h-4 text-[#d4af37]" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-white">Rishika Nagpal</span>
-              <span className="text-xs text-amber-400">Senior Advocate</span>
+              <span className="text-xs text-[#d4af37]/60">Senior Advocate</span>
             </div>
           </div>
-          <Link href="/" className="mt-3 block text-center text-xs text-white/30 hover:text-white/60 transition-colors">
+          <Link href="/" className="mt-3 block text-center text-xs text-[#d4af37]/25 hover:text-[#d4af37]/50 transition-colors">
             ← Back to Home
           </Link>
         </div>
       </motion.div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 flex items-center justify-between px-4 border-b border-amber-500/20 bg-background/80 backdrop-blur-md md:hidden sticky top-0 z-30">
+        <header className="h-16 flex items-center justify-between px-4 bg-[#060e24]/80 backdrop-blur-md md:hidden sticky top-0 z-30" style={{ borderBottom: "1px solid rgba(212,175,55,0.15)" }}>
           <div className="flex items-center gap-2">
-            <Gavel className="w-6 h-6 text-amber-400" />
+            <Gavel className="w-6 h-6 text-[#d4af37]" />
             <span className="font-serif font-bold text-lg text-white">Advocate Portal</span>
           </div>
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-white/60 hover:text-white">
