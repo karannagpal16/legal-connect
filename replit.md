@@ -65,11 +65,19 @@ artifacts-monorepo/
 
 ## Frontend Pages
 
-- **Home** (`/`) — Hero section with firm name and "Add New Case" CTA
-- **Dashboard** (`/dashboard`) — Stats cards and recent cases
-- **My Diary** (`/my-diary`) — Case management (CRUD)
-- **Proxy Hub** (`/proxy-hub`) — Task management (CRUD)
-- **Users** (`/users`) — User management (CRUD)
+### Three Portals
+- **Client Portal** (`/client/*`) — Book advocates, encrypted chat, DIY docs, AI assistant, legal guides, case tracker, wellness quiz
+- **Advocate Portal** (`/advocate/*`) — Diary, calls, encrypted client chat, booking management, judges roster
+- **Intern Portal** (`/intern/*`) — XP/levels, quests, leaderboard, badges
+
+### Client Portal Key Pages
+- **Case Tracker** (`/client/cases`) — eCourt-synced case tracker with search by party name, FIR number, CNR number, case number; filter by case type (criminal/civil/consumer/family/labour/property); 5 case types with progress timelines, last orders, petitioner/respondent info, eCourt quick-links
+- **Book Advocate** (`/client/book`) — 8 advocates with tiered fees (₹500–₹3000/hr)
+- **Connect Chat** (`/client/connect`) — Encrypted chat with advocates (₹50/5 min, first chat FREE)
+- **AI Assistant** (`/client/ai`) — OpenAI-powered legal assistant
+
+### Homepage
+- **Home** (`/`) — Dharma Chakra, animated news carousel, rotating hero taglines, three portal cards
 
 ## Brand Identity
 
