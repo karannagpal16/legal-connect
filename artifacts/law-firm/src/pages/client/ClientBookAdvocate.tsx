@@ -106,6 +106,7 @@ export function ClientBookAdvocate() {
   const [openChat, setOpenChat] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<Record<number, ChatMsg[]>>({});
   const [chatInput, setChatInput] = useState("");
+  const [usedFreeChat, setUsedFreeChat] = useState<Set<number>>(new Set());
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const filtered = advocates.filter(a =>
@@ -191,6 +192,10 @@ export function ClientBookAdvocate() {
     }));
     setChatInput("");
 
+    if (!usedFreeChat.has(advocateId)) {
+      setUsedFreeChat(prev => new Set(prev).add(advocateId));
+    }
+
     setTimeout(() => {
       const reply = autoReplies[Math.floor(Math.random() * autoReplies.length)];
       setChatMessages(prev => ({
@@ -199,6 +204,8 @@ export function ClientBookAdvocate() {
       }));
     }, 1200 + Math.random() * 800);
   };
+
+  const isFreeChat = (advocateId: number) => !usedFreeChat.has(advocateId);
 
   const timeStr = (ts: number) => new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 
@@ -256,11 +263,22 @@ export function ClientBookAdvocate() {
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{advocate.experience} yrs exp</span>
                       </div>
 
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <div className="flex items-center gap-1 bg-primary/10 border border-primary/20 rounded-lg px-2.5 py-1">
                           <IndianRupee className="w-3 h-3 text-primary" />
                           <span className="text-primary text-xs font-bold">{advocate.fee.toLocaleString("en-IN")}</span>
                           <span className="text-primary/60 text-[10px]">/ hr</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1">
+                          <MessageSquare className="w-3 h-3 text-emerald-400" />
+                          {isFreeChat(advocate.id) ? (
+                            <span className="text-emerald-400 text-[10px] font-bold">1st Chat FREE</span>
+                          ) : (
+                            <>
+                              <span className="text-emerald-400 text-xs font-bold">₹50</span>
+                              <span className="text-emerald-400/60 text-[10px]">/ 5 min</span>
+                            </>
+                          )}
                         </div>
                         <div className="flex gap-1 flex-wrap">
                           {advocate.courts.map(c => (
@@ -317,10 +335,24 @@ export function ClientBookAdvocate() {
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online
                               </span>
                             </div>
-                            <button onClick={() => setOpenChat(null)} className="text-white/30 hover:text-white/60 transition-colors">
-                              <X className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {isFreeChat(advocate.id) ? (
+                                <span className="text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-full">FREE</span>
+                              ) : (
+                                <span className="text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/25 px-2 py-0.5 rounded-full">₹50 / 5 min</span>
+                              )}
+                              <button onClick={() => setOpenChat(null)} className="text-white/30 hover:text-white/60 transition-colors">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
+
+                          {isFreeChat(advocate.id) && (
+                            <div className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/15 flex items-center gap-2">
+                              <span className="text-emerald-400 text-[10px]">🎉</span>
+                              <span className="text-emerald-400 text-[10px] font-semibold">Your first chat with {advocate.name.split(" ")[0]} is FREE! After this, chats are ₹50 per 5 minutes.</span>
+                            </div>
+                          )}
 
                           <div className="h-52 overflow-y-auto px-4 py-3 space-y-3 scrollbar-hide" style={{ background: "rgba(0,0,0,0.15)" }}>
                             {(chatMessages[advocate.id] || []).map(msg => (
