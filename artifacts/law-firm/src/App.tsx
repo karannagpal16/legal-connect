@@ -43,6 +43,7 @@ import { AdvocateLibrary } from "@/pages/advocate/AdvocateLibrary";
 import { AdvocateRevenue } from "@/pages/advocate/AdvocateRevenue";
 import { AdvocateTeam } from "@/pages/advocate/AdvocateTeam";
 import { AdvocateChat } from "@/pages/advocate/AdvocateChat";
+import { AdvocateJudges } from "@/pages/advocate/AdvocateJudges";
 
 import { InternDashboard } from "@/pages/intern/InternDashboard";
 import { InternQuestsPage } from "@/pages/intern/InternQuestsPage";
@@ -165,6 +166,9 @@ function Router() {
       </Route>
       <Route path="/advocate/chat">
         <AdvocateLayout><AdvocateChat /></AdvocateLayout>
+      </Route>
+      <Route path="/advocate/judges">
+        <AdvocateLayout><AdvocateJudges /></AdvocateLayout>
       </Route>
 
       {/* INTERN PORTAL */}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Scale, Home, BookOpen, Briefcase, Library, Bell,
-  BarChart3, Users, Menu, X, Gavel, Video, CalendarCheck, MessageSquare
+  BarChart3, Users, Menu, X, Gavel, Video, CalendarCheck, MessageSquare, Landmark
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +13,7 @@ const navigation = [
   { name: "Client Calls", href: "/advocate/calls", icon: Video },
   { name: "Client Messages", href: "/advocate/chat", icon: MessageSquare },
   { name: "Proxy Hub", href: "/advocate/proxy", icon: Briefcase },
+  { name: "Judges Roster", href: "/advocate/judges", icon: Landmark },
   { name: "Case Reminders", href: "/advocate/reminders", icon: Bell },
   { name: "Bookings", href: "/advocate/bookings", icon: CalendarCheck },
   { name: "Legal Library", href: "/advocate/library", icon: Library },
@@ -62,7 +63,7 @@ export function AdvocateLayout({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 px-4 py-8 space-y-1 overflow-y-auto">
           <div className="px-3 mb-2 text-[10px] font-bold text-[#d4af37]/25 uppercase tracking-widest">Practice Management</div>
-          {navigation.slice(0, 5).map((item) => {
+          {navigation.slice(0, 6).map((item) => {
             const isActive = location === item.href;
             return (
               <Link
@@ -83,7 +84,7 @@ export function AdvocateLayout({ children }: { children: React.ReactNode }) {
           })}
 
           <div className="px-3 mt-6 mb-2 text-[10px] font-bold text-[#d4af37]/25 uppercase tracking-widest">Administration</div>
-          {navigation.slice(5).map((item) => {
+          {navigation.slice(6).map((item) => {
             const isActive = location === item.href;
             return (
               <Link
