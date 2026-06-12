@@ -245,21 +245,21 @@ export function ClientDIYDocs() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3 mb-1">
           <Pen className="w-7 h-7 text-blue-400" />
-          <h1 className="text-3xl font-serif font-bold text-white">DIY Legal Documents</h1>
+          <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">DIY Legal Documents</h1>
         </div>
-        <p className="text-white/40 ml-10">Draft basic legal documents yourself — instantly, for free.</p>
+        <p className="text-[#1A2E2A]/40 ml-10">Draft basic legal documents yourself — instantly, for free.</p>
       </motion.div>
 
       <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-start gap-3">
         <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-        <p className="text-white/60 text-sm leading-relaxed">
+        <p className="text-[#1A2E2A]/60 text-sm leading-relaxed">
           These templates are a starting point. For important matters, always have a qualified advocate review the document before signing or filing.
         </p>
       </div>
 
       {!selectedDoc ? (
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-4">Choose a Document</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2E2A]/40 mb-4">Choose a Document</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {templates.map((t, i) => (
               <motion.div
@@ -274,10 +274,10 @@ export function ClientDIYDocs() {
                   <t.icon className={`w-8 h-8 ${t.color} flex-shrink-0`} />
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-white font-bold">{t.title}</h3>
-                      <span className="text-[10px] text-white/30 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">{t.category}</span>
+                      <h3 className="text-[#1A2E2A] font-bold">{t.title}</h3>
+                      <span className="text-[10px] text-[#1A2E2A]/30 bg-[#1A2E2A]/5 px-2 py-0.5 rounded-full border border-[#1A2E2A]/10">{t.category}</span>
                     </div>
-                    <p className="text-white/50 text-sm">{t.desc}</p>
+                    <p className="text-[#1A2E2A]/50 text-sm">{t.desc}</p>
                     <div className={`flex items-center gap-1.5 mt-3 text-sm font-bold ${t.color} group-hover:gap-2 transition-all`}>
                       Create Draft <ChevronRight className="w-4 h-4" />
                     </div>
@@ -287,8 +287,8 @@ export function ClientDIYDocs() {
             ))}
           </div>
 
-          <div className="mt-6 p-5 bg-card/30 border border-white/10 rounded-2xl text-center">
-            <p className="text-white/40 text-sm mb-3">Need a custom document or something more complex?</p>
+          <div className="mt-6 p-5 bg-card/30 border border-[#1A2E2A]/10 rounded-2xl text-center">
+            <p className="text-[#1A2E2A]/40 text-sm mb-3">Need a custom document or something more complex?</p>
             <div className="flex justify-center gap-3">
               <Link href="/client/ai-assistant">
                 <button className="flex items-center gap-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-500/30 transition-all">
@@ -296,7 +296,7 @@ export function ClientDIYDocs() {
                 </button>
               </Link>
               <Link href="/client/book">
-                <button className="flex items-center gap-2 bg-white/10 text-white border border-white/10 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-white/20 transition-all">
+                <button className="flex items-center gap-2 bg-[#1A2E2A]/10 text-[#1A2E2A] border border-[#1A2E2A]/10 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[#1A2E2A]/20 transition-all">
                   Book an Advocate
                 </button>
               </Link>
@@ -307,7 +307,7 @@ export function ClientDIYDocs() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <button
             onClick={() => { setSelectedDoc(null); setGenerated(null); }}
-            className="flex items-center gap-2 text-white/40 hover:text-white text-sm mb-6 transition-colors"
+            className="flex items-center gap-2 text-[#1A2E2A]/40 hover:text-[#1A2E2A] text-sm mb-6 transition-colors"
           >
             ← Back to Documents
           </button>
@@ -316,8 +316,8 @@ export function ClientDIYDocs() {
             <div className="flex items-center gap-3">
               <selectedDoc.icon className={`w-7 h-7 ${selectedDoc.color}`} />
               <div>
-                <h2 className="text-white font-bold text-lg">{selectedDoc.title}</h2>
-                <p className="text-white/40 text-xs">{selectedDoc.desc}</p>
+                <h2 className="text-[#1A2E2A] font-bold text-lg">{selectedDoc.title}</h2>
+                <p className="text-[#1A2E2A]/40 text-xs">{selectedDoc.desc}</p>
               </div>
             </div>
           </div>
@@ -325,21 +325,21 @@ export function ClientDIYDocs() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {selectedDoc.fields.map(field => (
               <div key={field.key} className={field.multiline ? "sm:col-span-2" : ""}>
-                <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-2">{field.label}</label>
+                <label className="block text-[#1A2E2A]/60 text-xs font-semibold uppercase tracking-wider mb-2">{field.label}</label>
                 {field.multiline ? (
                   <textarea
                     value={values[field.key] || ""}
                     onChange={e => setValues(v => ({ ...v, [field.key]: e.target.value }))}
                     placeholder={field.placeholder}
                     rows={3}
-                    className="w-full bg-card/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-blue-500/40 resize-none"
+                    className="w-full bg-card/40 border border-[#1A2E2A]/10 rounded-xl px-4 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none focus:border-blue-500/40 resize-none"
                   />
                 ) : (
                   <input
                     value={values[field.key] || ""}
                     onChange={e => setValues(v => ({ ...v, [field.key]: e.target.value }))}
                     placeholder={field.placeholder}
-                    className="w-full bg-card/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-blue-500/40"
+                    className="w-full bg-card/40 border border-[#1A2E2A]/10 rounded-xl px-4 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none focus:border-blue-500/40"
                   />
                 )}
               </div>
@@ -348,7 +348,7 @@ export function ClientDIYDocs() {
 
           <button
             onClick={handleGenerate}
-            className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold text-base transition-all hover:shadow-lg hover:shadow-blue-500/30 mb-6"
+            className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-[#1A2E2A] py-4 rounded-xl font-bold text-base transition-all hover:shadow-lg hover:shadow-blue-500/30 mb-6"
           >
             <FileText className="w-5 h-5" />
             Generate Document
@@ -357,11 +357,11 @@ export function ClientDIYDocs() {
           {generated && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-semibold">Your Document is Ready</h3>
+                <h3 className="text-[#1A2E2A] font-semibold">Your Document is Ready</h3>
                 <div className="flex gap-2">
                   <button
                     onClick={handleCopy}
-                    className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/60 hover:text-white px-3 py-2 rounded-xl text-xs font-bold transition-all border border-white/10"
+                    className="flex items-center gap-1.5 bg-[#1A2E2A]/10 hover:bg-[#1A2E2A]/20 text-[#1A2E2A]/60 hover:text-[#1A2E2A] px-3 py-2 rounded-xl text-xs font-bold transition-all border border-[#1A2E2A]/10"
                   >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     {copied ? "Copied!" : "Copy"}
@@ -375,7 +375,7 @@ export function ClientDIYDocs() {
                   </button>
                 </div>
               </div>
-              <pre className="bg-card/40 border border-white/10 rounded-2xl p-5 text-white/80 text-xs leading-relaxed whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+              <pre className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5 text-[#1A2E2A]/80 text-xs leading-relaxed whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
                 {generated}
               </pre>
               <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">

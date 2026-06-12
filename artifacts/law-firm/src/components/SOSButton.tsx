@@ -122,7 +122,7 @@ export function SOSButton() {
                 <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-white font-bold text-sm">Legal SOS — Emergency Help</p>
-                  <p className="text-white/40 text-xs">Rishika Nagpal & Associates · Available 24/7</p>
+                  <p className="text-white/40 text-xs">Legal Connect · Available 24/7</p>
                 </div>
                 <button onClick={() => setOpen(false)} className="text-white/40 hover:text-white transition-colors">
                   <X className="w-5 h-5" />

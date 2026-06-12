@@ -43,7 +43,7 @@ export function ClientChat() {
           <MessageSquare className="w-5 h-5 text-blue-400" />
         </div>
         <div>
-          <h1 className="text-2xl font-serif font-bold text-white">My Advocate Chat</h1>
+          <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">My Advocate Chat</h1>
           <div className="flex items-center gap-1.5 text-xs text-emerald-400 mt-0.5">
             <Lock className="w-3 h-3" /> End-to-end encrypted · Your messages are private
           </div>
@@ -55,7 +55,7 @@ export function ClientChat() {
         <Shield className="w-5 h-5 text-emerald-400 flex-shrink-0" />
         <div>
           <p className="text-emerald-400 text-sm font-bold">Your conversation is fully encrypted</p>
-          <p className="text-white/40 text-xs mt-0.5">Only you and your advocate can read these messages. Encrypted with AES-256.</p>
+          <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Only you and your advocate can read these messages. Encrypted with AES-256.</p>
         </div>
         <div className="ml-auto flex-shrink-0 text-right">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mx-auto mb-1" />
@@ -66,7 +66,7 @@ export function ClientChat() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Advocate info panel */}
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-card/40 border border-white/10 rounded-2xl p-5">
+          <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
@@ -75,26 +75,26 @@ export function ClientChat() {
                 <Circle className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400 absolute -bottom-0.5 -right-0.5" />
               </div>
               <div>
-                <p className="text-white font-bold">Adv. Rishika Nagpal</p>
-                <p className="text-white/40 text-xs">Senior Advocate</p>
+                <p className="text-[#1A2E2A] font-bold">Adv. Arjun Mehra</p>
+                <p className="text-[#1A2E2A]/40 text-xs">Senior Advocate</p>
                 <p className="text-emerald-400 text-xs mt-0.5 flex items-center gap-1">
                   <Circle className="w-2 h-2 fill-emerald-400" /> Available
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2 text-xs text-white/40 mb-4">
+            <div className="space-y-2 text-xs text-[#1A2E2A]/40 mb-4">
               <div className="flex justify-between">
                 <span>Court</span>
-                <span className="text-white/70">Delhi HC & SC</span>
+                <span className="text-[#1A2E2A]/70">Delhi HC & SC</span>
               </div>
               <div className="flex justify-between">
                 <span>Specialisation</span>
-                <span className="text-white/70">Criminal, Property</span>
+                <span className="text-[#1A2E2A]/70">Criminal, Property</span>
               </div>
               <div className="flex justify-between">
                 <span>Your case</span>
-                <span className="text-white/70">Tenancy Dispute</span>
+                <span className="text-[#1A2E2A]/70">Tenancy Dispute</span>
               </div>
             </div>
 
@@ -112,16 +112,16 @@ export function ClientChat() {
             <p className="text-amber-400 text-xs font-bold mb-1 flex items-center gap-1.5">
               <AlertCircle className="w-3.5 h-3.5" /> Legal Reminder
             </p>
-            <p className="text-white/45 text-xs leading-relaxed">
+            <p className="text-[#1A2E2A]/45 text-xs leading-relaxed">
               Do not share sensitive documents (Aadhaar, PAN, bank details) through this chat. Use secure file transfer for official documents.
             </p>
           </div>
         </div>
 
         {/* Chat window */}
-        <div className="lg:col-span-2 bg-card/40 border border-white/10 rounded-2xl flex flex-col h-[520px] overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-white/8 bg-white/3 flex items-center justify-between">
-            <span className="text-white/50 text-xs font-semibold uppercase tracking-wider">Tenancy Dispute – Rohini Property</span>
+        <div className="lg:col-span-2 bg-card/40 border border-[#1A2E2A]/10 rounded-2xl flex flex-col h-[520px] overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-[#1A2E2A]/8 bg-[#1A2E2A]/5 flex items-center justify-between">
+            <span className="text-[#1A2E2A]/50 text-xs font-semibold uppercase tracking-wider">Tenancy Dispute – Rohini Property</span>
             <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
               <Lock className="w-2.5 h-2.5 text-emerald-400" />
               <span className="text-emerald-400 text-[10px] font-bold">ENCRYPTED</span>
@@ -130,7 +130,7 @@ export function ClientChat() {
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             <div className="text-center">
-              <span className="text-[10px] text-white/20 bg-white/5 px-3 py-1 rounded-full">
+              <span className="text-[10px] text-[#1A2E2A]/20 bg-[#1A2E2A]/5 px-3 py-1 rounded-full">
                 🔒 This conversation is encrypted. Only you and your advocate can read these messages.
               </span>
             </div>
@@ -146,12 +146,12 @@ export function ClientChat() {
                   <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center border ${isClient ? "bg-blue-500/20 border-blue-500/30" : "bg-amber-500/20 border-amber-500/30"}`}>
                     <User className={`w-3.5 h-3.5 ${isClient ? "text-blue-400" : "text-amber-400"}`} />
                   </div>
-                  <div className={`max-w-[78%] rounded-2xl px-4 py-3 ${isClient ? "bg-blue-500/15 border border-blue-500/20" : "bg-white/8 border border-white/10"}`}>
-                    {!isClient && <p className="text-amber-400 text-[10px] font-bold mb-1">Adv. Rishika Nagpal</p>}
-                    <p className="text-white text-sm leading-relaxed">{decryptMessage(msg.text)}</p>
+                  <div className={`max-w-[78%] rounded-2xl px-4 py-3 ${isClient ? "bg-blue-500/15 border border-blue-500/20" : "bg-[#1A2E2A]/8 border border-[#1A2E2A]/10"}`}>
+                    {!isClient && <p className="text-amber-400 text-[10px] font-bold mb-1">Adv. Arjun Mehra</p>}
+                    <p className="text-[#1A2E2A] text-sm leading-relaxed">{decryptMessage(msg.text)}</p>
                     <div className="flex items-center justify-end gap-1 mt-1">
-                      <Lock className="w-2.5 h-2.5 text-white/20" />
-                      <span className="text-white/20 text-[10px]">{timeAgo(msg.timestamp)}</span>
+                      <Lock className="w-2.5 h-2.5 text-[#1A2E2A]/20" />
+                      <span className="text-[#1A2E2A]/20 text-[10px]">{timeAgo(msg.timestamp)}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -160,30 +160,30 @@ export function ClientChat() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="px-4 py-4 border-t border-white/8">
-            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus-within:border-blue-500/30">
+          <div className="px-4 py-4 border-t border-[#1A2E2A]/8">
+            <div className="flex items-center gap-3 bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 rounded-xl px-4 py-3 focus-within:border-blue-500/30">
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleSend()}
                 placeholder="Message your advocate... (encrypted)"
-                className="flex-1 bg-transparent text-white text-sm placeholder:text-white/25 focus:outline-none"
+                className="flex-1 bg-transparent text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none"
               />
               <div className="flex items-center gap-2">
-                <button className="text-white/30 hover:text-white/60 transition-colors">
+                <button className="text-[#1A2E2A]/30 hover:text-[#1A2E2A]/60 transition-colors">
                   <Paperclip className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleSend}
                   disabled={!input.trim()}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${input.trim() ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-white/10 text-white/20"}`}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${input.trim() ? "bg-blue-500 text-[#1A2E2A] hover:bg-blue-600" : "bg-[#1A2E2A]/10 text-[#1A2E2A]/20"}`}
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
-            <p className="text-center text-white/15 text-[10px] mt-2 flex items-center justify-center gap-1">
-              <Lock className="w-2.5 h-2.5" /> End-to-end encrypted · Rishika Nagpal & Associates
+            <p className="text-center text-[#1A2E2A]/15 text-[10px] mt-2 flex items-center justify-center gap-1">
+              <Lock className="w-2.5 h-2.5" /> End-to-end encrypted · Legal Connect
             </p>
           </div>
         </div>

@@ -79,10 +79,10 @@ export function AdvocateDashboard() {
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-emerald-400 text-xs font-semibold">Active · Available</span>
             </div>
-            <h1 className="text-3xl font-serif font-bold text-white mb-1">Welcome, Adv. Rishika</h1>
-            <p className="text-white/50 text-sm">
+            <h1 className="text-3xl font-serif font-bold text-[#1A2E2A] mb-1">Welcome, Advocate</h1>
+            <p className="text-[#1A2E2A]/50 text-sm">
               <span className="text-amber-400 font-semibold">{todayHearings || 2} hearings</span> today ·
-              <span className="text-white font-semibold ml-1">{activeCases || 12} active cases</span> ·
+              <span className="text-[#1A2E2A] font-semibold ml-1">{activeCases || 12} active cases</span> ·
               <span className="text-rose-400 font-semibold ml-1">{pendingBookings || 3} new requests</span>
             </p>
           </div>
@@ -117,12 +117,12 @@ export function AdvocateDashboard() {
           >
             <stat.icon className={`w-6 h-6 mb-3 ${stat.color}`} />
             <div className="flex items-center gap-1.5">
-              <span className="text-3xl font-bold text-white">{stat.value}</span>
+              <span className="text-3xl font-bold text-[#1A2E2A]">{stat.value}</span>
               {(stat as any).badge === "action" && stat.value > 0 && (
                 <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
               )}
             </div>
-            <span className="text-xs text-white/40 uppercase tracking-wider mt-1">{stat.label}</span>
+            <span className="text-xs text-[#1A2E2A]/40 uppercase tracking-wider mt-1">{stat.label}</span>
           </motion.div>
         ))}
       </div>
@@ -130,7 +130,7 @@ export function AdvocateDashboard() {
       {/* Today's Schedule */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-white/30 flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30 flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-amber-400" /> Upcoming Hearings
           </h2>
           <Link href="/advocate/diary">
@@ -151,19 +151,19 @@ export function AdvocateDashboard() {
                   ? "border-rose-500/25 bg-rose-500/8 hover:border-rose-500/40"
                   : h.urgency === "medium"
                   ? "border-amber-500/20 bg-amber-500/6 hover:border-amber-500/35"
-                  : "border-white/8 bg-white/3 hover:border-white/15"
+                  : "border-[#1A2E2A]/8 bg-[#1A2E2A]/5 hover:border-white/15"
               }`}
             >
-              <div className={`text-center min-w-[52px] ${h.urgency === "high" ? "text-rose-400" : h.urgency === "medium" ? "text-amber-400" : "text-white/40"}`}>
+              <div className={`text-center min-w-[52px] ${h.urgency === "high" ? "text-rose-400" : h.urgency === "medium" ? "text-amber-400" : "text-[#1A2E2A]/40"}`}>
                 <div className="text-[11px] font-bold uppercase">{h.date}</div>
                 <div className="text-sm font-bold">{h.time}</div>
               </div>
-              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+              <div className="w-px h-8 bg-[#1A2E2A]/10 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-semibold truncate">{h.title}</p>
-                <p className="text-white/35 text-xs mt-0.5">{h.court}</p>
+                <p className="text-[#1A2E2A] text-sm font-semibold truncate">{h.title}</p>
+                <p className="text-[#1A2E2A]/35 text-xs mt-0.5">{h.court}</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/50 transition-colors" />
+              <ChevronRight className="w-4 h-4 text-[#1A2E2A]/20 group-hover:text-[#1A2E2A]/50 transition-colors" />
             </motion.div>
           ))}
         </div>
@@ -171,7 +171,7 @@ export function AdvocateDashboard() {
 
       {/* Practice Sections */}
       <div>
-        <h2 className="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">Practice Management</h2>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30 mb-4">Practice Management</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {sections.map((s, i) => (
             <motion.div
@@ -186,13 +186,13 @@ export function AdvocateDashboard() {
                   className={`group relative overflow-hidden bg-gradient-to-br ${s.gradient} border ${s.border} rounded-2xl p-5 cursor-pointer transition-colors`}
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-10 h-10 rounded-xl bg-[#1A2E2A]/10 border border-white/15 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                       <s.icon className={`w-5 h-5 ${s.color}`} />
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full bg-white/10 text-white/50`}>{s.badge}</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full bg-[#1A2E2A]/10 text-[#1A2E2A]/50`}>{s.badge}</span>
                   </div>
-                  <h3 className="text-base font-bold text-white mb-1">{s.title}</h3>
-                  <p className="text-white/45 text-xs leading-relaxed mb-3">{s.desc}</p>
+                  <h3 className="text-base font-bold text-[#1A2E2A] mb-1">{s.title}</h3>
+                  <p className="text-[#1A2E2A]/45 text-xs leading-relaxed mb-3">{s.desc}</p>
                   <div className={`flex items-center gap-1.5 text-xs font-bold ${s.color} group-hover:gap-2.5 transition-all`}>
                     Open <ArrowRight className="w-3.5 h-3.5" />
                   </div>
@@ -216,7 +216,7 @@ export function AdvocateDashboard() {
               className={`border rounded-2xl p-4 flex flex-col items-center gap-2 cursor-pointer transition-all ${item.bg}`}
             >
               <item.icon className={`w-5 h-5 ${item.color}`} />
-              <span className="text-white text-xs font-bold">{item.title}</span>
+              <span className="text-[#1A2E2A] text-xs font-bold">{item.title}</span>
             </motion.div>
           </Link>
         ))}

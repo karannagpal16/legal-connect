@@ -53,7 +53,7 @@ const cases: Case[] = [
     cnr: "DLRC01-001142-2025",
     court: "Rent Controller, Rohini, Delhi",
     courtLevel: "district",
-    advocate: "Adv. Rishika Nagpal",
+    advocate: "Adv. Arjun Mehra",
     type: "property",
     typeLabel: "Civil / Tenancy",
     petitioner: "Ramesh Kumar",
@@ -84,7 +84,7 @@ const cases: Case[] = [
     cnr: "DLCF02-000897-2025",
     court: "District Consumer Forum, West Delhi",
     courtLevel: "district",
-    advocate: "Adv. Rishika Nagpal",
+    advocate: "Adv. Arjun Mehra",
     type: "consumer",
     typeLabel: "Consumer Protection",
     petitioner: "Ramesh Kumar",
@@ -115,7 +115,7 @@ const cases: Case[] = [
     firNo: "FIR/221/2025/PS-RajouriGarden",
     court: "Patiala House Courts, New Delhi",
     courtLevel: "district",
-    advocate: "Adv. Rishika Nagpal",
+    advocate: "Adv. Arjun Mehra",
     type: "criminal",
     typeLabel: "Criminal — IPC 420/468/471",
     petitioner: "State (through IO, PS Rajouri Garden)",
@@ -200,7 +200,7 @@ const cases: Case[] = [
 ];
 
 const caseTypeConfig: Record<CaseType, { label: string; color: string }> = {
-  all: { label: "All Cases", color: "text-white" },
+  all: { label: "All Cases", color: "text-[#1A2E2A]" },
   criminal: { label: "Criminal", color: "text-rose-400" },
   civil: { label: "Civil", color: "text-blue-400" },
   consumer: { label: "Consumer", color: "text-amber-400" },
@@ -225,7 +225,7 @@ const urgencyConfig = {
 const stepStatusConfig = {
   done: { icon: CheckCircle, color: "text-emerald-400", line: "bg-emerald-500", bg: "bg-emerald-500/20 border-emerald-500/30" },
   active: { icon: Clock, color: "text-primary", line: "bg-primary/40", bg: "bg-primary/20 border-primary/40" },
-  pending: { icon: Circle, color: "text-white/20", line: "bg-white/10", bg: "bg-white/5 border-white/10" },
+  pending: { icon: Circle, color: "text-[#1A2E2A]/20", line: "bg-[#1A2E2A]/10", bg: "bg-[#1A2E2A]/5 border-[#1A2E2A]/10" },
   blocked: { icon: AlertCircle, color: "text-rose-400", line: "bg-rose-500/40", bg: "bg-rose-500/10 border-rose-500/20" },
 };
 
@@ -285,14 +285,14 @@ export function ClientCaseTracker() {
             <Gavel className="w-5 h-5 text-violet-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-serif font-bold text-white">Case Tracker</h1>
-            <p className="text-white/40 text-xs mt-0.5">Synced with eCourt Services · Real-time updates</p>
+            <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">Case Tracker</h1>
+            <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Synced with eCourt Services · Real-time updates</p>
           </div>
         </div>
         <button
           onClick={handleSync}
           disabled={syncing}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${syncing ? "bg-primary/10 border-primary/25 text-primary" : "bg-white/5 hover:bg-white/10 border-white/10 text-white/60 hover:text-white"}`}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${syncing ? "bg-primary/10 border-primary/25 text-primary" : "bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 border-[#1A2E2A]/10 text-[#1A2E2A]/60 hover:text-[#1A2E2A]"}`}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Syncing with eCourts..." : `Sync · ${lastSync}`}
@@ -308,7 +308,7 @@ export function ClientCaseTracker() {
           <Loader2 className="w-4 h-4 text-primary animate-spin" />
           <div>
             <p className="text-primary text-xs font-bold">Syncing with eCourt Services...</p>
-            <p className="text-white/40 text-[10px]">Fetching latest case status, orders, and cause lists from ecourts.gov.in</p>
+            <p className="text-[#1A2E2A]/40 text-[10px]">Fetching latest case status, orders, and cause lists from ecourts.gov.in</p>
           </div>
         </motion.div>
       )}
@@ -320,17 +320,17 @@ export function ClientCaseTracker() {
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group bg-card/40 border border-white/10 hover:border-white/20 rounded-xl p-3 transition-all hover:bg-card/60"
+            className="group bg-card/40 border border-[#1A2E2A]/10 hover:border-[#1A2E2A]/20 rounded-xl p-3 transition-all hover:bg-card/60"
           >
             <div className="flex items-center gap-2.5">
               <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${link.color} flex items-center justify-center flex-shrink-0`}>
-                <link.icon className="w-4 h-4 text-white" />
+                <link.icon className="w-4 h-4 text-[#1A2E2A]" />
               </div>
               <div className="min-w-0">
-                <p className="text-white text-xs font-bold group-hover:text-primary transition-colors flex items-center gap-1 truncate">
-                  {link.title} <ExternalLink className="w-2.5 h-2.5 text-white/20 flex-shrink-0" />
+                <p className="text-[#1A2E2A] text-xs font-bold group-hover:text-primary transition-colors flex items-center gap-1 truncate">
+                  {link.title} <ExternalLink className="w-2.5 h-2.5 text-[#1A2E2A]/20 flex-shrink-0" />
                 </p>
-                <p className="text-white/30 text-[10px] truncate">{link.desc}</p>
+                <p className="text-[#1A2E2A]/30 text-[10px] truncate">{link.desc}</p>
               </div>
             </div>
           </a>
@@ -346,7 +346,7 @@ export function ClientCaseTracker() {
               <button
                 key={mode}
                 onClick={() => { setSearchMode(mode); setSearchQuery(""); }}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${searchMode === mode ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"}`}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${searchMode === mode ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60"}`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {cfg.label}
@@ -356,15 +356,15 @@ export function ClientCaseTracker() {
         </div>
 
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A2E2A]/30" />
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder={searchModeConfig[searchMode].placeholder}
-            className="w-full bg-card/50 border border-white/10 rounded-xl pl-11 pr-10 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-primary/40 transition-all"
+            className="w-full bg-card/50 border border-[#1A2E2A]/10 rounded-xl pl-11 pr-10 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none focus:border-primary/40 transition-all"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50">
+            <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1A2E2A]/25 hover:text-[#1A2E2A]/50">
               <X className="w-4 h-4" />
             </button>
           )}
@@ -377,7 +377,7 @@ export function ClientCaseTracker() {
               <button
                 key={ct}
                 onClick={() => setTypeFilter(ct)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${typeFilter === ct ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/10 text-white/30 hover:text-white/50"}`}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${typeFilter === ct ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/30 hover:text-[#1A2E2A]/50"}`}
               >
                 {cfg.label}
               </button>
@@ -388,9 +388,9 @@ export function ClientCaseTracker() {
 
       {filteredCases.length === 0 ? (
         <div className="text-center py-16">
-          <Search className="w-10 h-10 text-white/10 mx-auto mb-3" />
-          <p className="text-white/30 text-sm font-semibold">No cases found</p>
-          <p className="text-white/15 text-xs mt-1">Try a different search term or filter</p>
+          <Search className="w-10 h-10 text-[#1A2E2A]/10 mx-auto mb-3" />
+          <p className="text-[#1A2E2A]/30 text-sm font-semibold">No cases found</p>
+          <p className="text-[#1A2E2A]/15 text-xs mt-1">Try a different search term or filter</p>
         </div>
       ) : (
         <>
@@ -404,22 +404,22 @@ export function ClientCaseTracker() {
                 <button
                   key={c.id}
                   onClick={() => setExpandedCase(c.id)}
-                  className={`text-left bg-card/40 border rounded-2xl p-4 transition-all ${isSelected ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20" : "border-white/10 hover:border-white/20"}`}
+                  className={`text-left bg-card/40 border rounded-2xl p-4 transition-all ${isSelected ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20" : "border-[#1A2E2A]/10 hover:border-[#1A2E2A]/20"}`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <p className="text-white font-bold text-sm leading-snug">{c.title}</p>
+                    <p className="text-[#1A2E2A] font-bold text-sm leading-snug">{c.title}</p>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border flex-shrink-0 ${U.bg} ${U.color}`}>{U.label}</span>
                   </div>
-                  <p className="text-white/25 text-[10px] mb-0.5">{c.caseNo}</p>
-                  <p className="text-white/35 text-[10px] mb-2">{c.court}</p>
+                  <p className="text-[#1A2E2A]/25 text-[10px] mb-0.5">{c.caseNo}</p>
+                  <p className="text-[#1A2E2A]/35 text-[10px] mb-2">{c.court}</p>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 ${caseTypeConfig[c.type].color}`}>{c.typeLabel}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 ${caseTypeConfig[c.type].color}`}>{c.typeLabel}</span>
                   </div>
-                  <div className="h-1.5 bg-white/8 rounded-full overflow-hidden mb-1.5">
+                  <div className="h-1.5 bg-[#1A2E2A]/8 rounded-full overflow-hidden mb-1.5">
                     <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} className="h-full bg-primary rounded-full" />
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white/25">{doneCount}/{c.steps.length} steps</span>
+                    <span className="text-[#1A2E2A]/25">{doneCount}/{c.steps.length} steps</span>
                     <span className="text-primary font-bold">{pct}%</span>
                   </div>
                   {c.synced && (
@@ -436,11 +436,11 @@ export function ClientCaseTracker() {
             const U = urgencyConfig[c.urgency];
             return (
               <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                <div className="bg-card/40 border border-white/10 rounded-2xl p-5">
+                <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
                   <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
                     <div>
-                      <h2 className="text-white font-bold text-lg">{c.title}</h2>
-                      <p className="text-white/35 text-sm mt-0.5">Case No: {c.caseNo}</p>
+                      <h2 className="text-[#1A2E2A] font-bold text-lg">{c.title}</h2>
+                      <p className="text-[#1A2E2A]/35 text-sm mt-0.5">Case No: {c.caseNo}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {c.synced && (
@@ -464,21 +464,21 @@ export function ClientCaseTracker() {
                       { label: "Case Type", value: c.typeLabel },
                       { label: "Next Hearing", value: c.nextDate },
                     ].map(item => (
-                      <div key={item.label} className="bg-white/3 rounded-lg px-3 py-2">
-                        <p className="text-white/25 text-[10px] font-semibold uppercase tracking-wider">{item.label}</p>
-                        <p className="text-white/70 text-xs font-semibold mt-0.5">{item.value}</p>
+                      <div key={item.label} className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
+                        <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">{item.label}</p>
+                        <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{item.value}</p>
                       </div>
                     ))}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <div className="bg-white/3 rounded-lg px-3 py-2">
-                      <p className="text-white/25 text-[10px] font-semibold uppercase tracking-wider">Petitioner</p>
-                      <p className="text-white/70 text-xs font-semibold mt-0.5">{c.petitioner}</p>
+                    <div className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
+                      <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">Petitioner</p>
+                      <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{c.petitioner}</p>
                     </div>
-                    <div className="bg-white/3 rounded-lg px-3 py-2">
-                      <p className="text-white/25 text-[10px] font-semibold uppercase tracking-wider">Respondent</p>
-                      <p className="text-white/70 text-xs font-semibold mt-0.5">{c.respondent}</p>
+                    <div className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
+                      <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">Respondent</p>
+                      <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{c.respondent}</p>
                     </div>
                   </div>
 
@@ -495,7 +495,7 @@ export function ClientCaseTracker() {
                         <Eye className="w-3.5 h-3.5 text-blue-400" />
                         <p className="text-blue-400 text-[10px] font-bold uppercase tracking-wider">Last Order — {c.lastOrderDate}</p>
                       </div>
-                      <p className="text-white/60 text-xs leading-relaxed">{c.lastOrder}</p>
+                      <p className="text-[#1A2E2A]/60 text-xs leading-relaxed">{c.lastOrder}</p>
                     </div>
                   )}
 
@@ -504,14 +504,14 @@ export function ClientCaseTracker() {
                       <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
                       <div>
                         <p className="text-rose-400 text-xs font-bold">Next: {c.nextHearing}</p>
-                        <p className="text-white/40 text-xs">{c.nextDate} · Contact your advocate for preparation notes</p>
+                        <p className="text-[#1A2E2A]/40 text-xs">{c.nextDate} · Contact your advocate for preparation notes</p>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-card/40 border border-white/10 rounded-2xl p-5">
-                  <h3 className="text-white font-bold mb-5 flex items-center gap-2">
+                <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
+                  <h3 className="text-[#1A2E2A] font-bold mb-5 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" /> Case Progress Timeline
                   </h3>
                   <div className="space-y-0">
@@ -535,23 +535,23 @@ export function ClientCaseTracker() {
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div>
-                                  <p className={`text-sm font-bold ${step.status === "active" ? "text-primary" : step.status === "done" ? "text-white" : "text-white/35"}`}>
+                                  <p className={`text-sm font-bold ${step.status === "active" ? "text-primary" : step.status === "done" ? "text-[#1A2E2A]" : "text-[#1A2E2A]/35"}`}>
                                     {step.title}
                                     {step.status === "active" && <span className="ml-2 text-[10px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded-full font-bold">IN PROGRESS</span>}
                                   </p>
-                                  <p className={`text-xs mt-0.5 ${step.status === "done" ? "text-white/40" : step.status === "active" ? "text-white/50" : "text-white/20"}`}>{step.desc}</p>
+                                  <p className={`text-xs mt-0.5 ${step.status === "done" ? "text-[#1A2E2A]/40" : step.status === "active" ? "text-[#1A2E2A]/50" : "text-[#1A2E2A]/20"}`}>{step.desc}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
-                                  {step.date && <p className="text-white/30 text-[10px]">{step.date}</p>}
+                                  {step.date && <p className="text-[#1A2E2A]/30 text-[10px]">{step.date}</p>}
                                   {(step.detail || step.note) && (
-                                    <div className="mt-1">{isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-white/25 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 text-white/25 ml-auto" />}</div>
+                                    <div className="mt-1">{isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-[#1A2E2A]/25 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 text-[#1A2E2A]/25 ml-auto" />}</div>
                                   )}
                                 </div>
                               </div>
                             </button>
                             {isExpanded && (step.detail || step.note) && (
                               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-2 space-y-2">
-                                {step.detail && <p className="text-white/50 text-xs leading-relaxed bg-white/4 rounded-lg px-3 py-2.5">{step.detail}</p>}
+                                {step.detail && <p className="text-[#1A2E2A]/50 text-xs leading-relaxed bg-[#1A2E2A]/5 rounded-lg px-3 py-2.5">{step.detail}</p>}
                                 {step.note && <p className="text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5">{step.note}</p>}
                               </motion.div>
                             )}
@@ -569,11 +569,11 @@ export function ClientCaseTracker() {
                     </button>
                   </Link>
                   <Link href="/client/connect">
-                    <button className="w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/12 text-white border border-white/10 py-3 rounded-xl text-sm font-bold transition-all">
+                    <button className="w-full flex items-center justify-center gap-2 bg-[#1A2E2A]/8 hover:bg-[#1A2E2A]/8 text-[#1A2E2A] border border-[#1A2E2A]/10 py-3 rounded-xl text-sm font-bold transition-all">
                       <Phone className="w-4 h-4" /> Request Call
                     </button>
                   </Link>
-                  <button className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/8 text-white/50 hover:text-white border border-white/8 py-3 rounded-xl text-sm font-bold transition-all">
+                  <button className="w-full flex items-center justify-center gap-2 bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/8 text-[#1A2E2A]/50 hover:text-[#1A2E2A] border border-[#1A2E2A]/8 py-3 rounded-xl text-sm font-bold transition-all">
                     <Bell className="w-4 h-4" /> Set Hearing Reminder
                   </button>
                 </div>

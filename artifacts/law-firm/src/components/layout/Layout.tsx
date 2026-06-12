@@ -63,7 +63,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Scale className="w-5 h-5 text-primary" />
             </div>
             <div className="flex flex-col">
-              <span className="font-serif font-bold text-lg leading-tight text-sidebar-foreground tracking-wide">Rishika Nagpal & Associates</span>
+              <span className="font-serif font-bold text-lg leading-tight text-sidebar-foreground tracking-wide">Legal Connect</span>
               <span className="text-[10px] uppercase tracking-widest text-primary font-semibold">Legal Connect App</span>
             </div>
           </Link>
@@ -115,11 +115,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="p-6 border-t border-sidebar-border/50">
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-sidebar-accent/50 border border-sidebar-border">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-              RN
+              LC
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-sidebar-foreground">Founder & Admin</span>
-              <span className="text-xs text-muted-foreground">rishika@rna.law</span>
+              <span className="text-xs text-muted-foreground">admin@legalconnect.law</span>
             </div>
           </div>
         </div>
@@ -129,7 +129,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <header className="h-16 flex items-center justify-between px-4 border-b border-border bg-background/80 backdrop-blur-md md:hidden sticky top-0 z-30">
           <div className="flex items-center gap-2">
             <Scale className="w-6 h-6 text-primary" />
-            <span className="font-serif font-bold text-lg">RNA Connect</span>
+            <span className="font-serif font-bold text-lg">Legal Connect</span>
           </div>
           <button
             onClick={() => setSidebarOpen(true)}

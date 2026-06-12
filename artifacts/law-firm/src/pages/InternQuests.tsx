@@ -102,7 +102,7 @@ export function InternQuests() {
           }`}>
             <div className="flex justify-between items-start mb-4">
               <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-                q.status === 'Completed' ? 'bg-green-500 text-white' :
+                q.status === 'Completed' ? 'bg-green-500 text-[#1A2E2A]' :
                 q.status === 'In Progress' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
               }`}>
                 {q.status}

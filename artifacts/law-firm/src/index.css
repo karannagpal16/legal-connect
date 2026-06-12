@@ -60,49 +60,49 @@
 }
 
 :root, .dark {
-  /* Vedic Law Theme - Ivory, Saffron, Maroon */
+  /* Royal Emerald & Lotus Theme */
 
-  --background: 30 60% 97%; /* Warm Ivory */
-  --foreground: 0 40% 18%; /* Deep Maroon */
+  --background: 30 20% 97%; /* Warm Cream */
+  --foreground: 160 50% 12%; /* Deep Emerald */
 
-  --card: 30 40% 95%; /* Light Cream */
-  --card-foreground: 0 40% 18%;
-  --card-border: 30 30% 88%;
+  --card: 30 15% 95%; /* Soft Cream */
+  --card-foreground: 160 50% 12%;
+  --card-border: 30 15% 90%;
 
-  --popover: 30 40% 95%;
-  --popover-foreground: 0 40% 18%;
-  --popover-border: 30 30% 88%;
+  --popover: 30 15% 95%;
+  --popover-foreground: 160 50% 12%;
+  --popover-border: 30 15% 90%;
 
-  --primary: 28 76% 42%; /* Saffron */
-  --primary-foreground: 30 60% 97%;
+  --primary: 160 60% 17%; /* Deep Emerald */
+  --primary-foreground: 30 20% 97%;
 
-  --secondary: 30 30% 92%; /* Warm Sand */
-  --secondary-foreground: 0 40% 18%;
+  --secondary: 340 40% 73%; /* Lotus Pink */
+  --secondary-foreground: 160 50% 12%;
 
-  --muted: 30 30% 92%;
-  --muted-foreground: 28 40% 40%;
+  --muted: 30 15% 92%;
+  --muted-foreground: 160 20% 40%; /* Muted green */
 
-  --accent: 0 60% 32%; /* Maroon */
-  --accent-foreground: 30 60% 97%;
+  --accent: 160 60% 17%; /* Deep Emerald */
+  --accent-foreground: 30 20% 97%;
 
   --destructive: 0 62.8% 45%;
-  --destructive-foreground: 30 60% 97%;
+  --destructive-foreground: 30 20% 97%;
 
-  --border: 30 30% 88%;
-  --input: 30 30% 92%;
-  --ring: 28 76% 42%; /* Saffron focus ring */
+  --border: 30 15% 90%;
+  --input: 30 15% 92%;
+  --ring: 160 60% 17%; /* Emerald focus ring */
 
-  --sidebar: 30 40% 94%; /* Cream sidebar */
-  --sidebar-foreground: 0 40% 18%;
-  --sidebar-border: 30 30% 88%;
-  --sidebar-primary: 28 76% 42%;
-  --sidebar-primary-foreground: 30 60% 97%;
-  --sidebar-accent: 30 30% 92%;
-  --sidebar-accent-foreground: 0 40% 18%;
-  --sidebar-ring: 28 76% 42%;
+  --sidebar: 30 15% 94%; /* Cream sidebar */
+  --sidebar-foreground: 160 50% 12%;
+  --sidebar-border: 30 15% 90%;
+  --sidebar-primary: 160 60% 17%;
+  --sidebar-primary-foreground: 30 20% 97%;
+  --sidebar-accent: 30 15% 92%;
+  --sidebar-accent-foreground: 160 50% 12%;
+  --sidebar-ring: 160 60% 17%;
 
   --radius: 0.5rem;
-  
+
   --shadow-2xs: 0px 2px 0px 0px rgba(0,0,0,0.2);
   --shadow-xs: 0px 2px 0px 0px rgba(0,0,0,0.3);
   --shadow-sm: 0px 2px 0px 0px rgba(0,0,0,0.3), 0px 1px 2px -1px rgba(0,0,0,0.2);
@@ -151,16 +151,16 @@
   100% { transform: translateY(-100vh) scale(0.3); opacity: 0; }
 }
 @keyframes glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 12px rgba(212,175,55,0.25)); }
-  50% { filter: drop-shadow(0 0 28px rgba(212,175,55,0.55)); }
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(37,53,85,0.25)); }
+  50% { filter: drop-shadow(0 0 28px rgba(37,53,85,0.55)); }
 }
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 @keyframes border-glow {
-  0%, 100% { border-color: rgba(212,175,55,0.3); }
-  50% { border-color: rgba(212,175,55,0.7); }
+  0%, 100% { border-color: rgba(37,53,85,0.3); }
+  50% { border-color: rgba(37,53,85,0.7); }
 }
 @keyframes ken-burns {
   0% { transform: scale(1) translate(0,0); }
@@ -173,7 +173,7 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.08) 40%, rgba(212,175,55,0.15) 50%, rgba(212,175,55,0.08) 60%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(37,53,85,0.08) 40%, rgba(37,53,85,0.15) 50%, rgba(37,53,85,0.08) 60%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 3s ease-in-out infinite;
 }

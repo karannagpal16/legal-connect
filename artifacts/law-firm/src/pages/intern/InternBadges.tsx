@@ -26,14 +26,14 @@ export function InternBadges() {
       <div>
         <div className="flex items-center gap-3 mb-1">
           <Star className="w-7 h-7 text-amber-400 fill-amber-400" />
-          <h1 className="text-3xl font-serif font-bold text-white">Skill Badges</h1>
+          <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">Skill Badges</h1>
         </div>
-        <p className="text-white/40 ml-10">Earn badges by completing achievements and leveling up.</p>
+        <p className="text-[#1A2E2A]/40 ml-10">Earn badges by completing achievements and leveling up.</p>
       </div>
 
       {/* Earned badges */}
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-4 flex items-center gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2E2A]/40 mb-4 flex items-center gap-2">
           <CheckCircle className="w-4 h-4 text-emerald-400" />
           Earned Badges ({earned.length})
         </h2>
@@ -47,8 +47,8 @@ export function InternBadges() {
               className="bg-gradient-to-b from-amber-500/15 to-transparent border border-amber-500/25 rounded-2xl p-5 flex flex-col items-center text-center group hover:border-amber-500/50 transition-all"
             >
               <div className="text-4xl mb-3">{badge.emoji}</div>
-              <h3 className="text-white font-bold text-sm mb-1">{badge.title}</h3>
-              <p className="text-white/40 text-xs leading-relaxed mb-3">{badge.desc}</p>
+              <h3 className="text-[#1A2E2A] font-bold text-sm mb-1">{badge.title}</h3>
+              <p className="text-[#1A2E2A]/40 text-xs leading-relaxed mb-3">{badge.desc}</p>
               {badge.earnedAt && (
                 <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
                   Earned {badge.earnedAt}
@@ -62,8 +62,8 @@ export function InternBadges() {
       {/* Locked badges */}
       {locked.length > 0 && (
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-white/30 mb-4 flex items-center gap-2">
-            <Lock className="w-4 h-4 text-white/30" />
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2E2A]/30 mb-4 flex items-center gap-2">
+            <Lock className="w-4 h-4 text-[#1A2E2A]/30" />
             Locked Badges ({locked.length})
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -73,15 +73,15 @@ export function InternBadges() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.06 * i + 0.2 }}
-                className="bg-white/5 border border-white/10 rounded-2xl p-5 flex flex-col items-center text-center opacity-50"
+                className="bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 rounded-2xl p-5 flex flex-col items-center text-center opacity-50"
               >
                 <div className="text-4xl mb-3 grayscale">{badge.emoji}</div>
-                <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center mb-2">
-                  <Lock className="w-3 h-3 text-white/30" />
+                <div className="w-5 h-5 rounded-full bg-[#1A2E2A]/10 flex items-center justify-center mb-2">
+                  <Lock className="w-3 h-3 text-[#1A2E2A]/30" />
                 </div>
-                <h3 className="text-white/50 font-bold text-sm mb-1">{badge.title}</h3>
-                <p className="text-white/20 text-xs leading-relaxed mb-3">{badge.desc}</p>
-                <span className="text-[10px] text-white/30 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                <h3 className="text-[#1A2E2A]/50 font-bold text-sm mb-1">{badge.title}</h3>
+                <p className="text-[#1A2E2A]/20 text-xs leading-relaxed mb-3">{badge.desc}</p>
+                <span className="text-[10px] text-[#1A2E2A]/30 bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 px-2 py-0.5 rounded-full">
                   Requires {badge.xpRequired} XP
                 </span>
               </motion.div>

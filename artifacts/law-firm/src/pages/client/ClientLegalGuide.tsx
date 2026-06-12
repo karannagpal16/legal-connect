@@ -152,9 +152,9 @@ export function ClientLegalGuide() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3 mb-1">
           <BookOpen className="w-7 h-7 text-blue-400" />
-          <h1 className="text-3xl font-serif font-bold text-white">Law Made Simple</h1>
+          <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">Law Made Simple</h1>
         </div>
-        <p className="text-white/40 ml-10">Plain language guides for common legal situations. No jargon, just clarity.</p>
+        <p className="text-[#1A2E2A]/40 ml-10">Plain language guides for common legal situations. No jargon, just clarity.</p>
       </motion.div>
 
       {/* Intro banner */}
@@ -167,7 +167,7 @@ export function ClientLegalGuide() {
         <AlertCircle className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-blue-400 font-semibold mb-1">You are not alone — and the law is on your side.</p>
-          <p className="text-white/50 text-sm leading-relaxed">
+          <p className="text-[#1A2E2A]/50 text-sm leading-relaxed">
             These guides cover the most common legal situations faced by ordinary people in India. 
             Each guide explains your rights, what steps to take, and when to call a lawyer. 
             Remember: knowledge of your rights is your first shield.
@@ -189,12 +189,12 @@ export function ClientLegalGuide() {
               className="w-full p-5 flex items-center gap-4 text-left"
               onClick={() => setExpandedId(expandedId === guide.id ? null : guide.id)}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-white/10`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-[#1A2E2A]/10`}>
                 <guide.icon className={`w-6 h-6 ${guide.color}`} />
               </div>
               <div className="flex-1">
-                <h3 className="text-white font-bold text-base">{guide.title}</h3>
-                <p className="text-white/40 text-xs mt-0.5 line-clamp-1">{guide.intro}</p>
+                <h3 className="text-[#1A2E2A] font-bold text-base">{guide.title}</h3>
+                <p className="text-[#1A2E2A]/40 text-xs mt-0.5 line-clamp-1">{guide.intro}</p>
               </div>
               {expandedId === guide.id ? (
                 <ChevronUp className={`w-5 h-5 ${guide.color} flex-shrink-0`} />
@@ -209,10 +209,10 @@ export function ClientLegalGuide() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="border-t border-white/10 bg-background/60"
+                  className="border-t border-[#1A2E2A]/10 bg-background/60"
                 >
                   <div className="p-5">
-                    <p className="text-white/70 text-sm mb-5 leading-relaxed">{guide.intro}</p>
+                    <p className="text-[#1A2E2A]/70 text-sm mb-5 leading-relaxed">{guide.intro}</p>
 
                     {/* Tabs */}
                     <div className="flex gap-2 mb-5">
@@ -223,7 +223,7 @@ export function ClientLegalGuide() {
                           className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                             activeTab === tab
                               ? `${guide.bg} ${guide.color}`
-                              : "bg-white/5 text-white/40 hover:text-white/60"
+                              : "bg-[#1A2E2A]/5 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60"
                           }`}
                         >
                           {tab === "steps" ? "What To Do" : "Your Rights"}
@@ -235,10 +235,10 @@ export function ClientLegalGuide() {
                       <ol className="space-y-3">
                         {guide.steps.map((step, idx) => (
                           <li key={idx} className="flex items-start gap-3 text-sm">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-white/10 ${guide.color}`}>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-[#1A2E2A]/10 ${guide.color}`}>
                               {idx + 1}
                             </span>
-                            <span className="text-white/70 leading-relaxed">{step}</span>
+                            <span className="text-[#1A2E2A]/70 leading-relaxed">{step}</span>
                           </li>
                         ))}
                       </ol>
@@ -249,7 +249,7 @@ export function ClientLegalGuide() {
                         {guide.rights.map((right, idx) => (
                           <li key={idx} className="flex items-start gap-3 text-sm">
                             <Shield className={`w-4 h-4 mt-0.5 flex-shrink-0 ${guide.color}`} />
-                            <span className="text-white/70 leading-relaxed">{right}</span>
+                            <span className="text-[#1A2E2A]/70 leading-relaxed">{right}</span>
                           </li>
                         ))}
                       </ul>
@@ -259,7 +259,7 @@ export function ClientLegalGuide() {
                       <p className="text-amber-400 text-xs font-bold mb-1 flex items-center gap-1.5">
                         <AlertCircle className="w-3.5 h-3.5" /> When to Hire an Advocate
                       </p>
-                      <p className="text-white/50 text-xs leading-relaxed">{guide.whenToHireAdvocate}</p>
+                      <p className="text-[#1A2E2A]/50 text-xs leading-relaxed">{guide.whenToHireAdvocate}</p>
                     </div>
 
                     <div className="flex gap-3 mt-4">
@@ -269,7 +269,7 @@ export function ClientLegalGuide() {
                         </button>
                       </Link>
                       <Link href="/client/ai-assistant">
-                        <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 border border-white/10 px-4 py-2 rounded-xl text-sm font-bold transition-all">
+                        <button className="flex items-center gap-2 bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 text-[#1A2E2A]/60 border border-[#1A2E2A]/10 px-4 py-2 rounded-xl text-sm font-bold transition-all">
                           Ask AI
                         </button>
                       </Link>

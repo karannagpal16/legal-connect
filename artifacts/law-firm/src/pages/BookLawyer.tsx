@@ -51,7 +51,7 @@ export function BookLawyer() {
           status: "Pending"
         }
       });
-      setBookingRef(`RNA-${new Date().getFullYear()}-${result.id.toString().padStart(4, '0')}`);
+      setBookingRef(`LC-${new Date().getFullYear()}-${result.id.toString().padStart(4, '0')}`);
       setIsSuccess(true);
     } catch (error) {
       console.error("Booking failed:", error);
@@ -65,7 +65,7 @@ export function BookLawyer() {
     <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans selection:bg-primary/30 selection:text-primary-foreground relative overflow-hidden">
       
       {/* Left Branding Panel */}
-      <div className="hidden md:flex md:w-1/3 lg:w-[40%] relative flex-col justify-between p-10 lg:p-16 border-r border-white/10 isolate">
+      <div className="hidden md:flex md:w-1/3 lg:w-[40%] relative flex-col justify-between p-10 lg:p-16 border-r border-[#1A2E2A]/10 isolate">
         <div className="absolute inset-0 -z-10">
           <img 
             src={`${import.meta.env.BASE_URL}images/law-library-bg.png`} 
@@ -77,18 +77,18 @@ export function BookLawyer() {
 
         <Link href="/" className="inline-flex items-center gap-3 group w-fit transition-transform hover:-translate-x-1">
           <ArrowLeft className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-white/80 group-hover:text-white transition-colors">Back to Home</span>
+          <span className="font-semibold text-[#1A2E2A]/80 group-hover:text-[#1A2E2A] transition-colors">Back to Home</span>
         </Link>
 
         <div className="my-auto">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 mb-8 shadow-xl shadow-primary/5">
             <Scale className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-4xl lg:text-5xl font-serif font-bold text-white mb-6 leading-tight">
+          <h1 className="text-4xl lg:text-5xl font-serif font-bold text-[#1A2E2A] mb-6 leading-tight">
             Expert Legal <br />
             <span className="text-primary">Counsel</span> in New Delhi.
           </h1>
-          <p className="text-lg text-white/70 max-w-md leading-relaxed">
+          <p className="text-lg text-[#1A2E2A]/70 max-w-md leading-relaxed">
             Schedule a free 30-minute consultation with our experienced advocates. 
             We provide strategic guidance and rigorous representation tailored to your needs.
           </p>
@@ -110,7 +110,7 @@ export function BookLawyer() {
           </Link>
           <div className="flex items-center gap-2">
             <Scale className="w-5 h-5 text-primary" />
-            <span className="font-serif font-bold text-base">RNA Connect</span>
+            <span className="font-serif font-bold text-base">Legal Connect</span>
           </div>
         </div>
 

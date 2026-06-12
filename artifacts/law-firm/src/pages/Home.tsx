@@ -21,7 +21,7 @@ const marqueeItems = [
 
 const dharmaQuotes = [
   { text: "धर्मो रक्षति रक्षितः", sub: "Dharma protects those who protect it", source: "Manusmriti, 8.15" },
-  { text: "यतो धर्मस्ततो जयः", sub: "Where there is righteousness, there is victory", source: "Mahabharata, Shanti Parva" },
+  { text: "यतो धर्मस् ततो जयः", sub: "Where there is righteousness, there is victory", source: "Mahabharata, Shanti Parva" },
   { text: "Whenever there is a decline of righteousness, I manifest myself", sub: "For the protection of the good and the destruction of evil", source: "Bhagavad Gita, 4.7-8" },
   { text: "The law of the ruler is the law of the land", sub: "A ruler who upholds dharma protects the entire world", source: "Chanakya Niti, Arthashastra" },
   { text: "There is no greater dharma than truth", sub: "Truth alone is the foundation of justice", source: "Ramayana, Ayodhya Kanda" },
@@ -37,7 +37,25 @@ const dharmaQuotes = [
   { text: "Satyameva Jayate", sub: "Truth alone triumphs", source: "Mundaka Upanishad, 3.1.6" },
 ];
 
-function DharmaChakra({ size = 100 }: { size?: number }) {
+const THEME = {
+  emerald: "#0F4C3A",
+  emeraldLight: "#1A6B52",
+  lotus: "#E8A0BF",
+  lotusDeep: "#D488A8",
+  gold: "#C5A572",
+  goldLight: "#D4B896",
+  cream: "#F8F4F0",
+  creamWarm: "#F0E8E0",
+  text: "#1A2E2A",
+  textMuted: "#5A7A6E",
+  white: "#FDFCFA",
+  indigo: "#2D3A5C",
+  sage: "#7B9E87",
+  peach: "#F5D0C5",
+  lavender: "#C8B8D8",
+};
+
+function DharmaChakra({ size = 90 }: { size?: number }) {
   const r = size / 2;
   const cx = r, cy = r;
   const outerR = r * 0.93;
@@ -50,15 +68,15 @@ function DharmaChakra({ size = 100 }: { size?: number }) {
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <defs>
         <radialGradient id="ckGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#FF9933" stopOpacity="0.3" />
-          <stop offset="60%" stopColor="#D2691E" stopOpacity="0.1" />
+          <stop offset="0%" stopColor={THEME.emerald} stopOpacity="0.25" />
+          <stop offset="60%" stopColor={THEME.emeraldLight} stopOpacity="0.08" />
           <stop offset="100%" stopColor="transparent" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="ckGold" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FF9933" />
-          <stop offset="40%" stopColor="#D2691E" />
-          <stop offset="70%" stopColor="#8B4513" />
-          <stop offset="100%" stopColor="#FF9933" />
+          <stop offset="0%" stopColor={THEME.goldLight} />
+          <stop offset="40%" stopColor={THEME.gold} />
+          <stop offset="70%" stopColor={THEME.gold} />
+          <stop offset="100%" stopColor={THEME.goldLight} />
         </linearGradient>
       </defs>
       <circle cx={cx} cy={cy} r={r} fill="url(#ckGlow)" />
@@ -66,7 +84,7 @@ function DharmaChakra({ size = 100 }: { size?: number }) {
       <circle cx={cx} cy={cy} r={outerR - 4} fill="none" stroke="url(#ckGold)" strokeWidth="1" opacity="0.3" />
       <circle cx={cx} cy={cy} r={innerRingR} fill="none" stroke="url(#ckGold)" strokeWidth="1" opacity="0.4" />
       <circle cx={cx} cy={cy} r={hubR} fill="url(#ckGold)" />
-      <circle cx={cx} cy={cy} r={hubR * 0.6} fill="#FFF5EB" />
+      <circle cx={cx} cy={cy} r={hubR * 0.6} fill={THEME.cream} />
       <circle cx={cx} cy={cy} r={hubR * 0.25} fill="url(#ckGold)" />
       {Array.from({ length: 24 }).map((_, i) => {
         const angle = (i * 360) / 24;
@@ -83,27 +101,46 @@ function DharmaChakra({ size = 100 }: { size?: number }) {
   );
 }
 
-function PortalCard({ href, icon: Icon, label, subLabel, idx, accentColor }: { href: string; icon: React.ElementType; label: string; subLabel: string; idx: number; accentColor: string }) {
+function PortalCard({ href, icon: Icon, label, subLabel, idx, accentColor, bgGradient }: { href: string; icon: React.ElementType; label: string; subLabel: string; idx: number; accentColor: string; bgGradient: string }) {
   return (
     <Link href={href}>
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 + idx * 0.15, duration: 0.6 }}
-        whileHover={{ y: -8, scale: 1.04 }}
+        whileHover={{ y: -10, scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         className="group relative cursor-pointer"
       >
-        <div className="absolute -inset-1 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `linear-gradient(to bottom, ${accentColor}40, transparent)` }} />
-        <div className="relative rounded-2xl p-5 text-center transition-all duration-300 overflow-hidden bg-white border shadow-lg" style={{ borderColor: `${accentColor}30`, boxShadow: `0 4px 20px ${accentColor}15, inset 0 1px 0 ${accentColor}20` }}>
-          <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[rgba(0,0,0,0.05)] to-transparent" />
-          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-300" style={{ background: `linear-gradient(135deg, ${accentColor}20, ${accentColor}08)`, border: `1px solid ${accentColor}40` }}>
-            <Icon className="w-6 h-6" style={{ color: accentColor }} strokeWidth={1.5} />
+        {/* Outer glow on hover */}
+        <div className="absolute -inset-2 rounded-3xl blur-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-700" style={{ background: `linear-gradient(135deg, ${accentColor}40, ${accentColor}10)` }} />
+
+        <div className="relative rounded-2xl p-6 text-center transition-all duration-500 overflow-hidden" style={{ background: bgGradient, border: `1px solid ${accentColor}30`, boxShadow: `0 4px 16px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9)` }}>
+          {/* Top highlight line */}
+          <div className="absolute top-0 left-0 right-0 h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}60, transparent)` }} />
+
+          {/* Corner decorative elements */}
+          <div className="absolute top-3 right-3 w-6 h-6 opacity-10 group-hover:opacity-25 transition-opacity duration-500">
+            <svg viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="1">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
           </div>
-          <p className="font-bold text-sm uppercase tracking-widest relative z-10" style={{ color: "#8B1A1A" }}>{label}</p>
-          <p className="text-[10px] mt-0.5 uppercase tracking-widest relative z-10" style={{ color: `${accentColor}80` }}>{subLabel}</p>
-          <div className="mt-2 flex items-center justify-center gap-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: accentColor }}>
-            Enter <ArrowRight className="w-3 h-3" />
+
+          {/* Icon container with animated ring */}
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 scale-90 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${accentColor}20, ${accentColor}05)`, border: `1px solid ${accentColor}30` }} />
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center relative z-10 group-hover:scale-105 transition-transform duration-300" style={{ background: `linear-gradient(135deg, ${accentColor}15, ${accentColor}05)`, border: `1px solid ${accentColor}25` }}>
+              <Icon className="w-7 h-7" style={{ color: accentColor }} strokeWidth={1.5} />
+            </div>
+          </div>
+
+          {/* Label */}
+          <p className="font-bold text-sm uppercase tracking-[0.2em] relative z-10" style={{ color: THEME.text }}>{label}</p>
+          <p className="text-[10px] mt-1 uppercase tracking-[0.15em] relative z-10 font-medium" style={{ color: `${accentColor}90` }}>{subLabel}</p>
+
+          {/* Enter button that appears on hover */}
+          <div className="mt-3 flex items-center justify-center gap-1 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0" style={{ color: accentColor }}>
+            Enter Portal <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform duration-300" />
           </div>
         </div>
       </motion.div>
@@ -125,13 +162,13 @@ function DharmaQuoteBar() {
       transition={{ delay: 0.5, duration: 0.6 }}
       className="relative w-full max-w-2xl mx-auto"
     >
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #FFF5EB 0%, #FFEDD5 50%, #FFF5EB 100%)", border: "2px solid #FF9933", boxShadow: "0 4px 24px rgba(255,153,51,0.15), inset 0 1px 0 rgba(255,255,255,0.8)" }}>
-        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: "linear-gradient(90deg, #FF9933, #D2691E, #FF9933)" }} />
+      <div className="relative rounded-2xl overflow-hidden" style={{ background: `linear-gradient(135deg, ${THEME.cream} 0%, ${THEME.creamWarm} 50%, ${THEME.cream} 100%)`, border: `2px solid ${THEME.emerald}`, boxShadow: `0 4px 24px ${THEME.emerald}15, inset 0 1px 0 rgba(255,255,255,0.8)` }}>
+        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${THEME.emerald}, ${THEME.lotus}, ${THEME.gold}, ${THEME.emerald})` }} />
         <div className="px-6 py-5 sm:px-8 sm:py-6">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-1">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #FF9933, #D2691E)" }}>
-                <Quote className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${THEME.emerald}, ${THEME.emeraldLight})` }}>
+                <Quote className="w-4 h-4 text-[#1A2E2A]" />
               </div>
             </div>
             <div className="flex-1 min-w-0">
@@ -143,13 +180,13 @@ function DharmaQuoteBar() {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.5 }}
                 >
-                  <p className="text-lg sm:text-xl font-serif font-bold leading-snug" style={{ color: "#8B1A1A" }}>
+                  <p className="text-lg sm:text-xl font-serif font-bold leading-snug" style={{ color: THEME.emerald }}>
                     {q.text}
                   </p>
-                  <p className="text-sm mt-1 font-medium" style={{ color: "#A0522D" }}>
+                  <p className="text-sm mt-1 font-medium" style={{ color: THEME.textMuted }}>
                     {q.sub}
                   </p>
-                  <p className="text-[10px] mt-2 uppercase tracking-wider font-bold" style={{ color: "#FF9933" }}>
+                  <p className="text-[10px] mt-2 uppercase tracking-wider font-bold" style={{ color: THEME.lotusDeep }}>
                     {q.source}
                   </p>
                 </motion.div>
@@ -165,8 +202,8 @@ function DharmaQuoteBar() {
                 style={{
                   width: i === idx ? 20 : 6,
                   height: 6,
-                  background: i === idx ? "#FF9933" : "rgba(255,153,51,0.2)",
-                  boxShadow: i === idx ? "0 0 8px rgba(255,153,51,0.5)" : "none",
+                  background: i === idx ? THEME.emerald : `${THEME.emerald}25`,
+                  boxShadow: i === idx ? `0 0 8px ${THEME.emerald}50` : "none",
                 }}
               />
             ))}
@@ -194,12 +231,12 @@ function LiveNewsPanel() {
     >
       <div className="flex items-center gap-2 mb-5">
         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-        <Newspaper className="w-4 h-4" style={{ color: "#D2691E" }} />
-        <span className="text-[11px] uppercase tracking-[0.2em] font-bold" style={{ color: "#D2691E" }}>Live Legal Updates · India</span>
-        <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, #FF9933, transparent)" }} />
+        <Newspaper className="w-4 h-4" style={{ color: THEME.emerald }} />
+        <span className="text-[11px] uppercase tracking-[0.2em] font-bold" style={{ color: THEME.emerald }}>Live Legal Updates · India</span>
+        <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg, ${THEME.emerald}, transparent)` }} />
       </div>
 
-      <div className="rounded-2xl overflow-hidden bg-white border shadow-lg" style={{ borderColor: "#FF993320", boxShadow: "0 8px 32px rgba(139,26,26,0.08)" }}>
+      <div className="rounded-2xl overflow-hidden bg-white border shadow-lg" style={{ borderColor: `${THEME.emerald}15`, boxShadow: `0 8px 32px ${THEME.emerald}08` }}>
         <div className="relative w-full aspect-[16/7] overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.img
@@ -213,8 +250,8 @@ function LiveNewsPanel() {
               transition={{ duration: 0.8 }}
             />
           </AnimatePresence>
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(255,248,240,0.95), rgba(255,248,240,0.3), transparent)" }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to right, rgba(255,248,240,0.4), transparent)" }} />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${THEME.cream}f0, ${THEME.cream}60, transparent)` }} />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${THEME.cream}60, transparent)` }} />
           <AnimatePresence mode="wait">
             <motion.div
               key={active}
@@ -224,27 +261,27 @@ function LiveNewsPanel() {
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.6, delay: 0.15 }}
             >
-              <span className="inline-block text-[10px] font-bold px-2.5 py-1 rounded text-white mb-3 shadow-lg" style={{ background: item.tagColor }}>{item.tag}</span>
-              <h3 className="text-base sm:text-xl font-bold leading-snug mb-2" style={{ color: "#4a1a1a" }}>{item.title}</h3>
-              <p className="text-xs" style={{ color: "#8B5A2B" }}>{item.source} · {item.date}</p>
+              <span className="inline-block text-[10px] font-bold px-2.5 py-1 rounded text-[#1A2E2A] mb-3 shadow-lg" style={{ background: item.tagColor }}>{item.tag}</span>
+              <h3 className="text-base sm:text-xl font-bold leading-snug mb-2" style={{ color: THEME.text }}>{item.title}</h3>
+              <p className="text-xs" style={{ color: THEME.textMuted }}>{item.source} · {item.date}</p>
             </motion.div>
           </AnimatePresence>
-          <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border" style={{ borderColor: "#FF993330" }}>
+          <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-[#1A2E2A]/80 backdrop-blur-sm rounded-full px-3 py-1.5 border" style={{ borderColor: `${THEME.emerald}30` }}>
             <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: "#8B1A1A" }}>Live</span>
+            <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: THEME.emerald }}>Live</span>
           </div>
         </div>
 
-        <div className="flex gap-1.5 px-5 py-3 overflow-x-auto scrollbar-hide bg-white/50">
+        <div className="flex gap-1.5 px-5 py-3 overflow-x-auto scrollbar-hide bg-[#1A2E2A]/50">
           {legalNews.map((n, i) => (
             <button
               key={i}
               onClick={() => setActive(i)}
               className="relative flex-shrink-0 w-14 h-10 sm:w-20 sm:h-14 rounded-lg overflow-hidden transition-all duration-300 group/thumb"
-              style={{ border: i === active ? "2px solid #FF9933" : "2px solid transparent", opacity: i === active ? 1 : 0.4, boxShadow: i === active ? "0 0 12px rgba(255,153,51,0.3)" : "none" }}
+              style={{ border: i === active ? `2px solid ${THEME.emerald}` : "2px solid transparent", opacity: i === active ? 1 : 0.4, boxShadow: i === active ? `0 0 12px ${THEME.emerald}30` : "none" }}
             >
               <img src={n.img} alt="" className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300" />
-              {i === active && <div className="absolute inset-0" style={{ background: "rgba(255,153,51,0.1)" }} />}
+              {i === active && <div className="absolute inset-0" style={{ background: `${THEME.emerald}10` }} />}
             </button>
           ))}
         </div>
@@ -256,13 +293,13 @@ function LiveNewsPanel() {
 function Marquee() {
   return (
     <div className="relative overflow-hidden py-3">
-      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#FFF8F0] to-transparent z-10" />
-      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#FFF8F0] to-transparent z-10" />
+      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#F8F4F0] to-transparent z-10" />
+      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#F8F4F0] to-transparent z-10" />
       <div className="flex animate-marquee whitespace-nowrap">
         {[...marqueeItems, ...marqueeItems].map((item, i) => (
-          <span key={i} className="mx-6 text-[10px] uppercase tracking-[0.3em] font-semibold flex items-center gap-3" style={{ color: "#D2691E" }}>
+          <span key={i} className="mx-6 text-[10px] uppercase tracking-[0.3em] font-semibold flex items-center gap-3" style={{ color: THEME.textMuted }}>
             {item}
-            <span style={{ color: "#FF9933" }}>◆</span>
+            <span style={{ color: THEME.gold }}>◆</span>
           </span>
         ))}
       </div>
@@ -272,13 +309,13 @@ function Marquee() {
 
 export function Home() {
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden relative" style={{ background: "linear-gradient(180deg, #FFF8F0 0%, #FFEDD5 40%, #FFF5EB 100%)" }}>
-      {/* Warm background decorations */}
+    <div className="min-h-screen flex flex-col overflow-x-hidden relative" style={{ background: `linear-gradient(180deg, ${THEME.cream} 0%, ${THEME.creamWarm} 40%, ${THEME.cream} 100%)` }}>
+      {/* Elegant background decorations */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full blur-[120px]" style={{ background: "rgba(255,153,51,0.12)" }} />
-        <div className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[100px]" style={{ background: "rgba(139,26,26,0.06)" }} />
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] rounded-full blur-[80px]" style={{ background: "rgba(210,105,30,0.08)" }} />
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #FF9933 1px, transparent 1px)", backgroundSize: "50px 50px" }} />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full blur-[120px]" style={{ background: `${THEME.emerald}08` }} />
+        <div className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[100px]" style={{ background: `${THEME.lotus}08` }} />
+        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] rounded-full blur-[80px]" style={{ background: `${THEME.gold}08` }} />
+        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: `radial-gradient(circle, ${THEME.emerald} 1px, transparent 1px)`, backgroundSize: "60px 60px" }} />
       </div>
 
       {/* Header */}
@@ -303,20 +340,20 @@ export function Home() {
           className="text-center px-6 mt-4"
         >
           <div className="flex items-center justify-center gap-3 mb-2">
-            <span className="text-4xl sm:text-5xl font-black tracking-tight leading-none font-serif" style={{ color: "#8B1A1A" }}>
+            <span className="text-4xl sm:text-5xl font-black tracking-tight leading-none font-serif" style={{ color: THEME.emerald }}>
               LC
             </span>
-            <div className="h-10 w-px bg-gradient-to-b from-transparent via-[#D2691E] to-transparent" />
+            <div className="h-10 w-px bg-gradient-to-b from-transparent via-[#C5A572] to-transparent" />
             <div className="text-left">
-              <div className="text-base sm:text-xl font-black tracking-wider leading-tight font-serif" style={{ color: "#8B1A1A" }}>
+              <div className="text-base sm:text-xl font-black tracking-wider leading-tight font-serif" style={{ color: THEME.emerald }}>
                 LEGAL CONNECT
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3 justify-center mt-1">
-            <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#D2691E]" />
-            <p className="text-[10px] sm:text-xs tracking-[0.3em] uppercase font-semibold" style={{ color: "#D2691E" }}>Rishika Nagpal & Associates · Advocates & Consultants</p>
-            <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#D2691E]" />
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#C5A572]" />
+            <p className="text-[10px] sm:text-xs tracking-[0.3em] uppercase font-semibold" style={{ color: THEME.gold }}>Advocates & Legal Consultants</p>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#C5A572]" />
           </div>
         </motion.div>
       </motion.div>
@@ -331,10 +368,10 @@ export function Home() {
 
             {/* Portal Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto w-full">
-              <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0} accentColor="#D2691E" />
-              <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" idx={1} accentColor="#8B1A1A" />
-              <PortalCard href="/intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2} accentColor="#2E8B57" />
-              <PortalCard href="/client/cases" icon={Landmark} label="eCourt" subLabel="Services" idx={3} accentColor="#1E3A5C" />
+              <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0} accentColor={THEME.emerald} bgGradient={`linear-gradient(160deg, #FFFFFF 0%, #E8F4ED 50%, #D4EBE2 100%)`} />
+              <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" idx={1} accentColor={THEME.lotusDeep} bgGradient={`linear-gradient(160deg, #FFFFFF 0%, #FCE8F0 50%, #F5D0E0 100%)`} />
+              <PortalCard href="/intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2} accentColor={THEME.gold} bgGradient={`linear-gradient(160deg, #FFFFFF 0%, #F5EBD4 50%, #E8D4A8 100%)`} />
+              <PortalCard href="/client/cases" icon={Landmark} label="eCourt" subLabel="Services" idx={3} accentColor={THEME.indigo} bgGradient={`linear-gradient(160deg, #FFFFFF 0%, #D4D8E8 50%, #B8BFD0 100%)`} />
             </div>
 
             {/* Quick links */}
@@ -351,7 +388,7 @@ export function Home() {
                 { label: "Case Tracker", href: "/client/cases" },
               ].map(l => (
                 <Link key={l.href} href={l.href}>
-                  <button className="text-[10px] tracking-wide transition-colors flex items-center gap-1 group bg-transparent border-none cursor-pointer hover:text-[#8B1A1A]" style={{ color: "#D2691E" }}>
+                  <button className="text-[10px] tracking-wide transition-colors flex items-center gap-1 group bg-transparent border-none cursor-pointer hover:text-[#0F4C3A]" style={{ color: THEME.textMuted }}>
                     {l.label} <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 </Link>
@@ -365,8 +402,8 @@ export function Home() {
               transition={{ delay: 1.2, duration: 0.5 }}
               className="text-center"
             >
-              <p className="text-[10px] tracking-[0.2em] uppercase font-bold" style={{ color: "#D2691E" }}>धर्मो रक्षति रक्षितः</p>
-              <p className="text-[9px] mt-0.5 tracking-widest" style={{ color: "#D2691E" }}>Dharmo Rakshati Rakshitah</p>
+              <p className="text-[10px] tracking-[0.2em] uppercase font-bold" style={{ color: THEME.emerald }}>धर्मो रक्षति रक्षितः</p>
+              <p className="text-[9px] mt-0.5 tracking-widest" style={{ color: THEME.textMuted }}>Dharmo Rakshati Rakshitah</p>
             </motion.div>
           </div>
         </div>
@@ -377,13 +414,13 @@ export function Home() {
       </div>
 
       {/* Footer */}
-      <div className="relative z-10 text-center py-5 border-t" style={{ borderColor: "#FF993320" }}>
+      <div className="relative z-10 text-center py-5 border-t" style={{ borderColor: `${THEME.emerald}10` }}>
         <motion.p
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           className="text-[10px] tracking-[0.3em] uppercase"
-          style={{ color: "#D2691E" }}
+          style={{ color: THEME.textMuted }}
         >
           Subhash Nagar, New Delhi · Est. 2018 · Delhi High Court & Supreme Court
         </motion.p>

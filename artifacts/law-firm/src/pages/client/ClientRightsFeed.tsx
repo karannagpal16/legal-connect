@@ -62,7 +62,7 @@ const cards: Card[] = [
     emoji: "🔐",
     title: "DPDP Act 2023 — Your Data Rights",
     hook: "If a company leaks your personal data, you can now claim financial compensation under Indian law. This is new.",
-    detail: "The Digital Personal Data Protection Act 2023 gives you the right to: (1) Know what data a company holds about you, (2) Correct wrong data, (3) Withdraw consent at any time, (4) Seek financial penalty against the company for data breaches up to ₹250 crore. File complaints with the Data Protection Board of India. RNA Legal Connect can help you draft a formal demand notice.",
+    detail: "The Digital Personal Data Protection Act 2023 gives you the right to: (1) Know what data a company holds about you, (2) Correct wrong data, (3) Withdraw consent at any time, (4) Seek financial penalty against the company for data breaches up to ₹250 crore. File complaints with the Data Protection Board of India. Legal Connect can help you draft a formal demand notice.",
     actionLabel: "Ask LexBot",
     actionHref: "/client/connect",
   },
@@ -74,7 +74,7 @@ const cards: Card[] = [
     emoji: "🛒",
     title: "E-Commerce Platform? They're Liable for Your Defective Product",
     hook: "Supreme Court (March 2026): Amazon, Flipkart etc. cannot disclaim liability for defective products sold by third-party sellers on their platform.",
-    detail: "This landmark ruling means e-commerce platforms are now jointly liable for defective products. You can file a consumer complaint against both the seller AND the platform. Complaints below ₹1 crore go to the District Consumer Forum. File online at consumerhelpline.gov.in or let RNA Legal Connect draft your complaint.",
+    detail: "This landmark ruling means e-commerce platforms are now jointly liable for defective products. You can file a consumer complaint against both the seller AND the platform. Complaints below ₹1 crore go to the District Consumer Forum. File online at consumerhelpline.gov.in or let Legal Connect draft your complaint.",
     actionLabel: "Draft Complaint",
     actionHref: "/client/diy-docs",
   },
@@ -86,7 +86,7 @@ const cards: Card[] = [
     emoji: "💼",
     title: "Unregistered Business? You're Missing Legal Protection",
     hook: "Freelancers and small businesses without Udyam Registration are not protected under the MSME Payment Protection Act. Clients can delay payment indefinitely.",
-    detail: "Udyam Registration (free at udyamregistration.gov.in) gives you: (1) Right to receive payment within 45 days, (2) 3x penal interest for delayed payments, (3) Access to government MSME dispute resolution portal, (4) Tax benefits. RNA Legal Connect can help with your business contract drafting once you are registered.",
+    detail: "Udyam Registration (free at udyamregistration.gov.in) gives you: (1) Right to receive payment within 45 days, (2) 3x penal interest for delayed payments, (3) Access to government MSME dispute resolution portal, (4) Tax benefits. Legal Connect can help with your business contract drafting once you are registered.",
     actionLabel: "Generate Client Contract",
     actionHref: "/client/diy-docs",
   },
@@ -98,7 +98,7 @@ const cards: Card[] = [
     emoji: "🏛️",
     title: "MCD Property Tax — Amnesty Scheme Extended",
     hook: "MCD's Sampattikar Niptaan Yojana (Property Tax Amnesty) has been extended. Pay now — 100% interest waiver on pending dues.",
-    detail: "The MCD amnesty applies to all residential and commercial properties in West Delhi including Subhash Nagar, Hari Nagar, and Tilak Nagar. Unpaid property tax after the amnesty period attracts 100% interest plus legal action by MCD. RNA Legal Connect can help if you've received an MCD notice. Visit your ward office or pay at mcdonline.nic.in.",
+    detail: "The MCD amnesty applies to all residential and commercial properties in West Delhi including Subhash Nagar, Hari Nagar, and Tilak Nagar. Unpaid property tax after the amnesty period attracts 100% interest plus legal action by MCD. Legal Connect can help if you've received an MCD notice. Visit your ward office or pay at mcdonline.nic.in.",
     actionLabel: "Get Help with MCD Notice",
     actionHref: "/client/connect",
     isLocal: true,
@@ -111,7 +111,7 @@ const cards: Card[] = [
     emoji: "🏗️",
     title: "DDA Housing Scheme 2026 — Last Date for Objections",
     hook: "DDA is acquiring land in West Delhi corridors. If your property is in the acquisition zone, you have 90 days to file objections — don't miss the deadline.",
-    detail: "Under the Land Acquisition Act 2013, landowners have a right to object to acquisition and claim fair compensation (up to 4x market value for rural land). Deadline for objections is typically published in the Delhi Gazette. RNA Legal Connect can review your property documents and file a timely objection on your behalf.",
+    detail: "Under the Land Acquisition Act 2013, landowners have a right to object to acquisition and claim fair compensation (up to 4x market value for rural land). Deadline for objections is typically published in the Delhi Gazette. Legal Connect can review your property documents and file a timely objection on your behalf.",
     actionLabel: "File Objection",
     actionHref: "/client/connect",
     isLocal: true,
@@ -124,7 +124,7 @@ const cards: Card[] = [
     emoji: "🏢",
     title: "Builder Delayed Possession in Dwarka/Rohini? You Can Claim Interest",
     hook: "Under RERA, if a builder delays possession, you are entitled to SBI MCLR + 2% interest per annum on your entire deposited amount.",
-    detail: "Delhi RERA has received 4,200+ complaints in 2025-26. Steps to claim: (1) Send a legal notice to the builder demanding possession date and compensation. (2) File a complaint at RERA Delhi (rera.delhi.gov.in). (3) If the builder is unresponsive, approach RERA Adjudicating Officer. RNA Legal Connect has handled 30+ RERA cases — contact us for a consultation.",
+    detail: "Delhi RERA has received 4,200+ complaints in 2025-26. Steps to claim: (1) Send a legal notice to the builder demanding possession date and compensation. (2) File a complaint at RERA Delhi (rera.delhi.gov.in). (3) If the builder is unresponsive, approach RERA Adjudicating Officer. Legal Connect has handled 30+ RERA cases — contact us for a consultation.",
     actionLabel: "Consult for RERA Claim",
     actionHref: "/client/connect",
   },
@@ -149,8 +149,8 @@ export function ClientRightsFeed() {
             <BookOpen className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-serif font-bold text-white">Know Your Rights</h1>
-            <p className="text-white/40 text-xs mt-0.5">Daily legal cards · Delhi 2026 · Updated weekly</p>
+            <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">Know Your Rights</h1>
+            <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Daily legal cards · Delhi 2026 · Updated weekly</p>
           </div>
         </div>
         <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
@@ -164,7 +164,7 @@ export function ClientRightsFeed() {
         <MapPin className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <p className="text-amber-400 text-sm font-bold">📍 Subhash Nagar & West Delhi Alert</p>
-          <p className="text-white/50 text-xs mt-0.5">MCD Amnesty Scheme active · DDA land notifications in progress · 2 items affect your area</p>
+          <p className="text-[#1A2E2A]/50 text-xs mt-0.5">MCD Amnesty Scheme active · DDA land notifications in progress · 2 items affect your area</p>
         </div>
         <button onClick={() => setActiveCategory("Local Alert")} className="text-xs font-bold text-amber-400 hover:underline flex-shrink-0">View →</button>
       </div>
@@ -175,7 +175,7 @@ export function ClientRightsFeed() {
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`text-xs px-4 py-2 rounded-full border font-semibold transition-all ${activeCategory === cat ? "bg-primary/20 border-primary/40 text-primary" : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/25"}`}
+            className={`text-xs px-4 py-2 rounded-full border font-semibold transition-all ${activeCategory === cat ? "bg-primary/20 border-primary/40 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A] hover:border-white/25"}`}
           >
             {cat}
           </button>
@@ -193,7 +193,7 @@ export function ClientRightsFeed() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ delay: 0.05 * i }}
-              className={`bg-card/40 border rounded-2xl overflow-hidden transition-colors hover:border-white/20 cursor-pointer ${card.isLocal ? "border-amber-500/25" : "border-white/10"}`}
+              className={`bg-card/40 border rounded-2xl overflow-hidden transition-colors hover:border-[#1A2E2A]/20 cursor-pointer ${card.isLocal ? "border-amber-500/25" : "border-[#1A2E2A]/10"}`}
               onClick={() => setExpanded(expanded === card.id ? null : card.id)}
             >
               <div className="p-5">
@@ -201,8 +201,8 @@ export function ClientRightsFeed() {
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${card.tagBg} ${card.tagColor}`}>{card.tag}</span>
                   <span className="text-2xl">{card.emoji}</span>
                 </div>
-                <h3 className="text-white font-bold text-sm leading-snug mb-2">{card.title}</h3>
-                <p className="text-white/50 text-xs leading-relaxed">{card.hook}</p>
+                <h3 className="text-[#1A2E2A] font-bold text-sm leading-snug mb-2">{card.title}</h3>
+                <p className="text-[#1A2E2A]/50 text-xs leading-relaxed">{card.hook}</p>
               </div>
 
               <AnimatePresence>
@@ -211,9 +211,9 @@ export function ClientRightsFeed() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="border-t border-white/8 bg-white/3 px-5 py-4"
+                    className="border-t border-[#1A2E2A]/8 bg-[#1A2E2A]/5 px-5 py-4"
                   >
-                    <p className="text-white/65 text-xs leading-relaxed mb-4">{card.detail}</p>
+                    <p className="text-[#1A2E2A]/65 text-xs leading-relaxed mb-4">{card.detail}</p>
                     <Link href={card.actionHref}>
                       <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-background text-xs font-bold px-4 py-2.5 rounded-xl transition-all w-full justify-center" onClick={e => e.stopPropagation()}>
                         {card.actionLabel} <ArrowRight className="w-3.5 h-3.5" />
@@ -223,7 +223,7 @@ export function ClientRightsFeed() {
                 )}
               </AnimatePresence>
 
-              <div className="px-5 py-2.5 border-t border-white/5 flex items-center justify-between text-[10px] text-white/25">
+              <div className="px-5 py-2.5 border-t border-white/5 flex items-center justify-between text-[10px] text-[#1A2E2A]/25">
                 <span>{expanded === card.id ? "Click to collapse" : "Tap to read more"}</span>
                 <ChevronRight className={`w-3 h-3 transition-transform ${expanded === card.id ? "rotate-90" : ""}`} />
               </div>
@@ -236,12 +236,12 @@ export function ClientRightsFeed() {
       <div className="bg-primary/8 border border-primary/20 rounded-2xl p-5 flex items-center gap-4">
         <Sparkles className="w-8 h-8 text-primary flex-shrink-0" />
         <div className="flex-1">
-          <p className="text-white font-bold text-sm">Have a specific legal question?</p>
-          <p className="text-white/40 text-xs mt-0.5">Ask LexBot or connect with one of our advocates instantly.</p>
+          <p className="text-[#1A2E2A] font-bold text-sm">Have a specific legal question?</p>
+          <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Ask LexBot or connect with one of our advocates instantly.</p>
         </div>
         <Link href="/client/connect">
           <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-background text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex-shrink-0">
-            Consult RNA <ArrowRight className="w-3.5 h-3.5" />
+            Consult Legal Connect <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </Link>
       </div>

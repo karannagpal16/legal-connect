@@ -279,24 +279,24 @@ export function AdvocateJudges() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-white mb-1">Judges Roster & eCourt Services</h1>
-        <p className="text-white/50 text-sm">Complete roster across all courts · Leave status · eCourt quick links</p>
+        <h1 className="text-3xl font-serif font-bold text-[#1A2E2A] mb-1">Judges Roster & eCourt Services</h1>
+        <p className="text-[#1A2E2A]/50 text-sm">Complete roster across all courts · Leave status · eCourt quick links</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-card/40 border border-white/10 rounded-2xl p-4">
-          <p className="text-white/30 text-[10px] font-bold uppercase tracking-wider mb-1">Total Courts</p>
-          <p className="text-white text-2xl font-bold">{courts.length}</p>
+        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-4">
+          <p className="text-[#1A2E2A]/30 text-[10px] font-bold uppercase tracking-wider mb-1">Total Courts</p>
+          <p className="text-[#1A2E2A] text-2xl font-bold">{courts.length}</p>
         </div>
-        <div className="bg-card/40 border border-white/10 rounded-2xl p-4">
-          <p className="text-white/30 text-[10px] font-bold uppercase tracking-wider mb-1">Total Judges</p>
-          <p className="text-white text-2xl font-bold">{totalJudges}</p>
+        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-4">
+          <p className="text-[#1A2E2A]/30 text-[10px] font-bold uppercase tracking-wider mb-1">Total Judges</p>
+          <p className="text-[#1A2E2A] text-2xl font-bold">{totalJudges}</p>
         </div>
-        <div className="bg-card/40 border border-white/10 rounded-2xl p-4">
+        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-4">
           <p className="text-emerald-400/50 text-[10px] font-bold uppercase tracking-wider mb-1">Available Today</p>
           <p className="text-emerald-400 text-2xl font-bold">{totalJudges - onLeaveCount}</p>
         </div>
-        <div className="bg-card/40 border border-white/10 rounded-2xl p-4">
+        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-4">
           <p className="text-rose-400/50 text-[10px] font-bold uppercase tracking-wider mb-1">On Leave</p>
           <p className="text-rose-400 text-2xl font-bold">{onLeaveCount}</p>
         </div>
@@ -309,18 +309,18 @@ export function AdvocateJudges() {
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group bg-card/40 border border-white/10 hover:border-white/20 rounded-2xl p-4 transition-all hover:bg-card/60"
+            className="group bg-card/40 border border-[#1A2E2A]/10 hover:border-[#1A2E2A]/20 rounded-2xl p-4 transition-all hover:bg-card/60"
           >
             <div className="flex items-start gap-3">
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${link.color} flex items-center justify-center flex-shrink-0`}>
-                <link.icon className="w-5 h-5 text-white" />
+                <link.icon className="w-5 h-5 text-[#1A2E2A]" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-white text-sm font-bold group-hover:text-primary transition-colors">{link.title}</h3>
-                  <ExternalLink className="w-3 h-3 text-white/20 group-hover:text-primary/60 transition-colors flex-shrink-0" />
+                  <h3 className="text-[#1A2E2A] text-sm font-bold group-hover:text-primary transition-colors">{link.title}</h3>
+                  <ExternalLink className="w-3 h-3 text-[#1A2E2A]/20 group-hover:text-primary/60 transition-colors flex-shrink-0" />
                 </div>
-                <p className="text-white/40 text-xs mt-0.5 leading-relaxed">{link.description}</p>
+                <p className="text-[#1A2E2A]/40 text-xs mt-0.5 leading-relaxed">{link.description}</p>
               </div>
             </div>
           </a>
@@ -329,12 +329,12 @@ export function AdvocateJudges() {
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A2E2A]/30" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search judge name, court, or location..."
-            className="w-full bg-card/50 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-primary/40 transition-all"
+            className="w-full bg-card/50 border border-[#1A2E2A]/10 rounded-xl pl-11 pr-4 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/30 focus:outline-none focus:border-primary/40 transition-all"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -342,14 +342,14 @@ export function AdvocateJudges() {
             <button
               key={lvl}
               onClick={() => setFilterLevel(lvl)}
-              className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${filterLevel === lvl ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/10 text-white/40 hover:text-white/60 hover:bg-white/8"}`}
+              className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${filterLevel === lvl ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60 hover:bg-[#1A2E2A]/8"}`}
             >
               {lvl === "all" ? "All Courts" : lvl === "supreme" ? "Supreme Court" : lvl === "high" ? "High Courts" : "District Courts"}
             </button>
           ))}
           <button
             onClick={() => setShowOnLeaveOnly(!showOnLeaveOnly)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${showOnLeaveOnly ? "bg-rose-500/15 border-rose-500/30 text-rose-400" : "bg-white/5 border-white/10 text-white/40 hover:text-white/60 hover:bg-white/8"}`}
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${showOnLeaveOnly ? "bg-rose-500/15 border-rose-500/30 text-rose-400" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60 hover:bg-[#1A2E2A]/8"}`}
           >
             <UserX className="w-3.5 h-3.5" />
             On Leave
@@ -371,31 +371,31 @@ export function AdvocateJudges() {
             <motion.div
               key={court.id}
               layout
-              className={`bg-card/40 border rounded-2xl overflow-hidden transition-all ${isExpanded ? "border-white/15" : "border-white/8"}`}
+              className={`bg-card/40 border rounded-2xl overflow-hidden transition-all ${isExpanded ? "border-white/15" : "border-[#1A2E2A]/8"}`}
             >
               <button
                 onClick={() => setExpandedCourt(isExpanded ? null : court.id)}
-                className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-white/3 transition-colors"
+                className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-[#1A2E2A]/5 transition-colors"
               >
                 <div className={`w-10 h-10 rounded-xl ${config.bg} border ${config.border} flex items-center justify-center flex-shrink-0`}>
                   <Icon className={`w-5 h-5 ${config.accent}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-white font-bold text-sm truncate">{court.name}</h3>
+                    <h3 className="text-[#1A2E2A] font-bold text-sm truncate">{court.name}</h3>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full ${config.bg} border ${config.border} ${config.accent} font-bold`}>
                       {court.level === "supreme" ? "SC" : court.level === "high" ? "HC" : "DC"}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-white/40 text-xs">{court.location}</span>
-                    <span className="text-white/25 text-xs">·</span>
-                    <span className="flex items-center gap-1 text-white/40 text-xs">
+                    <span className="text-[#1A2E2A]/40 text-xs">{court.location}</span>
+                    <span className="text-[#1A2E2A]/25 text-xs">·</span>
+                    <span className="flex items-center gap-1 text-[#1A2E2A]/40 text-xs">
                       <UserCheck className="w-3 h-3 text-emerald-400" /> {court.judges.length - leaveCount}
                     </span>
                     {leaveCount > 0 && (
                       <>
-                        <span className="text-white/25 text-xs">·</span>
+                        <span className="text-[#1A2E2A]/25 text-xs">·</span>
                         <span className="flex items-center gap-1 text-rose-400 text-xs">
                           <UserX className="w-3 h-3" /> {leaveCount} on leave
                         </span>
@@ -403,7 +403,7 @@ export function AdvocateJudges() {
                     )}
                   </div>
                 </div>
-                <ChevronDown className={`w-5 h-5 text-white/25 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-5 h-5 text-[#1A2E2A]/25 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
               </button>
 
               <AnimatePresence>
@@ -415,27 +415,27 @@ export function AdvocateJudges() {
                     transition={{ duration: 0.3 }}
                     className="overflow-hidden"
                   >
-                    <div className="border-t border-white/8 px-5 py-3">
+                    <div className="border-t border-[#1A2E2A]/8 px-5 py-3">
                       <div className="grid gap-2">
                         {courtJudges.map((judge, idx) => (
                           <div
                             key={idx}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${judge.onLeave ? "bg-rose-500/5 border border-rose-500/10" : "bg-white/3 border border-white/5"}`}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${judge.onLeave ? "bg-rose-500/5 border border-rose-500/10" : "bg-[#1A2E2A]/5 border border-white/5"}`}
                           >
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${judge.onLeave ? "bg-rose-400" : "bg-emerald-400"}`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`text-sm font-semibold ${judge.onLeave ? "text-white/50" : "text-white/80"}`}>{judge.name}</p>
+                                <p className={`text-sm font-semibold ${judge.onLeave ? "text-[#1A2E2A]/50" : "text-[#1A2E2A]/80"}`}>{judge.name}</p>
                                 {judge.designation.includes("Chief") && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20 font-bold">CJ</span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <span className="text-white/30 text-xs">{judge.designation}</span>
+                                <span className="text-[#1A2E2A]/30 text-xs">{judge.designation}</span>
                                 {judge.bench && (
                                   <>
-                                    <span className="text-white/15 text-xs">·</span>
-                                    <span className="text-white/25 text-xs">{judge.bench}</span>
+                                    <span className="text-[#1A2E2A]/15 text-xs">·</span>
+                                    <span className="text-[#1A2E2A]/25 text-xs">{judge.bench}</span>
                                   </>
                                 )}
                               </div>
@@ -446,7 +446,7 @@ export function AdvocateJudges() {
                                   <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold">
                                     <AlertCircle className="w-3 h-3" /> ON LEAVE
                                   </div>
-                                  <p className="text-white/25 text-[10px] mt-0.5">Until {judge.leaveUntil} · {judge.leaveReason}</p>
+                                  <p className="text-[#1A2E2A]/25 text-[10px] mt-0.5">Until {judge.leaveUntil} · {judge.leaveReason}</p>
                                 </div>
                               </div>
                             ) : (

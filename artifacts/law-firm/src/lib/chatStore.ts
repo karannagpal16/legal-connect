@@ -51,7 +51,7 @@ function getInitialConversations(): ChatConversation[] {
     {
       id: "conv-1",
       clientName: "Rahul Sharma",
-      advocateName: "Adv. Rishika Nagpal",
+      advocateName: "Adv. Arjun Mehra",
       caseTitle: "Tenancy Dispute – Rohini Property",
       lastActivity: now - 3600000,
       messages: [
@@ -63,7 +63,7 @@ function getInitialConversations(): ChatConversation[] {
     {
       id: "conv-2",
       clientName: "Priya Mehta",
-      advocateName: "Adv. Rishika Nagpal",
+      advocateName: "Adv. Arjun Mehra",
       caseTitle: "Consumer Complaint – XYZ Electronics",
       lastActivity: now - 86400000,
       messages: [
@@ -74,7 +74,7 @@ function getInitialConversations(): ChatConversation[] {
     {
       id: "conv-3",
       clientName: "Deepak Nair",
-      advocateName: "Adv. Rishika Nagpal",
+      advocateName: "Adv. Arjun Mehra",
       caseTitle: "Employment Settlement",
       lastActivity: now - 172800000,
       messages: [
