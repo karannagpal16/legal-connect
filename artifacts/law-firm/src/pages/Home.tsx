@@ -39,16 +39,18 @@ const dharmaQuotes = [
 
 /* ──────────────── THEME ──────────────── */
 const T = {
-  bg: "#0F172A",
-  bgLight: "#1E293B",
-  card: "#1E293B",
-  cardHover: "#27354F",
-  gold: "#FBBF24",
-  goldLight: "#FDE68A",
-  amber: "#F59E0B",
-  text: "#F8FAFC",
-  textMuted: "#94A3B8",
-  border: "#334155",
+  bg: "#FFFFFF",
+  bgLight: "#F8FAFC",
+  card: "#FFFFFF",
+  cardHover: "#F1F5F9",
+  gold: "#D97706",
+  goldLight: "#F59E0B",
+  amber: "#B45309",
+  navy: "#1E3A5F",
+  navyLight: "#2A5C8F",
+  text: "#1E293B",
+  textMuted: "#64748B",
+  border: "#E2E8F0",
 };
 
 function DharmaChakra({ size = 80 }: { size?: number }) {
@@ -72,7 +74,7 @@ function DharmaChakra({ size = 80 }: { size?: number }) {
       <circle cx={cx} cy={cy} r={r * 0.9} fill="none" stroke="url(#gold)" strokeWidth="2.5" />
       <circle cx={cx} cy={cy} r={r * 0.78} fill="none" stroke="url(#gold)" strokeWidth="1" opacity="0.4" />
       <circle cx={cx} cy={cy} r={r * 0.15} fill="url(#gold)" />
-      <circle cx={cx} cy={cy} r={r * 0.08} fill={T.bg} />
+      <circle cx={cx} cy={cy} r={r * 0.08} fill="#FFFFFF" />
       {Array.from({ length: 24 }).map((_, i) => {
         const a = (i * 360 / 24) * Math.PI / 180;
         const s = r * 0.17, e = r * 0.76;
@@ -109,7 +111,7 @@ function PortalCard({ href, icon: Icon, label, subLabel, idx, accent, bg, glow }
              style={{ background: glow }} />
 
         <div className="relative rounded-xl p-6 text-center overflow-hidden transition-all duration-500"
-             style={{ background: bg, border: `1px solid ${accent}30`, boxShadow: `0 8px 32px ${accent}15, inset 0 1px 0 rgba(255,255,255,0.05)` }}>
+             style={{ background: bg, border: `1px solid ${accent}40`, boxShadow: `0 4px 20px ${accent}15, inset 0 1px 0 rgba(255,255,255,0.8)` }}>
 
           {/* Top line */}
           <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
@@ -124,13 +126,13 @@ function PortalCard({ href, icon: Icon, label, subLabel, idx, accent, bg, glow }
             <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 scale-90 group-hover:scale-110"
                  style={{ background: `${accent}15`, border: `1px solid ${accent}30` }} />
             <div className="w-16 h-16 rounded-xl flex items-center justify-center relative z-10 group-hover:scale-105 transition-transform duration-300"
-                 style={{ background: `${accent}12`, border: `1px solid ${accent}25` }}>
+                 style={{ background: `${accent}18`, border: `1px solid ${accent}40` }}>
               <Icon className="w-7 h-7" style={{ color: accent }} strokeWidth={1.5} />
             </div>
           </div>
 
-          <p className="font-bold text-sm uppercase tracking-[0.2em] text-white">{label}</p>
-          <p className="text-[10px] mt-1 uppercase tracking-[0.15em] font-semibold" style={{ color: `${accent}99` }}>{subLabel}</p>
+          <p className="font-bold text-sm uppercase tracking-[0.2em]" style={{ color: T.text }}>{label}</p>
+          <p className="text-[10px] mt-1 uppercase tracking-[0.15em] font-semibold" style={{ color: accent }}>{subLabel}</p>
 
           <div className="mt-3 flex items-center justify-center gap-1 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0"
                style={{ color: accent }}>
@@ -165,7 +167,7 @@ function DharmaQuoteBar() {
             <div className="flex-1 min-w-0">
               <AnimatePresence mode="wait">
                 <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.5 }}>
-                  <p className="text-lg sm:text-xl font-serif font-bold leading-snug text-white">{q.text}</p>
+                  <p className="text-lg sm:text-xl font-serif font-bold leading-snug" style={{ color: T.text }}>{q.text}</p>
                   <p className="text-sm mt-1 font-medium" style={{ color: T.textMuted }}>{q.sub}</p>
                   <p className="text-[10px] mt-2 uppercase tracking-wider font-bold" style={{ color: T.gold }}>{q.source}</p>
                 </motion.div>
@@ -213,8 +215,8 @@ function LiveNewsPanel() {
           <AnimatePresence mode="wait">
             <motion.div key={active} className="absolute bottom-0 left-0 right-0 p-5 sm:p-7"
                         initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.6, delay: 0.15 }}>
-              <span className="inline-block text-[10px] font-bold px-2.5 py-1 rounded text-[#0F172A] mb-3 shadow-lg" style={{ background: item.tagColor }}>{item.tag}</span>
-              <h3 className="text-base sm:text-xl font-bold leading-snug mb-2 text-white">{item.title}</h3>
+              <span className="inline-block text-[10px] font-bold px-2.5 py-1 rounded text-white mb-3 shadow-lg" style={{ background: item.tagColor }}>{item.tag}</span>
+              <h3 className="text-base sm:text-xl font-bold leading-snug mb-2" style={{ color: T.text }}>{item.title}</h3>
               <p className="text-xs" style={{ color: T.textMuted }}>{item.source} · {item.date}</p>
             </motion.div>
           </AnimatePresence>
@@ -279,7 +281,7 @@ export function Home() {
             <span className="text-4xl sm:text-5xl font-black tracking-tight leading-none font-serif" style={{ color: T.gold }}>LC</span>
             <div className="h-10 w-px" style={{ background: `linear-gradient(to bottom, transparent, ${T.gold}, transparent)` }} />
             <div className="text-left">
-              <div className="text-base sm:text-xl font-black tracking-wider leading-tight font-serif text-white">LEGAL CONNECT</div>
+              <div className="text-base sm:text-xl font-black tracking-wider leading-tight font-serif" style={{ color: T.navy }}>LEGAL CONNECT</div>
             </div>
           </div>
           <div className="flex items-center gap-3 justify-center mt-1">
@@ -300,13 +302,13 @@ export function Home() {
           {/* Portal Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto w-full">
             <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0}
-                        accent="#60A5FA" bg="#162032" glow="#60A5FA30" />
+                        accent="#2563EB" bg="#EFF6FF" glow="#2563EB20" />
             <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" idx={1}
-                        accent="#F87171" bg="#1F1B2E" glow="#F8717130" />
+                        accent="#DC2626" bg="#FEF2F2" glow="#DC262620" />
             <PortalCard href="/intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2}
-                        accent="#FBBF24" bg="#1F1F1B" glow="#FBBF2430" />
+                        accent="#D97706" bg="#FFFBEB" glow="#D9770620" />
             <PortalCard href="/client/cases" icon={Landmark} label="eCourt" subLabel="Services" idx={3}
-                        accent="#34D399" bg="#1B2E2A" glow="#34D39930" />
+                        accent="#059669" bg="#ECFDF5" glow="#05966920" />
           </div>
 
           {/* Quick links */}
@@ -319,7 +321,7 @@ export function Home() {
               { label: "Case Tracker", href: "/client/cases" },
             ].map(l => (
               <Link key={l.href} href={l.href}>
-                <button className="text-[10px] tracking-wide transition-colors flex items-center gap-1 group bg-transparent border-none cursor-pointer hover:text-white"
+                <button className="text-[10px] tracking-wide transition-colors flex items-center gap-1 group bg-transparent border-none cursor-pointer hover:text-[#1E293B]"
                         style={{ color: T.textMuted }}>
                   {l.label} <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
