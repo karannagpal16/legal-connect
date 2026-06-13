@@ -116,9 +116,9 @@ export function InternDoubtPortal() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <MessageCircle className="w-7 h-7 text-emerald-400" />
-            <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">Doubt Portal</h1>
+            <h1 className="text-3xl font-serif font-bold text-[#1A2332]">Doubt Portal</h1>
           </div>
-          <p className="text-[#1A2E2A]/40 ml-10">Ask legal doubts, get answers from senior advocates.</p>
+          <p className="text-[#1A2332]/40 ml-10">Ask legal doubts, get answers from senior advocates.</p>
         </div>
         <div className="flex gap-2">
           <Link href="/intern/ai-assistant">
@@ -129,7 +129,7 @@ export function InternDoubtPortal() {
           </Link>
           <button
             onClick={() => setShowAsk(s => !s)}
-            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-[#1A2E2A] px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-[#1A2332] px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
           >
             <Plus className="w-4 h-4" />
             Post Doubt
@@ -146,25 +146,25 @@ export function InternDoubtPortal() {
             exit={{ opacity: 0, y: -10 }}
             className="bg-card/40 border border-emerald-500/20 rounded-2xl p-6 space-y-4"
           >
-            <h3 className="font-semibold text-[#1A2E2A]">Post a New Doubt</h3>
+            <h3 className="font-semibold text-[#1A2332]">Post a New Doubt</h3>
             <textarea
               value={newQuestion}
               onChange={e => setNewQuestion(e.target.value)}
               placeholder="Describe your legal doubt clearly..."
               rows={3}
-              className="w-full bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 rounded-xl px-4 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/30 focus:outline-none focus:border-emerald-500/40 resize-none"
+              className="w-full bg-[#1A2332]/5 border border-[#1A2332]/10 rounded-xl px-4 py-3 text-[#1A2332] text-sm placeholder:text-[#1A2332]/30 focus:outline-none focus:border-emerald-500/40 resize-none"
             />
             <div className="flex items-center gap-4">
               <select
                 value={newCategory}
                 onChange={e => setNewCategory(e.target.value)}
-                className="bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 rounded-xl px-4 py-2.5 text-[#1A2E2A] text-sm focus:outline-none focus:border-emerald-500/40"
+                className="bg-[#1A2332]/5 border border-[#1A2332]/10 rounded-xl px-4 py-2.5 text-[#1A2332] text-sm focus:outline-none focus:border-emerald-500/40"
               >
                 {categories.slice(1).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <div className="flex gap-2">
-                <button onClick={handleAsk} className="bg-emerald-500 hover:bg-emerald-600 text-[#1A2E2A] px-5 py-2 rounded-xl text-sm font-bold transition-all">Post</button>
-                <button onClick={() => setShowAsk(false)} className="text-[#1A2E2A]/40 hover:text-[#1A2E2A] text-sm px-4 py-2 transition-all">Cancel</button>
+                <button onClick={handleAsk} className="bg-emerald-500 hover:bg-emerald-600 text-[#1A2332] px-5 py-2 rounded-xl text-sm font-bold transition-all">Post</button>
+                <button onClick={() => setShowAsk(false)} className="text-[#1A2332]/40 hover:text-[#1A2332] text-sm px-4 py-2 transition-all">Cancel</button>
               </div>
             </div>
           </motion.div>
@@ -180,7 +180,7 @@ export function InternDoubtPortal() {
             className={`text-xs px-3 py-2 rounded-full border font-semibold transition-all ${
               selectedCategory === cat
                 ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
-                : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60"
+                : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/40 hover:text-[#1A2332]/60"
             }`}
           >
             {cat}
@@ -195,9 +195,9 @@ export function InternDoubtPortal() {
           { label: "Answered", value: doubts.filter(d => d.answered).length, color: "text-blue-400" },
           { label: "Pending", value: doubts.filter(d => !d.answered).length, color: "text-amber-400" },
         ].map(s => (
-          <div key={s.label} className="bg-card/30 border border-[#1A2E2A]/10 rounded-2xl p-4 text-center">
+          <div key={s.label} className="bg-card/30 border border-[#1A2332]/10 rounded-2xl p-4 text-center">
             <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-[#1A2E2A]/30 mt-1">{s.label}</div>
+            <div className="text-xs text-[#1A2332]/30 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
@@ -210,13 +210,13 @@ export function InternDoubtPortal() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * i }}
-            className={`bg-card/40 border rounded-2xl overflow-hidden transition-all ${doubt.answered ? "border-[#1A2E2A]/10" : "border-amber-500/20"}`}
+            className={`bg-card/40 border rounded-2xl overflow-hidden transition-all ${doubt.answered ? "border-[#1A2332]/10" : "border-amber-500/20"}`}
           >
             <div className="p-5">
               <div className="flex items-start gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${categoryColors[doubt.category] || "text-[#1A2E2A]/40 bg-[#1A2E2A]/5 border-[#1A2E2A]/10"}`}>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${categoryColors[doubt.category] || "text-[#1A2332]/40 bg-[#1A2332]/5 border-[#1A2332]/10"}`}>
                       {doubt.category}
                     </span>
                     {doubt.answered ? (
@@ -228,9 +228,9 @@ export function InternDoubtPortal() {
                         <Clock className="w-3 h-3" /> Pending
                       </span>
                     )}
-                    <span className="text-xs text-[#1A2E2A]/30 ml-auto">{doubt.timeAgo} · {doubt.askedBy}</span>
+                    <span className="text-xs text-[#1A2332]/30 ml-auto">{doubt.timeAgo} · {doubt.askedBy}</span>
                   </div>
-                  <p className="text-[#1A2E2A] font-medium text-sm leading-relaxed cursor-pointer" onClick={() => setExpandedId(expandedId === doubt.id ? null : doubt.id)}>
+                  <p className="text-[#1A2332] font-medium text-sm leading-relaxed cursor-pointer" onClick={() => setExpandedId(expandedId === doubt.id ? null : doubt.id)}>
                     {doubt.question}
                   </p>
                 </div>
@@ -239,7 +239,7 @@ export function InternDoubtPortal() {
               <div className="flex items-center gap-3 mt-3">
                 <button
                   onClick={() => toggleUpvote(doubt.id)}
-                  className={`flex items-center gap-1.5 text-xs font-semibold transition-all ${upvoted.includes(doubt.id) ? "text-emerald-400" : "text-[#1A2E2A]/30 hover:text-[#1A2E2A]/60"}`}
+                  className={`flex items-center gap-1.5 text-xs font-semibold transition-all ${upvoted.includes(doubt.id) ? "text-emerald-400" : "text-[#1A2332]/30 hover:text-[#1A2332]/60"}`}
                 >
                   <ThumbsUp className={`w-3.5 h-3.5 ${upvoted.includes(doubt.id) ? "fill-emerald-400" : ""}`} />
                   {doubt.upvotes}
@@ -269,7 +269,7 @@ export function InternDoubtPortal() {
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
                     <span className="text-xs font-bold text-emerald-400">Answer from {doubt.answeredBy}</span>
                   </div>
-                  <p className="text-[#1A2E2A]/80 text-sm leading-relaxed">{doubt.answer}</p>
+                  <p className="text-[#1A2332]/80 text-sm leading-relaxed">{doubt.answer}</p>
                 </motion.div>
               )}
             </AnimatePresence>

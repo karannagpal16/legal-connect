@@ -272,8 +272,8 @@ export function ClientConnectChat() {
             <MessageSquare className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">Connect with an Advocate</h1>
-            <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Start with AI · Get matched · Chat securely</p>
+            <h1 className="text-2xl font-serif font-bold text-[#1A2332]">Connect with an Advocate</h1>
+            <p className="text-[#1A2332]/40 text-xs mt-0.5">Start with AI · Get matched · Chat securely</p>
           </div>
         </div>
 
@@ -287,16 +287,16 @@ export function ClientConnectChat() {
             const done = (phase === "select" && i === 0) || (phase === "connected" && i <= 1);
             return (
               <div key={p} className="flex items-center gap-1.5">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center border text-[10px] font-bold transition-all ${done ? "bg-emerald-500 border-emerald-500 text-[#1A2E2A]" : active ? "bg-primary border-primary text-background" : "bg-[#1A2E2A]/5 border-white/15 text-[#1A2E2A]/30"}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center border text-[10px] font-bold transition-all ${done ? "bg-emerald-500 border-emerald-500 text-[#1A2332]" : active ? "bg-primary border-primary text-background" : "bg-[#1A2332]/5 border-white/15 text-[#1A2332]/30"}`}>
                   {done ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
                 </div>
-                <span className={`text-xs font-semibold hidden sm:block ${active ? "text-primary" : done ? "text-emerald-400" : "text-[#1A2E2A]/25"}`}>{labels[i]}</span>
-                {i < 2 && <ChevronRight className="w-3 h-3 text-[#1A2E2A]/15 hidden sm:block" />}
+                <span className={`text-xs font-semibold hidden sm:block ${active ? "text-primary" : done ? "text-emerald-400" : "text-[#1A2332]/25"}`}>{labels[i]}</span>
+                {i < 2 && <ChevronRight className="w-3 h-3 text-[#1A2332]/15 hidden sm:block" />}
               </div>
             );
           })}
           {phase !== "chat" && (
-            <button onClick={reset} className="ml-2 flex items-center gap-1 text-[#1A2E2A]/30 hover:text-[#1A2E2A]/60 text-xs transition-colors">
+            <button onClick={reset} className="ml-2 flex items-center gap-1 text-[#1A2332]/30 hover:text-[#1A2332]/60 text-xs transition-colors">
               <RotateCcw className="w-3 h-3" /> Start over
             </button>
           )}
@@ -308,9 +308,9 @@ export function ClientConnectChat() {
         {phase === "chat" && (
           <motion.div key="chat-phase" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="grid grid-cols-1 lg:grid-cols-4 gap-5">
             {/* Main chat window */}
-            <div className="lg:col-span-3 bg-card/40 border border-[#1A2E2A]/10 rounded-2xl flex flex-col" style={{ height: "580px" }}>
+            <div className="lg:col-span-3 bg-card/40 border border-[#1A2332]/10 rounded-2xl flex flex-col" style={{ height: "580px" }}>
               {/* Chat header */}
-              <div className="px-5 py-4 border-b border-[#1A2E2A]/8 flex items-center gap-3">
+              <div className="px-5 py-4 border-b border-[#1A2332]/8 flex items-center gap-3">
                 <div className="relative">
                   <div className="w-9 h-9 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-primary" />
@@ -318,8 +318,8 @@ export function ClientConnectChat() {
                   <Circle className="w-3 h-3 text-emerald-400 fill-emerald-400 absolute -bottom-0.5 -right-0.5" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[#1A2E2A] font-bold text-sm">LexBot — AI Assistant</p>
-                  <p className="text-[#1A2E2A]/35 text-xs">Legal Connect · Not a substitute for legal advice</p>
+                  <p className="text-[#1A2332] font-bold text-sm">LexBot — AI Assistant</p>
+                  <p className="text-[#1A2332]/35 text-xs">Legal Connect · Not a substitute for legal advice</p>
                 </div>
                 <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -338,15 +338,15 @@ export function ClientConnectChat() {
                         : <User className="w-4 h-4 text-blue-400" />}
                     </div>
                     <div className={`max-w-[80%] flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                      <div className={`rounded-2xl px-4 py-3 ${msg.role === "assistant" ? "bg-[#1A2E2A]/8 border border-[#1A2E2A]/10 rounded-tl-sm" : "bg-blue-500/15 border border-blue-500/20 rounded-tr-sm"}`}>
-                        <p className="text-[#1A2E2A] text-sm leading-relaxed whitespace-pre-line">
+                      <div className={`rounded-2xl px-4 py-3 ${msg.role === "assistant" ? "bg-[#1A2332]/8 border border-[#1A2332]/10 rounded-tl-sm" : "bg-blue-500/15 border border-blue-500/20 rounded-tr-sm"}`}>
+                        <p className="text-[#1A2332] text-sm leading-relaxed whitespace-pre-line">
                           {msg.content}
                           {streaming && msg.role === "assistant" && msg.id === messages[messages.length - 1]?.id && (
                             <span className="inline-block ml-1 w-2 h-4 bg-primary/60 animate-pulse rounded-sm" />
                           )}
                         </p>
                       </div>
-                      <span className="text-[#1A2E2A]/20 text-[10px] px-1">{timeStr(msg.ts)}</span>
+                      <span className="text-[#1A2332]/20 text-[10px] px-1">{timeStr(msg.ts)}</span>
 
                       {/* Advocate suggestion card inline */}
                       {msg.suggestAdvocate && msg.id === messages[messages.length - 1]?.id && !streaming && (
@@ -354,7 +354,7 @@ export function ClientConnectChat() {
                           <p className="text-primary text-xs font-bold mb-2 flex items-center gap-1.5">
                             <Shield className="w-3.5 h-3.5" /> Ready to speak to an advocate?
                           </p>
-                          <p className="text-[#1A2E2A]/50 text-xs mb-3">Choose from our available advocates for a private, encrypted consultation.</p>
+                          <p className="text-[#1A2332]/50 text-xs mb-3">Choose from our available advocates for a private, encrypted consultation.</p>
                           <button onClick={() => setPhase("select")} className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-background text-xs font-bold px-4 py-2.5 rounded-xl transition-all">
                             Choose an Advocate <ArrowRight className="w-3.5 h-3.5" />
                           </button>
@@ -371,7 +371,7 @@ export function ClientConnectChat() {
                       <Shield className="w-5 h-5 text-primary flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-primary text-xs font-bold">Connect with an Advocate</p>
-                        <p className="text-[#1A2E2A]/40 text-xs">For advice on your specific situation, speak to one of our advocates.</p>
+                        <p className="text-[#1A2332]/40 text-xs">For advice on your specific situation, speak to one of our advocates.</p>
                       </div>
                       <button onClick={() => setPhase("select")} className="flex items-center gap-1.5 bg-primary text-background text-xs font-bold px-3 py-2 rounded-xl flex-shrink-0 hover:bg-primary/90 transition-all">
                         Choose <ArrowRight className="w-3 h-3" />
@@ -383,10 +383,10 @@ export function ClientConnectChat() {
                 {/* Quick suggestions */}
                 {showSuggestions && messages.length <= 1 && (
                   <div className="space-y-2">
-                    <p className="text-[#1A2E2A]/25 text-xs font-semibold uppercase tracking-wider">Suggested questions</p>
+                    <p className="text-[#1A2332]/25 text-xs font-semibold uppercase tracking-wider">Suggested questions</p>
                     <div className="flex flex-wrap gap-2">
                       {QUICK_SUGGESTIONS.map(q => (
-                        <button key={q} onClick={() => { setInput(q); setShowSuggestions(false); sendToAI(q); }} className="text-xs bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 border border-[#1A2E2A]/10 hover:border-white/25 text-[#1A2E2A]/50 hover:text-[#1A2E2A] px-3 py-2 rounded-xl transition-all text-left">
+                        <button key={q} onClick={() => { setInput(q); setShowSuggestions(false); sendToAI(q); }} className="text-xs bg-[#1A2332]/5 hover:bg-[#1A2332]/10 border border-[#1A2332]/10 hover:border-white/25 text-[#1A2332]/50 hover:text-[#1A2332] px-3 py-2 rounded-xl transition-all text-left">
                           {q}
                         </button>
                       ))}
@@ -397,7 +397,7 @@ export function ClientConnectChat() {
               </div>
 
               {/* Input */}
-              <div className="px-4 py-4 border-t border-[#1A2E2A]/8">
+              <div className="px-4 py-4 border-t border-[#1A2332]/8">
                 <div className="flex gap-3">
                   <input
                     value={input}
@@ -405,17 +405,17 @@ export function ClientConnectChat() {
                     onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSend())}
                     disabled={streaming}
                     placeholder="Ask anything about legal processes, the firm, or your situation..."
-                    className="flex-1 bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 focus:border-primary/30 rounded-xl px-4 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none transition-all"
+                    className="flex-1 bg-[#1A2332]/5 border border-[#1A2332]/10 focus:border-primary/30 rounded-xl px-4 py-3 text-[#1A2332] text-sm placeholder:text-[#1A2332]/25 focus:outline-none transition-all"
                   />
                   <button
                     onClick={handleSend}
                     disabled={!input.trim() || streaming}
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${input.trim() && !streaming ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2E2A]/8 text-[#1A2E2A]/20"}`}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${input.trim() && !streaming ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2332]/8 text-[#1A2332]/20"}`}
                   >
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-center text-[#1A2E2A]/15 text-[10px] mt-2">LexBot provides general information only · Not legal advice</p>
+                <p className="text-center text-[#1A2332]/15 text-[10px] mt-2">LexBot provides general information only · Not legal advice</p>
               </div>
             </div>
 
@@ -424,16 +424,16 @@ export function ClientConnectChat() {
               {/* Connect CTA */}
               <div className="bg-primary/10 border border-primary/25 rounded-2xl p-5">
                 <Shield className="w-7 h-7 text-primary mb-3" />
-                <h3 className="text-[#1A2E2A] font-bold mb-1">Need real legal advice?</h3>
-                <p className="text-[#1A2E2A]/40 text-xs leading-relaxed mb-4">LexBot handles general queries. For your specific situation, speak to one of our advocates.</p>
+                <h3 className="text-[#1A2332] font-bold mb-1">Need real legal advice?</h3>
+                <p className="text-[#1A2332]/40 text-xs leading-relaxed mb-4">LexBot handles general queries. For your specific situation, speak to one of our advocates.</p>
                 <button onClick={() => setPhase("select")} className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-background text-sm font-bold py-3 rounded-xl transition-all">
                   Pick an Advocate <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
 
               {/* AI limitations */}
-              <div className="bg-card/30 border border-[#1A2E2A]/8 rounded-2xl p-4 space-y-3">
-                <p className="text-[#1A2E2A]/50 text-xs font-bold uppercase tracking-wider">What I can help with</p>
+              <div className="bg-card/30 border border-[#1A2332]/8 rounded-2xl p-4 space-y-3">
+                <p className="text-[#1A2332]/50 text-xs font-bold uppercase tracking-wider">What I can help with</p>
                 {[
                   ["✓", "General legal concepts", "text-emerald-400"],
                   ["✓", "How consultations work", "text-emerald-400"],
@@ -444,20 +444,20 @@ export function ClientConnectChat() {
                 ].map(([sym, label, cls]) => (
                   <div key={label} className="flex items-center gap-2 text-xs">
                     <span className={`font-bold ${cls}`}>{sym}</span>
-                    <span className="text-[#1A2E2A]/40">{label}</span>
+                    <span className="text-[#1A2332]/40">{label}</span>
                   </div>
                 ))}
               </div>
 
               {/* Available advocates teaser */}
-              <div className="bg-card/30 border border-[#1A2E2A]/8 rounded-2xl p-4">
-                <p className="text-[#1A2E2A]/50 text-xs font-bold uppercase tracking-wider mb-3">Available Now</p>
+              <div className="bg-card/30 border border-[#1A2332]/8 rounded-2xl p-4">
+                <p className="text-[#1A2332]/50 text-xs font-bold uppercase tracking-wider mb-3">Available Now</p>
                 {ADVOCATES.filter(a => a.available).slice(0, 3).map(a => (
                   <div key={a.id} className="flex items-center gap-2 mb-2.5">
-                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${a.color} flex items-center justify-center text-[#1A2E2A] text-[10px] font-bold flex-shrink-0`}>{a.initials}</div>
+                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${a.color} flex items-center justify-center text-[#1A2332] text-[10px] font-bold flex-shrink-0`}>{a.initials}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#1A2E2A]/70 text-xs font-semibold truncate">{a.name}</p>
-                      <p className="text-[#1A2E2A]/30 text-[10px] truncate">{a.specialisations[0]}</p>
+                      <p className="text-[#1A2332]/70 text-xs font-semibold truncate">{a.name}</p>
+                      <p className="text-[#1A2332]/30 text-[10px] truncate">{a.specialisations[0]}</p>
                     </div>
                     <Circle className="w-2 h-2 text-emerald-400 fill-emerald-400 flex-shrink-0" />
                   </div>
@@ -474,14 +474,14 @@ export function ClientConnectChat() {
             <div className="bg-primary/8 border border-primary/20 rounded-2xl px-5 py-4 flex items-center gap-3">
               <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
               <div>
-                <p className="text-[#1A2E2A] text-sm font-bold">LexBot has summarised your inquiry</p>
-                <p className="text-[#1A2E2A]/45 text-xs mt-0.5">Choose an advocate below — they'll receive a brief from LexBot so you don't have to repeat yourself.</p>
+                <p className="text-[#1A2332] text-sm font-bold">LexBot has summarised your inquiry</p>
+                <p className="text-[#1A2332]/45 text-xs mt-0.5">Choose an advocate below — they'll receive a brief from LexBot so you don't have to repeat yourself.</p>
               </div>
             </div>
 
             <div>
-              <h2 className="text-[#1A2E2A] font-bold text-lg mb-1">Choose Your Advocate</h2>
-              <p className="text-[#1A2E2A]/40 text-sm">All consultations are private and end-to-end encrypted.</p>
+              <h2 className="text-[#1A2332] font-bold text-lg mb-1">Choose Your Advocate</h2>
+              <p className="text-[#1A2332]/40 text-sm">All consultations are private and end-to-end encrypted.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -491,22 +491,22 @@ export function ClientConnectChat() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.07 * i }}
-                  className={`bg-card/40 border rounded-2xl p-5 flex flex-col gap-4 transition-all ${adv.available ? "border-[#1A2E2A]/10 hover:border-white/25" : "border-white/5 opacity-60"}`}
+                  className={`bg-card/40 border rounded-2xl p-5 flex flex-col gap-4 transition-all ${adv.available ? "border-[#1A2332]/10 hover:border-white/25" : "border-white/5 opacity-60"}`}
                 >
                   {/* Advocate header */}
                   <div className="flex items-start gap-3">
-                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${adv.color} flex items-center justify-center text-[#1A2E2A] font-bold text-sm flex-shrink-0 shadow-lg`}>
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${adv.color} flex items-center justify-center text-[#1A2332] font-bold text-sm flex-shrink-0 shadow-lg`}>
                       {adv.initials}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <p className="text-[#1A2E2A] font-bold text-sm truncate">{adv.name}</p>
+                        <p className="text-[#1A2332] font-bold text-sm truncate">{adv.name}</p>
                         {adv.available && <Circle className="w-2.5 h-2.5 text-emerald-400 fill-emerald-400 flex-shrink-0" />}
                       </div>
-                      <p className="text-[#1A2E2A]/40 text-xs">{adv.title}</p>
+                      <p className="text-[#1A2332]/40 text-xs">{adv.title}</p>
                       <div className="flex items-center gap-1.5 mt-1">
                         <Stars rating={adv.rating} />
-                        <span className="text-[#1A2E2A]/30 text-[10px]">{adv.rating} ({adv.reviews})</span>
+                        <span className="text-[#1A2332]/30 text-[10px]">{adv.rating} ({adv.reviews})</span>
                       </div>
                     </div>
                   </div>
@@ -514,23 +514,23 @@ export function ClientConnectChat() {
                   {/* Specialisations */}
                   <div className="flex flex-wrap gap-1.5">
                     {adv.specialisations.map(s => (
-                      <span key={s} className="text-[10px] px-2 py-1 rounded-full bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 text-[#1A2E2A]/50">{s}</span>
+                      <span key={s} className="text-[10px] px-2 py-1 rounded-full bg-[#1A2332]/5 border border-[#1A2332]/10 text-[#1A2332]/50">{s}</span>
                     ))}
                   </div>
 
                   {/* Meta */}
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-[#1A2E2A]/35">Experience</span>
-                      <span className="text-[#1A2E2A]/65 font-semibold">{adv.experience}</span>
+                      <span className="text-[#1A2332]/35">Experience</span>
+                      <span className="text-[#1A2332]/65 font-semibold">{adv.experience}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#1A2E2A]/35">Consultation</span>
+                      <span className="text-[#1A2332]/35">Consultation</span>
                       <span className="text-amber-400 font-bold">₹{adv.fee.toLocaleString()}/hr</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#1A2E2A]/35">Availability</span>
-                      <span className={`font-semibold ${adv.available ? "text-emerald-400" : "text-[#1A2E2A]/40"}`}>{adv.responseTime}</span>
+                      <span className="text-[#1A2332]/35">Availability</span>
+                      <span className={`font-semibold ${adv.available ? "text-emerald-400" : "text-[#1A2332]/40"}`}>{adv.responseTime}</span>
                     </div>
                   </div>
 
@@ -539,13 +539,13 @@ export function ClientConnectChat() {
                     <div className="space-y-2 mt-auto">
                       <div className="grid grid-cols-2 gap-2">
                         <button
-                          className={`flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl border transition-all ${selectedAdvocate?.id === adv.id && callType === "audio" ? "bg-blue-500 border-blue-500 text-[#1A2E2A]" : "bg-blue-500/10 border-blue-500/25 text-blue-400 hover:bg-blue-500/20"}`}
+                          className={`flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl border transition-all ${selectedAdvocate?.id === adv.id && callType === "audio" ? "bg-blue-500 border-blue-500 text-[#1A2332]" : "bg-blue-500/10 border-blue-500/25 text-blue-400 hover:bg-blue-500/20"}`}
                           onClick={() => { setSelectedAdvocate(adv); setCallType("audio"); }}
                         >
                           <Phone className="w-3.5 h-3.5" /> Audio
                         </button>
                         <button
-                          className={`flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl border transition-all ${selectedAdvocate?.id === adv.id && callType === "video" ? "bg-violet-500 border-violet-500 text-[#1A2E2A]" : "bg-violet-500/10 border-violet-500/25 text-violet-400 hover:bg-violet-500/20"}`}
+                          className={`flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl border transition-all ${selectedAdvocate?.id === adv.id && callType === "video" ? "bg-violet-500 border-violet-500 text-[#1A2332]" : "bg-violet-500/10 border-violet-500/25 text-violet-400 hover:bg-violet-500/20"}`}
                           onClick={() => { setSelectedAdvocate(adv); setCallType("video"); }}
                         >
                           <Video className="w-3.5 h-3.5" /> Video
@@ -560,7 +560,7 @@ export function ClientConnectChat() {
                     </div>
                   ) : (
                     <div className="mt-auto">
-                      <button className="w-full text-xs font-bold text-[#1A2E2A]/30 bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 py-2.5 rounded-xl cursor-not-allowed">
+                      <button className="w-full text-xs font-bold text-[#1A2332]/30 bg-[#1A2332]/5 border border-[#1A2332]/10 py-2.5 rounded-xl cursor-not-allowed">
                         Not available right now
                       </button>
                     </div>
@@ -576,30 +576,30 @@ export function ClientConnectChat() {
           <motion.div key="connected-phase" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="grid grid-cols-1 lg:grid-cols-4 gap-5">
             {/* Sidebar */}
             <div className="lg:col-span-1 space-y-4 order-2 lg:order-1">
-              <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
+              <div className="bg-card/40 border border-[#1A2332]/10 rounded-2xl p-5">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${selectedAdvocate.color} flex items-center justify-center text-[#1A2E2A] font-bold shadow-lg flex-shrink-0`}>
+                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${selectedAdvocate.color} flex items-center justify-center text-[#1A2332] font-bold shadow-lg flex-shrink-0`}>
                     {selectedAdvocate.initials}
                   </div>
                   <div>
-                    <p className="text-[#1A2E2A] font-bold text-sm">{selectedAdvocate.name}</p>
-                    <p className="text-[#1A2E2A]/40 text-xs">{selectedAdvocate.title}</p>
+                    <p className="text-[#1A2332] font-bold text-sm">{selectedAdvocate.name}</p>
+                    <p className="text-[#1A2332]/40 text-xs">{selectedAdvocate.title}</p>
                     <p className="text-emerald-400 text-xs flex items-center gap-1 mt-0.5">
                       <Circle className="w-2 h-2 fill-emerald-400" /> Connected
                     </p>
                   </div>
                 </div>
-                <div className="space-y-2 text-xs border-t border-[#1A2E2A]/8 pt-3">
+                <div className="space-y-2 text-xs border-t border-[#1A2332]/8 pt-3">
                   <div className="flex justify-between">
-                    <span className="text-[#1A2E2A]/35">Experience</span>
-                    <span className="text-[#1A2E2A]/65">{selectedAdvocate.experience}</span>
+                    <span className="text-[#1A2332]/35">Experience</span>
+                    <span className="text-[#1A2332]/65">{selectedAdvocate.experience}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#1A2E2A]/35">Fee</span>
+                    <span className="text-[#1A2332]/35">Fee</span>
                     <span className="text-amber-400 font-bold">₹{selectedAdvocate.fee.toLocaleString()}/hr</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#1A2E2A]/35">Rating</span>
+                    <span className="text-[#1A2332]/35">Rating</span>
                     <span><Stars rating={selectedAdvocate.rating} /> {selectedAdvocate.rating}</span>
                   </div>
                 </div>
@@ -617,24 +617,24 @@ export function ClientConnectChat() {
                 <p className="text-emerald-400 text-xs font-bold flex items-center gap-1.5 mb-1.5">
                   <Lock className="w-3.5 h-3.5" /> End-to-End Encrypted
                 </p>
-                <p className="text-[#1A2E2A]/40 text-xs leading-relaxed">Only you and {selectedAdvocate.name} can read these messages. Encrypted with AES-256.</p>
+                <p className="text-[#1A2332]/40 text-xs leading-relaxed">Only you and {selectedAdvocate.name} can read these messages. Encrypted with AES-256.</p>
               </div>
 
-              <button onClick={() => setPhase("select")} className="w-full text-xs font-bold text-[#1A2E2A]/30 hover:text-[#1A2E2A]/60 bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 border border-[#1A2E2A]/10 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5">
+              <button onClick={() => setPhase("select")} className="w-full text-xs font-bold text-[#1A2332]/30 hover:text-[#1A2332]/60 bg-[#1A2332]/5 hover:bg-[#1A2332]/10 border border-[#1A2332]/10 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5">
                 <X className="w-3.5 h-3.5" /> Change Advocate
               </button>
             </div>
 
             {/* Chat window */}
-            <div className="lg:col-span-3 bg-card/40 border border-[#1A2E2A]/10 rounded-2xl flex flex-col order-1 lg:order-2" style={{ height: "580px" }}>
+            <div className="lg:col-span-3 bg-card/40 border border-[#1A2332]/10 rounded-2xl flex flex-col order-1 lg:order-2" style={{ height: "580px" }}>
               {/* Header */}
-              <div className="px-5 py-4 border-b border-[#1A2E2A]/8 flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${selectedAdvocate.color} flex items-center justify-center text-[#1A2E2A] font-bold text-sm flex-shrink-0`}>
+              <div className="px-5 py-4 border-b border-[#1A2332]/8 flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${selectedAdvocate.color} flex items-center justify-center text-[#1A2332] font-bold text-sm flex-shrink-0`}>
                   {selectedAdvocate.initials}
                 </div>
                 <div className="flex-1">
-                  <p className="text-[#1A2E2A] font-bold text-sm">{selectedAdvocate.name}</p>
-                  <p className="text-[#1A2E2A]/35 text-xs">{selectedAdvocate.specialisations.join(" · ")}</p>
+                  <p className="text-[#1A2332] font-bold text-sm">{selectedAdvocate.name}</p>
+                  <p className="text-[#1A2332]/35 text-xs">{selectedAdvocate.specialisations.join(" · ")}</p>
                 </div>
                 <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
                   <Lock className="w-3 h-3 text-emerald-400" />
@@ -645,7 +645,7 @@ export function ClientConnectChat() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 <div className="text-center">
-                  <span className="text-[10px] text-[#1A2E2A]/20 bg-[#1A2E2A]/5 px-3 py-1 rounded-full">
+                  <span className="text-[10px] text-[#1A2332]/20 bg-[#1A2332]/5 px-3 py-1 rounded-full">
                     🔒 Connected with {selectedAdvocate.name} · LexBot briefed them on your inquiry
                   </span>
                 </div>
@@ -654,14 +654,14 @@ export function ClientConnectChat() {
                   return (
                     <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={`flex ${isClient ? "flex-row-reverse" : "flex-row"} gap-2.5`}>
                       <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center border text-[10px] font-bold ${isClient ? "bg-blue-500/20 border-blue-500/30 text-blue-400" : `bg-gradient-to-br ${selectedAdvocate.color}`}`}>
-                        {isClient ? <User className="w-4 h-4 text-blue-400" /> : <span className="text-[#1A2E2A]">{selectedAdvocate.initials[0]}</span>}
+                        {isClient ? <User className="w-4 h-4 text-blue-400" /> : <span className="text-[#1A2332]">{selectedAdvocate.initials[0]}</span>}
                       </div>
-                      <div className={`max-w-[78%] rounded-2xl px-4 py-3 ${isClient ? "bg-blue-500/15 border border-blue-500/20 rounded-tr-sm" : "bg-[#1A2E2A]/8 border border-[#1A2E2A]/10 rounded-tl-sm"}`}>
+                      <div className={`max-w-[78%] rounded-2xl px-4 py-3 ${isClient ? "bg-blue-500/15 border border-blue-500/20 rounded-tr-sm" : "bg-[#1A2332]/8 border border-[#1A2332]/10 rounded-tl-sm"}`}>
                         {!isClient && <p className="text-amber-400 text-[10px] font-bold mb-1">{selectedAdvocate.name}</p>}
-                        <p className="text-[#1A2E2A] text-sm leading-relaxed">{xorDecrypt(msg.text)}</p>
+                        <p className="text-[#1A2332] text-sm leading-relaxed">{xorDecrypt(msg.text)}</p>
                         <div className="flex items-center justify-end gap-1 mt-1">
-                          <Lock className="w-2.5 h-2.5 text-[#1A2E2A]/20" />
-                          <span className="text-[#1A2E2A]/20 text-[10px]">{timeStr(msg.ts)}</span>
+                          <Lock className="w-2.5 h-2.5 text-[#1A2332]/20" />
+                          <span className="text-[#1A2332]/20 text-[10px]">{timeStr(msg.ts)}</span>
                         </div>
                       </div>
                     </motion.div>
@@ -671,24 +671,24 @@ export function ClientConnectChat() {
               </div>
 
               {/* Input */}
-              <div className="px-4 py-4 border-t border-[#1A2E2A]/8">
+              <div className="px-4 py-4 border-t border-[#1A2332]/8">
                 <div className="flex gap-3">
                   <input
                     value={connectedInput}
                     onChange={e => setConnectedInput(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleConnectedSend())}
                     placeholder={`Message ${selectedAdvocate.name}... (encrypted)`}
-                    className="flex-1 bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 focus:border-primary/30 rounded-xl px-4 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none transition-all"
+                    className="flex-1 bg-[#1A2332]/5 border border-[#1A2332]/10 focus:border-primary/30 rounded-xl px-4 py-3 text-[#1A2332] text-sm placeholder:text-[#1A2332]/25 focus:outline-none transition-all"
                   />
                   <button
                     onClick={handleConnectedSend}
                     disabled={!connectedInput.trim()}
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${connectedInput.trim() ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2E2A]/8 text-[#1A2E2A]/20"}`}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${connectedInput.trim() ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2332]/8 text-[#1A2332]/20"}`}
                   >
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-center text-[#1A2E2A]/15 text-[10px] mt-2 flex items-center justify-center gap-1">
+                <p className="text-center text-[#1A2332]/15 text-[10px] mt-2 flex items-center justify-center gap-1">
                   <Lock className="w-2.5 h-2.5" /> End-to-end encrypted · Legal Connect
                 </p>
               </div>

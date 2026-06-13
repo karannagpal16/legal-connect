@@ -60,46 +60,46 @@
 }
 
 :root, .dark {
-  /* Royal Emerald & Lotus Theme */
+  /* Heritage & Justice — Deep, Rich Theme */
 
-  --background: 30 20% 97%; /* Warm Cream */
-  --foreground: 160 50% 12%; /* Deep Emerald */
+  --background: 30 18% 96%;    /* Warm Parchment */
+  --foreground: 210 35% 18%;    /* Deep Navy */
 
-  --card: 30 15% 95%; /* Soft Cream */
-  --card-foreground: 160 50% 12%;
-  --card-border: 30 15% 90%;
+  --card: 30 12% 98%;          /* Soft Ivory */
+  --card-foreground: 210 35% 18%;
+  --card-border: 30 12% 88%;
 
-  --popover: 30 15% 95%;
-  --popover-foreground: 160 50% 12%;
-  --popover-border: 30 15% 90%;
+  --popover: 30 12% 98%;
+  --popover-foreground: 210 35% 18%;
+  --popover-border: 30 12% 88%;
 
-  --primary: 160 60% 17%; /* Deep Emerald */
-  --primary-foreground: 30 20% 97%;
+  --primary: 210 55% 23%;      /* Deep Navy */
+  --primary-foreground: 30 18% 96%;
 
-  --secondary: 340 40% 73%; /* Lotus Pink */
-  --secondary-foreground: 160 50% 12%;
+  --secondary: 20 40% 50%;     /* Warm Copper */
+  --secondary-foreground: 210 35% 18%;
 
-  --muted: 30 15% 92%;
-  --muted-foreground: 160 20% 40%; /* Muted green */
+  --muted: 30 12% 92%;
+  --muted-foreground: 210 15% 45%; /* Muted Steel */
 
-  --accent: 160 60% 17%; /* Deep Emerald */
-  --accent-foreground: 30 20% 97%;
+  --accent: 35 55% 55%;        /* Amber Gold */
+  --accent-foreground: 210 35% 18%;
 
   --destructive: 0 62.8% 45%;
-  --destructive-foreground: 30 20% 97%;
+  --destructive-foreground: 30 18% 96%;
 
-  --border: 30 15% 90%;
-  --input: 30 15% 92%;
-  --ring: 160 60% 17%; /* Emerald focus ring */
+  --border: 30 12% 88%;
+  --input: 30 12% 92%;
+  --ring: 210 55% 23%;         /* Navy focus ring */
 
-  --sidebar: 30 15% 94%; /* Cream sidebar */
-  --sidebar-foreground: 160 50% 12%;
-  --sidebar-border: 30 15% 90%;
-  --sidebar-primary: 160 60% 17%;
-  --sidebar-primary-foreground: 30 20% 97%;
-  --sidebar-accent: 30 15% 92%;
-  --sidebar-accent-foreground: 160 50% 12%;
-  --sidebar-ring: 160 60% 17%;
+  --sidebar: 210 35% 96%;      /* Light Navy sidebar */
+  --sidebar-foreground: 210 35% 18%;
+  --sidebar-border: 30 12% 88%;
+  --sidebar-primary: 210 55% 23%;
+  --sidebar-primary-foreground: 30 18% 96%;
+  --sidebar-accent: 30 12% 92%;
+  --sidebar-accent-foreground: 210 35% 18%;
+  --sidebar-ring: 210 55% 23%;
 
   --radius: 0.5rem;
 
@@ -151,16 +151,16 @@
   100% { transform: translateY(-100vh) scale(0.3); opacity: 0; }
 }
 @keyframes glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 12px rgba(37,53,85,0.25)); }
-  50% { filter: drop-shadow(0 0 28px rgba(37,53,85,0.55)); }
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(30,41,55,0.25)); }
+  50% { filter: drop-shadow(0 0 28px rgba(30,41,55,0.55)); }
 }
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 @keyframes border-glow {
-  0%, 100% { border-color: rgba(37,53,85,0.3); }
-  50% { border-color: rgba(37,53,85,0.7); }
+  0%, 100% { border-color: rgba(30,41,55,0.3); }
+  50% { border-color: rgba(30,41,55,0.7); }
 }
 @keyframes ken-burns {
   0% { transform: scale(1) translate(0,0); }
@@ -173,7 +173,7 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(37,53,85,0.08) 40%, rgba(37,53,85,0.15) 50%, rgba(37,53,85,0.08) 60%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(30,41,55,0.08) 40%, rgba(30,41,55,0.15) 50%, rgba(30,41,55,0.08) 60%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 3s ease-in-out infinite;
 }

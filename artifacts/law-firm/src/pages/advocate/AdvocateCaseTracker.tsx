@@ -258,7 +258,7 @@ const firmCases: Case[] = [
 ];
 
 const caseTypeConfig: Record<CaseType, { label: string; color: string }> = {
-  all: { label: "All Cases", color: "text-[#1A2E2A]" },
+  all: { label: "All Cases", color: "text-[#1A2332]" },
   criminal: { label: "Criminal", color: "text-rose-400" },
   civil: { label: "Civil", color: "text-blue-400" },
   consumer: { label: "Consumer", color: "text-amber-400" },
@@ -290,7 +290,7 @@ const urgencyConfig = {
 const stepStatusConfig = {
   done: { icon: CheckCircle, color: "text-emerald-400", line: "bg-emerald-500", bg: "bg-emerald-500/20 border-emerald-500/30" },
   active: { icon: Clock, color: "text-primary", line: "bg-primary/40", bg: "bg-primary/20 border-primary/40" },
-  pending: { icon: Circle, color: "text-[#1A2E2A]/20", line: "bg-[#1A2E2A]/10", bg: "bg-[#1A2E2A]/5 border-[#1A2E2A]/10" },
+  pending: { icon: Circle, color: "text-[#1A2332]/20", line: "bg-[#1A2332]/10", bg: "bg-[#1A2332]/5 border-[#1A2332]/10" },
   blocked: { icon: AlertCircle, color: "text-rose-400", line: "bg-rose-500/40", bg: "bg-rose-500/10 border-rose-500/20" },
 };
 
@@ -358,14 +358,14 @@ export function AdvocateCaseTracker() {
             <Gavel className="w-5 h-5 text-violet-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">Firm Case Tracker</h1>
-            <p className="text-[#1A2E2A]/40 text-xs mt-0.5">All firm cases · eCourt synced · Real-time status</p>
+            <h1 className="text-2xl font-serif font-bold text-[#1A2332]">Firm Case Tracker</h1>
+            <p className="text-[#1A2332]/40 text-xs mt-0.5">All firm cases · eCourt synced · Real-time status</p>
           </div>
         </div>
         <button
           onClick={handleSync}
           disabled={syncing}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${syncing ? "bg-primary/10 border-primary/25 text-primary" : "bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 border-[#1A2E2A]/10 text-[#1A2E2A]/60 hover:text-[#1A2E2A]"}`}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${syncing ? "bg-primary/10 border-primary/25 text-primary" : "bg-[#1A2332]/5 hover:bg-[#1A2332]/10 border-[#1A2332]/10 text-[#1A2332]/60 hover:text-[#1A2332]"}`}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Syncing with eCourts..." : `Sync · ${lastSync}`}
@@ -377,38 +377,38 @@ export function AdvocateCaseTracker() {
           <Loader2 className="w-4 h-4 text-primary animate-spin" />
           <div>
             <p className="text-primary text-xs font-bold">Syncing all firm cases with eCourt Services...</p>
-            <p className="text-[#1A2E2A]/40 text-[10px]">Pulling latest orders, cause lists, and case status from ecourts.gov.in</p>
+            <p className="text-[#1A2332]/40 text-[10px]">Pulling latest orders, cause lists, and case status from ecourts.gov.in</p>
           </div>
         </motion.div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-xl p-4">
-          <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">Active Cases</p>
-          <p className="text-[#1A2E2A] text-2xl font-black mt-1">{totalActive}</p>
+        <div className="bg-card/40 border border-[#1A2332]/10 rounded-xl p-4">
+          <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">Active Cases</p>
+          <p className="text-[#1A2332] text-2xl font-black mt-1">{totalActive}</p>
         </div>
-        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-xl p-4">
-          <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">Urgent</p>
+        <div className="bg-card/40 border border-[#1A2332]/10 rounded-xl p-4">
+          <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">Urgent</p>
           <p className="text-rose-400 text-2xl font-black mt-1">{urgentCount}</p>
         </div>
-        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-xl p-4">
-          <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">Hearings This Week</p>
+        <div className="bg-card/40 border border-[#1A2332]/10 rounded-xl p-4">
+          <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">Hearings This Week</p>
           <p className="text-primary text-2xl font-black mt-1">{thisWeek}</p>
         </div>
-        <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-xl p-4">
-          <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">eCourt Synced</p>
+        <div className="bg-card/40 border border-[#1A2332]/10 rounded-xl p-4">
+          <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">eCourt Synced</p>
           <p className="text-emerald-400 text-2xl font-black mt-1">{firmCases.filter(c => c.synced).length}/{totalActive}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {ecourtLinks.map(link => (
-          <a key={link.title} href={link.url} target="_blank" rel="noopener noreferrer" className="group bg-card/40 border border-[#1A2E2A]/10 hover:border-[#1A2E2A]/20 rounded-xl p-2.5 transition-all hover:bg-card/60 flex items-center gap-2">
+          <a key={link.title} href={link.url} target="_blank" rel="noopener noreferrer" className="group bg-card/40 border border-[#1A2332]/10 hover:border-[#1A2332]/20 rounded-xl p-2.5 transition-all hover:bg-card/60 flex items-center gap-2">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${link.color} flex items-center justify-center flex-shrink-0`}>
-              <link.icon className="w-3.5 h-3.5 text-[#1A2E2A]" />
+              <link.icon className="w-3.5 h-3.5 text-[#1A2332]" />
             </div>
-            <p className="text-[#1A2E2A] text-[10px] font-bold group-hover:text-primary transition-colors leading-tight truncate">
-              {link.title} <ExternalLink className="w-2 h-2 text-[#1A2E2A]/20 inline" />
+            <p className="text-[#1A2332] text-[10px] font-bold group-hover:text-primary transition-colors leading-tight truncate">
+              {link.title} <ExternalLink className="w-2 h-2 text-[#1A2332]/20 inline" />
             </p>
           </a>
         ))}
@@ -420,7 +420,7 @@ export function AdvocateCaseTracker() {
             const cfg = searchModeConfig[mode];
             const Icon = cfg.icon;
             return (
-              <button key={mode} onClick={() => { setSearchMode(mode); setSearchQuery(""); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${searchMode === mode ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60"}`}>
+              <button key={mode} onClick={() => { setSearchMode(mode); setSearchQuery(""); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${searchMode === mode ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/40 hover:text-[#1A2332]/60"}`}>
                 <Icon className="w-3.5 h-3.5" /> {cfg.label}
               </button>
             );
@@ -428,23 +428,23 @@ export function AdvocateCaseTracker() {
         </div>
 
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A2E2A]/30" />
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={searchModeConfig[searchMode].placeholder} className="w-full bg-card/50 border border-[#1A2E2A]/10 rounded-xl pl-11 pr-10 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none focus:border-primary/40 transition-all" />
-          {searchQuery && <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1A2E2A]/25 hover:text-[#1A2E2A]/50"><X className="w-4 h-4" /></button>}
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A2332]/30" />
+          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={searchModeConfig[searchMode].placeholder} className="w-full bg-card/50 border border-[#1A2332]/10 rounded-xl pl-11 pr-10 py-3 text-[#1A2332] text-sm placeholder:text-[#1A2332]/25 focus:outline-none focus:border-primary/40 transition-all" />
+          {searchQuery && <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1A2332]/25 hover:text-[#1A2332]/50"><X className="w-4 h-4" /></button>}
         </div>
 
         <div className="flex gap-2 flex-wrap">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
             {(Object.keys(caseTypeConfig) as CaseType[]).map(ct => (
-              <button key={ct} onClick={() => setTypeFilter(ct)} className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border ${typeFilter === ct ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/30 hover:text-[#1A2E2A]/50"}`}>
+              <button key={ct} onClick={() => setTypeFilter(ct)} className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border ${typeFilter === ct ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/30 hover:text-[#1A2332]/50"}`}>
                 {caseTypeConfig[ct].label}
               </button>
             ))}
           </div>
-          <div className="w-px h-6 bg-[#1A2E2A]/10 self-center mx-1" />
+          <div className="w-px h-6 bg-[#1A2332]/10 self-center mx-1" />
           <div className="flex gap-1.5">
             {(Object.keys(courtLevelConfig) as CourtLevel[]).map(cl => (
-              <button key={cl} onClick={() => setCourtFilter(cl)} className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border ${courtFilter === cl ? "bg-violet-500/15 border-violet-500/30 text-violet-400" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/30 hover:text-[#1A2E2A]/50"}`}>
+              <button key={cl} onClick={() => setCourtFilter(cl)} className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border ${courtFilter === cl ? "bg-violet-500/15 border-violet-500/30 text-violet-400" : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/30 hover:text-[#1A2332]/50"}`}>
                 {courtLevelConfig[cl].label}
               </button>
             ))}
@@ -454,9 +454,9 @@ export function AdvocateCaseTracker() {
 
       {filteredCases.length === 0 ? (
         <div className="text-center py-16">
-          <Search className="w-10 h-10 text-[#1A2E2A]/10 mx-auto mb-3" />
-          <p className="text-[#1A2E2A]/30 text-sm font-semibold">No cases found</p>
-          <p className="text-[#1A2E2A]/15 text-xs mt-1">Try a different search term or filter</p>
+          <Search className="w-10 h-10 text-[#1A2332]/10 mx-auto mb-3" />
+          <p className="text-[#1A2332]/30 text-sm font-semibold">No cases found</p>
+          <p className="text-[#1A2332]/15 text-xs mt-1">Try a different search term or filter</p>
         </div>
       ) : (
         <>
@@ -467,22 +467,22 @@ export function AdvocateCaseTracker() {
               const pct = Math.round((doneCount / c.steps.length) * 100);
               const isSelected = expandedCase === c.id;
               return (
-                <button key={c.id} onClick={() => setExpandedCase(c.id)} className={`text-left bg-card/40 border rounded-2xl p-4 transition-all ${isSelected ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20" : "border-[#1A2E2A]/10 hover:border-[#1A2E2A]/20"}`}>
+                <button key={c.id} onClick={() => setExpandedCase(c.id)} className={`text-left bg-card/40 border rounded-2xl p-4 transition-all ${isSelected ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20" : "border-[#1A2332]/10 hover:border-[#1A2332]/20"}`}>
                   <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <p className="text-[#1A2E2A] font-bold text-sm leading-snug">{c.title}</p>
+                    <p className="text-[#1A2332] font-bold text-sm leading-snug">{c.title}</p>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border flex-shrink-0 ${U.bg} ${U.color}`}>{U.label}</span>
                   </div>
-                  <p className="text-[#1A2E2A]/25 text-[10px] mb-0.5">{c.caseNo}</p>
-                  <p className="text-[#1A2E2A]/35 text-[10px] mb-1">{c.court}</p>
+                  <p className="text-[#1A2332]/25 text-[10px] mb-0.5">{c.caseNo}</p>
+                  <p className="text-[#1A2332]/35 text-[10px] mb-1">{c.court}</p>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 ${caseTypeConfig[c.type].color}`}>{c.typeLabel}</span>
-                    <span className="text-[9px] text-[#1A2E2A]/20">· {c.assignedTo}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#1A2332]/5 border border-[#1A2332]/10 ${caseTypeConfig[c.type].color}`}>{c.typeLabel}</span>
+                    <span className="text-[9px] text-[#1A2332]/20">· {c.assignedTo}</span>
                   </div>
-                  <div className="h-1.5 bg-[#1A2E2A]/8 rounded-full overflow-hidden mb-1.5">
+                  <div className="h-1.5 bg-[#1A2332]/8 rounded-full overflow-hidden mb-1.5">
                     <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} className="h-full bg-primary rounded-full" />
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-[#1A2E2A]/25">{doneCount}/{c.steps.length} steps</span>
+                    <span className="text-[#1A2332]/25">{doneCount}/{c.steps.length} steps</span>
                     <span className="text-primary font-bold">{pct}%</span>
                   </div>
                   {c.synced && <div className="flex items-center gap-1 mt-2 text-[9px] text-emerald-400/50"><RefreshCw className="w-2.5 h-2.5" /> eCourt synced</div>}
@@ -495,11 +495,11 @@ export function AdvocateCaseTracker() {
             const U = urgencyConfig[c.urgency];
             return (
               <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
+                <div className="bg-card/40 border border-[#1A2332]/10 rounded-2xl p-5">
                   <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
                     <div>
-                      <h2 className="text-[#1A2E2A] font-bold text-lg">{c.title}</h2>
-                      <p className="text-[#1A2E2A]/35 text-sm mt-0.5">Case No: {c.caseNo}</p>
+                      <h2 className="text-[#1A2332] font-bold text-lg">{c.title}</h2>
+                      <p className="text-[#1A2332]/35 text-sm mt-0.5">Case No: {c.caseNo}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {c.synced && (
@@ -524,21 +524,21 @@ export function AdvocateCaseTracker() {
                       { label: "Filed On", value: c.filingDate },
                       { label: "Next Hearing", value: c.nextDate },
                     ].map(item => (
-                      <div key={item.label} className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
-                        <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">{item.label}</p>
-                        <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{item.value}</p>
+                      <div key={item.label} className="bg-[#1A2332]/5 rounded-lg px-3 py-2">
+                        <p className="text-[#1A2332]/25 text-[10px] font-semibold uppercase tracking-wider">{item.label}</p>
+                        <p className="text-[#1A2332]/70 text-xs font-semibold mt-0.5">{item.value}</p>
                       </div>
                     ))}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <div className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
-                      <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">Petitioner</p>
-                      <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{c.petitioner}</p>
+                    <div className="bg-[#1A2332]/5 rounded-lg px-3 py-2">
+                      <p className="text-[#1A2332]/25 text-[10px] font-semibold uppercase tracking-wider">Petitioner</p>
+                      <p className="text-[#1A2332]/70 text-xs font-semibold mt-0.5">{c.petitioner}</p>
                     </div>
-                    <div className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
-                      <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">Respondent</p>
-                      <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{c.respondent}</p>
+                    <div className="bg-[#1A2332]/5 rounded-lg px-3 py-2">
+                      <p className="text-[#1A2332]/25 text-[10px] font-semibold uppercase tracking-wider">Respondent</p>
+                      <p className="text-[#1A2332]/70 text-xs font-semibold mt-0.5">{c.respondent}</p>
                     </div>
                   </div>
 
@@ -555,7 +555,7 @@ export function AdvocateCaseTracker() {
                         <Eye className="w-3.5 h-3.5 text-blue-400" />
                         <p className="text-blue-400 text-[10px] font-bold uppercase tracking-wider">Last Order — {c.lastOrderDate}</p>
                       </div>
-                      <p className="text-[#1A2E2A]/60 text-xs leading-relaxed">{c.lastOrder}</p>
+                      <p className="text-[#1A2332]/60 text-xs leading-relaxed">{c.lastOrder}</p>
                     </div>
                   )}
 
@@ -564,14 +564,14 @@ export function AdvocateCaseTracker() {
                       <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
                       <div>
                         <p className="text-rose-400 text-xs font-bold">Next: {c.nextHearing}</p>
-                        <p className="text-[#1A2E2A]/40 text-xs">{c.nextDate} · Prepare case file and brief</p>
+                        <p className="text-[#1A2332]/40 text-xs">{c.nextDate} · Prepare case file and brief</p>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
-                  <h3 className="text-[#1A2E2A] font-bold mb-5 flex items-center gap-2">
+                <div className="bg-card/40 border border-[#1A2332]/10 rounded-2xl p-5">
+                  <h3 className="text-[#1A2332] font-bold mb-5 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" /> Case Progress Timeline
                   </h3>
                   <div className="space-y-0">
@@ -591,21 +591,21 @@ export function AdvocateCaseTracker() {
                             <button className="w-full text-left" onClick={() => setExpandedStep(isExpanded ? null : `${c.id}-${step.id}`)} disabled={!step.detail && !step.note}>
                               <div className="flex items-start justify-between gap-2">
                                 <div>
-                                  <p className={`text-sm font-bold ${step.status === "active" ? "text-primary" : step.status === "done" ? "text-[#1A2E2A]" : "text-[#1A2E2A]/35"}`}>
+                                  <p className={`text-sm font-bold ${step.status === "active" ? "text-primary" : step.status === "done" ? "text-[#1A2332]" : "text-[#1A2332]/35"}`}>
                                     {step.title}
                                     {step.status === "active" && <span className="ml-2 text-[10px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded-full font-bold">CURRENT</span>}
                                   </p>
-                                  <p className={`text-xs mt-0.5 ${step.status === "done" ? "text-[#1A2E2A]/40" : step.status === "active" ? "text-[#1A2E2A]/50" : "text-[#1A2E2A]/20"}`}>{step.desc}</p>
+                                  <p className={`text-xs mt-0.5 ${step.status === "done" ? "text-[#1A2332]/40" : step.status === "active" ? "text-[#1A2332]/50" : "text-[#1A2332]/20"}`}>{step.desc}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
-                                  {step.date && <p className="text-[#1A2E2A]/30 text-[10px]">{step.date}</p>}
-                                  {(step.detail || step.note) && <div className="mt-1">{isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-[#1A2E2A]/25 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 text-[#1A2E2A]/25 ml-auto" />}</div>}
+                                  {step.date && <p className="text-[#1A2332]/30 text-[10px]">{step.date}</p>}
+                                  {(step.detail || step.note) && <div className="mt-1">{isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-[#1A2332]/25 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 text-[#1A2332]/25 ml-auto" />}</div>}
                                 </div>
                               </div>
                             </button>
                             {isExpanded && (step.detail || step.note) && (
                               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-2 space-y-2">
-                                {step.detail && <p className="text-[#1A2E2A]/50 text-xs leading-relaxed bg-[#1A2E2A]/5 rounded-lg px-3 py-2.5">{step.detail}</p>}
+                                {step.detail && <p className="text-[#1A2332]/50 text-xs leading-relaxed bg-[#1A2332]/5 rounded-lg px-3 py-2.5">{step.detail}</p>}
                                 {step.note && <p className="text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5">{step.note}</p>}
                               </motion.div>
                             )}

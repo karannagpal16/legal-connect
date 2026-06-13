@@ -50,9 +50,9 @@ export function ClientAIAssistant() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3 mb-1">
           <Sparkles className="w-7 h-7 text-blue-400" />
-          <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">AI Legal Assistant</h1>
+          <h1 className="text-3xl font-serif font-bold text-[#1A2332]">AI Legal Assistant</h1>
         </div>
-        <p className="text-[#1A2E2A]/40 ml-10">Ask any legal question in plain language — LexBot understands.</p>
+        <p className="text-[#1A2332]/40 ml-10">Ask any legal question in plain language — LexBot understands.</p>
       </motion.div>
 
       {/* Feature pills */}
@@ -66,8 +66,8 @@ export function ClientAIAssistant() {
             className={`border rounded-2xl p-4 ${f.bg}`}
           >
             <f.icon className={`w-6 h-6 mb-2 ${f.color}`} />
-            <p className="text-[#1A2E2A] text-xs font-bold mb-1">{f.title}</p>
-            <p className="text-[#1A2E2A]/30 text-xs leading-relaxed">{f.desc}</p>
+            <p className="text-[#1A2332] text-xs font-bold mb-1">{f.title}</p>
+            <p className="text-[#1A2332]/30 text-xs leading-relaxed">{f.desc}</p>
           </motion.div>
         ))}
       </div>
@@ -84,7 +84,7 @@ export function ClientAIAssistant() {
             <Sparkles className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h3 className="text-[#1A2E2A] font-bold">LexBot — AI Legal Assistant</h3>
+            <h3 className="text-[#1A2332] font-bold">LexBot — AI Legal Assistant</h3>
             <p className="text-blue-400 text-xs">Client Edition · Your Friendly Legal Guide</p>
           </div>
           <div className="ml-auto flex items-center gap-1.5">
@@ -119,7 +119,7 @@ Koi bhi sawal poochh sakte hain — bilkul fearless hokar. What's on your mind?`
           <p className="text-blue-400 text-sm font-bold mb-1 flex items-center gap-2">
             <Shield className="w-4 h-4" /> Your Conversations are Private
           </p>
-          <p className="text-[#1A2E2A]/40 text-xs leading-relaxed">
+          <p className="text-[#1A2332]/40 text-xs leading-relaxed">
             What you ask LexBot stays between you and the AI. We do not share your legal queries with anyone.
           </p>
         </div>
@@ -127,7 +127,7 @@ Koi bhi sawal poochh sakte hain — bilkul fearless hokar. What's on your mind?`
           <p className="text-amber-400 text-sm font-bold mb-1 flex items-center gap-2">
             <HelpCircle className="w-4 h-4" /> Need a Real Advocate?
           </p>
-          <p className="text-[#1A2E2A]/40 text-xs leading-relaxed">
+          <p className="text-[#1A2332]/40 text-xs leading-relaxed">
             LexBot is great for guidance, but for serious legal matters always consult a qualified advocate.
           </p>
         </div>

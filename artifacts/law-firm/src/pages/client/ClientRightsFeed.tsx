@@ -149,8 +149,8 @@ export function ClientRightsFeed() {
             <BookOpen className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">Know Your Rights</h1>
-            <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Daily legal cards · Delhi 2026 · Updated weekly</p>
+            <h1 className="text-2xl font-serif font-bold text-[#1A2332]">Know Your Rights</h1>
+            <p className="text-[#1A2332]/40 text-xs mt-0.5">Daily legal cards · Delhi 2026 · Updated weekly</p>
           </div>
         </div>
         <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
@@ -164,7 +164,7 @@ export function ClientRightsFeed() {
         <MapPin className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <p className="text-amber-400 text-sm font-bold">📍 Subhash Nagar & West Delhi Alert</p>
-          <p className="text-[#1A2E2A]/50 text-xs mt-0.5">MCD Amnesty Scheme active · DDA land notifications in progress · 2 items affect your area</p>
+          <p className="text-[#1A2332]/50 text-xs mt-0.5">MCD Amnesty Scheme active · DDA land notifications in progress · 2 items affect your area</p>
         </div>
         <button onClick={() => setActiveCategory("Local Alert")} className="text-xs font-bold text-amber-400 hover:underline flex-shrink-0">View →</button>
       </div>
@@ -175,7 +175,7 @@ export function ClientRightsFeed() {
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`text-xs px-4 py-2 rounded-full border font-semibold transition-all ${activeCategory === cat ? "bg-primary/20 border-primary/40 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A] hover:border-white/25"}`}
+            className={`text-xs px-4 py-2 rounded-full border font-semibold transition-all ${activeCategory === cat ? "bg-primary/20 border-primary/40 text-primary" : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/40 hover:text-[#1A2332] hover:border-white/25"}`}
           >
             {cat}
           </button>
@@ -193,7 +193,7 @@ export function ClientRightsFeed() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ delay: 0.05 * i }}
-              className={`bg-card/40 border rounded-2xl overflow-hidden transition-colors hover:border-[#1A2E2A]/20 cursor-pointer ${card.isLocal ? "border-amber-500/25" : "border-[#1A2E2A]/10"}`}
+              className={`bg-card/40 border rounded-2xl overflow-hidden transition-colors hover:border-[#1A2332]/20 cursor-pointer ${card.isLocal ? "border-amber-500/25" : "border-[#1A2332]/10"}`}
               onClick={() => setExpanded(expanded === card.id ? null : card.id)}
             >
               <div className="p-5">
@@ -201,8 +201,8 @@ export function ClientRightsFeed() {
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${card.tagBg} ${card.tagColor}`}>{card.tag}</span>
                   <span className="text-2xl">{card.emoji}</span>
                 </div>
-                <h3 className="text-[#1A2E2A] font-bold text-sm leading-snug mb-2">{card.title}</h3>
-                <p className="text-[#1A2E2A]/50 text-xs leading-relaxed">{card.hook}</p>
+                <h3 className="text-[#1A2332] font-bold text-sm leading-snug mb-2">{card.title}</h3>
+                <p className="text-[#1A2332]/50 text-xs leading-relaxed">{card.hook}</p>
               </div>
 
               <AnimatePresence>
@@ -211,9 +211,9 @@ export function ClientRightsFeed() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="border-t border-[#1A2E2A]/8 bg-[#1A2E2A]/5 px-5 py-4"
+                    className="border-t border-[#1A2332]/8 bg-[#1A2332]/5 px-5 py-4"
                   >
-                    <p className="text-[#1A2E2A]/65 text-xs leading-relaxed mb-4">{card.detail}</p>
+                    <p className="text-[#1A2332]/65 text-xs leading-relaxed mb-4">{card.detail}</p>
                     <Link href={card.actionHref}>
                       <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-background text-xs font-bold px-4 py-2.5 rounded-xl transition-all w-full justify-center" onClick={e => e.stopPropagation()}>
                         {card.actionLabel} <ArrowRight className="w-3.5 h-3.5" />
@@ -223,7 +223,7 @@ export function ClientRightsFeed() {
                 )}
               </AnimatePresence>
 
-              <div className="px-5 py-2.5 border-t border-white/5 flex items-center justify-between text-[10px] text-[#1A2E2A]/25">
+              <div className="px-5 py-2.5 border-t border-white/5 flex items-center justify-between text-[10px] text-[#1A2332]/25">
                 <span>{expanded === card.id ? "Click to collapse" : "Tap to read more"}</span>
                 <ChevronRight className={`w-3 h-3 transition-transform ${expanded === card.id ? "rotate-90" : ""}`} />
               </div>
@@ -236,8 +236,8 @@ export function ClientRightsFeed() {
       <div className="bg-primary/8 border border-primary/20 rounded-2xl p-5 flex items-center gap-4">
         <Sparkles className="w-8 h-8 text-primary flex-shrink-0" />
         <div className="flex-1">
-          <p className="text-[#1A2E2A] font-bold text-sm">Have a specific legal question?</p>
-          <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Ask LexBot or connect with one of our advocates instantly.</p>
+          <p className="text-[#1A2332] font-bold text-sm">Have a specific legal question?</p>
+          <p className="text-[#1A2332]/40 text-xs mt-0.5">Ask LexBot or connect with one of our advocates instantly.</p>
         </div>
         <Link href="/client/connect">
           <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-background text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex-shrink-0">

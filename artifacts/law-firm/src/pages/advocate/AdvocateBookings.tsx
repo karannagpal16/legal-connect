@@ -40,7 +40,7 @@ const statusConfig = {
   pending: { label: "Awaiting", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/25" },
   confirmed: { label: "Confirmed", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/25" },
   declined: { label: "Declined", color: "text-rose-400", bg: "bg-rose-500/10 border-rose-500/25" },
-  completed: { label: "Completed", color: "text-[#1A2E2A]/40", bg: "bg-[#1A2E2A]/5 border-[#1A2E2A]/10" },
+  completed: { label: "Completed", color: "text-[#1A2332]/40", bg: "bg-[#1A2332]/5 border-[#1A2332]/10" },
 };
 
 export function AdvocateBookings() {
@@ -63,9 +63,9 @@ export function AdvocateBookings() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <CalendarCheck className="w-7 h-7 text-amber-400" />
-            <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">Consultation Bookings</h1>
+            <h1 className="text-3xl font-serif font-bold text-[#1A2332]">Consultation Bookings</h1>
           </div>
-          <p className="text-[#1A2E2A]/40 ml-10">Manage incoming requests and set your rates.</p>
+          <p className="text-[#1A2332]/40 ml-10">Manage incoming requests and set your rates.</p>
         </div>
         {pending.length > 0 && (
           <div className="flex items-center gap-2 bg-rose-500/15 border border-rose-500/30 px-4 py-2 rounded-xl">
@@ -85,7 +85,7 @@ export function AdvocateBookings() {
         ].map((s) => (
           <div key={s.label} className={`border rounded-2xl p-4 text-center ${s.bg}`}>
             <div className={`text-2xl font-bold ${s.color} mb-1`}>{s.value}</div>
-            <div className="text-xs text-[#1A2E2A]/35 uppercase tracking-wider">{s.label}</div>
+            <div className="text-xs text-[#1A2332]/35 uppercase tracking-wider">{s.label}</div>
           </div>
         ))}
       </div>
@@ -99,12 +99,12 @@ export function AdvocateBookings() {
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
               activeTab === tab
                 ? "bg-amber-500/20 border border-amber-500/30 text-amber-400"
-                : "bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60"
+                : "bg-[#1A2332]/5 border border-[#1A2332]/10 text-[#1A2332]/40 hover:text-[#1A2332]/60"
             }`}
           >
             {label}
             {tab === "requests" && pending.length > 0 && (
-              <span className="ml-2 w-5 h-5 rounded-full bg-rose-500 text-[#1A2E2A] text-[10px] font-bold inline-flex items-center justify-center">{pending.length}</span>
+              <span className="ml-2 w-5 h-5 rounded-full bg-rose-500 text-[#1A2332] text-[10px] font-bold inline-flex items-center justify-center">{pending.length}</span>
             )}
           </button>
         ))}
@@ -130,25 +130,25 @@ export function AdvocateBookings() {
                       className="bg-amber-500/8 border border-amber-500/30 rounded-2xl p-5"
                     >
                       <div className="flex items-start gap-4">
-                        <div className="w-11 h-11 rounded-xl bg-[#1A2E2A]/10 border border-white/15 flex items-center justify-center flex-shrink-0">
-                          <User className="w-5 h-5 text-[#1A2E2A]/60" />
+                        <div className="w-11 h-11 rounded-xl bg-[#1A2332]/10 border border-white/15 flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-[#1A2332]/60" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-3 flex-wrap">
                             <div>
-                              <p className="text-[#1A2E2A] font-bold">{b.clientName}</p>
-                              <p className="text-[#1A2E2A]/45 text-xs mt-0.5">{b.matter}</p>
+                              <p className="text-[#1A2332] font-bold">{b.clientName}</p>
+                              <p className="text-[#1A2332]/45 text-xs mt-0.5">{b.matter}</p>
                             </div>
                             <div className="text-right flex-shrink-0">
                               <p className="text-amber-400 font-bold text-lg">₹{b.amount.toLocaleString()}</p>
-                              <p className="text-[#1A2E2A]/35 text-xs">{b.duration} min</p>
+                              <p className="text-[#1A2332]/35 text-xs">{b.duration} min</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3 mt-3 flex-wrap">
                             <span className={`flex items-center gap-1.5 text-xs font-semibold ${T.color}`}>
                               <T.icon className="w-3.5 h-3.5" /> {T.label}
                             </span>
-                            <span className="flex items-center gap-1.5 text-xs text-[#1A2E2A]/40">
+                            <span className="flex items-center gap-1.5 text-xs text-[#1A2332]/40">
                               <Clock className="w-3.5 h-3.5" /> {b.date} · {b.time}
                             </span>
                           </div>
@@ -157,13 +157,13 @@ export function AdvocateBookings() {
                       <div className="flex gap-3 mt-4">
                         <button
                           onClick={() => accept(b.id)}
-                          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-[#1A2E2A] px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 justify-center"
+                          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-[#1A2332] px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 justify-center"
                         >
                           <Check className="w-4 h-4" /> Accept
                         </button>
                         <button
                           onClick={() => decline(b.id)}
-                          className="flex items-center gap-2 bg-[#1A2E2A]/10 hover:bg-rose-500/20 text-[#1A2E2A]/60 hover:text-rose-400 border border-[#1A2E2A]/10 hover:border-rose-500/30 px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 justify-center"
+                          className="flex items-center gap-2 bg-[#1A2332]/10 hover:bg-rose-500/20 text-[#1A2332]/60 hover:text-rose-400 border border-[#1A2332]/10 hover:border-rose-500/30 px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 justify-center"
                         >
                           <X className="w-4 h-4" /> Decline
                         </button>
@@ -184,11 +184,11 @@ export function AdvocateBookings() {
                   return (
                     <div key={b.id} className="bg-emerald-500/8 border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4">
                       <div className="flex-1">
-                        <p className="text-[#1A2E2A] font-bold">{b.clientName}</p>
-                        <p className="text-[#1A2E2A]/45 text-xs mt-0.5">{b.matter}</p>
+                        <p className="text-[#1A2332] font-bold">{b.clientName}</p>
+                        <p className="text-[#1A2332]/45 text-xs mt-0.5">{b.matter}</p>
                         <div className="flex items-center gap-3 mt-2">
                           <span className={`flex items-center gap-1.5 text-xs ${T.color}`}><T.icon className="w-3.5 h-3.5" /> {T.label}</span>
-                          <span className="text-xs text-[#1A2E2A]/35"><Clock className="w-3 h-3 inline mr-1" />{b.date} · {b.time}</span>
+                          <span className="text-xs text-[#1A2332]/35"><Clock className="w-3 h-3 inline mr-1" />{b.date} · {b.time}</span>
                         </div>
                       </div>
                       <div className="text-right">
@@ -203,7 +203,7 @@ export function AdvocateBookings() {
           )}
 
           {pending.length === 0 && confirmed.length === 0 && (
-            <div className="text-center py-16 text-[#1A2E2A]/30">
+            <div className="text-center py-16 text-[#1A2332]/30">
               <CalendarCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No pending requests right now.</p>
             </div>
@@ -215,10 +215,10 @@ export function AdvocateBookings() {
       {activeTab === "rates" && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-[#1A2E2A] font-bold">My Consultation Rates</h3>
+            <h3 className="text-[#1A2332] font-bold">My Consultation Rates</h3>
             <button
               onClick={() => setEditingRates(e => !e)}
-              className="flex items-center gap-2 bg-[#1A2E2A]/10 hover:bg-[#1A2E2A]/15 text-[#1A2E2A]/60 hover:text-[#1A2E2A] border border-[#1A2E2A]/10 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+              className="flex items-center gap-2 bg-[#1A2332]/10 hover:bg-[#1A2332]/15 text-[#1A2332]/60 hover:text-[#1A2332] border border-[#1A2332]/10 px-4 py-2 rounded-xl text-sm font-bold transition-all"
             >
               <Edit3 className="w-3.5 h-3.5" /> {editingRates ? "Save Rates" : "Edit Rates"}
             </button>
@@ -237,31 +237,31 @@ export function AdvocateBookings() {
                   className={`border rounded-2xl p-6 ${r.bg}`}
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-[#1A2E2A]/10 border border-white/15 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-[#1A2332]/10 border border-white/15 flex items-center justify-center">
                       <r.icon className={`w-5 h-5 ${r.color}`} />
                     </div>
                     {i === 1 && (
                       <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/20">POPULAR</span>
                     )}
                   </div>
-                  <h4 className="text-[#1A2E2A] font-bold mb-0.5">{r.type} Consultation</h4>
-                  <p className="text-[#1A2E2A]/40 text-xs mb-4">{r.desc} · {r.duration}</p>
+                  <h4 className="text-[#1A2332] font-bold mb-0.5">{r.type} Consultation</h4>
+                  <p className="text-[#1A2332]/40 text-xs mb-4">{r.desc} · {r.duration}</p>
 
                   {editingRates ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-[#1A2E2A]/60 text-sm">₹</span>
+                      <span className="text-[#1A2332]/60 text-sm">₹</span>
                       <input
                         type="number"
                         value={currentRate}
                         onChange={e => setRates(prev => ({ ...prev, [rateKey]: Number(e.target.value) }))}
-                        className="flex-1 bg-[#1A2E2A]/10 border border-[#1A2E2A]/20 rounded-xl px-3 py-2 text-[#1A2E2A] font-bold text-lg focus:outline-none focus:border-amber-500/40 w-full"
+                        className="flex-1 bg-[#1A2332]/10 border border-[#1A2332]/20 rounded-xl px-3 py-2 text-[#1A2332] font-bold text-lg focus:outline-none focus:border-amber-500/40 w-full"
                       />
-                      <span className="text-[#1A2E2A]/40 text-xs">per session</span>
+                      <span className="text-[#1A2332]/40 text-xs">per session</span>
                     </div>
                   ) : (
                     <div className={`text-2xl font-bold ${r.color}`}>
                       ₹{currentRate.toLocaleString()}
-                      <span className="text-sm font-normal text-[#1A2E2A]/30 ml-1">/ session</span>
+                      <span className="text-sm font-normal text-[#1A2332]/30 ml-1">/ session</span>
                     </div>
                   )}
                 </motion.div>
@@ -269,8 +269,8 @@ export function AdvocateBookings() {
             })}
           </div>
 
-          <div className="bg-card/30 border border-[#1A2E2A]/8 rounded-2xl p-5">
-            <h4 className="text-[#1A2E2A] font-bold mb-3 flex items-center gap-2">
+          <div className="bg-card/30 border border-[#1A2332]/8 rounded-2xl p-5">
+            <h4 className="text-[#1A2332] font-bold mb-3 flex items-center gap-2">
               <IndianRupee className="w-4 h-4 text-amber-400" /> Rate Summary
             </h4>
             <div className="space-y-2">
@@ -280,7 +280,7 @@ export function AdvocateBookings() {
                 { label: "Hourly effective rate (90 min session)", value: `₹${Math.round(rates.extended / 1.5).toLocaleString()}/hr` },
               ].map(r => (
                 <div key={r.label} className="flex justify-between text-sm">
-                  <span className="text-[#1A2E2A]/45">{r.label}</span>
+                  <span className="text-[#1A2332]/45">{r.label}</span>
                   <span className="text-amber-400 font-bold">{r.value}</span>
                 </div>
               ))}
@@ -301,17 +301,17 @@ export function AdvocateBookings() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.06 * i }}
-                className="bg-card/30 border border-[#1A2E2A]/8 rounded-2xl p-5 flex items-center gap-4"
+                className="bg-card/30 border border-[#1A2332]/8 rounded-2xl p-5 flex items-center gap-4"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-[#1A2E2A] font-bold">{b.clientName}</p>
+                    <p className="text-[#1A2332] font-bold">{b.clientName}</p>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${S.bg} ${S.color}`}>{S.label}</span>
                   </div>
-                  <p className="text-[#1A2E2A]/40 text-xs">{b.matter}</p>
+                  <p className="text-[#1A2332]/40 text-xs">{b.matter}</p>
                   <div className="flex items-center gap-3 mt-1.5">
                     <span className={`text-xs flex items-center gap-1 ${T.color}`}><T.icon className="w-3 h-3" />{T.label}</span>
-                    <span className="text-xs text-[#1A2E2A]/30">{b.date}</span>
+                    <span className="text-xs text-[#1A2332]/30">{b.date}</span>
                     {b.rating && (
                       <span className="text-xs text-amber-400 flex items-center gap-0.5">
                         {"★".repeat(b.rating)}{"☆".repeat(5 - b.rating)}
@@ -320,7 +320,7 @@ export function AdvocateBookings() {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className={`font-bold ${b.status === "completed" ? "text-emerald-400" : "text-[#1A2E2A]/30 line-through"}`}>
+                  <p className={`font-bold ${b.status === "completed" ? "text-emerald-400" : "text-[#1A2332]/30 line-through"}`}>
                     ₹{b.amount.toLocaleString()}
                   </p>
                 </div>

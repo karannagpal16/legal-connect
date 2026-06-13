@@ -145,8 +145,8 @@ export function ClientWellness() {
           <Star className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">Legal Health Checkup</h1>
-          <p className="text-[#1A2E2A]/40 text-xs mt-0.5">5-minute assessment · Free · No sign-up required</p>
+          <h1 className="text-2xl font-serif font-bold text-[#1A2332]">Legal Health Checkup</h1>
+          <p className="text-[#1A2332]/40 text-xs mt-0.5">5-minute assessment · Free · No sign-up required</p>
         </div>
       </div>
 
@@ -156,15 +156,15 @@ export function ClientWellness() {
           <motion.div key="intro" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-5">
             <div className="relative overflow-hidden bg-gradient-to-br from-primary/20 via-primary/8 to-blue-500/10 border border-primary/30 rounded-2xl p-8 text-center">
               <div className="text-6xl mb-4">⚖️</div>
-              <h2 className="text-2xl font-serif font-bold text-[#1A2E2A] mb-2">Know Your Legal Wellness Score</h2>
-              <p className="text-[#1A2E2A]/50 mb-6 max-w-md mx-auto text-sm leading-relaxed">
+              <h2 className="text-2xl font-serif font-bold text-[#1A2332] mb-2">Know Your Legal Wellness Score</h2>
+              <p className="text-[#1A2332]/50 mb-6 max-w-md mx-auto text-sm leading-relaxed">
                 Answer 5 quick questions about your property, family, business, digital safety, and emergency readiness. Get your personalised Legal Wellness Score instantly.
               </p>
               <div className="grid grid-cols-3 gap-4 mb-8">
                 {[["5", "Questions"], ["60", "Seconds"], ["Free", "Always"]].map(([v, l]) => (
-                  <div key={l} className="bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 rounded-xl py-3">
+                  <div key={l} className="bg-[#1A2332]/5 border border-[#1A2332]/10 rounded-xl py-3">
                     <div className="text-primary text-xl font-bold">{v}</div>
-                    <div className="text-[#1A2E2A]/35 text-xs">{l}</div>
+                    <div className="text-[#1A2332]/35 text-xs">{l}</div>
                   </div>
                 ))}
               </div>
@@ -179,10 +179,10 @@ export function ClientWellness() {
                 { icon: "👨‍👩‍👧", title: "Family & Future", desc: "Is your Will and estate in order?" },
                 { icon: "🔐", title: "Digital Safety", desc: "Know your DPDP Act rights?" },
               ].map(c => (
-                <div key={c.title} className="bg-card/30 border border-[#1A2E2A]/8 rounded-xl p-4 text-center">
+                <div key={c.title} className="bg-card/30 border border-[#1A2332]/8 rounded-xl p-4 text-center">
                   <div className="text-2xl mb-2">{c.icon}</div>
-                  <p className="text-[#1A2E2A] text-xs font-bold mb-1">{c.title}</p>
-                  <p className="text-[#1A2E2A]/35 text-xs">{c.desc}</p>
+                  <p className="text-[#1A2332] text-xs font-bold mb-1">{c.title}</p>
+                  <p className="text-[#1A2332]/35 text-xs">{c.desc}</p>
                 </div>
               ))}
             </div>
@@ -194,24 +194,24 @@ export function ClientWellness() {
           <motion.div key={`q-${step}`} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-5">
             {/* Progress bar */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs text-[#1A2E2A]/40">
+              <div className="flex justify-between text-xs text-[#1A2332]/40">
                 <span>Question {step + 1} of {questions.length}</span>
                 <span className="text-primary font-semibold">{currentQ.category}</span>
               </div>
-              <div className="h-1.5 bg-[#1A2E2A]/8 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-[#1A2332]/8 rounded-full overflow-hidden">
                 <motion.div initial={{ width: `${(step / questions.length) * 100}%` }} animate={{ width: `${((step) / questions.length) * 100}%` }} className="h-full bg-primary rounded-full" />
               </div>
             </div>
 
-            <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-7">
+            <div className="bg-card/40 border border-[#1A2332]/10 rounded-2xl p-7">
               <div className="text-4xl mb-4">{currentQ.emoji}</div>
-              <h2 className="text-[#1A2E2A] text-lg font-bold leading-snug mb-6">{currentQ.question}</h2>
+              <h2 className="text-[#1A2332] text-lg font-bold leading-snug mb-6">{currentQ.question}</h2>
               <div className="space-y-3">
                 {currentQ.options.map((opt, i) => (
                   <button
                     key={i}
                     onClick={() => setSelected(i)}
-                    className={`w-full text-left px-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${selected === i ? "bg-primary/20 border-primary/50 text-[#1A2E2A]" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/60 hover:bg-[#1A2E2A]/8 hover:text-[#1A2E2A] hover:border-[#1A2E2A]/20"}`}
+                    className={`w-full text-left px-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${selected === i ? "bg-primary/20 border-primary/50 text-[#1A2332]" : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/60 hover:bg-[#1A2332]/8 hover:text-[#1A2332] hover:border-[#1A2332]/20"}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected === i ? "border-primary bg-primary" : "border-white/25"}`}>
@@ -225,7 +225,7 @@ export function ClientWellness() {
               <button
                 onClick={handleNext}
                 disabled={selected === null}
-                className={`mt-6 w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all ${selected !== null ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2E2A]/8 text-[#1A2E2A]/20 cursor-not-allowed"}`}
+                className={`mt-6 w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all ${selected !== null ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2332]/8 text-[#1A2332]/20 cursor-not-allowed"}`}
               >
                 {step < questions.length - 1 ? "Next Question" : "See My Score"} <ChevronRight className="w-4 h-4" />
               </button>
@@ -255,14 +255,14 @@ export function ClientWellness() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className={`text-3xl font-bold ${personality.color}`}>{totalScore}</span>
-                  <span className="text-[#1A2E2A]/30 text-xs">/ 100</span>
+                  <span className="text-[#1A2332]/30 text-xs">/ 100</span>
                 </div>
               </div>
 
               <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${personality.color}`}>Your Legal Personality</p>
-              <h2 className="text-2xl font-serif font-bold text-[#1A2E2A] mb-1">{personality.title}</h2>
+              <h2 className="text-2xl font-serif font-bold text-[#1A2332] mb-1">{personality.title}</h2>
               <p className={`text-sm font-semibold mb-3 ${personality.color}`}>{personality.subtitle}</p>
-              <p className="text-[#1A2E2A]/50 text-sm leading-relaxed max-w-md mx-auto">{personality.desc}</p>
+              <p className="text-[#1A2332]/50 text-sm leading-relaxed max-w-md mx-auto">{personality.desc}</p>
 
               {personality.cta && (
                 <Link href="/client/connect">
@@ -274,8 +274,8 @@ export function ClientWellness() {
             </div>
 
             {/* Area breakdown */}
-            <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
-              <h3 className="text-[#1A2E2A] font-bold mb-4">Your Legal Health Breakdown</h3>
+            <div className="bg-card/40 border border-[#1A2332]/10 rounded-2xl p-5">
+              <h3 className="text-[#1A2332] font-bold mb-4">Your Legal Health Breakdown</h3>
               <div className="space-y-3">
                 {questions.map((q, i) => {
                   const ans = answers[i];
@@ -285,10 +285,10 @@ export function ClientWellness() {
                   return (
                     <div key={q.id}>
                       <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-[#1A2E2A]/60 flex items-center gap-1.5">{q.emoji} {q.category}</span>
+                        <span className="text-[#1A2332]/60 flex items-center gap-1.5">{q.emoji} {q.category}</span>
                         <span className={`font-bold ${textColor}`}>{ans?.score ?? 0}/20</span>
                       </div>
-                      <div className="h-2 bg-[#1A2E2A]/8 rounded-full overflow-hidden">
+                      <div className="h-2 bg-[#1A2332]/8 rounded-full overflow-hidden">
                         <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: 0.1 * i, duration: 0.7 }} className={`h-full ${color} rounded-full`} />
                       </div>
                     </div>
@@ -307,7 +307,7 @@ export function ClientWellness() {
                   {weakAreas.map(w => (
                     <div key={w.id} className="flex items-start gap-2.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-rose-400 flex-shrink-0 mt-1.5" />
-                      <p className="text-[#1A2E2A]/60 text-sm">{w.gap}</p>
+                      <p className="text-[#1A2332]/60 text-sm">{w.gap}</p>
                     </div>
                   ))}
                 </div>
@@ -322,16 +322,16 @@ export function ClientWellness() {
                 </button>
               </Link>
               <Link href="/client/diy-docs">
-                <button className="w-full flex items-center justify-center gap-2 bg-[#1A2E2A]/10 hover:bg-[#1A2E2A]/15 text-[#1A2E2A] border border-[#1A2E2A]/10 py-3 rounded-xl font-bold text-sm transition-all">
+                <button className="w-full flex items-center justify-center gap-2 bg-[#1A2332]/10 hover:bg-[#1A2332]/15 text-[#1A2332] border border-[#1A2332]/10 py-3 rounded-xl font-bold text-sm transition-all">
                   <FileText className="w-4 h-4" /> Fix Documents
                 </button>
               </Link>
-              <button onClick={restart} className="w-full flex items-center justify-center gap-2 bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 text-[#1A2E2A]/50 hover:text-[#1A2E2A] border border-[#1A2E2A]/8 py-3 rounded-xl font-bold text-sm transition-all">
+              <button onClick={restart} className="w-full flex items-center justify-center gap-2 bg-[#1A2332]/5 hover:bg-[#1A2332]/10 text-[#1A2332]/50 hover:text-[#1A2332] border border-[#1A2332]/8 py-3 rounded-xl font-bold text-sm transition-all">
                 <RotateCcw className="w-4 h-4" /> Retake Quiz
               </button>
             </div>
 
-            <p className="text-center text-[#1A2E2A]/20 text-xs">Your score has been saved to your profile to track improvement over time.</p>
+            <p className="text-center text-[#1A2332]/20 text-xs">Your score has been saved to your profile to track improvement over time.</p>
           </motion.div>
         )}
       </AnimatePresence>

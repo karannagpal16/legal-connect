@@ -78,14 +78,14 @@ export function ClientHome() {
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-blue-400 text-sm font-semibold mb-1">{greeting} 👋</p>
-            <h1 className="text-3xl font-serif font-bold text-[#1A2E2A] mb-2">Welcome back, Client</h1>
-            <p className="text-[#1A2E2A]/50 text-sm">You have <span className="text-[#1A2E2A] font-semibold">3 active cases</span> · Next hearing <span className="text-amber-400 font-semibold">Apr 4</span></p>
+            <h1 className="text-3xl font-serif font-bold text-[#1A2332] mb-2">Welcome back, Client</h1>
+            <p className="text-[#1A2332]/50 text-sm">You have <span className="text-[#1A2332] font-semibold">3 active cases</span> · Next hearing <span className="text-amber-400 font-semibold">Apr 4</span></p>
           </div>
           <Link href="/client/book">
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-[#1A2E2A] px-6 py-3.5 rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/30 whitespace-nowrap"
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-[#1A2332] px-6 py-3.5 rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/30 whitespace-nowrap"
             >
               <Phone className="w-4 h-4" />
               Book Now
@@ -97,7 +97,7 @@ export function ClientHome() {
 
       {/* Quick Actions — Big 3 */}
       <div>
-        <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30 mb-4">Quick Actions</h2>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2332]/30 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {quickActions.map((f, i) => (
             <motion.div
@@ -112,13 +112,13 @@ export function ClientHome() {
                   className={`group relative overflow-hidden bg-gradient-to-br ${f.gradient} border ${f.border} rounded-2xl p-6 cursor-pointer shadow-xl ${f.glow} transition-all`}
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-11 h-11 rounded-xl bg-[#1A2E2A]/10 border border-white/15 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-11 h-11 rounded-xl bg-[#1A2332]/10 border border-white/15 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                       <f.icon className={`w-6 h-6 ${f.color}`} />
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${f.badgeColor}`}>{f.badge}</span>
                   </div>
-                  <h3 className="text-[#1A2E2A] font-bold text-base mb-1">{f.title}</h3>
-                  <p className="text-[#1A2E2A]/45 text-xs mb-5 leading-relaxed">{f.desc}</p>
+                  <h3 className="text-[#1A2332] font-bold text-base mb-1">{f.title}</h3>
+                  <p className="text-[#1A2332]/45 text-xs mb-5 leading-relaxed">{f.desc}</p>
                   <div className={`flex items-center gap-1.5 text-xs font-bold ${f.color} group-hover:gap-2.5 transition-all`}>
                     {f.cta} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </div>
@@ -136,7 +136,7 @@ export function ClientHome() {
         transition={{ delay: 0.3 }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30">Your Active Cases</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2332]/30">Your Active Cases</h2>
           <Link href="/client/reminders">
             <span className="text-xs text-blue-400 hover:text-blue-300 font-semibold cursor-pointer flex items-center gap-1 transition-colors">
               View all <ChevronRight className="w-3 h-3" />
@@ -152,12 +152,12 @@ export function ClientHome() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.35 + 0.08 * i }}
-                className="flex items-center gap-4 bg-card/40 border border-[#1A2E2A]/8 hover:border-white/15 rounded-2xl px-5 py-4 cursor-pointer transition-all group"
+                className="flex items-center gap-4 bg-card/40 border border-[#1A2332]/8 hover:border-white/15 rounded-2xl px-5 py-4 cursor-pointer transition-all group"
               >
                 <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${u.dot} animate-pulse`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[#1A2E2A] text-sm font-semibold truncate">{c.title}</p>
-                  <p className="text-[#1A2E2A]/35 text-xs mt-0.5 flex items-center gap-1.5">
+                  <p className="text-[#1A2332] text-sm font-semibold truncate">{c.title}</p>
+                  <p className="text-[#1A2332]/35 text-xs mt-0.5 flex items-center gap-1.5">
                     <Clock className="w-3 h-3" /> Next: {c.date} · {c.type}
                   </p>
                 </div>
@@ -176,14 +176,14 @@ export function ClientHome() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30 mb-4">More Tools</h2>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2332]/30 mb-4">More Tools</h2>
         <div className="grid grid-cols-3 gap-3">
           {moreFeatures.map((f) => (
             <Link key={f.title} href={f.href}>
               <div className={`group border rounded-2xl p-4 cursor-pointer hover:-translate-y-1 transition-all duration-300 ${f.bg}`}>
                 <f.icon className={`w-6 h-6 mb-3 ${f.color}`} />
-                <p className="text-[#1A2E2A] text-sm font-bold mb-0.5">{f.title}</p>
-                <p className="text-[#1A2E2A]/35 text-xs">{f.desc}</p>
+                <p className="text-[#1A2332] text-sm font-bold mb-0.5">{f.title}</p>
+                <p className="text-[#1A2332]/35 text-xs">{f.desc}</p>
               </div>
             </Link>
           ))}
@@ -201,11 +201,11 @@ export function ClientHome() {
           <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-rose-400 font-bold text-sm">Arrested or in police custody?</p>
-            <p className="text-[#1A2E2A]/45 text-xs mt-0.5">You have the right to legal representation. Connect with an advocate immediately.</p>
+            <p className="text-[#1A2332]/45 text-xs mt-0.5">You have the right to legal representation. Connect with an advocate immediately.</p>
           </div>
         </div>
         <Link href="/client/book">
-          <button className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-[#1A2E2A] px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap">
+          <button className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-[#1A2332] px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap">
             <Zap className="w-4 h-4" /> Urgent Help
           </button>
         </Link>

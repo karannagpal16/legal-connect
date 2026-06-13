@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useListInternQuests } from "@workspace/api-client-react";
 
 const levels = [
-  { level: 1, title: "Legal Rookie", xpRequired: 0, color: "text-[#1A2E2A]/60", accent: "#ffffff60", bg: "bg-[#1A2E2A]/10" },
+  { level: 1, title: "Legal Rookie", xpRequired: 0, color: "text-[#1A2332]/60", accent: "#ffffff60", bg: "bg-[#1A2332]/10" },
   { level: 2, title: "Junior Clerk", xpRequired: 100, color: "text-emerald-400", accent: "#34d399", bg: "bg-emerald-500/20" },
   { level: 3, title: "Legal Apprentice", xpRequired: 250, color: "text-blue-400", accent: "#60a5fa", bg: "bg-blue-500/20" },
   { level: 4, title: "Associate Trainee", xpRequired: 500, color: "text-violet-400", accent: "#a78bfa", bg: "bg-violet-500/20" },
@@ -54,8 +54,8 @@ export function InternDashboard() {
         <p className="text-emerald-400 text-sm font-semibold mb-1 flex items-center gap-2">
           <Flame className="w-4 h-4" /> Welcome back, Intern
         </p>
-        <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">Your Legal Journey</h1>
-        <p className="text-[#1A2E2A]/40 mt-1">Keep grinding. Every quest brings you closer to the courtroom.</p>
+        <h1 className="text-3xl font-serif font-bold text-[#1A2332]">Your Legal Journey</h1>
+        <p className="text-[#1A2332]/40 mt-1">Keep grinding. Every quest brings you closer to the courtroom.</p>
       </motion.div>
 
       {/* Level Card — Hero */}
@@ -74,12 +74,12 @@ export function InternDashboard() {
             <div className="relative flex-shrink-0">
               <div className={`w-20 h-20 rounded-2xl ${currentLevel.bg} border border-white/15 flex flex-col items-center justify-center shadow-2xl`}
                 style={{ boxShadow: `0 0 30px ${currentLevel.accent}30` }}>
-                <span className="text-[10px] text-[#1A2E2A]/40 font-bold uppercase tracking-wider">LVL</span>
+                <span className="text-[10px] text-[#1A2332]/40 font-bold uppercase tracking-wider">LVL</span>
                 <span className={`text-3xl font-bold ${currentLevel.color}`}>{currentLevel.level}</span>
               </div>
               {completedXP > 0 && (
                 <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-400 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/50">
-                  <Zap className="w-3.5 h-3.5 text-[#1A2E2A] fill-white" />
+                  <Zap className="w-3.5 h-3.5 text-[#1A2332] fill-white" />
                 </div>
               )}
             </div>
@@ -92,13 +92,13 @@ export function InternDashboard() {
                   <span className="font-bold text-lg">{completedXP} XP</span>
                 </div>
               </div>
-              <p className="text-[#1A2E2A]/40 text-xs mb-3">
+              <p className="text-[#1A2332]/40 text-xs mb-3">
                 {nextLevel ? `${xpToNext} XP to unlock ` : ""}
                 {nextLevel ? <span className={`${nextLevel.color} font-semibold`}>{nextLevel.title}</span> : <span className="text-amber-400 font-semibold">Max Level!</span>}
               </p>
 
               {/* Progress bar */}
-              <div className="relative w-full bg-[#1A2E2A]/10 rounded-full h-3 overflow-hidden">
+              <div className="relative w-full bg-[#1A2332]/10 rounded-full h-3 overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${progressToNext}%` }}
@@ -106,10 +106,10 @@ export function InternDashboard() {
                   className="h-full rounded-full relative"
                   style={{ background: `linear-gradient(90deg, ${currentLevel.accent}80, ${currentLevel.accent})` }}
                 >
-                  <div className="absolute inset-0 bg-[#1A2E2A]/30 blur-sm" />
+                  <div className="absolute inset-0 bg-[#1A2332]/30 blur-sm" />
                 </motion.div>
               </div>
-              <div className="flex justify-between mt-1.5 text-[10px] text-[#1A2E2A]/30">
+              <div className="flex justify-between mt-1.5 text-[10px] text-[#1A2332]/30">
                 <span>Lv {currentLevel.level}</span>
                 <span>{Math.round(progressToNext)}%</span>
                 {nextLevel && <span>Lv {nextLevel.level}</span>}
@@ -124,10 +124,10 @@ export function InternDashboard() {
               { label: "Open Quests", value: openQuests, icon: Target, color: "text-blue-400" },
               { label: "Completed", value: completedQuests, icon: Award, color: "text-amber-400" },
             ].map((s, i) => (
-              <div key={s.label} className="bg-[#1A2E2A]/5 rounded-xl px-3 py-3 text-center border border-[#1A2E2A]/8">
+              <div key={s.label} className="bg-[#1A2332]/5 rounded-xl px-3 py-3 text-center border border-[#1A2332]/8">
                 <s.icon className={`w-4 h-4 ${s.color} mx-auto mb-1.5`} />
-                <div className="text-[#1A2E2A] font-bold text-xl">{s.value}</div>
-                <div className="text-[#1A2E2A]/30 text-[10px] uppercase tracking-wider">{s.label}</div>
+                <div className="text-[#1A2332] font-bold text-xl">{s.value}</div>
+                <div className="text-[#1A2332]/30 text-[10px] uppercase tracking-wider">{s.label}</div>
               </div>
             ))}
           </div>
@@ -137,10 +137,10 @@ export function InternDashboard() {
       {/* Daily Challenges */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30 flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2332]/30 flex items-center gap-2">
             <Flame className="w-3.5 h-3.5 text-orange-400" /> Daily Challenges
           </h2>
-          <span className="text-[10px] text-[#1A2E2A]/30 bg-[#1A2E2A]/5 px-2 py-1 rounded-full border border-[#1A2E2A]/10">Resets daily</span>
+          <span className="text-[10px] text-[#1A2332]/30 bg-[#1A2332]/5 px-2 py-1 rounded-full border border-[#1A2332]/10">Resets daily</span>
         </div>
         <div className="space-y-2.5">
           {dailyChallenges.map((c, i) => (
@@ -152,11 +152,11 @@ export function InternDashboard() {
               className={`flex items-center gap-4 border rounded-2xl px-5 py-4 cursor-pointer hover:-translate-x-0 hover:brightness-110 transition-all group ${c.bg}`}
             >
               <c.icon className={`w-5 h-5 ${c.color} flex-shrink-0`} />
-              <span className="text-[#1A2E2A] text-sm font-medium flex-1">{c.title}</span>
+              <span className="text-[#1A2332] text-sm font-medium flex-1">{c.title}</span>
               <div className={`flex items-center gap-1 ${c.color} text-xs font-bold`}>
                 <Zap className="w-3 h-3 fill-current" /> +{c.xp} XP
               </div>
-              <ChevronRight className="w-4 h-4 text-[#1A2E2A]/20 group-hover:text-[#1A2E2A]/50 transition-colors" />
+              <ChevronRight className="w-4 h-4 text-[#1A2332]/20 group-hover:text-[#1A2332]/50 transition-colors" />
             </motion.div>
           ))}
         </div>
@@ -165,7 +165,7 @@ export function InternDashboard() {
       {/* Quick leaderboard peek */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30 flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2332]/30 flex items-center gap-2">
             <Trophy className="w-3.5 h-3.5 text-amber-400" /> Leaderboard Preview
           </h2>
           <Link href="/intern/leaderboard">
@@ -181,12 +181,12 @@ export function InternDashboard() {
               className={`flex items-center gap-4 rounded-2xl px-4 py-3.5 border transition-all ${
                 p.isYou
                   ? "bg-emerald-500/10 border-emerald-500/25"
-                  : "bg-card/30 border-[#1A2E2A]/8"
+                  : "bg-card/30 border-[#1A2332]/8"
               }`}
             >
               <span className="text-xl w-8 text-center">{p.badge}</span>
               <div className="flex-1">
-                <span className={`text-sm font-bold ${p.isYou ? "text-emerald-400" : "text-[#1A2E2A]"}`}>{p.name}</span>
+                <span className={`text-sm font-bold ${p.isYou ? "text-emerald-400" : "text-[#1A2332]"}`}>{p.name}</span>
                 {p.isYou && <span className="ml-2 text-[10px] text-emerald-400/60">← you</span>}
               </div>
               <span className={`text-sm font-bold flex items-center gap-1 ${p.isYou ? "text-emerald-400/60" : "text-amber-400"}`}>
@@ -199,7 +199,7 @@ export function InternDashboard() {
 
       {/* Feature Grid */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-        <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2E2A]/30 mb-4">All Features</h2>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-[#1A2332]/30 mb-4">All Features</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {navFeatures.map((f, i) => (
             <Link key={f.title} href={f.href}>
@@ -208,8 +208,8 @@ export function InternDashboard() {
                 className={`group relative overflow-hidden bg-gradient-to-br ${f.gradient} border ${f.border} rounded-2xl p-4 cursor-pointer transition-all`}
               >
                 <f.icon className={`w-6 h-6 mb-2.5 ${f.color}`} />
-                <p className="text-[#1A2E2A] text-xs font-bold mb-0.5">{f.title}</p>
-                <p className="text-[#1A2E2A]/35 text-[11px] leading-relaxed">{f.desc}</p>
+                <p className="text-[#1A2332] text-xs font-bold mb-0.5">{f.title}</p>
+                <p className="text-[#1A2332]/35 text-[11px] leading-relaxed">{f.desc}</p>
               </motion.div>
             </Link>
           ))}

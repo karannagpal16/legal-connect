@@ -103,7 +103,7 @@ export function RevenueTracker() {
             className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-accent transition-all duration-1000 ease-out"
             style={{ width: `${progressPercentage}%` }}
           >
-            <div className="absolute inset-0 bg-[#1A2E2A]/20 w-full animate-[shimmer_2s_infinite]" />
+            <div className="absolute inset-0 bg-[#1A2332]/20 w-full animate-[shimmer_2s_infinite]" />
           </div>
         </div>
         <div className="flex justify-between mt-3 text-sm font-bold">

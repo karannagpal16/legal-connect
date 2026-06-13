@@ -216,17 +216,17 @@ export function ClientBookAdvocate() {
         {stage === "browse" && (
           <motion.div key="browse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
             <div className="mb-8">
-              <h1 className="text-3xl font-serif font-bold text-[#1A2E2A] mb-1">Book an Advocate</h1>
-              <p className="text-[#1A2E2A]/50">Available advocates near you — chat, consult, or call in seconds.</p>
+              <h1 className="text-3xl font-serif font-bold text-[#1A2332] mb-1">Book an Advocate</h1>
+              <p className="text-[#1A2332]/50">Available advocates near you — chat, consult, or call in seconds.</p>
             </div>
 
             <div className="relative mb-6">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#1A2E2A]/30" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#1A2332]/30" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search by name or speciality..."
-                className="w-full bg-card/50 border border-[#1A2E2A]/10 rounded-2xl pl-12 pr-4 py-4 text-[#1A2E2A] placeholder:text-[#1A2E2A]/30 focus:outline-none focus:border-primary/50 text-sm"
+                className="w-full bg-card/50 border border-[#1A2332]/10 rounded-2xl pl-12 pr-4 py-4 text-[#1A2332] placeholder:text-[#1A2332]/30 focus:outline-none focus:border-primary/50 text-sm"
               />
             </div>
 
@@ -237,27 +237,27 @@ export function ClientBookAdvocate() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.06 * i }}
-                  className={`bg-card/40 border rounded-3xl overflow-hidden transition-all duration-300 ${advocate.available ? "border-[#1A2E2A]/10 hover:border-primary/30" : "border-white/5 opacity-60"}`}
+                  className={`bg-card/40 border rounded-3xl overflow-hidden transition-all duration-300 ${advocate.available ? "border-[#1A2332]/10 hover:border-primary/30" : "border-white/5 opacity-60"}`}
                 >
                   <div className="p-5 flex items-start gap-4">
                     <div className="relative flex-shrink-0">
-                      <div className={`w-14 h-14 rounded-2xl ${advocate.color} flex items-center justify-center text-[#1A2E2A] font-bold text-lg shadow-lg`}>
+                      <div className={`w-14 h-14 rounded-2xl ${advocate.color} flex items-center justify-center text-[#1A2332] font-bold text-lg shadow-lg`}>
                         {advocate.avatar}
                       </div>
-                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-background ${advocate.available ? "bg-emerald-400" : "bg-[#1A2E2A]/20"}`} />
+                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-background ${advocate.available ? "bg-emerald-400" : "bg-[#1A2332]/20"}`} />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
-                        <h3 className="font-bold text-[#1A2E2A] text-base">{advocate.name}</h3>
+                        <h3 className="font-bold text-[#1A2332] text-base">{advocate.name}</h3>
                         <div className="flex items-center gap-1 text-amber-400 text-sm font-bold">
                           <Star className="w-3.5 h-3.5 fill-amber-400" />
                           {advocate.rating}
                         </div>
                       </div>
-                      <p className="text-[#1A2E2A]/50 text-xs mb-1.5">{advocate.title} · {advocate.speciality}</p>
+                      <p className="text-[#1A2332]/50 text-xs mb-1.5">{advocate.title} · {advocate.speciality}</p>
 
-                      <div className="flex items-center gap-3 text-xs text-[#1A2E2A]/40 mb-2">
+                      <div className="flex items-center gap-3 text-xs text-[#1A2332]/40 mb-2">
                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{advocate.distance}</span>
                         <span className="flex items-center gap-1"><Gavel className="w-3 h-3" />{advocate.cases} cases</span>
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{advocate.experience} yrs exp</span>
@@ -282,7 +282,7 @@ export function ClientBookAdvocate() {
                         </div>
                         <div className="flex gap-1 flex-wrap">
                           {advocate.courts.map(c => (
-                            <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-[#1A2E2A]/10 text-[#1A2E2A]/50 border border-[#1A2E2A]/10">{c}</span>
+                            <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-[#1A2332]/10 text-[#1A2332]/50 border border-[#1A2332]/10">{c}</span>
                           ))}
                         </div>
                       </div>
@@ -291,30 +291,30 @@ export function ClientBookAdvocate() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleBook(advocate, "video")}
-                            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-[#1A2E2A] px-3 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg hover:shadow-blue-500/30 flex-1 justify-center"
+                            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-[#1A2332] px-3 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg hover:shadow-blue-500/30 flex-1 justify-center"
                           >
                             <Video className="w-4 h-4" />
                             <span>Video</span>
-                            <span className="text-[#1A2E2A]/60 text-[10px] font-semibold">₹{advocate.fee.toLocaleString("en-IN")}/hr</span>
+                            <span className="text-[#1A2332]/60 text-[10px] font-semibold">₹{advocate.fee.toLocaleString("en-IN")}/hr</span>
                           </button>
                           <button
                             onClick={() => handleBook(advocate, "audio")}
-                            className="flex items-center gap-2 bg-[#1A2E2A]/10 hover:bg-[#1A2E2A]/20 text-[#1A2E2A] px-3 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 justify-center border border-[#1A2E2A]/10"
+                            className="flex items-center gap-2 bg-[#1A2332]/10 hover:bg-[#1A2332]/20 text-[#1A2332] px-3 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 justify-center border border-[#1A2332]/10"
                           >
                             <Phone className="w-4 h-4" />
                             <span>Audio</span>
-                            <span className="text-[#1A2E2A]/40 text-[10px] font-semibold">₹{advocate.fee.toLocaleString("en-IN")}/hr</span>
+                            <span className="text-[#1A2332]/40 text-[10px] font-semibold">₹{advocate.fee.toLocaleString("en-IN")}/hr</span>
                           </button>
                           <button
                             onClick={() => toggleChat(advocate.id)}
-                            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-bold transition-all border ${openChat === advocate.id ? "bg-primary/20 border-primary/40 text-primary" : "bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 border-[#1A2E2A]/10 text-[#1A2E2A]/60 hover:text-[#1A2E2A]"}`}
+                            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-bold transition-all border ${openChat === advocate.id ? "bg-primary/20 border-primary/40 text-primary" : "bg-[#1A2332]/5 hover:bg-[#1A2332]/10 border-[#1A2332]/10 text-[#1A2332]/60 hover:text-[#1A2332]"}`}
                           >
                             <MessageSquare className="w-4 h-4" />
                             <span className="hidden sm:inline">Chat</span>
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-[#1A2E2A]/30 text-xs">
+                        <div className="flex items-center gap-2 text-[#1A2332]/30 text-xs">
                           <WifiOff className="w-4 h-4" /> Currently unavailable
                         </div>
                       )}
@@ -330,11 +330,11 @@ export function ClientBookAdvocate() {
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                       >
-                        <div className="border-t border-[#1A2E2A]/8">
-                          <div className="px-4 py-2.5 flex items-center justify-between bg-[#1A2E2A]/5">
+                        <div className="border-t border-[#1A2332]/8">
+                          <div className="px-4 py-2.5 flex items-center justify-between bg-[#1A2332]/5">
                             <div className="flex items-center gap-2">
                               <MessageSquare className="w-3.5 h-3.5 text-primary" />
-                              <span className="text-[#1A2E2A]/60 text-xs font-semibold">Chat with {advocate.name.split(" ")[0]}</span>
+                              <span className="text-[#1A2332]/60 text-xs font-semibold">Chat with {advocate.name.split(" ")[0]}</span>
                               <span className="flex items-center gap-1 text-emerald-400 text-[10px]">
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online
                               </span>
@@ -345,7 +345,7 @@ export function ClientBookAdvocate() {
                               ) : (
                                 <span className="text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/25 px-2 py-0.5 rounded-full">₹50 / 5 min</span>
                               )}
-                              <button onClick={() => setOpenChat(null)} className="text-[#1A2E2A]/30 hover:text-[#1A2E2A]/60 transition-colors">
+                              <button onClick={() => setOpenChat(null)} className="text-[#1A2332]/30 hover:text-[#1A2332]/60 transition-colors">
                                 <X className="w-4 h-4" />
                               </button>
                             </div>
@@ -362,28 +362,28 @@ export function ClientBookAdvocate() {
                             {(chatMessages[advocate.id] || []).map(msg => (
                               <div key={msg.id} className={`flex ${msg.from === "client" ? "justify-end" : "justify-start"}`}>
                                 <div className={`max-w-[80%] ${msg.from === "client" ? "order-1" : ""}`}>
-                                  <div className={`rounded-2xl px-3.5 py-2.5 ${msg.from === "advocate" ? "bg-[#1A2E2A]/8 border border-[#1A2E2A]/10 rounded-tl-sm" : "bg-primary/15 border border-primary/20 rounded-tr-sm"}`}>
-                                    <p className="text-[#1A2E2A] text-xs leading-relaxed">{msg.text}</p>
+                                  <div className={`rounded-2xl px-3.5 py-2.5 ${msg.from === "advocate" ? "bg-[#1A2332]/8 border border-[#1A2332]/10 rounded-tl-sm" : "bg-primary/15 border border-primary/20 rounded-tr-sm"}`}>
+                                    <p className="text-[#1A2332] text-xs leading-relaxed">{msg.text}</p>
                                   </div>
-                                  <p className={`text-[#1A2E2A]/15 text-[9px] mt-0.5 px-1 ${msg.from === "client" ? "text-right" : ""}`}>{timeStr(msg.ts)}</p>
+                                  <p className={`text-[#1A2332]/15 text-[9px] mt-0.5 px-1 ${msg.from === "client" ? "text-right" : ""}`}>{timeStr(msg.ts)}</p>
                                 </div>
                               </div>
                             ))}
                             <div ref={chatEndRef} />
                           </div>
 
-                          <div className="px-3 py-2.5 border-t border-[#1A2E2A]/8 flex gap-2">
+                          <div className="px-3 py-2.5 border-t border-[#1A2332]/8 flex gap-2">
                             <input
                               value={chatInput}
                               onChange={e => setChatInput(e.target.value)}
                               onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), sendChat(advocate.id))}
                               placeholder="Type your message..."
-                              className="flex-1 bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 focus:border-primary/30 rounded-xl px-3 py-2 text-[#1A2E2A] text-xs placeholder:text-[#1A2E2A]/25 focus:outline-none transition-all"
+                              className="flex-1 bg-[#1A2332]/5 border border-[#1A2332]/10 focus:border-primary/30 rounded-xl px-3 py-2 text-[#1A2332] text-xs placeholder:text-[#1A2332]/25 focus:outline-none transition-all"
                             />
                             <button
                               onClick={() => sendChat(advocate.id)}
                               disabled={!chatInput.trim()}
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${chatInput.trim() ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2E2A]/8 text-[#1A2E2A]/20"}`}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${chatInput.trim() ? "bg-primary hover:bg-primary/90 text-background" : "bg-[#1A2332]/8 text-[#1A2332]/20"}`}
                             >
                               <Send className="w-3.5 h-3.5" />
                             </button>
@@ -416,15 +416,15 @@ export function ClientBookAdvocate() {
                   transition={{ duration: 2, delay: i * 0.4, repeat: Infinity }}
                 />
               ))}
-              <div className={`w-24 h-24 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2E2A] font-bold text-3xl shadow-2xl relative z-10`}>
+              <div className={`w-24 h-24 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2332] font-bold text-3xl shadow-2xl relative z-10`}>
                 {selectedAdvocate.avatar}
               </div>
             </div>
 
-            <h2 className="text-2xl font-serif font-bold text-[#1A2E2A] mb-2">
+            <h2 className="text-2xl font-serif font-bold text-[#1A2332] mb-2">
               Connecting you to {selectedAdvocate.name}
             </h2>
-            <p className="text-[#1A2E2A]/40 mb-2 text-sm">{selectedAdvocate.title} · {selectedAdvocate.speciality}</p>
+            <p className="text-[#1A2332]/40 mb-2 text-sm">{selectedAdvocate.title} · {selectedAdvocate.speciality}</p>
             <div className="flex items-center gap-1 text-primary text-sm font-bold mb-10">
               <IndianRupee className="w-3.5 h-3.5" />
               {selectedAdvocate.fee.toLocaleString("en-IN")} / hr
@@ -443,14 +443,14 @@ export function ClientBookAdvocate() {
                   animate={matchStep > i ? { opacity: 1, x: 0 } : { opacity: 0.2, x: 0 }}
                   className="flex items-center gap-3 text-sm"
                 >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${matchStep > i ? "bg-primary text-background" : "bg-[#1A2E2A]/10 text-[#1A2E2A]/20"}`}>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${matchStep > i ? "bg-primary text-background" : "bg-[#1A2332]/10 text-[#1A2332]/20"}`}>
                     {matchStep > i ? (
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-2.5 h-2.5 rounded-full bg-background" />
                     ) : (
-                      <div className="w-2 h-2 rounded-full bg-[#1A2E2A]/20" />
+                      <div className="w-2 h-2 rounded-full bg-[#1A2332]/20" />
                     )}
                   </div>
-                  <span className={matchStep > i ? "text-[#1A2E2A]" : "text-[#1A2E2A]/30"}>{label}</span>
+                  <span className={matchStep > i ? "text-[#1A2332]" : "text-[#1A2332]/30"}>{label}</span>
                 </motion.div>
               ))}
             </div>
@@ -474,13 +474,13 @@ export function ClientBookAdvocate() {
             <motion.div
               animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
               transition={{ duration: 0.6 }}
-              className={`w-28 h-28 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2E2A] font-bold text-4xl shadow-2xl mb-6`}
+              className={`w-28 h-28 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2332] font-bold text-4xl shadow-2xl mb-6`}
             >
               {selectedAdvocate.avatar}
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <h2 className="text-3xl font-serif font-bold text-[#1A2E2A] mb-2">Connected!</h2>
-              <p className="text-[#1A2E2A]/50">Joining your {callMode} call with {selectedAdvocate.name}...</p>
+              <h2 className="text-3xl font-serif font-bold text-[#1A2332] mb-2">Connected!</h2>
+              <p className="text-[#1A2332]/50">Joining your {callMode} call with {selectedAdvocate.name}...</p>
             </motion.div>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-6 flex items-center gap-2 text-emerald-400">
               <Wifi className="w-5 h-5" />
@@ -496,10 +496,10 @@ export function ClientBookAdvocate() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className={`w-full h-full ${selectedAdvocate.color} opacity-10 absolute inset-0`} />
                   <div className="flex flex-col items-center">
-                    <div className={`w-32 h-32 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2E2A] font-bold text-5xl shadow-2xl mb-4`}>
+                    <div className={`w-32 h-32 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2332] font-bold text-5xl shadow-2xl mb-4`}>
                       {selectedAdvocate.avatar}
                     </div>
-                    <div className="flex items-center gap-2 text-[#1A2E2A]/50 text-sm">
+                    <div className="flex items-center gap-2 text-[#1A2332]/50 text-sm">
                       <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Video · HD
                     </div>
                   </div>
@@ -507,63 +507,63 @@ export function ClientBookAdvocate() {
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                   <div className="flex flex-col items-center">
-                    <div className={`w-32 h-32 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2E2A] font-bold text-5xl shadow-2xl mb-4`}>
+                    <div className={`w-32 h-32 rounded-3xl ${selectedAdvocate.color} flex items-center justify-center text-[#1A2332] font-bold text-5xl shadow-2xl mb-4`}>
                       {selectedAdvocate.avatar}
                     </div>
-                    <p className="text-[#1A2E2A]/50 text-sm">Audio Only</p>
+                    <p className="text-[#1A2332]/50 text-sm">Audio Only</p>
                   </div>
                 </div>
               )}
 
               <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between">
                 <div>
-                  <h3 className="text-[#1A2E2A] font-bold text-lg">{selectedAdvocate.name}</h3>
-                  <p className="text-[#1A2E2A]/50 text-xs">{selectedAdvocate.title} · {selectedAdvocate.fee.toLocaleString("en-IN")}/hr</p>
+                  <h3 className="text-[#1A2332] font-bold text-lg">{selectedAdvocate.name}</h3>
+                  <p className="text-[#1A2332]/50 text-xs">{selectedAdvocate.title} · {selectedAdvocate.fee.toLocaleString("en-IN")}/hr</p>
                 </div>
-                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-[#1A2E2A] font-mono text-sm border border-[#1A2E2A]/10">
+                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-[#1A2332] font-mono text-sm border border-[#1A2332]/10">
                   {formatDuration(callDuration)}
                 </div>
               </div>
 
               {callMode === "video" && (
-                <div className="absolute bottom-28 right-4 w-28 h-36 bg-gray-800 rounded-2xl border border-[#1A2E2A]/20 overflow-hidden shadow-2xl flex items-center justify-center">
+                <div className="absolute bottom-28 right-4 w-28 h-36 bg-gray-800 rounded-2xl border border-[#1A2332]/20 overflow-hidden shadow-2xl flex items-center justify-center">
                   {videoOff ? (
-                    <div className="text-[#1A2E2A]/30 text-xs text-center px-2">Camera off</div>
+                    <div className="text-[#1A2332]/30 text-xs text-center px-2">Camera off</div>
                   ) : (
                     <div className="w-full h-full bg-gradient-to-b from-gray-700 to-gray-900 flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-[#1A2E2A] font-bold text-sm">Me</div>
+                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-[#1A2332] font-bold text-sm">Me</div>
                     </div>
                   )}
                 </div>
               )}
 
-              <div className="absolute bottom-28 left-4 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-[#1A2E2A]/10">
+              <div className="absolute bottom-28 left-4 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-[#1A2332]/10">
                 <Shield className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[#1A2E2A]/60 text-xs">End-to-end encrypted</span>
+                <span className="text-[#1A2332]/60 text-xs">End-to-end encrypted</span>
               </div>
             </div>
 
-            <div className="bg-gray-900/90 backdrop-blur-md border-t border-[#1A2E2A]/10 px-6 py-6">
+            <div className="bg-gray-900/90 backdrop-blur-md border-t border-[#1A2332]/10 px-6 py-6">
               <div className="flex items-center justify-center gap-6 max-w-sm mx-auto">
                 <button
                   onClick={() => setMuted(m => !m)}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${muted ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2E2A]/10 border border-[#1A2E2A]/10 text-[#1A2E2A] hover:bg-[#1A2E2A]/20"}`}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${muted ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2332]/10 border border-[#1A2332]/10 text-[#1A2332] hover:bg-[#1A2332]/20"}`}
                 >
                   {muted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                 </button>
                 <button onClick={endCall} className="w-16 h-16 rounded-full bg-rose-500 hover:bg-rose-600 flex items-center justify-center shadow-lg shadow-rose-500/40 transition-all hover:scale-105">
-                  <PhoneOff className="w-7 h-7 text-[#1A2E2A]" />
+                  <PhoneOff className="w-7 h-7 text-[#1A2332]" />
                 </button>
                 {callMode === "video" && (
                   <button
                     onClick={() => setVideoOff(v => !v)}
-                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${videoOff ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2E2A]/10 border border-[#1A2E2A]/10 text-[#1A2E2A] hover:bg-[#1A2E2A]/20"}`}
+                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${videoOff ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2332]/10 border border-[#1A2332]/10 text-[#1A2332] hover:bg-[#1A2332]/20"}`}
                   >
                     {videoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
                   </button>
                 )}
               </div>
-              <p className="text-center text-[#1A2E2A]/30 text-xs mt-4">
+              <p className="text-center text-[#1A2332]/30 text-xs mt-4">
                 {muted && "Microphone muted · "}{videoOff && "Camera off · "}
                 Legal Connect · Legal Call
               </p>

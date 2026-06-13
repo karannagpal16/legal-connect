@@ -198,7 +198,7 @@ export function Bookings() {
                   <>
                     <button 
                       onClick={() => handleUpdateStatus(booking.id, "Completed")}
-                      className="col-span-2 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-[#1A2E2A] text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md shadow-green-900/20"
+                      className="col-span-2 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-[#1A2332] text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md shadow-green-900/20"
                     >
                       <ShieldQuestion className="w-4 h-4" /> Mark Completed
                     </button>

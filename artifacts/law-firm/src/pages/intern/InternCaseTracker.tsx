@@ -193,7 +193,7 @@ const studyCases: StudyCase[] = [
 ];
 
 const caseTypeConfig: Record<CaseType, { label: string; color: string }> = {
-  all: { label: "All Cases", color: "text-[#1A2E2A]" },
+  all: { label: "All Cases", color: "text-[#1A2332]" },
   criminal: { label: "Criminal", color: "text-rose-400" },
   civil: { label: "Civil", color: "text-blue-400" },
   consumer: { label: "Consumer", color: "text-amber-400" },
@@ -218,7 +218,7 @@ const urgencyConfig = {
 const stepStatusConfig = {
   done: { icon: CheckCircle, color: "text-emerald-400", line: "bg-emerald-500", bg: "bg-emerald-500/20 border-emerald-500/30" },
   active: { icon: Clock, color: "text-primary", line: "bg-primary/40", bg: "bg-primary/20 border-primary/40" },
-  pending: { icon: Circle, color: "text-[#1A2E2A]/20", line: "bg-[#1A2E2A]/10", bg: "bg-[#1A2E2A]/5 border-[#1A2E2A]/10" },
+  pending: { icon: Circle, color: "text-[#1A2332]/20", line: "bg-[#1A2332]/10", bg: "bg-[#1A2332]/5 border-[#1A2332]/10" },
   blocked: { icon: AlertCircle, color: "text-rose-400", line: "bg-rose-500/40", bg: "bg-rose-500/10 border-rose-500/20" },
 };
 
@@ -277,11 +277,11 @@ export function InternCaseTracker() {
             <Gavel className="w-5 h-5 text-violet-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-serif font-bold text-[#1A2E2A]">Case Study Tracker</h1>
-            <p className="text-[#1A2E2A]/40 text-xs mt-0.5">Learn from live cases · eCourt synced · Earn XP</p>
+            <h1 className="text-2xl font-serif font-bold text-[#1A2332]">Case Study Tracker</h1>
+            <p className="text-[#1A2332]/40 text-xs mt-0.5">Learn from live cases · eCourt synced · Earn XP</p>
           </div>
         </div>
-        <button onClick={handleSync} disabled={syncing} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${syncing ? "bg-primary/10 border-primary/25 text-primary" : "bg-[#1A2E2A]/5 hover:bg-[#1A2E2A]/10 border-[#1A2E2A]/10 text-[#1A2E2A]/60 hover:text-[#1A2E2A]"}`}>
+        <button onClick={handleSync} disabled={syncing} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${syncing ? "bg-primary/10 border-primary/25 text-primary" : "bg-[#1A2332]/5 hover:bg-[#1A2332]/10 border-[#1A2332]/10 text-[#1A2332]/60 hover:text-[#1A2332]"}`}>
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Syncing..." : `Sync · ${lastSync}`}
         </button>
@@ -292,7 +292,7 @@ export function InternCaseTracker() {
           <Loader2 className="w-4 h-4 text-primary animate-spin" />
           <div>
             <p className="text-primary text-xs font-bold">Syncing case data from eCourt Services...</p>
-            <p className="text-[#1A2E2A]/40 text-[10px]">Fetching latest orders and hearing status from ecourts.gov.in</p>
+            <p className="text-[#1A2332]/40 text-[10px]">Fetching latest orders and hearing status from ecourts.gov.in</p>
           </div>
         </motion.div>
       )}
@@ -300,23 +300,23 @@ export function InternCaseTracker() {
       <div className="bg-gradient-to-r from-violet-500/10 via-primary/10 to-emerald-500/10 border border-primary/20 rounded-2xl p-4">
         <div className="flex items-center gap-3 mb-3">
           <BookOpen className="w-5 h-5 text-primary" />
-          <p className="text-[#1A2E2A] font-bold text-sm">Your Case Study Progress</p>
+          <p className="text-[#1A2332] font-bold text-sm">Your Case Study Progress</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-[#1A2E2A]/5 rounded-xl p-3 text-center">
-            <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">Cases Assigned</p>
-            <p className="text-[#1A2E2A] text-xl font-black mt-1">{studyCases.length}</p>
+          <div className="bg-[#1A2332]/5 rounded-xl p-3 text-center">
+            <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">Cases Assigned</p>
+            <p className="text-[#1A2332] text-xl font-black mt-1">{studyCases.length}</p>
           </div>
-          <div className="bg-[#1A2E2A]/5 rounded-xl p-3 text-center">
-            <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">XP Available</p>
+          <div className="bg-[#1A2332]/5 rounded-xl p-3 text-center">
+            <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">XP Available</p>
             <p className="text-primary text-xl font-black mt-1 flex items-center justify-center gap-1"><Sparkles className="w-4 h-4" /> {totalXP}</p>
           </div>
-          <div className="bg-[#1A2E2A]/5 rounded-xl p-3 text-center">
-            <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">Case Types</p>
+          <div className="bg-[#1A2332]/5 rounded-xl p-3 text-center">
+            <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">Case Types</p>
             <p className="text-amber-400 text-xl font-black mt-1">{new Set(studyCases.map(c => c.type)).size}</p>
           </div>
-          <div className="bg-[#1A2E2A]/5 rounded-xl p-3 text-center">
-            <p className="text-[#1A2E2A]/25 text-[10px] uppercase tracking-wider font-bold">eCourt Synced</p>
+          <div className="bg-[#1A2332]/5 rounded-xl p-3 text-center">
+            <p className="text-[#1A2332]/25 text-[10px] uppercase tracking-wider font-bold">eCourt Synced</p>
             <p className="text-emerald-400 text-xl font-black mt-1">{studyCases.filter(c => c.synced).length}/{studyCases.length}</p>
           </div>
         </div>
@@ -324,12 +324,12 @@ export function InternCaseTracker() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {ecourtLinks.map(link => (
-          <a key={link.title} href={link.url} target="_blank" rel="noopener noreferrer" className="group bg-card/40 border border-[#1A2E2A]/10 hover:border-[#1A2E2A]/20 rounded-xl p-2.5 transition-all hover:bg-card/60 flex items-center gap-2">
+          <a key={link.title} href={link.url} target="_blank" rel="noopener noreferrer" className="group bg-card/40 border border-[#1A2332]/10 hover:border-[#1A2332]/20 rounded-xl p-2.5 transition-all hover:bg-card/60 flex items-center gap-2">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${link.color} flex items-center justify-center flex-shrink-0`}>
-              <link.icon className="w-3.5 h-3.5 text-[#1A2E2A]" />
+              <link.icon className="w-3.5 h-3.5 text-[#1A2332]" />
             </div>
-            <p className="text-[#1A2E2A] text-[10px] font-bold group-hover:text-primary transition-colors leading-tight truncate">
-              {link.title} <ExternalLink className="w-2 h-2 text-[#1A2E2A]/20 inline" />
+            <p className="text-[#1A2332] text-[10px] font-bold group-hover:text-primary transition-colors leading-tight truncate">
+              {link.title} <ExternalLink className="w-2 h-2 text-[#1A2332]/20 inline" />
             </p>
           </a>
         ))}
@@ -341,7 +341,7 @@ export function InternCaseTracker() {
             const cfg = searchModeConfig[mode];
             const Icon = cfg.icon;
             return (
-              <button key={mode} onClick={() => { setSearchMode(mode); setSearchQuery(""); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${searchMode === mode ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/40 hover:text-[#1A2E2A]/60"}`}>
+              <button key={mode} onClick={() => { setSearchMode(mode); setSearchQuery(""); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${searchMode === mode ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/40 hover:text-[#1A2332]/60"}`}>
                 <Icon className="w-3.5 h-3.5" /> {cfg.label}
               </button>
             );
@@ -349,14 +349,14 @@ export function InternCaseTracker() {
         </div>
 
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A2E2A]/30" />
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={searchModeConfig[searchMode].placeholder} className="w-full bg-card/50 border border-[#1A2E2A]/10 rounded-xl pl-11 pr-10 py-3 text-[#1A2E2A] text-sm placeholder:text-[#1A2E2A]/25 focus:outline-none focus:border-primary/40 transition-all" />
-          {searchQuery && <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1A2E2A]/25 hover:text-[#1A2E2A]/50"><X className="w-4 h-4" /></button>}
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A2332]/30" />
+          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={searchModeConfig[searchMode].placeholder} className="w-full bg-card/50 border border-[#1A2332]/10 rounded-xl pl-11 pr-10 py-3 text-[#1A2332] text-sm placeholder:text-[#1A2332]/25 focus:outline-none focus:border-primary/40 transition-all" />
+          {searchQuery && <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1A2332]/25 hover:text-[#1A2332]/50"><X className="w-4 h-4" /></button>}
         </div>
 
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
           {(Object.keys(caseTypeConfig) as CaseType[]).map(ct => (
-            <button key={ct} onClick={() => setTypeFilter(ct)} className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${typeFilter === ct ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2E2A]/5 border-[#1A2E2A]/10 text-[#1A2E2A]/30 hover:text-[#1A2E2A]/50"}`}>
+            <button key={ct} onClick={() => setTypeFilter(ct)} className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${typeFilter === ct ? "bg-primary/15 border-primary/30 text-primary" : "bg-[#1A2332]/5 border-[#1A2332]/10 text-[#1A2332]/30 hover:text-[#1A2332]/50"}`}>
               {caseTypeConfig[ct].label}
             </button>
           ))}
@@ -365,9 +365,9 @@ export function InternCaseTracker() {
 
       {filteredCases.length === 0 ? (
         <div className="text-center py-16">
-          <Search className="w-10 h-10 text-[#1A2E2A]/10 mx-auto mb-3" />
-          <p className="text-[#1A2E2A]/30 text-sm font-semibold">No cases found</p>
-          <p className="text-[#1A2E2A]/15 text-xs mt-1">Try a different search term or filter</p>
+          <Search className="w-10 h-10 text-[#1A2332]/10 mx-auto mb-3" />
+          <p className="text-[#1A2332]/30 text-sm font-semibold">No cases found</p>
+          <p className="text-[#1A2332]/15 text-xs mt-1">Try a different search term or filter</p>
         </div>
       ) : (
         <>
@@ -378,22 +378,22 @@ export function InternCaseTracker() {
               const pct = Math.round((doneCount / c.steps.length) * 100);
               const isSelected = expandedCase === c.id;
               return (
-                <button key={c.id} onClick={() => setExpandedCase(c.id)} className={`text-left bg-card/40 border rounded-2xl p-4 transition-all ${isSelected ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20" : "border-[#1A2E2A]/10 hover:border-[#1A2E2A]/20"}`}>
+                <button key={c.id} onClick={() => setExpandedCase(c.id)} className={`text-left bg-card/40 border rounded-2xl p-4 transition-all ${isSelected ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20" : "border-[#1A2332]/10 hover:border-[#1A2332]/20"}`}>
                   <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <p className="text-[#1A2E2A] font-bold text-sm leading-snug">{c.title}</p>
+                    <p className="text-[#1A2332] font-bold text-sm leading-snug">{c.title}</p>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border flex-shrink-0 ${U.bg} ${U.color}`}>{U.label}</span>
                   </div>
-                  <p className="text-[#1A2E2A]/25 text-[10px] mb-0.5">{c.caseNo}</p>
-                  <p className="text-[#1A2E2A]/35 text-[10px] mb-2">{c.court}</p>
+                  <p className="text-[#1A2332]/25 text-[10px] mb-0.5">{c.caseNo}</p>
+                  <p className="text-[#1A2332]/35 text-[10px] mb-2">{c.court}</p>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#1A2E2A]/5 border border-[#1A2E2A]/10 ${caseTypeConfig[c.type].color}`}>{c.typeLabel}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#1A2332]/5 border border-[#1A2332]/10 ${caseTypeConfig[c.type].color}`}>{c.typeLabel}</span>
                     <span className="text-[9px] text-primary/60 flex items-center gap-0.5"><Sparkles className="w-2.5 h-2.5" /> +{c.xpReward} XP</span>
                   </div>
-                  <div className="h-1.5 bg-[#1A2E2A]/8 rounded-full overflow-hidden mb-1.5">
+                  <div className="h-1.5 bg-[#1A2332]/8 rounded-full overflow-hidden mb-1.5">
                     <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} className="h-full bg-primary rounded-full" />
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-[#1A2E2A]/25">{doneCount}/{c.steps.length} steps</span>
+                    <span className="text-[#1A2332]/25">{doneCount}/{c.steps.length} steps</span>
                     <span className="text-primary font-bold">{pct}%</span>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
@@ -409,11 +409,11 @@ export function InternCaseTracker() {
             const U = urgencyConfig[c.urgency];
             return (
               <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
+                <div className="bg-card/40 border border-[#1A2332]/10 rounded-2xl p-5">
                   <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
                     <div>
-                      <h2 className="text-[#1A2E2A] font-bold text-lg">{c.title}</h2>
-                      <p className="text-[#1A2E2A]/35 text-sm mt-0.5">Case No: {c.caseNo} · Mentor: {c.assignedAdvocate}</p>
+                      <h2 className="text-[#1A2332] font-bold text-lg">{c.title}</h2>
+                      <p className="text-[#1A2332]/35 text-sm mt-0.5">Case No: {c.caseNo} · Mentor: {c.assignedAdvocate}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 px-2.5 py-1.5 rounded-xl">
@@ -435,21 +435,21 @@ export function InternCaseTracker() {
                       { label: "Learning Focus", value: c.learningTag },
                       { label: "Next Hearing", value: c.nextDate },
                     ].map(item => (
-                      <div key={item.label} className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
-                        <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">{item.label}</p>
-                        <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{item.value}</p>
+                      <div key={item.label} className="bg-[#1A2332]/5 rounded-lg px-3 py-2">
+                        <p className="text-[#1A2332]/25 text-[10px] font-semibold uppercase tracking-wider">{item.label}</p>
+                        <p className="text-[#1A2332]/70 text-xs font-semibold mt-0.5">{item.value}</p>
                       </div>
                     ))}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <div className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
-                      <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">Petitioner</p>
-                      <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{c.petitioner}</p>
+                    <div className="bg-[#1A2332]/5 rounded-lg px-3 py-2">
+                      <p className="text-[#1A2332]/25 text-[10px] font-semibold uppercase tracking-wider">Petitioner</p>
+                      <p className="text-[#1A2332]/70 text-xs font-semibold mt-0.5">{c.petitioner}</p>
                     </div>
-                    <div className="bg-[#1A2E2A]/5 rounded-lg px-3 py-2">
-                      <p className="text-[#1A2E2A]/25 text-[10px] font-semibold uppercase tracking-wider">Respondent</p>
-                      <p className="text-[#1A2E2A]/70 text-xs font-semibold mt-0.5">{c.respondent}</p>
+                    <div className="bg-[#1A2332]/5 rounded-lg px-3 py-2">
+                      <p className="text-[#1A2332]/25 text-[10px] font-semibold uppercase tracking-wider">Respondent</p>
+                      <p className="text-[#1A2332]/70 text-xs font-semibold mt-0.5">{c.respondent}</p>
                     </div>
                   </div>
 
@@ -466,13 +466,13 @@ export function InternCaseTracker() {
                         <Eye className="w-3.5 h-3.5 text-blue-400" />
                         <p className="text-blue-400 text-[10px] font-bold uppercase tracking-wider">Last Order — {c.lastOrderDate}</p>
                       </div>
-                      <p className="text-[#1A2E2A]/60 text-xs leading-relaxed">{c.lastOrder}</p>
+                      <p className="text-[#1A2332]/60 text-xs leading-relaxed">{c.lastOrder}</p>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-card/40 border border-[#1A2E2A]/10 rounded-2xl p-5">
-                  <h3 className="text-[#1A2E2A] font-bold mb-5 flex items-center gap-2">
+                <div className="bg-card/40 border border-[#1A2332]/10 rounded-2xl p-5">
+                  <h3 className="text-[#1A2332] font-bold mb-5 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" /> Case Progress & Study Notes
                   </h3>
                   <div className="space-y-0">
@@ -492,15 +492,15 @@ export function InternCaseTracker() {
                             <button className="w-full text-left" onClick={() => setExpandedStep(isExpanded ? null : `${c.id}-${step.id}`)} disabled={!step.detail && !step.note}>
                               <div className="flex items-start justify-between gap-2">
                                 <div>
-                                  <p className={`text-sm font-bold ${step.status === "active" ? "text-primary" : step.status === "done" ? "text-[#1A2E2A]" : "text-[#1A2E2A]/35"}`}>
+                                  <p className={`text-sm font-bold ${step.status === "active" ? "text-primary" : step.status === "done" ? "text-[#1A2332]" : "text-[#1A2332]/35"}`}>
                                     {step.title}
                                     {step.status === "active" && <span className="ml-2 text-[10px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded-full font-bold">STUDY NOW</span>}
                                   </p>
-                                  <p className={`text-xs mt-0.5 ${step.status === "done" ? "text-[#1A2E2A]/40" : step.status === "active" ? "text-[#1A2E2A]/50" : "text-[#1A2E2A]/20"}`}>{step.desc}</p>
+                                  <p className={`text-xs mt-0.5 ${step.status === "done" ? "text-[#1A2332]/40" : step.status === "active" ? "text-[#1A2332]/50" : "text-[#1A2332]/20"}`}>{step.desc}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
-                                  {step.date && <p className="text-[#1A2E2A]/30 text-[10px]">{step.date}</p>}
-                                  {(step.detail || step.note) && <div className="mt-1">{isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-[#1A2E2A]/25 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 text-[#1A2E2A]/25 ml-auto" />}</div>}
+                                  {step.date && <p className="text-[#1A2332]/30 text-[10px]">{step.date}</p>}
+                                  {(step.detail || step.note) && <div className="mt-1">{isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-[#1A2332]/25 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 text-[#1A2332]/25 ml-auto" />}</div>}
                                 </div>
                               </div>
                             </button>

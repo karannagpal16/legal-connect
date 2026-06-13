@@ -25,14 +25,14 @@ export function InternAIAssistant() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3 mb-1">
           <Sparkles className="w-7 h-7 text-emerald-400" />
-          <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">AI Legal Assistant</h1>
+          <h1 className="text-3xl font-serif font-bold text-[#1A2332]">AI Legal Assistant</h1>
         </div>
-        <p className="text-[#1A2E2A]/40 ml-10">Ask legal doubts, draft templates, and get instant answers. Powered by AI.</p>
+        <p className="text-[#1A2332]/40 ml-10">Ask legal doubts, draft templates, and get instant answers. Powered by AI.</p>
       </motion.div>
 
       {/* Template quick starters */}
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2E2A]/40 mb-3">Quick Templates</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2332]/40 mb-3">Quick Templates</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {templates.map((t, i) => (
             <motion.div
@@ -43,8 +43,8 @@ export function InternAIAssistant() {
             >
               <div className="bg-card/40 border border-emerald-500/15 rounded-2xl p-4 cursor-pointer hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all group">
                 <t.icon className="w-6 h-6 text-emerald-400 mb-2" />
-                <p className="text-[#1A2E2A] text-sm font-semibold">{t.title}</p>
-                <p className="text-[#1A2E2A]/30 text-xs">{t.desc}</p>
+                <p className="text-[#1A2332] text-sm font-semibold">{t.title}</p>
+                <p className="text-[#1A2332]/30 text-xs">{t.desc}</p>
               </div>
             </motion.div>
           ))}
@@ -63,7 +63,7 @@ export function InternAIAssistant() {
             <Sparkles className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <h3 className="text-[#1A2E2A] font-bold">LexBot — Your Legal AI</h3>
+            <h3 className="text-[#1A2332] font-bold">LexBot — Your Legal AI</h3>
             <p className="text-emerald-400 text-xs">Intern Edition · Drafting & Procedure Expert</p>
           </div>
           <div className="ml-auto flex items-center gap-1.5">
@@ -95,7 +95,7 @@ What would you like help with today?"
         <HelpCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-amber-400 text-sm font-semibold mb-1">Important Disclaimer</p>
-          <p className="text-[#1A2E2A]/50 text-xs leading-relaxed">
+          <p className="text-[#1A2332]/50 text-xs leading-relaxed">
             All templates and explanations provided by LexBot are for learning purposes only.
             Always review AI-generated drafts with a senior advocate before filing or sending them.
             The law is dynamic — verify all citations against current statutes.

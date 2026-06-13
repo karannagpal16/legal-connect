@@ -29,9 +29,9 @@ export function InternLeaderboard() {
       <div>
         <div className="flex items-center gap-3 mb-1">
           <Trophy className="w-7 h-7 text-amber-400" />
-          <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">Leaderboard</h1>
+          <h1 className="text-3xl font-serif font-bold text-[#1A2332]">Leaderboard</h1>
         </div>
-        <p className="text-[#1A2E2A]/40 ml-10">Compete, grow, and rise through the ranks.</p>
+        <p className="text-[#1A2332]/40 ml-10">Compete, grow, and rise through the ranks.</p>
       </div>
 
       {/* Top 3 podium */}
@@ -43,10 +43,10 @@ export function InternLeaderboard() {
           transition={{ delay: 0.2 }}
           className="flex flex-col items-center"
         >
-          <div className={`w-16 h-16 rounded-2xl ${top3[1].color} flex items-center justify-center text-[#1A2E2A] font-bold text-xl mb-2 shadow-xl`}>
+          <div className={`w-16 h-16 rounded-2xl ${top3[1].color} flex items-center justify-center text-[#1A2332] font-bold text-xl mb-2 shadow-xl`}>
             {top3[1].initials}
           </div>
-          <p className="text-[#1A2E2A] text-xs font-bold text-center">{top3[1].name}</p>
+          <p className="text-[#1A2332] text-xs font-bold text-center">{top3[1].name}</p>
           <div className="flex items-center gap-1 text-slate-300 text-xs mt-1">
             <Medal className="w-3.5 h-3.5" />
             <span>{top3[1].xp} XP</span>
@@ -65,11 +65,11 @@ export function InternLeaderboard() {
         >
           <div className="relative">
             <Crown className="w-6 h-6 text-amber-400 absolute -top-4 left-1/2 -translate-x-1/2" />
-            <div className={`w-20 h-20 rounded-2xl ${top3[0].color} flex items-center justify-center text-[#1A2E2A] font-bold text-2xl mb-2 shadow-2xl border-2 border-amber-400/50`}>
+            <div className={`w-20 h-20 rounded-2xl ${top3[0].color} flex items-center justify-center text-[#1A2332] font-bold text-2xl mb-2 shadow-2xl border-2 border-amber-400/50`}>
               {top3[0].initials}
             </div>
           </div>
-          <p className="text-[#1A2E2A] text-sm font-bold text-center">{top3[0].name}</p>
+          <p className="text-[#1A2332] text-sm font-bold text-center">{top3[0].name}</p>
           <div className="flex items-center gap-1 text-amber-400 text-sm mt-1 font-bold">
             <Zap className="w-3.5 h-3.5 fill-amber-400" />
             <span>{top3[0].xp} XP</span>
@@ -86,10 +86,10 @@ export function InternLeaderboard() {
           transition={{ delay: 0.3 }}
           className="flex flex-col items-center"
         >
-          <div className={`w-14 h-14 rounded-2xl ${top3[2].color} flex items-center justify-center text-[#1A2E2A] font-bold text-lg mb-2 shadow-xl ${top3[2].isMe ? "ring-2 ring-emerald-400" : ""}`}>
+          <div className={`w-14 h-14 rounded-2xl ${top3[2].color} flex items-center justify-center text-[#1A2332] font-bold text-lg mb-2 shadow-xl ${top3[2].isMe ? "ring-2 ring-emerald-400" : ""}`}>
             {top3[2].initials}
           </div>
-          <p className="text-[#1A2E2A] text-xs font-bold text-center">{top3[2].name}{top3[2].isMe && " (You)"}</p>
+          <p className="text-[#1A2332] text-xs font-bold text-center">{top3[2].name}{top3[2].isMe && " (You)"}</p>
           <div className="flex items-center gap-1 text-amber-600 text-xs mt-1">
             <Medal className="w-3.5 h-3.5" />
             <span>{top3[2].xp} XP</span>
@@ -113,32 +113,32 @@ export function InternLeaderboard() {
               className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${
                 entry.isMe
                   ? "bg-emerald-500/10 border-emerald-500/30"
-                  : "bg-card/30 border-[#1A2E2A]/10"
+                  : "bg-card/30 border-[#1A2332]/10"
               }`}
             >
               <div className="w-8 text-center">
                 {RankIcon ? (
                   <RankIcon.icon className={`w-5 h-5 ${RankIcon.color} mx-auto`} />
                 ) : (
-                  <span className="text-[#1A2E2A]/30 font-bold text-sm">{entry.rank}</span>
+                  <span className="text-[#1A2332]/30 font-bold text-sm">{entry.rank}</span>
                 )}
               </div>
-              <div className={`w-10 h-10 rounded-xl ${entry.color} flex items-center justify-center text-[#1A2E2A] font-bold text-sm flex-shrink-0`}>
+              <div className={`w-10 h-10 rounded-xl ${entry.color} flex items-center justify-center text-[#1A2332] font-bold text-sm flex-shrink-0`}>
                 {entry.initials}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[#1A2E2A] font-semibold text-sm">{entry.name}</span>
+                  <span className="text-[#1A2332] font-semibold text-sm">{entry.name}</span>
                   {entry.isMe && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">YOU</span>}
                 </div>
-                <span className="text-[#1A2E2A]/30 text-xs">{entry.badge} · {entry.quests} quests</span>
+                <span className="text-[#1A2332]/30 text-xs">{entry.badge} · {entry.quests} quests</span>
               </div>
               <div className="text-right">
                 <div className="flex items-center gap-1 text-emerald-400 font-bold text-sm justify-end">
                   <Zap className="w-3.5 h-3.5" />
                   {entry.isMe ? (myXP || entry.xp) : entry.xp}
                 </div>
-                <span className="text-[#1A2E2A]/20 text-xs">XP</span>
+                <span className="text-[#1A2332]/20 text-xs">XP</span>
               </div>
             </motion.div>
           );

@@ -85,53 +85,53 @@ export function AdvocateCalls() {
       >
         <div className="flex-1 relative flex items-center justify-center bg-gray-900">
           <div className="flex flex-col items-center">
-            <div className="w-28 h-28 rounded-3xl bg-blue-500 flex items-center justify-center text-[#1A2E2A] font-bold text-4xl shadow-2xl mb-4">
+            <div className="w-28 h-28 rounded-3xl bg-blue-500 flex items-center justify-center text-[#1A2332] font-bold text-4xl shadow-2xl mb-4">
               {acceptedCall.clientInitials}
             </div>
-            <h3 className="text-[#1A2E2A] text-xl font-bold">{acceptedCall.clientName}</h3>
-            <p className="text-[#1A2E2A]/40 text-sm mt-1">{acceptedCall.issue}</p>
+            <h3 className="text-[#1A2332] text-xl font-bold">{acceptedCall.clientName}</h3>
+            <p className="text-[#1A2332]/40 text-sm mt-1">{acceptedCall.issue}</p>
           </div>
 
           <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
             <div>
-              <span className="text-[#1A2E2A]/50 text-xs">Incoming from client</span>
+              <span className="text-[#1A2332]/50 text-xs">Incoming from client</span>
             </div>
-            <div className="bg-black/40 backdrop-blur px-4 py-1.5 rounded-full text-[#1A2E2A] font-mono text-sm border border-[#1A2E2A]/10">
+            <div className="bg-black/40 backdrop-blur px-4 py-1.5 rounded-full text-[#1A2332] font-mono text-sm border border-[#1A2332]/10">
               {formatDuration(callDuration)}
             </div>
           </div>
 
           {acceptedCall.mode === "video" && (
-            <div className="absolute bottom-28 right-4 w-28 h-36 bg-gray-800 rounded-2xl border border-[#1A2E2A]/20 flex items-center justify-center">
+            <div className="absolute bottom-28 right-4 w-28 h-36 bg-gray-800 rounded-2xl border border-[#1A2332]/20 flex items-center justify-center">
               {videoOff ? (
-                <span className="text-[#1A2E2A]/30 text-xs">Camera off</span>
+                <span className="text-[#1A2332]/30 text-xs">Camera off</span>
               ) : (
-                <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-[#1A2E2A] font-bold">LC</div>
+                <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-[#1A2332] font-bold">LC</div>
               )}
             </div>
           )}
 
-          <div className="absolute bottom-28 left-4 flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-1.5 rounded-full border border-[#1A2E2A]/10">
+          <div className="absolute bottom-28 left-4 flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-1.5 rounded-full border border-[#1A2332]/10">
             <Shield className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-[#1A2E2A]/50 text-xs">Secure · Encrypted</span>
+            <span className="text-[#1A2332]/50 text-xs">Secure · Encrypted</span>
           </div>
         </div>
 
-        <div className="bg-gray-900/90 backdrop-blur border-t border-[#1A2E2A]/10 px-6 py-6">
+        <div className="bg-gray-900/90 backdrop-blur border-t border-[#1A2332]/10 px-6 py-6">
           <div className="flex items-center justify-center gap-6 max-w-sm mx-auto">
             <button
               onClick={() => setMuted(m => !m)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${muted ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2E2A]/10 border border-[#1A2E2A]/10 text-[#1A2E2A]"}`}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${muted ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2332]/10 border border-[#1A2332]/10 text-[#1A2332]"}`}
             >
               {muted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
             </button>
             <button onClick={endCall} className="w-16 h-16 rounded-full bg-rose-500 hover:bg-rose-600 flex items-center justify-center shadow-lg shadow-rose-500/40">
-              <PhoneOff className="w-7 h-7 text-[#1A2E2A]" />
+              <PhoneOff className="w-7 h-7 text-[#1A2332]" />
             </button>
             {acceptedCall.mode === "video" && (
               <button
                 onClick={() => setVideoOff(v => !v)}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${videoOff ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2E2A]/10 border border-[#1A2E2A]/10 text-[#1A2E2A]"}`}
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${videoOff ? "bg-rose-500/20 border border-rose-500/40 text-rose-400" : "bg-[#1A2332]/10 border border-[#1A2332]/10 text-[#1A2332]"}`}
               >
                 {videoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
               </button>
@@ -147,22 +147,22 @@ export function AdvocateCalls() {
       <div>
         <div className="flex items-center gap-3 mb-1">
           <Video className="w-7 h-7 text-amber-400" />
-          <h1 className="text-3xl font-serif font-bold text-[#1A2E2A]">Client Calls</h1>
+          <h1 className="text-3xl font-serif font-bold text-[#1A2332]">Client Calls</h1>
         </div>
-        <p className="text-[#1A2E2A]/40 ml-10">Manage incoming and recent client audio/video calls.</p>
+        <p className="text-[#1A2332]/40 ml-10">Manage incoming and recent client audio/video calls.</p>
       </div>
 
       {/* Incoming calls */}
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2E2A]/40 mb-4 flex items-center gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2332]/40 mb-4 flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
           Incoming Requests
         </h2>
 
         {visibleCalls.length === 0 ? (
-          <div className="bg-card/30 border border-[#1A2E2A]/10 rounded-2xl p-10 text-center">
-            <Phone className="w-8 h-8 text-[#1A2E2A]/20 mx-auto mb-3" />
-            <p className="text-[#1A2E2A]/30 text-sm">No incoming calls right now.</p>
+          <div className="bg-card/30 border border-[#1A2332]/10 rounded-2xl p-10 text-center">
+            <Phone className="w-8 h-8 text-[#1A2332]/20 mx-auto mb-3" />
+            <p className="text-[#1A2332]/30 text-sm">No incoming calls right now.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -175,20 +175,20 @@ export function AdvocateCalls() {
                 className="bg-card/40 border border-rose-500/20 rounded-2xl p-5 flex items-center gap-4"
               >
                 <div className="relative">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center text-[#1A2E2A] font-bold text-lg">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center text-[#1A2332] font-bold text-lg">
                     {call.clientInitials}
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-rose-400 border-2 border-background animate-pulse" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="font-bold text-[#1A2E2A]">{call.clientName}</h3>
+                    <h3 className="font-bold text-[#1A2332]">{call.clientName}</h3>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${call.mode === "video" ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"}`}>
                       {call.mode}
                     </span>
                   </div>
-                  <p className="text-[#1A2E2A]/50 text-xs mb-1">{call.issue}</p>
-                  <div className="flex items-center gap-3 text-xs text-[#1A2E2A]/30">
+                  <p className="text-[#1A2332]/50 text-xs mb-1">{call.issue}</p>
+                  <div className="flex items-center gap-3 text-xs text-[#1A2332]/30">
                     <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />Waiting {call.waitingTime}</span>
                     <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" />{call.rating}</span>
                   </div>
@@ -196,13 +196,13 @@ export function AdvocateCalls() {
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => handleAccept(call)}
-                    className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-[#1A2E2A] px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                    className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-[#1A2332] px-4 py-2 rounded-xl text-sm font-bold transition-all"
                   >
                     <Check className="w-4 h-4" /> Accept
                   </button>
                   <button
                     onClick={() => handleDecline(call.id)}
-                    className="flex items-center gap-1.5 bg-[#1A2E2A]/10 hover:bg-rose-500/20 text-[#1A2E2A]/60 hover:text-rose-400 px-4 py-2 rounded-xl text-sm font-bold transition-all border border-[#1A2E2A]/10"
+                    className="flex items-center gap-1.5 bg-[#1A2332]/10 hover:bg-rose-500/20 text-[#1A2332]/60 hover:text-rose-400 px-4 py-2 rounded-xl text-sm font-bold transition-all border border-[#1A2332]/10"
                   >
                     <X className="w-4 h-4" /> Decline
                   </button>
@@ -215,20 +215,20 @@ export function AdvocateCalls() {
 
       {/* Recent calls */}
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2E2A]/40 mb-4">Recent Calls</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#1A2332]/40 mb-4">Recent Calls</h2>
         <div className="space-y-3">
           {recentCalls.map((call, i) => (
-            <div key={i} className="bg-card/30 border border-[#1A2E2A]/10 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-[#1A2E2A]/10 flex items-center justify-center">
-                {call.mode === "video" ? <Video className="w-5 h-5 text-[#1A2E2A]/40" /> : <Phone className="w-5 h-5 text-[#1A2E2A]/40" />}
+            <div key={i} className="bg-card/30 border border-[#1A2332]/10 rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-[#1A2332]/10 flex items-center justify-center">
+                {call.mode === "video" ? <Video className="w-5 h-5 text-[#1A2332]/40" /> : <Phone className="w-5 h-5 text-[#1A2332]/40" />}
               </div>
               <div className="flex-1">
-                <p className="text-[#1A2E2A] text-sm font-semibold">{call.name}</p>
-                <p className="text-[#1A2E2A]/40 text-xs">{call.issue}</p>
+                <p className="text-[#1A2332] text-sm font-semibold">{call.name}</p>
+                <p className="text-[#1A2332]/40 text-xs">{call.issue}</p>
               </div>
               <div className="text-right">
-                <p className="text-[#1A2E2A]/30 text-xs">{call.when}</p>
-                <p className="text-[#1A2E2A]/20 text-xs">{call.duration}</p>
+                <p className="text-[#1A2332]/30 text-xs">{call.when}</p>
+                <p className="text-[#1A2332]/20 text-xs">{call.duration}</p>
               </div>
             </div>
           ))}
