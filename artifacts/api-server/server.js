@@ -8,14 +8,11 @@ const app = express();
 
 const distPath = path.resolve(__dirname, 'dist');
 
+// Static files serve karo
 app.use(express.static(distPath));
 
-// '/*' ke bajaye simple route aur static files ka handle
-app.get('*', (req, res) => {
-  // Check karo ki request kisi file ke liye toh nahi hai
-  if (req.url.startsWith('/api')) {
-    return res.status(404).send('API not found');
-  }
+// Wildcard route ko replace karke ye use karo
+app.get(/^(?!\/api).+/, (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
