@@ -6,13 +6,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-// Root directory ka path ensure karo
-const distPath = path.resolve(__dirname, 'dist'); 
+const distPath = path.resolve(__dirname, 'dist');
 
 app.use(express.static(distPath));
 
-// Wildcard route ko handle karo taaki SPA sahi se load ho
-app.get('/*', (req, res) => {
+// '/*' ke bajaye simple route aur static files ka handle
+app.get('*', (req, res) => {
+  // Check karo ki request kisi file ke liye toh nahi hai
+  if (req.url.startsWith('/api')) {
+    return res.status(404).send('API not found');
+  }
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
