@@ -2,16 +2,15 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const app = express();
+const __dirname = path.resolve(); // Yeh current working directory (root) lega
 
-const distPath = path.resolve(__dirname, 'dist');
+// Ab dist path ko absolute fix karo
+const distPath = path.join(__dirname, 'dist');
 
-// Static files serve karo
 app.use(express.static(distPath));
 
-// Wildcard route ko replace karke ye use karo
+// Wildcard route (ab safe regex use kar rahe hain)
 app.get(/^(?!\/api).+/, (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
