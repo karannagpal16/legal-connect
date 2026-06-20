@@ -6,21 +6,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-// Ye Render ke liye relative path fix hai
-const distPath = path.resolve(__dirname, 'dist');
+// Root Directory 'artifacts/api-server' hai, toh dist folder 
+// seedha server.js ke bagal mein hoga. 
+// Process.cwd() se hum root folder pakad rahe hain.
+const distPath = path.join(process.cwd(), 'dist');
 
-// Static files serve karo
 app.use(express.static(distPath));
 
-// Wildcard route ko handle karne ka safe middleware
-app.use((req, res, next) => {
-  if (!req.path.includes('.')) {
-    return res.sendFile(path.join(distPath, 'index.html'));
-  }
-  next();
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
