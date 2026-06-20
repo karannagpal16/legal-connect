@@ -6,15 +6,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-// Kyunki humne Root Directory 'artifacts/api-server' set ki hai,
-// __dirname yahan point karega, toh dist wahin hoga:
-const distPath = path.join(__dirname, 'dist'); 
+// Ye logic: agar prefix 'artifacts/api-server/' path mein hai toh use trim kar dega
+const currentDir = process.cwd();
+const rootDir = currentDir.endsWith('api-server') ? path.resolve(currentDir, '../../') : currentDir;
 
-app.use(express.static(distPath));
+app.use(express.static(rootDir));
 
-// Fallback: Agar koi file na mile, toh index.html bhejo
 app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+  // Check karta hai ki file exist karti hai ya nahi
+  const indexPath = path.join(rootDir, 'index.html');
+  res.sendFile(indexPath);
 });
 
 const PORT = process.env.PORT || 10000;
