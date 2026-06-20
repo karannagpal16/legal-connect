@@ -2,13 +2,15 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.resolve(); 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
-const distPath = path.join(__dirname, 'dist');
+
+// Root Directory 'artifacts/api-server' set hai, toh dist ka path ye hoga:
+const distPath = path.resolve(__dirname, 'dist'); 
 
 app.use(express.static(distPath));
 
-// Wildcard ('*') hata diya hai, ab sirf static files aur fallback use kar rahe hain
 app.use((req, res, next) => {
   if (!req.path.includes('.')) {
     return res.sendFile(path.join(distPath, 'index.html'));
