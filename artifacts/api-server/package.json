@@ -16,7 +16,9 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
-    "express": "^5",
+    "drizzle-zod": "^0.8.3",
+    "express": "^5.2.1",
+    "pg": "^8.21.0",
     "pino": "^9",
     "pino-http": "^10"
   },
