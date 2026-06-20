@@ -6,20 +6,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-// Path fix: Root directory mein 'dist' folder ko point karna
-const distPath = path.resolve(__dirname, 'dist');
+// Kyunki humne Root Directory 'artifacts/api-server' set ki hai,
+// __dirname yahan point karega, toh dist wahin hoga:
+const distPath = path.join(__dirname, 'dist'); 
 
-// Static files serve karo
 app.use(express.static(distPath));
 
-// Wildcard ('*') ki jagah ye middleware use karo
-// Yeh sirf un requests ko handle karega jo kisi existing file ke liye nahi hain
-app.use((req, res, next) => {
-  if (!req.path.includes('.')) {
+// Fallback: Agar koi file na mile, toh index.html bhejo
+app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
-  } else {
-    next();
-  }
 });
 
 const PORT = process.env.PORT || 10000;
