@@ -12,7 +12,7 @@ const distPath = path.resolve(__dirname, 'dist');
 app.use(express.static(distPath));
 
 // Fallback to index.html for SPA routing
-app.get('*', (req, res) => {
+app.get('/*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
