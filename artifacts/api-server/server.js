@@ -6,12 +6,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-const distPath = path.resolve(__dirname, 'dist');
-
+// Root directory ka path ensure karo
+const distPath = path.resolve(__dirname, 'dist'); 
 
 app.use(express.static(distPath));
 
-// Fallback to index.html for SPA routing
+// Wildcard route ko handle karo taaki SPA sahi se load ho
 app.get('/*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
