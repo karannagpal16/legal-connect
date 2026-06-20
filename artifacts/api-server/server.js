@@ -6,10 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-// Absolute path resolve karo
 const distPath = path.resolve(__dirname, 'dist');
 
-// Static files serve karo
+
 app.use(express.static(distPath));
 
 // Fallback to index.html for SPA routing
