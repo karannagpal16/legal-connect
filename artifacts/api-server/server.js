@@ -6,16 +6,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-// Ye logic: agar prefix 'artifacts/api-server/' path mein hai toh use trim kar dega
-const currentDir = process.cwd();
-const rootDir = currentDir.endsWith('api-server') ? path.resolve(currentDir, '../../') : currentDir;
+// Path fix: Build folder (dist) ko point karo
+const distPath = path.join(__dirname, 'dist');
 
-app.use(express.static(rootDir));
+// Static files serve karo
+app.use(express.static(distPath));
 
-app.get('*', (req, res) => {
-  // Check karta hai ki file exist karti hai ya nahi
-  const indexPath = path.join(rootDir, 'index.html');
-  res.sendFile(indexPath);
+// Fallback: Wildcard (*) ki jagah simple route handle karo
+app.get('/', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.mjs'));
 });
 
 const PORT = process.env.PORT || 10000;
