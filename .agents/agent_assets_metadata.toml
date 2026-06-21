@@ -1,0 +1,50 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "lNqV7ZYqICvmBgQW1MtyS"
+uri = "file://artifacts/law-firm/public/news/news-1.png"
+type = "image"
+title = "privacy rights digital"
+
+[[generated]]
+id = "kHetmzt48gTDeKg327iWX"
+uri = "file://artifacts/law-firm/public/news/news-2.png"
+type = "image"
+title = "matrimonial fast track"
+
+[[generated]]
+id = "hTl9Bt4CSdEqMqGAje30U"
+uri = "file://artifacts/law-firm/public/news/news-3.png"
+type = "image"
+title = "data protection rules"
+
+[[generated]]
+id = "h89Oy010QJ4ohXM32ZDvN"
+uri = "file://artifacts/law-firm/public/news/news-4.png"
+type = "image"
+title = "court transparency portal"
+
+[[generated]]
+id = "XuQi_7Gumc_OMws6f5Lmn"
+uri = "file://artifacts/law-firm/public/news/news-5.png"
+type = "image"
+title = "new criminal law"
+
+[[generated]]
+id = "O4K6D7SWUnIRhPZ4xw0lE"
+uri = "file://artifacts/law-firm/public/news/news-6.png"
+type = "image"
+title = "efiling paperless courts"
+
+[[generated]]
+id = "Zb3MEdtTy8z-89vCnMDZz"
+uri = "file://artifacts/law-firm/public/news/news-7.png"
+type = "image"
+title = "legal aid expansion"
+
+[[generated]]
+id = "qfXX3XpAtoMOOobB7eBTF"
+uri = "file://artifacts/law-firm/public/news/news-8.png"
+type = "image"
+title = "mediation act"
