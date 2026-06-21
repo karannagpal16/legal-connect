@@ -1,17 +1,25 @@
-const express = require('express');
-const path    = require('path');
+// artifacts/api-server/server.js
+const express = require("express");
+const path = require("path");
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ➊  Serve every file inside /public (JS, CSS, images, etc.) */
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
-/* ➋  Catch-all so a SPA still loads on deep links */
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Health check
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true });
 });
 
-app.listen(PORT, () => {
+// Static frontend files
+app.use(express.static(path.join(__dirname, "public")));
+
+// App fallback
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on ${PORT}`);
 });
