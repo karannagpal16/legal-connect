@@ -1,14 +1,13 @@
 {
-  "name": "@workspace/scripts",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
+  "name": "api-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
   "scripts": {
-    "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "start": "node server.js",
+    "build": "exit 0"
   },
-  "devDependencies": {
-    "@types/node": "catalog:",
-    "tsx": "catalog:"
+  "dependencies": {
+    "express": "^4.18.2"
   }
 }
