@@ -708,11 +708,20 @@ p {
 .clean-gates {
   margin-top: clamp(18px, 4vw, 34px);
   animation: contentRise 1s ease 2.45s both;
+  perspective: 1200px;
 }
 
 .clean-gates .gate-card {
   min-height: 360px;
   gap: 13px;
+}
+
+.clean-gates .people-gate {
+  transform: rotateY(4deg);
+}
+
+.clean-gates .advocate-gate {
+  transform: rotateY(-4deg);
 }
 
 .gate-icon {
@@ -787,11 +796,78 @@ p {
   margin-bottom: 0;
 }
 
+.home-center-stack {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 0.75fr 1.25fr;
+  gap: 14px;
+  max-width: 860px;
+  margin: 18px auto 0;
+  animation: contentRise 1s ease 2.7s both;
+}
+
+.mini-live-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 240, 0.09), rgba(255, 250, 240, 0.035)),
+    linear-gradient(135deg, rgba(27, 123, 115, 0.14), transparent 58%);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.mini-live-card span,
+.source-grid article span {
+  color: var(--gold-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mini-live-card strong,
+.source-grid article strong {
+  display: block;
+  margin: 7px 0;
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: 1.12rem;
+}
+
+.mini-live-card p,
+.source-grid article p {
+  margin-bottom: 0;
+  font-size: 0.92rem;
+}
+
+.source-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.source-badges em {
+  border: 1px solid rgba(224, 200, 139, 0.28);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--gold-2);
+  background: rgba(199, 167, 101, 0.08);
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .quote-carousel {
   position: relative;
   min-height: 178px;
   margin-top: 16px;
   overflow: hidden;
+}
+
+.legal-pulse-rail {
+  border-color: rgba(27, 123, 115, 0.4);
 }
 
 .quote-slide {
@@ -882,6 +958,24 @@ p {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-top: 16px;
+}
+
+.source-wall {
+  margin-top: 16px;
+}
+
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.source-grid article {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(255, 250, 240, 0.07), rgba(255, 250, 240, 0.03));
 }
 
 .action-grid article {
@@ -1412,6 +1506,7 @@ select,
   .principles,
   .dual-gate,
   .action-grid,
+  .source-grid,
   .phase-grid,
   .brief-grid,
   .lane-grid,
@@ -1452,6 +1547,7 @@ select,
   .principles,
   .dual-gate,
   .action-grid,
+  .source-grid,
   .phase-grid,
   .brief-grid,
   .lane-grid,
@@ -1531,6 +1627,16 @@ select,
 
   .clean-gates .gate-card {
     min-height: auto;
+  }
+
+  .clean-gates .people-gate,
+  .clean-gates .advocate-gate {
+    transform: none;
+  }
+
+  .home-center-stack {
+    grid-template-columns: 1fr;
+    margin-top: 14px;
   }
 
   .gate-visual {
