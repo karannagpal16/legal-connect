@@ -581,6 +581,176 @@ p {
   margin-top: 16px;
 }
 
+.calm-entry {
+  min-height: calc(100vh - 112px);
+  display: grid;
+  align-content: center;
+}
+
+.intro-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  gap: 12px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(199, 167, 101, 0.18), transparent 24rem),
+    linear-gradient(135deg, #07090d, #101927 58%, #080a0d);
+  animation: introExit 3.1s ease forwards;
+}
+
+.intro-loader strong {
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: clamp(2rem, 5vw, 4.8rem);
+  font-weight: 700;
+}
+
+.intro-loader small {
+  color: var(--gold-2);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.loader-chakra {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  border: 1px solid rgba(224, 200, 139, 0.76);
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(224, 200, 139, 0.76) 0 2deg, transparent 2deg 14deg),
+    radial-gradient(circle, rgba(199, 167, 101, 0.25), transparent 58%);
+  animation: spin 5s linear infinite;
+}
+
+.loader-chakra::before,
+.loader-chakra::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+
+.loader-chakra::before {
+  inset: 18px;
+  border: 1px dashed rgba(255, 250, 240, 0.52);
+}
+
+.loader-chakra::after {
+  inset: 47px;
+  background: var(--gold-2);
+  box-shadow: 0 0 22px rgba(224, 200, 139, 0.55);
+}
+
+@keyframes introExit {
+  0%,
+  68% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.minimal-hero {
+  align-items: center;
+  animation: contentRise 1s ease 2.25s both;
+}
+
+@keyframes contentRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.brand-lockup .chakra-seal {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.brand-lockup h2 {
+  margin-bottom: 0;
+  font-size: clamp(3.2rem, 8vw, 7.4rem);
+}
+
+.one-line {
+  max-width: 790px;
+  color: #ded6c4;
+  font-size: clamp(1rem, 2vw, 1.28rem);
+}
+
+.compact-dharma {
+  align-self: center;
+}
+
+.compact-dharma p {
+  margin-bottom: 0;
+}
+
+.clean-gates {
+  margin-top: clamp(18px, 4vw, 34px);
+  animation: contentRise 1s ease 2.45s both;
+}
+
+.clean-gates .gate-card {
+  min-height: 360px;
+  gap: 13px;
+}
+
+.gate-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(224, 200, 139, 0.35);
+  border-radius: 50%;
+  color: var(--gold-2);
+  background: rgba(199, 167, 101, 0.08);
+  font-family: var(--serif);
+  font-weight: 800;
+}
+
+.quick-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-line span {
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #d7cfbd;
+  background: rgba(255, 250, 240, 0.045);
+  font-size: 0.8rem;
+}
+
+.lean-section h3 {
+  font-size: clamp(1.6rem, 3vw, 2.6rem);
+}
+
+.lean-grid article p {
+  margin-bottom: 0;
+}
+
 .peacock-mark {
   width: 58px;
   height: 58px;
@@ -1185,6 +1355,34 @@ select,
   .gate-topline {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .intro-loader {
+    animation-duration: 2.6s;
+  }
+
+  .loader-chakra {
+    width: 86px;
+    height: 86px;
+  }
+
+  .brand-lockup {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .brand-lockup h2 {
+    font-size: 3rem;
+  }
+
+  .minimal-hero,
+  .clean-gates {
+    animation-delay: 1.95s;
+  }
+
+  .clean-gates .gate-card {
+    min-height: auto;
   }
 
   .hero {
