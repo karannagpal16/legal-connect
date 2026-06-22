@@ -355,6 +355,232 @@ p {
   font-size: 1.28rem;
 }
 
+.cover-stage {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 75% 12%, rgba(27, 123, 115, 0.22), transparent 28rem),
+    radial-gradient(circle at 18% 14%, rgba(199, 167, 101, 0.18), transparent 30rem),
+    linear-gradient(135deg, rgba(12, 16, 20, 0.98), rgba(16, 25, 39, 0.88));
+  min-height: calc(100vh - 112px);
+  padding: clamp(22px, 4vw, 52px);
+}
+
+.cover-bg-orbit,
+.cover-gridline {
+  position: absolute;
+  pointer-events: none;
+}
+
+.cover-bg-orbit {
+  width: 520px;
+  height: 520px;
+  right: -130px;
+  top: -160px;
+  border: 1px solid rgba(199, 167, 101, 0.2);
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(from 10deg, rgba(224, 200, 139, 0.13) 0 3deg, transparent 3deg 12deg),
+    radial-gradient(circle, transparent 0 42%, rgba(199, 167, 101, 0.08) 43% 44%, transparent 45%);
+  opacity: 0.9;
+  animation: spin 80s linear infinite;
+}
+
+.cover-gridline {
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 250, 240, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 250, 240, 0.035) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+.cover-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) 390px;
+  gap: clamp(18px, 4vw, 42px);
+  align-items: end;
+}
+
+.cover-copy h2 {
+  max-width: 980px;
+  font-size: clamp(2.7rem, 6vw, 6.8rem);
+}
+
+.cover-copy p {
+  max-width: 720px;
+  font-size: 1.08rem;
+}
+
+.chakra-seal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 86px;
+  height: 86px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(224, 200, 139, 0.65);
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(224, 200, 139, 0.62) 0 2deg, transparent 2deg 15deg),
+    radial-gradient(circle, rgba(199, 167, 101, 0.24), rgba(12, 16, 20, 0.1) 56%);
+  box-shadow: 0 0 48px rgba(199, 167, 101, 0.2);
+}
+
+.chakra-seal::before,
+.chakra-seal::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+
+.chakra-seal::before {
+  inset: 14px;
+  border: 1px dashed rgba(255, 250, 240, 0.45);
+}
+
+.chakra-seal::after {
+  inset: 35px;
+  background: var(--gold-2);
+}
+
+.today-dharma {
+  padding: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 240, 0.105), rgba(255, 250, 240, 0.04)),
+    linear-gradient(135deg, rgba(27, 123, 115, 0.16), transparent 55%);
+  backdrop-filter: blur(18px);
+}
+
+.today-dharma strong {
+  display: block;
+  margin: 12px 0;
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: 1.6rem;
+}
+
+.pulse-row,
+.command-strip,
+.problem-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.pulse-row span,
+.command-strip span,
+.problem-chips button {
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: 999px;
+  padding: 8px 10px;
+  color: #d7cfbd;
+  background: rgba(255, 250, 240, 0.05);
+  font-size: 0.82rem;
+}
+
+.dual-gate {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: clamp(22px, 4vw, 46px);
+}
+
+.gate-card {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-height: 460px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: clamp(20px, 3vw, 32px);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 240, 0.09), rgba(255, 250, 240, 0.035)),
+    linear-gradient(135deg, rgba(199, 167, 101, 0.12), transparent 54%);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.26);
+}
+
+.people-gate {
+  border-color: rgba(185, 192, 196, 0.34);
+  background:
+    linear-gradient(180deg, rgba(229, 231, 235, 0.11), rgba(255, 250, 240, 0.035)),
+    linear-gradient(135deg, rgba(27, 123, 115, 0.17), transparent 56%);
+}
+
+.advocate-gate {
+  border-color: rgba(199, 167, 101, 0.52);
+}
+
+.gate-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: var(--gold-2);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gate-topline strong {
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.gate-card h3 {
+  max-width: 620px;
+  margin-bottom: 0;
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 3vw, 3.3rem);
+}
+
+.gate-card p {
+  margin-bottom: 0;
+}
+
+.problem-chips button {
+  border-radius: var(--radius);
+}
+
+.gate-meter {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 14px;
+  align-items: center;
+  margin-top: 4px;
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: rgba(8, 10, 13, 0.34);
+}
+
+.gate-meter span,
+.gate-meter small {
+  color: var(--muted);
+}
+
+.gate-meter strong {
+  grid-row: span 2;
+  color: var(--gold-2);
+  font-family: var(--serif);
+  font-size: 2.25rem;
+}
+
+.people-value {
+  margin-top: 16px;
+}
+
 .peacock-mark {
   width: 58px;
   height: 58px;
@@ -868,6 +1094,7 @@ select,
   }
 
   .principles,
+  .dual-gate,
   .phase-grid,
   .brief-grid,
   .lane-grid,
@@ -906,6 +1133,7 @@ select,
 
   .nav-group,
   .principles,
+  .dual-gate,
   .phase-grid,
   .brief-grid,
   .lane-grid,
@@ -930,6 +1158,33 @@ select,
 
   .xp-ring {
     justify-self: start;
+  }
+
+  .cover-stage {
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .cover-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .cover-copy h2 {
+    font-size: 2.6rem;
+  }
+
+  .chakra-seal {
+    width: 68px;
+    height: 68px;
+  }
+
+  .gate-card {
+    min-height: auto;
+  }
+
+  .gate-topline {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .hero {
