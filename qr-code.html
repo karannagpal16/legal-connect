@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expo Go QR Code - LEGAL-CONNECT</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #1e3a8a;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        #qrcode {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #1e3a8a;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .info-box h3 {
+            color: #1e3a8a;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .url {
+            background: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            color: #333;
+        }
+        .instructions {
+            margin-top: 30px;
+            text-align: left;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            color: #666;
+            line-height: 1.8;
+        }
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #999;
+            font-size: 12px;
+        }
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 LEGAL-CONNECT Expo Go</h1>
+        <p class="subtitle">Scan the QR code to launch the app</p>
+        
+        <div id="qrcode"></div>
+        
+        <div class="info-box">
+            <h3>Connection URL:</h3>
+            <div class="url" id="url">exp://localhost:8081</div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📖 How to use:</h3>
+            <ol>
+                <li>Download and install <strong>Expo Go</strong> app on your mobile device</li>
+                <li>Open Expo Go app</li>
+                <li>Tap <strong>"Scan QR code"</strong> button</li>
+                <li>Point your device camera at the QR code above</li>
+                <li>The LEGAL-CONNECT app will load on your device</li>
+            </ol>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <p class="footer">
+            🔗 Make sure your device is connected to the same network as your development machine
+        </p>
+    </div>
+
+    <script>
+        function getLocalIP() {
+            // Try to get local IP from the page request
+            const hostname = window.location.hostname;
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                // Fallback - in a real scenario, you'd fetch this from your server
+                return 'localhost';
+            }
+            return hostname;
+        }
+
+        function generateQRCode() {
+            const localIP = getLocalIP();
+            const port = 8081; // Vite default port
+            const expoUrl = `exp://${localIP}:${port}`;
+            
+            // Update the URL display
+            document.getElementById('url').textContent = expoUrl;
+            
+            // Clear previous QR code
+            document.getElementById('qrcode').innerHTML = '';
+            
+            // Generate new QR code
+            try {
+                new QRCode(document.getElementById('qrcode'), {
+                    text: expoUrl,
+                    width: 300,
+                    height: 300,
+                    colorDark: '#1e3a8a',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } catch (error) {
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Error generating QR code: ' + error.message;
+            }
+        }
+
+        // Generate QR code when page loads
+        window.addEventListener('load', generateQRCode);
+    </script>
+</body>
+</html>

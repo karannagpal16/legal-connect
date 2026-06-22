@@ -1,0 +1,13 @@
+packages:
+  "react-hook-form": "Form handling and validation"
+  "@hookform/resolvers": "Zod validation for react-hook-form"
+  "zod": "Schema definition and validation"
+  "date-fns": "Date manipulation and formatting"
+  "framer-motion": "Smooth page transitions and component animations"
+images:
+  - path: "artifacts/law-firm/public/images/law-library-bg.png"
+    description: "Dark moody aesthetic of a premium law firm library, deep navy tones, soft warm gold lighting, out of focus background, bokeh effect"
+    aspect_ratio: "16:9"
+notes:
+  - Added new bookings endpoints, matching the provided OpenAPI schema
+  - Used native date input styled for premium feel for simplicity and mobile friendliness
