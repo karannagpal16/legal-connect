@@ -728,6 +728,42 @@ p {
   font-weight: 800;
 }
 
+.gate-visual {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  width: 96px;
+  height: 96px;
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: 50%;
+  opacity: 0.85;
+}
+
+.gate-card {
+  position: relative;
+}
+
+.shield-visual {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(229, 231, 235, 0.28) 0 18%, transparent 19%),
+    conic-gradient(from 45deg, rgba(27, 123, 115, 0.42), transparent, rgba(199, 167, 101, 0.34), transparent);
+}
+
+.shield-visual::before,
+.command-visual::before {
+  content: "";
+  position: absolute;
+  inset: 20px;
+  border: 1px dashed rgba(224, 200, 139, 0.48);
+  border-radius: 50%;
+}
+
+.command-visual {
+  background:
+    repeating-conic-gradient(from 0deg, rgba(199, 167, 101, 0.38) 0 5deg, transparent 5deg 18deg),
+    radial-gradient(circle, rgba(12, 16, 20, 0.16), rgba(27, 123, 115, 0.18));
+}
+
 .quick-line {
   display: flex;
   flex-wrap: wrap;
@@ -749,6 +785,116 @@ p {
 
 .lean-grid article p {
   margin-bottom: 0;
+}
+
+.quote-carousel {
+  position: relative;
+  min-height: 178px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.quote-slide {
+  position: absolute;
+  inset: 20px;
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 18px;
+  align-items: center;
+  opacity: 0;
+  animation: quoteCycle 12s infinite;
+}
+
+.quote-slide:nth-child(2) {
+  animation-delay: 4s;
+}
+
+.quote-slide:nth-child(3) {
+  animation-delay: 8s;
+}
+
+@keyframes quoteCycle {
+  0%,
+  8% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  13%,
+  30% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  38%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.quote-art {
+  width: 112px;
+  height: 112px;
+  border: 1px solid rgba(224, 200, 139, 0.34);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 70% 28%, rgba(224, 200, 139, 0.8) 0 7%, transparent 8%),
+    linear-gradient(135deg, rgba(27, 123, 115, 0.52), rgba(16, 25, 39, 0.82)),
+    repeating-linear-gradient(45deg, rgba(255, 250, 240, 0.06) 0 1px, transparent 1px 10px);
+}
+
+.slide-two .quote-art {
+  background:
+    linear-gradient(135deg, rgba(199, 167, 101, 0.24), rgba(12, 16, 20, 0.92)),
+    repeating-conic-gradient(from 0deg, rgba(224, 200, 139, 0.3) 0 4deg, transparent 4deg 16deg);
+}
+
+.slide-three .quote-art {
+  background:
+    radial-gradient(circle at 35% 35%, rgba(229, 231, 235, 0.24), transparent 24%),
+    linear-gradient(135deg, rgba(16, 25, 39, 0.95), rgba(27, 123, 115, 0.38));
+}
+
+.quote-slide span,
+.action-grid article span {
+  color: var(--gold-2);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.quote-slide strong,
+.action-grid article strong {
+  display: block;
+  margin: 8px 0;
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: 1.35rem;
+}
+
+.quote-slide p,
+.action-grid article p {
+  margin-bottom: 0;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.action-grid article {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(255, 250, 240, 0.075), rgba(255, 250, 240, 0.035));
+}
+
+.sos-card {
+  border-color: rgba(195, 107, 94, 0.45) !important;
+  background:
+    linear-gradient(180deg, rgba(195, 107, 94, 0.14), rgba(255, 250, 240, 0.035)) !important;
 }
 
 .peacock-mark {
@@ -1265,6 +1411,7 @@ select,
 
   .principles,
   .dual-gate,
+  .action-grid,
   .phase-grid,
   .brief-grid,
   .lane-grid,
@@ -1304,6 +1451,7 @@ select,
   .nav-group,
   .principles,
   .dual-gate,
+  .action-grid,
   .phase-grid,
   .brief-grid,
   .lane-grid,
@@ -1383,6 +1531,27 @@ select,
 
   .clean-gates .gate-card {
     min-height: auto;
+  }
+
+  .gate-visual {
+    width: 72px;
+    height: 72px;
+    opacity: 0.42;
+  }
+
+  .quote-carousel {
+    min-height: 270px;
+  }
+
+  .quote-slide {
+    inset: 16px;
+    grid-template-columns: 1fr;
+    align-content: center;
+  }
+
+  .quote-art {
+    width: 88px;
+    height: 88px;
   }
 
   .hero {
