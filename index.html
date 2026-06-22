@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Legal Connect - Professional Legal OS</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail" aria-label="Primary navigation">
+        <a class="brand" href="#home" aria-label="Legal Connect home">
+          <span class="brand-mark"><span></span></span>
+          <span>
+            <strong>Legal Connect</strong>
+            <small>India's Legal OS</small>
+          </span>
+        </a>
+
+        <nav class="nav-group">
+          <button class="nav-item active" data-view="home">Home</button>
+          <button class="nav-item" data-view="login">Login</button>
+          <button class="nav-item" data-view="advocate">Advocate OS</button>
+          <button class="nav-item" data-view="chambers">Chambers</button>
+          <button class="nav-item" data-view="matter">Matter Vault</button>
+          <button class="nav-item" data-view="diary">Case Diary</button>
+          <button class="nav-item" data-view="bar">Bar Desk</button>
+          <button class="nav-item" data-view="bareact">Bare Acts</button>
+          <button class="nav-item" data-view="judgment">Judgment</button>
+          <button class="nav-item" data-view="appearance">Appearance Network</button>
+          <button class="nav-item" data-view="posttask">Post Task</button>
+          <button class="nav-item" data-view="task">Task Detail</button>
+          <button class="nav-item" data-view="escrow">Escrow</button>
+          <button class="nav-item" data-view="client">Client Portal</button>
+          <button class="nav-item" data-view="intern">Intern Portal</button>
+          <button class="nav-item" data-view="admin">Admin</button>
+        </nav>
+
+        <section class="rail-card">
+          <span class="eyebrow">Access Doctrine</span>
+          <p>Client Shield, Matter Shield, masked calls, expiring task rooms, and audit logs are treated as product primitives.</p>
+        </section>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">Duty. Precision. Integrity.</span>
+            <h1 id="view-title">Legal Connect</h1>
+          </div>
+          <div class="top-actions">
+            <button class="ghost-button">Masked Call</button>
+            <button class="gold-button">New Appearance Task</button>
+          </div>
+        </header>
+
+        <section class="view active" id="home">
+          <div class="hero">
+            <img src="assets/legal-connect-hero.png" alt="Premium legal operations desk with secure court workflow interface" />
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
+              <div class="peacock-mark" aria-hidden="true"></div>
+              <span class="eyebrow">Litigating Platform by Litigators</span>
+              <h2>Legal Connect turns court work into a secure daily command system.</h2>
+              <p>Built for Indian litigation practice: public legal intelligence before login, role-aware advocacy after login, RNA-supervised proxy execution, client tracking, intern missions, escrow, reminders, and private matter vaults.</p>
+              <div class="hero-actions">
+                <button class="gold-button" data-jump="advocate">Explore Advocacy</button>
+                <button class="dark-button" data-jump="login">View Login Flow</button>
+              </div>
+            </div>
+            <div class="hero-brief glass-panel">
+              <span class="eyebrow">Dharma Brief - 7:00 AM</span>
+              <strong>"Yato dharmastato jayah."</strong>
+              <ul>
+                <li>DHC item search, roster, cause list, e-filing links</li>
+                <li>Daily judgments, legal news, BNS/BNSS/BSA updates</li>
+                <li>RNA Trust Desk watches privacy, proxy, payments</li>
+                <li>Logged-in users get work reminders and task rooms</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="phase-grid">
+            <article class="phase-card">
+              <span>Phase 1 Track 01</span>
+              <h3>Advocacy</h3>
+              <p>One advocate universe with RNA Counsel, independent lawyers, proxy execution, and the intern mission board. Login decides what each person can see.</p>
+              <button class="ghost-button" data-jump="advocate">Open Advocacy</button>
+            </article>
+            <article class="phase-card">
+              <span>Phase 1 Track 02</span>
+              <h3>Client Shield</h3>
+              <p>Clients see case status, next date, prescriptions, payments, receipts, and messages - never internal strategy or private firm notes.</p>
+              <button class="ghost-button" data-jump="client">Open Client View</button>
+            </article>
+            <article class="phase-card">
+              <span>Phase 1 Track 03</span>
+              <h3>RNA Trust Command</h3>
+              <p>RNA acts as the first trusted caretaker: contract counsel, NDA enforcement, proxy quality control, escrow review, and data privacy audits.</p>
+              <button class="ghost-button" data-jump="admin">Open Trust Desk</button>
+            </article>
+          </div>
+
+          <section class="public-brief panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Before Login - Advocate Public Desk</span>
+                <h3>What every verified or visiting lawyer can read today</h3>
+              </div>
+              <button class="gold-button" data-jump="login">Login to Personalize</button>
+            </div>
+            <div class="brief-grid">
+              <article>
+                <span>Case Law Pulse</span>
+                <strong>Anticipatory bail under NDPS: latest practical test</strong>
+                <p>Quick facts, issue, held, ratio, useful paragraphs, and drafting points in a social-feed style built for lawyers, not noise.</p>
+              </article>
+              <article>
+                <span>DHC Live Utility</span>
+                <strong>Item no. 42 - Court 18 - supplementary list watch</strong>
+                <p>Cause list, judge roster, court number, display-board direction, e-filing checklist, and registry objection shortcuts.</p>
+              </article>
+              <article>
+                <span>Legal Facts</span>
+                <strong>BNS/BNSS/BSA transition notes</strong>
+                <p>Old law vs new law, procedural impact, bare-act links, and daily notes that make the app worth opening every morning.</p>
+              </article>
+            </div>
+          </section>
+
+          <div class="principles">
+            <article><strong>Confidentiality</strong><span>Private vaults, NDA counsel, no strategy leakage.</span></article>
+            <article><strong>Controlled Access</strong><span>Firm invitations, RBAC, expiring matter rooms.</span></article>
+            <article><strong>Financial Integrity</strong><span>Escrow, proof, approvals, dispute desk.</span></article>
+            <article><strong>Daily Usefulness</strong><span>Briefings, diary, judgments, cause-list intelligence.</span></article>
+          </div>
+        </section>
+
+        <section class="view" id="login">
+          <div class="split">
+            <div class="panel login-panel">
+              <div class="chakra-loader" aria-hidden="true"></div>
+              <span class="eyebrow">Secure Login</span>
+              <h2>The app recognizes your lane.</h2>
+              <div class="role-grid">
+                <button class="role-card selected"><strong>RNA Counsel</strong><span>Trust command, proxy acceptance, audit, escrow</span></button>
+                <button class="role-card"><strong>Independent Advocate</strong><span>Public feed, own cases, proxy posting, diary</span></button>
+                <button class="role-card"><strong>Proxy Contract Counsel</strong><span>NDA task rooms, proof upload, side income</span></button>
+                <button class="role-card"><strong>Intern Board</strong><span>XP missions, court tasks, drafts, PPO path</span></button>
+              </div>
+            </div>
+            <form class="panel form-panel">
+              <label>Mobile OTP<input value="+91 98XX XX4210" /></label>
+              <label>Email OTP<input value="karan@rna.example" /></label>
+              <label>Bar Council ID<input value="D/4210/2019" /></label>
+              <label>State Bar Council<select><option>Delhi</option><option>Haryana</option><option>Uttar Pradesh</option></select></label>
+              <label>Practice Areas<input value="Criminal, Commercial, Arbitration" /></label>
+              <label>Court Preferences<input value="DHC, Tis Hazari, Saket, Dwarka" /></label>
+              <label>Detected Lane<select><option>RNA Counsel - Trust Command</option><option>Independent Advocate</option><option>Proxy Contract Counsel</option><option>Intern Board</option></select></label>
+              <button class="gold-button" type="button">Verify and Route Securely</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="view" id="advocate">
+          <div class="workspace-head">
+            <div>
+              <span class="eyebrow">Advocacy Universe</span>
+              <h2>One portal. Four lanes. Zero data leakage.</h2>
+            </div>
+            <div class="segmented"><button class="active">RNA</button><button>Independent</button><button>Proxy</button><button>Interns</button></div>
+          </div>
+          <div class="lane-grid">
+            <article class="lane-card rna">
+              <span>RNA Counsel</span>
+              <h3>Trust Command</h3>
+              <p>RNA is the Phase 1 caretaker: privacy audit, contract counsel verification, proxy quality, escrow review, and breach escalation.</p>
+            </article>
+            <article class="lane-card">
+              <span>Independent Advocate</span>
+              <h3>Litigator Feed</h3>
+              <p>Reads daily legal feed, manages personal diary, posts proxy work, pays confirmation token, and never exposes clients.</p>
+            </article>
+            <article class="lane-card">
+              <span>Proxy Contract Counsel</span>
+              <h3>Dharma Desk</h3>
+              <p>RNA-approved counsel accepts tasks under NDA, masked calls, proof upload, GPS check-in, and payment release.</p>
+            </article>
+            <article class="lane-card intern-lane">
+              <span>Intern Board</span>
+              <h3>Karma XP</h3>
+              <p>Research, drafting, court visits, filing support, points, badges, vouchers, certificates, and PPO eligibility.</p>
+            </article>
+          </div>
+          <div class="metric-grid">
+            <article><span>Hearings Today</span><strong>5</strong><small>2 urgent mentions</small></article>
+            <article><span>Proxy Confirmations</span><strong>9</strong><small>Rs. 5-10 token locked</small></article>
+            <article><span>Saved Updates</span><strong>28</strong><small>Judgments, bills, facts</small></article>
+            <article><span>Intern XP Earned</span><strong>4,820</strong><small>2 PPO candidates</small></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel wide">
+              <div class="section-head"><h3>Logged-in Work Reminder</h3><span class="status-dot">AI prepared</span></div>
+              <div class="timeline">
+                <div><time>10:30</time><strong>State v. Arjun Mehta</strong><span>Item 42, Court 18, pass-over counsel confirmed.</span></div>
+                <div><time>11:10</time><strong>Independent advocate proxy request</strong><span>RNA counsel can accept after NDA lane check and masked room creation.</span></div>
+                <div><time>14:00</time><strong>Dwarka exemption filing</strong><span>Confirmation token paid, runner optional, escrow pending final fee lock.</span></div>
+              </div>
+            </section>
+            <section class="panel">
+              <h3>Daily Wisdom</h3>
+              <p class="quote">"Karmanye vadhikaraste."</p>
+              <p>Focus on disciplined work. Every AI draft and every proxy action stays lawyer-verified.</p>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="chambers">
+          <div class="workspace-head">
+            <div><span class="eyebrow">RNA Private Chamber</span><h2>Firm workspace with invitation-only access.</h2></div>
+            <button class="ghost-button">Invite Team Member</button>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel wide">
+              <div class="section-head"><h3>Chamber Dashboard</h3><span class="lock-chip">Firm Vault Locked</span></div>
+              <div class="matter-table">
+                <div class="table-row header"><span>Matter</span><span>Stage</span><span>Next Date</span><span>Access</span></div>
+                <div class="table-row"><span>RNA v. Metro Infra</span><span>Arguments</span><span>23 Jun</span><span>Partner + Associate</span></div>
+                <div class="table-row"><span>Mehta Bail Application</span><span>Reply awaited</span><span>24 Jun</span><span>Lead Counsel only</span></div>
+                <div class="table-row"><span>Estate Partition</span><span>Evidence</span><span>01 Jul</span><span>Paralegal filing access</span></div>
+              </div>
+            </section>
+            <section class="panel">
+              <h3>Hierarchy</h3>
+              <div class="access-list">
+                <span>Managing Partner - full access</span>
+                <span>Partner - assigned matters</span>
+                <span>Associate - assigned tasks</span>
+                <span>Intern - research only</span>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="matter">
+          <div class="workspace-head"><div><span class="eyebrow">Matter Vault</span><h2>RNA v. Metro Infra Pvt. Ltd.</h2></div><span class="lock-chip">Proxy counsel blocked</span></div>
+          <div class="dashboard-grid">
+            <section class="panel wide">
+              <h3>Case File</h3>
+              <div class="case-card">
+                <div><span>Court</span><strong>Delhi High Court</strong></div>
+                <div><span>CNR</span><strong>DLHC01-042181-2024</strong></div>
+                <div><span>Stage</span><strong>Final arguments</strong></div>
+                <div><span>Next Date</span><strong>23 Jun 2026</strong></div>
+              </div>
+              <div class="vault-grid">
+                <button>Pleadings</button><button>Orders</button><button>Evidence</button><button>Drafts</button><button>Billing</button><button>Audit Log</button>
+              </div>
+            </section>
+            <section class="panel">
+              <h3>AI Chamber Assistant</h3>
+              <p>Prepared chronology, previous order summary, and contradiction flags.</p>
+              <small>Generated draft. Lawyer verification required.</small>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="diary">
+          <div class="workspace-head"><div><span class="eyebrow">Paperless Practice</span><h2>Case Diary and reminders.</h2></div><button class="gold-button">Add Hearing Note</button></div>
+          <div class="diary-layout">
+            <section class="panel">
+              <h3>22 Jun</h3>
+              <div class="calendar-stack"><button class="active">Court-wise</button><button>Matter-wise</button><button>Voice Notes</button><button>PDF Uploads</button></div>
+            </section>
+            <section class="panel wide">
+              <div class="timeline">
+                <div><time>09:00</time><strong>Cause list check</strong><span>DHC Court 18, item 42 moved to supplementary list.</span></div>
+                <div><time>11:40</time><strong>Order awaiting review</strong><span>Certified copy collection reminder created.</span></div>
+                <div><time>17:30</time><strong>Client update</strong><span>AI draft ready, internal strategy hidden from client portal.</span></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="bar">
+          <div class="workspace-head"><div><span class="eyebrow">Lawyers for Lawyers</span><h2>Bar Desk legal intelligence.</h2></div><button class="ghost-button">Save Brief</button></div>
+          <section class="panel public-feed">
+            <div class="feed-post">
+              <span>Live Court Utility</span>
+              <strong>Delhi High Court item number search</strong>
+              <p>Check court number, judge list, supplementary list, urgent mentions, roster, e-filing, and display board links from one desk.</p>
+            </div>
+            <div class="feed-post">
+              <span>News + Law Fact</span>
+              <strong>Why lawyers should read today's BNSS practice update</strong>
+              <p>Procedure change, filing impact, practical drafting note, and one saved checklist for tomorrow's hearing.</p>
+            </div>
+          </section>
+          <div class="feed-grid">
+            <article class="judgment-card"><span>Supreme Court</span><h3>Bail discretion cannot become punitive detention</h3><p>Held, ratio, practical impact, and drafting points compressed for a 2 minute read.</p><button>Read summary</button></article>
+            <article class="judgment-card"><span>Delhi High Court</span><h3>Commercial suit filing defects cured before scrutiny</h3><p>Registry objections mapped with filing checklist and limitation risk notes.</p><button>Save to library</button></article>
+            <article class="judgment-card"><span>Legislative Update</span><h3>BNSS notification watch</h3><p>AI comparison of old CrPC workflow and active BNSS practice impact.</p><button>Compare law</button></article>
+          </div>
+          <section class="panel">
+            <h3>Court Intelligence</h3>
+            <div class="court-strip"><span>DHC Bench: Court 18</span><span>Item Search: 42</span><span>Roster updated</span><span>Supplementary list live</span></div>
+          </section>
+        </section>
+
+        <section class="view" id="bareact">
+          <div class="workspace-head"><div><span class="eyebrow">Bare Act Universe</span><h2>Interactive statutes with case law and notes.</h2></div><input class="search" value="BNS Section 103" /></div>
+          <div class="dashboard-grid">
+            <section class="panel wide statute">
+              <span class="eyebrow">Bharatiya Nyaya Sanhita</span>
+              <h3>Section 103 - Punishment for murder</h3>
+              <p>Section text, cross-references, amendment history, saved notes, and related case law appear together so the lawyer does not jump between PDFs.</p>
+              <div class="tag-row"><span>Text</span><span>Cases</span><span>Cross-reference</span><span>Old vs New</span><span>AI Explanation</span></div>
+            </section>
+            <section class="panel">
+              <h3>Library</h3>
+              <div class="access-list"><span>Constitution</span><span>BNS</span><span>BNSS</span><span>BSA</span><span>CPC</span><span>IBC</span><span>Arbitration Act</span></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="judgment">
+          <div class="panel judgment-detail">
+            <span class="eyebrow">Delhi High Court - 21 Jun 2026</span>
+            <h2>Practical approach to registry defects in urgent commercial filings</h2>
+            <div class="judgment-sections">
+              <section><h3>Facts</h3><p>Urgent listing sought while curing filing objections.</p></section>
+              <section><h3>Issue</h3><p>Whether procedural defects should defeat immediate court access.</p></section>
+              <section><h3>Held</h3><p>Defects may be cured under supervision where urgency and diligence are shown.</p></section>
+              <section><h3>Practical Impact</h3><p>Attach defect chart, registry receipt, urgency note, and limitation calculation.</p></section>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="appearance">
+          <div class="workspace-head"><div><span class="eyebrow">Execution Layer</span><h2>Trusted counsel, marketplace counsel, and court runners.</h2></div><button class="gold-button" data-jump="posttask">Post Task</button></div>
+          <div class="task-grid">
+            <article class="task-card trusted"><span>Trusted Panel Only</span><h3>Pass-over at Tis Hazari</h3><p>Court 203, item 18. Client identity shielded.</p><strong>Fee locked: Rs. 500</strong></article>
+            <article class="task-card"><span>Public Verified Advocates</span><h3>Certified copy collection</h3><p>Saket filing counter, receipt proof required.</p><strong>Fee locked: Rs. 650</strong></article>
+            <article class="task-card runner"><span>Court Runner</span><h3>Physical file to Dwarka</h3><p>Pickup Tis Hazari, deliver before 1:15 PM.</p><strong>Runner estimate: Rs. 240</strong></article>
+          </div>
+        </section>
+
+        <section class="view" id="posttask">
+          <div class="split">
+            <form class="panel form-panel">
+              <span class="eyebrow">Task Posting Flow</span>
+              <h2>Create appearance task</h2>
+              <label>Court<input value="Dwarka District Court" /></label>
+              <label>Task Type<select><option>Exemption filing</option><option>Pass-over</option><option>Certified copy</option></select></label>
+              <label>Minimum Fee<input value="Rs. 350" /></label>
+              <label>Visibility<select><option>RNA trusted panel only</option><option>Public verified advocates</option></select></label>
+              <label>Documents<select><option>Upload PDF for print</option><option>Physical document movement required</option></select></label>
+              <button class="gold-button" type="button">Lock Escrow and Publish</button>
+            </form>
+            <section class="panel">
+              <h3>Privacy Preview</h3>
+              <div class="shield-list">
+                <span>Client phone hidden</span><span>Client email hidden</span><span>Strategy notes hidden</span><span>Billing hidden</span><span>Only task instruction visible</span>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="task">
+          <div class="panel task-detail">
+            <span class="eyebrow">Temporary Appearance Room</span>
+            <h2>Exemption filing - Dwarka District Court</h2>
+            <div class="case-card">
+              <div><span>Visible to counsel</span><strong>Court, task, instruction, required proof</strong></div>
+              <div><span>Hidden</span><strong>Client details, strategy, full vault, billing</strong></div>
+              <div><span>Proof required</span><strong>Receipt, timestamp, GPS, next date</strong></div>
+              <div><span>Room expires</span><strong>Tonight 11:59 PM</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="escrow">
+          <div class="panel">
+            <span class="eyebrow">Financial Integrity</span>
+            <h2>Escrow status</h2>
+            <div class="escrow-flow">
+              <span class="done">Posted</span><span class="done">Amount Locked</span><span class="done">Accepted</span><span>GPS Check-in</span><span>Proof Uploaded</span><span>Approval</span><span>Released</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="client">
+          <div class="workspace-head"><div><span class="eyebrow">Client Portal</span><h2>Simple case tracking without internal strategy.</h2></div><button class="ghost-button">Secure Message</button></div>
+          <div class="dashboard-grid">
+            <section class="panel wide"><h3>My Case</h3><div class="client-timeline"><span class="done">Filed</span><span class="done">Notice issued</span><span>Reply awaited</span><span>Evidence</span><span>Arguments</span><span>Order</span></div></section>
+            <section class="panel"><h3>Next Hearing</h3><strong class="big-date">23 Jun</strong><p>Lawyer assigned: R. Nagpal</p></section>
+          </div>
+        </section>
+
+        <section class="view" id="intern">
+          <div class="workspace-head"><div><span class="eyebrow">Intern Board - Karma XP</span><h2>Make internship work feel like progress, not admin punishment.</h2></div><button class="gold-button">Upload College ID</button></div>
+          <div class="xp-hero panel">
+            <div>
+              <span class="eyebrow">Level 07 - Court Apprentice</span>
+              <h3>4,820 XP</h3>
+              <p>Drafting, research, court observation, filing support, and punctuality convert into XP. High-performing interns unlock vouchers, certificates, recommendation letters, and PPO review.</p>
+            </div>
+            <div class="xp-ring"><strong>78%</strong><span>to PPO shortlist</span></div>
+          </div>
+          <div class="feed-grid">
+            <article class="judgment-card"><span>+420 XP</span><h3>Draft exemption application</h3><p>Template provided. Associate review required. No private client contact.</p></article>
+            <article class="judgment-card"><span>+300 XP</span><h3>Court 18 observation quest</h3><p>Note bench, item flow, pass-over practice, and order dictation style.</p></article>
+            <article class="judgment-card"><span>+650 XP</span><h3>Research sprint: NDPS bail</h3><p>Find 5 current judgments, ratio, useful paragraphs, and practical argument points.</p></article>
+          </div>
+        </section>
+
+        <section class="view" id="admin">
+          <div class="workspace-head"><div><span class="eyebrow">RNA Trust Command</span><h2>RNA keeps Phase 1 transparent, private, and payment-safe.</h2></div><button class="ghost-button">Export Audit</button></div>
+          <div class="metric-grid">
+            <article><span>Lane Verifications</span><strong>42</strong><small>RNA / Non-RNA / proxy / intern</small></article>
+            <article><span>Token Holds</span><strong>19</strong><small>Rs. 5-10 task confirmations</small></article>
+            <article><span>NDA Records</span><strong>118</strong><small>Proxy counsel contract layer</small></article>
+            <article><span>Privacy Events</span><strong>4,912</strong><small>24h file and call audit</small></article>
+          </div>
+          <section class="panel trust-map">
+            <h3>RNA Oversight Map</h3>
+            <div class="brief-grid">
+              <article><span>Data Privacy</span><strong>Client Shield enforced</strong><p>No phone, email, address, strategy, or full vault shown to proxy counsel.</p></article>
+              <article><span>Payment Gateway</span><strong>Token to escrow</strong><p>Small confirmation fee reduces fake tasks; final fee locks before execution.</p></article>
+              <article><span>Contract Counsel</span><strong>NDA and fine clause</strong><p>RNA-approved counsel can earn side income without stealing clients or breaking trust.</p></article>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js?v=2"></script>
+  </body>
+</html>
