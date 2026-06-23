@@ -47,6 +47,40 @@ document.querySelectorAll(".role-card").forEach((card) => {
   });
 });
 
+const dailyGreetings = [
+  {
+    quote: '"Yato dharmastato jayah." Where duty stands, justice follows.',
+    prompt: "Tell me what happened. I will help you choose the safest first step."
+  },
+  {
+    quote: '"Justice is the constant will to render every person their due."',
+    prompt: "Need a lawyer, a draft, a case update, or just plain-language legal clarity?"
+  },
+  {
+    quote: "Duty first. Panic later. One calm step can protect the whole matter.",
+    prompt: "I can route you to People Shield, Advocate Command, eCourts tools, or legal updates."
+  }
+];
+
+const greeting = document.querySelector("#daily-greeting");
+const quote = document.querySelector("#daily-quote");
+const aiResponse = document.querySelector("#ai-response");
+
+if (greeting && quote && aiResponse) {
+  const hour = new Date().getHours();
+  const greetingText = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const today = dailyGreetings[new Date().getDate() % dailyGreetings.length];
+  greeting.textContent = `${greetingText}. What do you need today?`;
+  quote.textContent = today.quote;
+  aiResponse.textContent = today.prompt;
+}
+
+document.querySelectorAll("[data-ai-reply]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (aiResponse) aiResponse.textContent = button.dataset.aiReply;
+  });
+});
+
 const initialView = location.hash.replace("#", "");
 if (initialView && document.getElementById(initialView)) {
   activateView(initialView);
