@@ -1,0 +1,7 @@
+{
+  "name": "legal-connect-workspace",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -C artifacts/law-firm run build"
+  }
+}

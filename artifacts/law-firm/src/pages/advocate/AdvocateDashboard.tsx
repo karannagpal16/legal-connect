@@ -59,9 +59,9 @@ export function AdvocateDashboard() {
   const activeCases = cases.filter(c => c.status === "Active").length;
   const pendingBookings = bookings.filter(b => b.status === "Pending").length;
   const todayHearings = cases.filter(c => {
-    if (!c.nextHearingDate) return false;
+    if (!c.nextDate) return false;
     const today = new Date().toISOString().split("T")[0];
-    return c.nextHearingDate.startsWith(today);
+    return c.nextDate.startsWith(today);
   }).length;
 
   return (
