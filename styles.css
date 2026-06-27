@@ -197,6 +197,38 @@ main {
   backdrop-filter: blur(18px);
 }
 
+.demo-status {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: -8px 0 18px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: #f3ead7;
+  background:
+    linear-gradient(90deg, rgba(212, 175, 55, 0.14), rgba(34, 211, 238, 0.08)),
+    rgba(5, 8, 20, 0.74);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+.demo-status.pulse {
+  animation: statusPulse 450ms ease;
+}
+
+@keyframes statusPulse {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+    border-color: rgba(255, 223, 138, 0.68);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
 h1,
 h2,
 h3,

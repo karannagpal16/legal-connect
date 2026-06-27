@@ -52,6 +52,7 @@
             <button class="gold-button" data-jump="posttask">New Court Mission</button>
           </div>
         </header>
+        <div class="demo-status" id="demo-status">System ready. Choose a portal, post a mission, or book counsel.</div>
 
         <section class="view active" id="home">
           <div class="cover-stage os-home command-interface cover-poster">
@@ -314,7 +315,7 @@
         <section class="view" id="chambers">
           <div class="workspace-head">
             <div><span class="eyebrow">RNA Private Chamber</span><h2>One team board for partners, associates, clerks, and interns.</h2></div>
-            <button class="ghost-button">Invite Team Member</button>
+            <button class="ghost-button" data-demo-action="Team invite opened. Add partner, associate, clerk, or intern with matter-level access.">Invite Team Member</button>
           </div>
           <div class="dashboard-grid">
             <section class="panel wide">
@@ -360,7 +361,7 @@
                 <div><span>Next Date</span><strong>23 Jun 2026</strong></div>
               </div>
               <div class="vault-grid">
-                <button>Pleadings</button><button>Orders</button><button>Evidence</button><button>Drafts</button><button>Billing</button><button>Audit Log</button>
+                <button data-demo-action="Pleadings vault opened. Plaint, written statement, applications and replies are listed.">Pleadings</button><button data-demo-action="Orders vault opened. Latest order, certified copy status and next action are visible.">Orders</button><button data-demo-action="Evidence vault opened. Exhibits, witness notes and document index are visible.">Evidence</button><button data-demo-action="Drafts opened. AI draft is marked for lawyer review before sharing.">Drafts</button><button data-demo-action="Billing opened. Client bills stay hidden from mission counsel.">Billing</button><button data-demo-action="Audit log opened. Every file view, download and mission access is tracked.">Audit Log</button>
               </div>
             </section>
             <section class="panel">
@@ -372,11 +373,11 @@
         </section>
 
         <section class="view" id="diary">
-          <div class="workspace-head"><div><span class="eyebrow">Paperless Practice</span><h2>Case Diary and reminders.</h2></div><button class="gold-button">Add Hearing Note</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">Paperless Practice</span><h2>Case Diary and reminders.</h2></div><button class="gold-button" data-demo-action="Hearing note created. Voice note, next date, order summary and client update draft are ready.">Add Hearing Note</button></div>
           <div class="diary-layout">
             <section class="panel">
               <h3>22 Jun</h3>
-              <div class="calendar-stack"><button class="active">Court-wise</button><button>Matter-wise</button><button>Voice Notes</button><button>PDF Uploads</button></div>
+              <div class="calendar-stack"><button class="active" data-demo-action="Diary switched to court-wise view.">Court-wise</button><button data-demo-action="Diary switched to matter-wise view.">Matter-wise</button><button data-demo-action="Voice notes opened. Two notes are waiting for transcription.">Voice Notes</button><button data-demo-action="PDF upload tray opened. Drag order or pleading PDF here.">PDF Uploads</button></div>
             </section>
             <section class="panel wide">
               <div class="timeline">
@@ -389,7 +390,7 @@
         </section>
 
         <section class="view" id="bar">
-          <div class="workspace-head"><div><span class="eyebrow">Lawyers for Lawyers</span><h2>Bar Desk legal intelligence.</h2></div><button class="ghost-button">Save Brief</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">Lawyers for Lawyers</span><h2>Bar Desk legal intelligence.</h2></div><button class="ghost-button" data-demo-action="Brief saved to Bar Desk library.">Save Brief</button></div>
           <section class="panel public-feed">
             <div class="feed-post">
               <span>Live Court Utility</span>
@@ -403,9 +404,9 @@
             </div>
           </section>
           <div class="feed-grid">
-            <article class="judgment-card"><span>Supreme Court</span><h3>Bail discretion cannot become punitive detention</h3><p>Held, ratio, practical impact, and drafting points compressed for a 2 minute read.</p><button>Read summary</button></article>
-            <article class="judgment-card"><span>Delhi High Court</span><h3>Commercial suit filing defects cured before scrutiny</h3><p>Registry objections mapped with filing checklist and limitation risk notes.</p><button>Save to library</button></article>
-            <article class="judgment-card"><span>Legislative Update</span><h3>BNSS notification watch</h3><p>AI comparison of old CrPC workflow and active BNSS practice impact.</p><button>Compare law</button></article>
+            <article class="judgment-card"><span>Supreme Court</span><h3>Bail discretion cannot become punitive detention</h3><p>Held, ratio, practical impact, and drafting points compressed for a 2 minute read.</p><button data-demo-action="Judgment summary opened with facts, issue, held and drafting use.">Read summary</button></article>
+            <article class="judgment-card"><span>Delhi High Court</span><h3>Commercial suit filing defects cured before scrutiny</h3><p>Registry objections mapped with filing checklist and limitation risk notes.</p><button data-demo-action="Judgment saved to library and linked to commercial filing checklist.">Save to library</button></article>
+            <article class="judgment-card"><span>Legislative Update</span><h3>BNSS notification watch</h3><p>AI comparison of old CrPC workflow and active BNSS practice impact.</p><button data-demo-action="Old vs new law comparison opened for BNSS practice impact.">Compare law</button></article>
           </div>
           <section class="panel">
             <h3>Court Intelligence</h3>
@@ -452,8 +453,9 @@
           <section class="panel mission-flow">
             <div class="section-head"><h3>Saket inspection mission timeline</h3><span class="status-dot">Ongoing</span></div>
             <div class="escrow-flow">
-              <span class="done">A posted task</span><span class="done">A paid Rs. 1,000</span><span class="done">B accepted</span><span class="active">Inspection ongoing</span><span>Proof upload</span><span>A approval</span><span>Release to B</span>
+              <span class="done">A posted task</span><span class="done">A paid Rs. 1,000</span><span class="done">B accepted</span><span class="active">Inspection ongoing</span><span id="mission-proof-step">Proof upload</span><span id="mission-approval-step">A approval</span><span id="mission-release-step">Release to B</span>
             </div>
+            <p id="mission-board-status">Mission board status: Saket inspection is ongoing. Payment stays locked until proof is uploaded and approved.</p>
           </section>
           <section class="panel mission-flow">
             <div class="section-head"><h3>Who sees what</h3><span class="status-dot">RNA controlled</span></div>
@@ -501,6 +503,8 @@
               <button class="gold-button" data-task-action="Accepted by RNA counsel B">Accept Mission</button>
               <button class="ghost-button" data-task-action="Proof uploaded: inspection slip, photo and next date note">Upload Proof</button>
               <button class="ghost-button" data-task-action="Mission marked ongoing. Payment remains locked.">Mark Ongoing</button>
+              <button class="ghost-button" data-task-action="Advocate A approved proof. Escrow is ready for release.">Approve Proof</button>
+              <button class="gold-button" data-task-action="Payment released to Advocate B. Receipt saved for RNA audit.">Release Payment</button>
             </div>
             <p id="task-action-status">Current status: inspection ongoing, escrow locked.</p>
           </div>
@@ -511,8 +515,9 @@
             <span class="eyebrow">Financial Integrity</span>
             <h2>Escrow status</h2>
             <div class="escrow-flow">
-              <span class="done">Posted</span><span class="done">Amount Locked</span><span class="done">Accepted</span><span>GPS Check-in</span><span>Proof Uploaded</span><span>Approval</span><span>Released</span>
+              <span class="done">Posted</span><span class="done">Amount Locked</span><span class="done">Accepted</span><span class="active">GPS Check-in</span><span id="escrow-proof-step">Proof Uploaded</span><span id="escrow-approval-step">Approval</span><span id="escrow-release-step">Released</span>
             </div>
+            <p id="escrow-status">Escrow status: Rs. 1,000 locked. Release requires proof and poster approval.</p>
           </div>
         </section>
 
@@ -636,7 +641,7 @@
         </section>
 
         <section class="view" id="intern">
-          <div class="workspace-head"><div><span class="eyebrow">Intern Board - Karma XP</span><h2>Make internship work feel like progress, not admin punishment.</h2></div><button class="gold-button">Upload College ID</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">Intern Board - Karma XP</span><h2>Make internship work feel like progress, not admin punishment.</h2></div><button class="gold-button" data-demo-action="College ID uploaded. Intern profile verified for RNA XP missions.">Upload College ID</button></div>
           <div class="xp-hero panel">
             <div>
               <span class="eyebrow">Level 07 - Court Apprentice</span>
@@ -654,7 +659,7 @@
         </section>
 
         <section class="view" id="admin">
-          <div class="workspace-head"><div><span class="eyebrow">RNA Trust Command</span><h2>RNA keeps Phase 1 transparent, private, and payment-safe.</h2></div><button class="ghost-button">Export Audit</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">RNA Trust Command</span><h2>RNA keeps Phase 1 transparent, private, and payment-safe.</h2></div><button class="ghost-button" data-demo-action="Audit export prepared: lane checks, escrow events, proof approvals and privacy logs.">Export Audit</button></div>
           <div class="metric-grid">
             <article><span>Lane Verifications</span><strong>42</strong><small>RNA / Non-RNA / proxy / intern</small></article>
             <article><span>Token Holds</span><strong>19</strong><small>Rs. 5-10 task confirmations</small></article>

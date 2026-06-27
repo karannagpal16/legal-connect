@@ -20,6 +20,14 @@ const titles = {
 const navItems = [...document.querySelectorAll(".nav-item")];
 const views = [...document.querySelectorAll(".view")];
 const title = document.querySelector("#view-title");
+const demoStatus = document.querySelector("#demo-status");
+
+function setDemoStatus(message) {
+  if (!demoStatus || !message) return;
+  demoStatus.textContent = message;
+  demoStatus.classList.add("pulse");
+  window.setTimeout(() => demoStatus.classList.remove("pulse"), 450);
+}
 
 function activateView(id) {
   const target = document.getElementById(id);
@@ -28,6 +36,7 @@ function activateView(id) {
   views.forEach((view) => view.classList.toggle("active", view.id === id));
   navItems.forEach((item) => item.classList.toggle("active", item.dataset.view === id));
   title.textContent = titles[id] || "Legal Connect";
+  setDemoStatus(`${titles[id] || "Legal Connect"} opened.`);
   history.replaceState(null, "", `#${id}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -47,6 +56,7 @@ document.querySelectorAll(".role-card").forEach((card) => {
   card.addEventListener("click", () => {
     document.querySelectorAll(".role-card").forEach((item) => item.classList.remove("selected"));
     card.classList.add("selected");
+    setDemoStatus(`${card.querySelector("strong")?.textContent || "Role"} selected. Login routing preview updated.`);
   });
 });
 
@@ -81,7 +91,12 @@ if (greeting && quote && aiResponse) {
 document.querySelectorAll("[data-ai-reply]").forEach((button) => {
   button.addEventListener("click", () => {
     if (aiResponse) aiResponse.textContent = button.dataset.aiReply;
+    setDemoStatus("AI Desk response updated.");
   });
+});
+
+document.querySelectorAll("[data-demo-action]").forEach((button) => {
+  button.addEventListener("click", () => setDemoStatus(button.dataset.demoAction));
 });
 
 const missionSaveStatus = document.querySelector("#mission-save-status");
@@ -96,14 +111,42 @@ document.querySelectorAll("[data-save-mission]").forEach((button) => {
     const mission = "Saket Court inspection - Rs. 1,000 locked - status: in progress";
     localStorage.setItem("legalConnectMission", mission);
     if (missionSaveStatus) missionSaveStatus.textContent = `Saved: ${mission}`;
+    setDemoStatus("Mission posted. Rs. 1,000 locked in escrow. It now appears on Court Mission Board.");
     activateView("appearance");
   });
 });
 
 const taskActionStatus = document.querySelector("#task-action-status");
+const missionBoardStatus = document.querySelector("#mission-board-status");
+const escrowStatus = document.querySelector("#escrow-status");
+const missionProofStep = document.querySelector("#mission-proof-step");
+const missionApprovalStep = document.querySelector("#mission-approval-step");
+const missionReleaseStep = document.querySelector("#mission-release-step");
+const escrowProofStep = document.querySelector("#escrow-proof-step");
+const escrowApprovalStep = document.querySelector("#escrow-approval-step");
+const escrowReleaseStep = document.querySelector("#escrow-release-step");
+
 document.querySelectorAll("[data-task-action]").forEach((button) => {
   button.addEventListener("click", () => {
-    if (taskActionStatus) taskActionStatus.textContent = `Current status: ${button.dataset.taskAction}`;
+    const message = button.dataset.taskAction;
+    if (taskActionStatus) taskActionStatus.textContent = `Current status: ${message}`;
+    if (missionBoardStatus) missionBoardStatus.textContent = `Mission board status: ${message}`;
+    if (escrowStatus) escrowStatus.textContent = `Escrow status: ${message}`;
+
+    if (message.includes("Proof uploaded")) {
+      missionProofStep?.classList.add("done");
+      escrowProofStep?.classList.add("done");
+    }
+    if (message.includes("approved")) {
+      missionApprovalStep?.classList.add("done");
+      escrowApprovalStep?.classList.add("done");
+    }
+    if (message.includes("released")) {
+      missionReleaseStep?.classList.add("done");
+      escrowReleaseStep?.classList.add("done");
+    }
+
+    setDemoStatus(message);
   });
 });
 
@@ -111,6 +154,7 @@ const clientActionStatus = document.querySelector("#client-action-status");
 document.querySelectorAll("[data-client-action]").forEach((button) => {
   button.addEventListener("click", () => {
     if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction;
+    setDemoStatus(button.dataset.clientAction);
   });
 });
 
@@ -118,6 +162,7 @@ const clientAiAnswer = document.querySelector("#client-ai-answer");
 document.querySelectorAll("[data-client-ai]").forEach((button) => {
   button.addEventListener("click", () => {
     if (clientAiAnswer) clientAiAnswer.innerHTML = `<strong>AI Desk:</strong> ${button.dataset.clientAi}`;
+    setDemoStatus("AI Legal Triage updated. Lawyer review still required.");
   });
 });
 
@@ -131,6 +176,7 @@ let activeBooking = null;
 document.querySelectorAll("[data-open-booking]").forEach((button) => {
   button.addEventListener("click", () => {
     if (clientActionStatus) clientActionStatus.textContent = "Booking desk opened. Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
+    setDemoStatus("Booking desk opened. Select a consult mode and confirm payment.");
     bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 });
@@ -145,6 +191,7 @@ document.querySelectorAll("[data-book-option]").forEach((button) => {
     if (bookingStatus) bookingStatus.textContent = `${activeBooking.plan} selected. Review amount and confirm payment.`;
     if (selectedPlan) selectedPlan.textContent = activeBooking.plan;
     if (selectedPrice) selectedPrice.textContent = `Rs. ${activeBooking.price}`;
+    setDemoStatus(`${activeBooking.plan} selected for Rs. ${activeBooking.price}.`);
   });
 });
 
@@ -152,6 +199,7 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
   button.addEventListener("click", () => {
     if (!activeBooking) {
       if (bookingStatus) bookingStatus.textContent = "Please select Attorney Shield, Video, Audio, Chat, or Doorstep first.";
+      setDemoStatus("Select a booking mode before payment.");
       return;
     }
 
@@ -169,6 +217,7 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       bookingConfirmation.innerHTML = `<span>Booking Confirmed</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p>`;
     }
     if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} confirmed. Receipt ${receipt.id} saved in this browser.`;
+    setDemoStatus(`${receipt.plan} paid. Receipt ${receipt.id} saved.`);
   });
 });
 
