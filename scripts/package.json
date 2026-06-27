@@ -1,14 +1,17 @@
 {
   "name": "@workspace/scripts",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "build": "echo scripts build skipped",
+    "typecheck": "echo scripts typecheck skipped"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "tsx": "catalog:"
+    "typescript": "^5.5.4",
+    "@types/node": "^20.0.0",
+    "@types/express": "^4.17.21"
   }
 }

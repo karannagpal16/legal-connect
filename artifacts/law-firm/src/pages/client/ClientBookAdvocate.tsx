@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Phone, Video, Mic, MicOff, VideoOff, PhoneOff,
   MapPin, Star, Gavel, Wifi, WifiOff,
-  Search, Shield, Send, MessageSquare, IndianRupee, Clock, X, ChevronDown
+  Search, Shield, Send, MessageSquare, IndianRupee, Clock, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -114,28 +114,41 @@ export function ClientBookAdvocate() {
     a.speciality.toLowerCase().includes(search.toLowerCase())
   );
 
-  useEffect(() => {
-    if (stage === "matching") {
-      const steps = [
-        { delay: 800, step: 1 },
-        { delay: 1800, step: 2 },
-        { delay: 2800, step: 3 },
-        { delay: 3600, step: 4 },
-      ];
-      const timers = steps.map(({ delay, step }) =>
-        setTimeout(() => setMatchStep(step), delay)
-      );
-      const connected = setTimeout(() => setStage("connected"), 4400);
-      return () => { timers.forEach(clearTimeout); clearTimeout(connected); };
-    }
-  }, [stage]);
+ useEffect(() => {
+  if (stage === "matching") {
+    const steps = [
+      { delay: 800, step: 1 },
+      { delay: 1800, step: 2 },
+      { delay: 2800, step: 3 },
+      { delay: 3600, step: 4 },
+    ];
+
+    const timers = steps.map(({ delay, step }) =>
+      setTimeout(() => setMatchStep(step), delay)
+    );
+
+    const connected = setTimeout(() => setStage("connected"), 4400);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(connected);
+    };
+  }
+
+  return undefined;
+}, [stage]);
 
   useEffect(() => {
-    if (stage === "call") {
-      const timer = setInterval(() => setCallDuration(d => d + 1), 1000);
-      return () => clearInterval(timer);
-    }
-  }, [stage]);
+  if (stage === "call") {
+    const timer = setInterval(() => setCallDuration(d => d + 1), 1000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }
+
+  return undefined;
+}, [stage]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });

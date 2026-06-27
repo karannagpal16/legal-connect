@@ -1,23 +1,7 @@
 {
-  "name": "workspace",
-  "version": "0.0.0",
-  "license": "MIT",
-  "scripts": {
-    "preinstall": "node -e \"const fs = require('fs'); if (process.env.npm_config_user_agent && !process.env.npm_config_user_agent.includes('pnpm')) { console.error('Use pnpm instead'); process.exit(1); } ['package-lock.json', 'yarn.lock'].forEach(f => { try { fs.unlinkSync(f); } catch(e) {} });\"",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
-  },
+  "name": "legal-connect-workspace",
   "private": true,
-  "devDependencies": {
-    "prettier": "^3.8.1",
-    "typescript": "~5.9.2"
-  },
-  "dependencies": {
-    "@esbuild/win32-x64": "^0.27.3",
-    "@rollup/rollup-win32-x64-msvc": "^4.62.0",
-    "expo": "~54.0.35",
-    "ip": "^2.0.1",
-    "qrcode": "^1.5.4"
+  "scripts": {
+    "build": "pnpm -C artifacts/law-firm run build"
   }
 }
