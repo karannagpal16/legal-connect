@@ -8,8 +8,8 @@ const titles = {
   bar: "Bar Desk",
   bareact: "Bare Act Universe",
   judgment: "Judgment Detail",
-  appearance: "Appearance Network",
-  posttask: "Post Appearance Task",
+  appearance: "Court Mission Board",
+  posttask: "Post Court Mission",
   task: "Task Detail",
   escrow: "Escrow Status",
   client: "Client Portal",
@@ -32,12 +32,15 @@ function activateView(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-navItems.forEach((item) => {
-  item.addEventListener("click", () => activateView(item.dataset.view));
-});
+document.addEventListener("click", (event) => {
+  const navTarget = event.target.closest("[data-view], [data-jump]");
+  if (!navTarget) return;
 
-document.querySelectorAll("[data-jump]").forEach((button) => {
-  button.addEventListener("click", () => activateView(button.dataset.jump));
+  const viewId = navTarget.dataset.view || navTarget.dataset.jump;
+  if (!viewId) return;
+
+  event.preventDefault();
+  activateView(viewId);
 });
 
 document.querySelectorAll(".role-card").forEach((card) => {
@@ -78,6 +81,59 @@ if (greeting && quote && aiResponse) {
 document.querySelectorAll("[data-ai-reply]").forEach((button) => {
   button.addEventListener("click", () => {
     if (aiResponse) aiResponse.textContent = button.dataset.aiReply;
+  });
+});
+
+const missionSaveStatus = document.querySelector("#mission-save-status");
+const savedMission = localStorage.getItem("legalConnectMission");
+
+if (missionSaveStatus && savedMission) {
+  missionSaveStatus.textContent = `Saved: ${savedMission}`;
+}
+
+document.querySelectorAll("[data-save-mission]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const mission = "Saket Court inspection - Rs. 1,000 locked - status: in progress";
+    localStorage.setItem("legalConnectMission", mission);
+    if (missionSaveStatus) missionSaveStatus.textContent = `Saved: ${mission}`;
+    activateView("appearance");
+  });
+});
+
+const taskActionStatus = document.querySelector("#task-action-status");
+document.querySelectorAll("[data-task-action]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (taskActionStatus) taskActionStatus.textContent = `Current status: ${button.dataset.taskAction}`;
+  });
+});
+
+const clientActionStatus = document.querySelector("#client-action-status");
+document.querySelectorAll("[data-client-action]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction;
+  });
+});
+
+const clientAiAnswer = document.querySelector("#client-ai-answer");
+document.querySelectorAll("[data-client-ai]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (clientAiAnswer) clientAiAnswer.innerHTML = `<strong>AI Desk:</strong> ${button.dataset.clientAi}`;
+  });
+});
+
+const bookingDock = document.querySelector("#booking-dock");
+const bookingStatus = document.querySelector("#booking-status");
+
+document.querySelectorAll("[data-open-booking]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (clientActionStatus) clientActionStatus.textContent = "Booking desk opened. Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
+    bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+});
+
+document.querySelectorAll("[data-book-option]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (bookingStatus) bookingStatus.textContent = button.dataset.bookOption;
   });
 });
 

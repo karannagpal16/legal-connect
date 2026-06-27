@@ -1885,6 +1885,15 @@ p {
   padding: clamp(22px, 4vw, 36px);
   overflow: hidden;
   position: relative;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.poster-gates article:hover,
+.poster-gates article:focus-within {
+  border-color: rgba(255, 223, 138, 0.92);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.34), 0 0 28px rgba(212, 175, 55, 0.16);
+  transform: translateY(-3px);
 }
 
 .portal-scene {
@@ -1899,6 +1908,7 @@ p {
     linear-gradient(135deg, rgba(10, 48, 41, 0.94), rgba(3, 8, 8, 0.96)),
     repeating-linear-gradient(115deg, rgba(255, 244, 204, 0.08) 0 1px, transparent 1px 12px);
   box-shadow: inset 0 0 36px rgba(212, 175, 55, 0.12);
+  animation: sceneGlow 7s ease-in-out infinite;
 }
 
 .portal-scene::before,
@@ -1930,6 +1940,7 @@ p {
   inset: auto 44px 28px;
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--gold-2), transparent);
+  animation: scanLine 4.5s ease-in-out infinite;
 }
 
 .people-scene {
@@ -1945,6 +1956,38 @@ p {
     radial-gradient(circle at 52% 20%, rgba(212, 175, 55, 0.42), transparent 18%),
     linear-gradient(135deg, rgba(3, 8, 8, 0.96), rgba(10, 48, 41, 0.94)),
     repeating-conic-gradient(from 0deg, rgba(212, 175, 55, 0.08) 0 8deg, transparent 8deg 24deg);
+}
+
+.people-scene::before {
+  animation: spin 34s linear infinite;
+}
+
+.lawyer-scene::before {
+  animation: spin 26s linear infinite reverse;
+}
+
+@keyframes sceneGlow {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: inset 0 0 36px rgba(212, 175, 55, 0.12), 0 0 0 rgba(212, 175, 55, 0);
+  }
+  50% {
+    transform: translateY(-4px);
+    box-shadow: inset 0 0 44px rgba(212, 175, 55, 0.18), 0 14px 34px rgba(212, 175, 55, 0.13);
+  }
+}
+
+@keyframes scanLine {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-42px);
+  }
 }
 
 .poster-icon {
@@ -2677,6 +2720,23 @@ select,
   max-width: 1080px;
 }
 
+.mission-flow {
+  grid-column: 1 / -1;
+}
+
+.escrow-flow .active {
+  border-color: rgba(255, 223, 138, 0.78);
+  color: var(--gold-2);
+  box-shadow: 0 0 18px rgba(212, 175, 55, 0.16);
+}
+
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 .escrow-flow,
 .client-timeline {
   display: grid;
@@ -2711,6 +2771,254 @@ select,
   color: var(--gold-2);
   font-family: var(--serif);
   font-size: 3.2rem;
+}
+
+.client-head p {
+  max-width: 720px;
+  margin: 8px 0 0;
+}
+
+.client-hero-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 18px;
+  align-items: center;
+  border-color: rgba(195, 107, 94, 0.42);
+  background:
+    radial-gradient(circle at 12% 12%, rgba(195, 107, 94, 0.18), transparent 18rem),
+    linear-gradient(135deg, rgba(22, 27, 38, 0.94), rgba(5, 18, 16, 0.78));
+}
+
+.client-hero-panel h3,
+.client-ai-card h3 {
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: clamp(1.7rem, 3vw, 2.7rem);
+}
+
+.sos-grid,
+.ai-prompt-row,
+.case-health,
+.client-dashboard,
+.client-modules {
+  display: grid;
+  gap: 12px;
+}
+
+.sos-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sos-grid button,
+.ai-prompt-row button {
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 13px;
+  color: #f3ead7;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 240, 0.08), rgba(255, 250, 240, 0.035)),
+    rgba(5, 8, 20, 0.25);
+  font-weight: 800;
+}
+
+.client-dashboard {
+  grid-template-columns: 1.35fr 0.8fr;
+  margin-top: 16px;
+}
+
+.client-counsel-board {
+  margin-top: 16px;
+  border-color: rgba(212, 175, 55, 0.34);
+  background:
+    radial-gradient(circle at 18% 10%, rgba(212, 175, 55, 0.12), transparent 14rem),
+    linear-gradient(180deg, rgba(22, 27, 38, 0.9), rgba(5, 8, 20, 0.76));
+}
+
+.counsel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.counsel-grid article {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: var(--radius);
+  padding: 16px;
+  background:
+    linear-gradient(135deg, rgba(212, 175, 55, 0.08), transparent 44%),
+    rgba(255, 250, 240, 0.04);
+}
+
+.counsel-grid span {
+  color: var(--gold-2);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.counsel-grid strong {
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: 1.25rem;
+}
+
+.counsel-grid p,
+#client-action-status,
+.client-ai-card small {
+  color: var(--muted);
+}
+
+.counsel-grid button {
+  justify-self: start;
+  border: 1px solid rgba(212, 175, 55, 0.6);
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: var(--gold-2);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.case-tracker-card {
+  border-color: rgba(127, 177, 140, 0.35);
+}
+
+.client-timeline .active {
+  border-color: rgba(212, 175, 55, 0.62);
+  color: var(--gold-2);
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.case-health {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.case-health div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: rgba(255, 250, 240, 0.04);
+}
+
+.case-health span,
+.client-modules article span {
+  color: var(--gold-2);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.case-health strong,
+.client-modules article strong {
+  display: block;
+  margin: 6px 0;
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: 1.35rem;
+}
+
+.case-health small {
+  color: var(--muted);
+}
+
+.client-ai-card {
+  border-color: rgba(34, 211, 238, 0.26);
+  background:
+    radial-gradient(circle at 80% 12%, rgba(34, 211, 238, 0.12), transparent 14rem),
+    linear-gradient(180deg, rgba(22, 27, 38, 0.92), rgba(5, 8, 20, 0.72));
+}
+
+.chat-box {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chat-box p {
+  margin: 0;
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: 14px;
+  padding: 12px;
+  color: #f3ead7;
+  background: rgba(255, 250, 240, 0.04);
+}
+
+.ai-prompt-row {
+  grid-template-columns: 1fr;
+  margin-top: 14px;
+}
+
+.client-modules {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.client-modules article {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.client-modules article button {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+.booking-card {
+  border-color: rgba(255, 223, 138, 0.52);
+  box-shadow: 0 0 28px rgba(212, 175, 55, 0.12);
+}
+
+.book-now-button {
+  font-size: 0.95rem;
+  padding: 13px 18px;
+  box-shadow: 0 12px 28px rgba(212, 175, 55, 0.18);
+}
+
+.booking-dock {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 18px;
+  align-items: center;
+  margin-top: 16px;
+  border-color: rgba(255, 223, 138, 0.42);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(212, 175, 55, 0.16), transparent 16rem),
+    linear-gradient(180deg, rgba(22, 27, 38, 0.94), rgba(5, 8, 20, 0.78));
+}
+
+.booking-dock h3 {
+  margin-top: 6px;
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+}
+
+.booking-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.booking-options button {
+  min-height: 86px;
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  border-radius: 16px;
+  color: var(--gold-2);
+  background:
+    linear-gradient(180deg, rgba(212, 175, 55, 0.1), rgba(255, 250, 240, 0.035)),
+    rgba(5, 8, 20, 0.36);
+  font-weight: 900;
+}
+
+.booking-options small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-weight: 700;
 }
 
 @media (max-width: 1100px) {
@@ -2790,6 +3098,18 @@ select,
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+  .client-hero-panel,
+  .client-dashboard,
+  .counsel-grid,
+  .client-modules {
+    grid-template-columns: 1fr;
+  }
+
+  .sos-grid,
+  .case-health {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .ai-actions,
   .ai-response {
     grid-column: 1 / -1;
@@ -2842,6 +3162,12 @@ select,
   .diary-layout,
   .escrow-flow,
   .client-timeline,
+  .client-hero-panel,
+  .client-dashboard,
+  .counsel-grid,
+  .sos-grid,
+  .case-health,
+  .client-modules,
   .judgment-sections {
     grid-template-columns: 1fr;
   }

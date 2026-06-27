@@ -27,8 +27,8 @@
           <button class="nav-item" data-view="bar">Bar Desk</button>
           <button class="nav-item" data-view="bareact">Bare Acts</button>
           <button class="nav-item" data-view="judgment">Judgment</button>
-          <button class="nav-item" data-view="appearance">Appearance Network</button>
-          <button class="nav-item" data-view="posttask">Post Task</button>
+          <button class="nav-item" data-view="appearance">Court Mission Board</button>
+          <button class="nav-item" data-view="posttask">Post Mission</button>
           <button class="nav-item" data-view="task">Task Detail</button>
           <button class="nav-item" data-view="escrow">Escrow</button>
           <button class="nav-item" data-view="client">Client Portal</button>
@@ -38,7 +38,7 @@
 
         <section class="rail-card">
           <span class="eyebrow">Access Doctrine</span>
-          <p>Client Shield, Matter Shield, masked calls, expiring task rooms, and audit logs are treated as product primitives.</p>
+          <p>Client Shield, Matter Shield, Legal SOS, expiring task rooms, and audit logs are treated as product primitives.</p>
         </section>
       </aside>
 
@@ -49,8 +49,7 @@
             <h1 id="view-title">Legal Connect</h1>
           </div>
           <div class="top-actions">
-            <button class="ghost-button">Masked Call</button>
-            <button class="gold-button">New Appearance Task</button>
+            <button class="gold-button" data-jump="posttask">New Court Mission</button>
           </div>
         </header>
 
@@ -72,16 +71,22 @@
             </section>
 
             <section class="poster-gates" aria-label="Choose Legal Connect gateway">
-              <article>
-                <div class="portal-scene people-scene" aria-hidden="true"><span></span></div>
+              <article data-jump="client">
+                <div class="portal-scene people-scene" aria-hidden="true">
+                  <img src="/news/news-1.png" alt="" />
+                  <span></span>
+                </div>
                 <div class="poster-icon people-icon" aria-hidden="true"></div>
                 <h3>For People</h3>
                 <strong>Know your rights</strong>
                 <p>Simple updates, help and protection</p>
                 <button data-jump="client">Explore</button>
               </article>
-              <article>
-                <div class="portal-scene lawyer-scene" aria-hidden="true"><span></span></div>
+              <article data-jump="advocate">
+                <div class="portal-scene lawyer-scene" aria-hidden="true">
+                  <img src="/images/law-library-bg.png" alt="" />
+                  <span></span>
+                </div>
                 <div class="poster-icon lawyer-icon" aria-hidden="true"></div>
                 <h3>For Lawyers</h3>
                 <strong>Grow your practice</strong>
@@ -174,8 +179,8 @@
               <div>
                 <button class="menu-dot" aria-label="Open advocate menu">Menu</button>
                 <span class="eyebrow">Legal Connect - Advocate Portal</span>
-                <h2>Litigation work. Proxy support. Practice command.</h2>
-                <p>For verified advocates, RNA teams, interns, appearance counsel, and court-facing legal professionals.</p>
+                <h2>Litigation work. Court missions. Practice command.</h2>
+                <p>For verified advocates, RNA teams, interns, mission counsel, and court-facing legal professionals.</p>
                 <div class="trust-strip">
                   <span>Secure verified access</span>
                   <span>Smart real-time tools</span>
@@ -194,16 +199,16 @@
               <article class="command-card proxy-card">
                 <span class="card-index">01</span>
                 <em>Most Used</em>
-                <h3>Proxy Hub</h3>
-                <p>Court appearances made faster.</p>
+                <h3>Court Mission Board</h3>
+                <p>Inspection, pass-over, filing, copies and urgent court work made trackable.</p>
                 <div class="icon-grid">
                   <button data-jump="appearance">Pass-over</button>
                   <button data-jump="appearance">Adjournment</button>
-                  <button data-jump="posttask">New date</button>
+                  <button data-jump="posttask">New mission</button>
                   <button data-jump="appearance">Filing assistance</button>
                   <button data-jump="appearance">Certified copies</button>
                 </div>
-                <button class="gold-button" data-jump="appearance">Open Proxy Hub</button>
+                <button class="gold-button" data-jump="appearance">Open Mission Board</button>
               </article>
               <article class="command-card">
                 <span class="card-index">02</span>
@@ -222,9 +227,10 @@
               <article class="command-card rna-login-card">
                 <span class="card-index">03</span>
                 <h3>RNA Secure Login</h3>
-                <p>Private workspace for RNA lawyers, associates, clerks, and approved interns.</p>
-                <button class="gold-button" data-jump="chambers">RNA Lawyer Login</button>
-                <button class="ghost-button" data-jump="intern">Intern Login</button>
+                <p>Private workspace for RNA partners, associates, court clerks, accounts, and approved interns.</p>
+                <button class="gold-button" data-jump="chambers">RNA Partner / Associate Login</button>
+                <button class="ghost-button" data-jump="chambers">Clerk &amp; Filing Desk</button>
+                <button class="ghost-button" data-jump="intern">RNA Intern XP Login</button>
               </article>
             </section>
 
@@ -238,6 +244,10 @@
                 <button data-jump="bar">Court Support</button>
                 <button data-jump="posttask">Filing Help</button>
                 <button data-jump="bareact">Drafting Assistance</button>
+                <button data-jump="bareact">Bare Acts Library</button>
+                <button data-jump="bareact">BNS / BNSS / BSA Compare</button>
+                <button data-jump="judgment">Landmark Judgments</button>
+                <button data-jump="matter">Matter Coordination</button>
                 <button data-jump="bar">Legal Updates</button>
                 <button data-jump="diary">Cause List Help</button>
                 <button data-jump="diary">Case Reminder</button>
@@ -249,6 +259,10 @@
                 <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer">Court Fees &amp; Payments</a>
                 <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer">Virtual Hearing Links</a>
                 <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer">Notice / Process Tracking</a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer">CNR Number Search</a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer">District Court Services</a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer">Calendar &amp; Business</a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer">Process Fee / Summons</a>
               </div>
             </section>
 
@@ -260,9 +274,9 @@
               <div class="pulse-card-row">
                 <article class="pulse-court"><div class="pulse-art" aria-hidden="true"></div><span>Live</span><strong>Today at Delhi Courts</strong><p>Cause list changes, pass-over alerts, filing reminders.</p><button data-jump="diary">See what's new</button></article>
                 <article class="pulse-bail"><div class="pulse-art" aria-hidden="true"></div><span>Quick Explainer</span><strong>What is regular bail?</strong><p>Key provisions, when it applies, and how it works.</p><button data-jump="bar">Read more</button></article>
-                <article class="pulse-doc"><div class="pulse-art" aria-hidden="true"></div><span>Quick Explainer</span><strong>FIR vs Complaint</strong><p>Understand the difference in simple terms.</p><button data-jump="bar">Read more</button></article>
-                <article class="pulse-bns"><div class="pulse-art" aria-hidden="true"></div><span>BNS Watch</span><strong>Murder under BNS</strong><p>What changed? Key sections you must know.</p><button data-jump="bareact">Read more</button></article>
-                <article class="pulse-tip"><div class="pulse-art" aria-hidden="true"></div><span>Practice Tip</span><strong>Brief proxy counsel safely</strong><p>Maintain confidentiality. Get better results.</p><button data-jump="appearance">View tip</button></article>
+                <article class="pulse-doc"><div class="pulse-art" aria-hidden="true"></div><span>Argument Note</span><strong>Cross-examination shifted a fraud trial</strong><p>Contradiction chart, witness timeline and exhibit control made the record decisive.</p><button data-jump="judgment">Read brief</button></article>
+                <article class="pulse-bns"><div class="pulse-art" aria-hidden="true"></div><span>Landmark Watch</span><strong>Commercial injunction preserved market rights</strong><p>Urgency note plus clean documents helped secure interim protection.</p><button data-jump="judgment">Read brief</button></article>
+                <article class="pulse-tip"><div class="pulse-art" aria-hidden="true"></div><span>Practice Tip</span><strong>Brief mission counsel safely</strong><p>Share only court, task, proof and fee. Keep client and strategy protected.</p><button data-jump="appearance">View tip</button></article>
               </div>
             </section>
 
@@ -279,13 +293,18 @@
                 <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>eFiling</strong><span>File cases, applications and documents</span></a>
                 <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>Court Fees &amp; Payments</strong><span>Pay court fees online</span></a>
                 <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>Virtual Court</strong><span>Hearing links and schedules</span></a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>CNR Search</strong><span>Find matters from CNR</span></a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>District Courts</strong><span>Delhi and all district services</span></a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>Process Tracking</strong><span>Summons, notice and process status</span></a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>Filing Counter</strong><span>Filing status and objections</span></a>
+                <a href="https://services.ecourts.gov.in/ecourtindia_v6/" target="_blank" rel="noreferrer"><strong>Display Board</strong><span>Courtroom movement checks</span></a>
               </div>
             </section>
 
             <section class="advocate-shields">
               <span>Bar Council Verified</span>
               <span>Escrow Payment</span>
-              <span>Masked Communication</span>
+              <span>Legal SOS</span>
               <span>NDA Required</span>
               <span>Location Based Tasks</span>
             </section>
@@ -294,17 +313,18 @@
 
         <section class="view" id="chambers">
           <div class="workspace-head">
-            <div><span class="eyebrow">RNA Private Chamber</span><h2>Firm workspace with invitation-only access.</h2></div>
+            <div><span class="eyebrow">RNA Private Chamber</span><h2>One team board for partners, associates, clerks, and interns.</h2></div>
             <button class="ghost-button">Invite Team Member</button>
           </div>
           <div class="dashboard-grid">
             <section class="panel wide">
               <div class="section-head"><h3>Chamber Dashboard</h3><span class="lock-chip">Firm Vault Locked</span></div>
               <div class="matter-table">
-                <div class="table-row header"><span>Matter</span><span>Stage</span><span>Next Date</span><span>Access</span></div>
-                <div class="table-row"><span>RNA v. Metro Infra</span><span>Arguments</span><span>23 Jun</span><span>Partner + Associate</span></div>
-                <div class="table-row"><span>Mehta Bail Application</span><span>Reply awaited</span><span>24 Jun</span><span>Lead Counsel only</span></div>
-                <div class="table-row"><span>Estate Partition</span><span>Evidence</span><span>01 Jul</span><span>Paralegal filing access</span></div>
+                <div class="table-row header"><span>Matter</span><span>Owner</span><span>Status</span><span>Next Action</span></div>
+                <div class="table-row"><span>RNA v. Metro Infra</span><span>Rishika + Ananya</span><span>Arguments done</span><span>Upload written submissions</span></div>
+                <div class="table-row"><span>Mehta Bail Application</span><span>Rishabh</span><span>Reply awaited</span><span>Prepare rejoinder checklist</span></div>
+                <div class="table-row"><span>Estate Partition</span><span>Associate Desk</span><span>Evidence ongoing</span><span>Intern to index exhibits</span></div>
+                <div class="table-row"><span>Saket Inspection Mission</span><span>Clerk + Mission Counsel</span><span>Ongoing</span><span>Proof pending before payment release</span></div>
               </div>
             </section>
             <section class="panel">
@@ -314,6 +334,15 @@
                 <span>Partner - assigned matters</span>
                 <span>Associate - assigned tasks</span>
                 <span>Intern - research only</span>
+              </div>
+            </section>
+            <section class="panel">
+              <h3>Team Signals</h3>
+              <div class="access-list">
+                <span>3 matters need client update</span>
+                <span>2 court missions awaiting proof</span>
+                <span>1 associate has overloaded diary</span>
+                <span>4 intern notes pending review</span>
               </div>
             </section>
           </div>
@@ -414,30 +443,45 @@
         </section>
 
         <section class="view" id="appearance">
-          <div class="workspace-head"><div><span class="eyebrow">Execution Layer</span><h2>Trusted counsel, marketplace counsel, and court runners.</h2></div><button class="gold-button" data-jump="posttask">Post Task</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">Court Mission Board + Legal SOS</span><h2>Posted missions, accepted work, proof, and escrow release.</h2></div><button class="gold-button" data-jump="posttask">Post Mission</button></div>
           <div class="task-grid">
-            <article class="task-card trusted"><span>Trusted Panel Only</span><h3>Pass-over at Tis Hazari</h3><p>Court 203, item 18. Client identity shielded.</p><strong>Fee locked: Rs. 500</strong></article>
-            <article class="task-card"><span>Public Verified Advocates</span><h3>Certified copy collection</h3><p>Saket filing counter, receipt proof required.</p><strong>Fee locked: Rs. 650</strong></article>
-            <article class="task-card runner"><span>Court Runner</span><h3>Physical file to Dwarka</h3><p>Pickup Tis Hazari, deliver before 1:15 PM.</p><strong>Runner estimate: Rs. 240</strong></article>
+            <article class="task-card trusted" data-jump="task"><span>In Progress - posted by Adv. A</span><h3>Saket Court inspection</h3><p>Inspect civil file, note next date, photograph inspection slip. Client identity hidden.</p><strong>Escrow locked: Rs. 1,000</strong><small>Accepted by RNA verified counsel B</small></article>
+            <article class="task-card" data-jump="task"><span>Open Mission</span><h3>Certified copy collection</h3><p>Saket filing counter, receipt proof and order copy required before release.</p><strong>Fee locked: Rs. 650</strong><small>Status: awaiting acceptance</small></article>
+            <article class="task-card runner"><span>Legal SOS</span><h3>Urgent police station support</h3><p>Prepare first-response checklist and connect verified counsel for emergency guidance.</p><strong>Priority token: Rs. 10</strong><small>Status: route to client shield</small></article>
           </div>
+          <section class="panel mission-flow">
+            <div class="section-head"><h3>Saket inspection mission timeline</h3><span class="status-dot">Ongoing</span></div>
+            <div class="escrow-flow">
+              <span class="done">A posted task</span><span class="done">A paid Rs. 1,000</span><span class="done">B accepted</span><span class="active">Inspection ongoing</span><span>Proof upload</span><span>A approval</span><span>Release to B</span>
+            </div>
+          </section>
+          <section class="panel mission-flow">
+            <div class="section-head"><h3>Who sees what</h3><span class="status-dot">RNA controlled</span></div>
+            <div class="case-health">
+              <div><span>Advocate A</span><strong>Task poster</strong><small>Sees mission status, proof, fee locked, counsel identity after acceptance.</small></div>
+              <div><span>Advocate B</span><strong>Completing counsel</strong><small>Sees court, task, instructions, proof required, payment status. Client strategy stays hidden.</small></div>
+              <div><span>RNA Coordinator</span><strong>Escrow + trust desk</strong><small>Sees all mission details, payment, proof, dispute notes and release control.</small></div>
+            </div>
+          </section>
         </section>
 
         <section class="view" id="posttask">
           <div class="split">
             <form class="panel form-panel">
-              <span class="eyebrow">Task Posting Flow</span>
-              <h2>Create appearance task</h2>
-              <label>Court<input value="Dwarka District Court" /></label>
-              <label>Task Type<select><option>Exemption filing</option><option>Pass-over</option><option>Certified copy</option></select></label>
-              <label>Minimum Fee<input value="Rs. 350" /></label>
-              <label>Visibility<select><option>RNA trusted panel only</option><option>Public verified advocates</option></select></label>
-              <label>Documents<select><option>Upload PDF for print</option><option>Physical document movement required</option></select></label>
-              <button class="gold-button" type="button">Lock Escrow and Publish</button>
+              <span class="eyebrow">Court Mission Posting</span>
+              <h2>Post a court mission</h2>
+              <label>Court<input value="Saket District Court" /></label>
+              <label>Mission Type<select><option>Inspection</option><option>Pass-over / Mentioning</option><option>Certified copy</option><option>Filing assistance</option><option>Order download</option><option>Legal SOS support</option></select></label>
+              <label>Instruction<input value="Inspect file, note next date, upload inspection slip and short report" /></label>
+              <label>Fee to lock now<input value="Rs. 1,000" /></label>
+              <label>Proof Required<select><option>Inspection slip + photo + next date note</option><option>Receipt + timestamp</option><option>Order PDF + court status</option></select></label>
+              <button class="gold-button" type="button" data-save-mission>Pay Rs. 1,000 and Publish</button>
             </form>
             <section class="panel">
-              <h3>Privacy Preview</h3>
+              <h3>Posting Preview</h3>
+              <p id="mission-save-status">No new mission saved in this browser yet.</p>
               <div class="shield-list">
-                <span>Client phone hidden</span><span>Client email hidden</span><span>Strategy notes hidden</span><span>Billing hidden</span><span>Only task instruction visible</span>
+                <span>Task appears in Court Mission Board</span><span>Advocate A sees status: In Progress</span><span>Advocate B sees only court mission details</span><span>Client phone and strategy hidden</span><span>Money releases only after proof approval</span>
               </div>
             </section>
           </div>
@@ -445,14 +489,20 @@
 
         <section class="view" id="task">
           <div class="panel task-detail">
-            <span class="eyebrow">Temporary Appearance Room</span>
-            <h2>Exemption filing - Dwarka District Court</h2>
+            <span class="eyebrow">Court Mission Room</span>
+            <h2>Saket Court inspection - escrow Rs. 1,000</h2>
             <div class="case-card">
-              <div><span>Visible to counsel</span><strong>Court, task, instruction, required proof</strong></div>
+              <div><span>Visible to counsel B</span><strong>Court, mission, instruction, required proof</strong></div>
               <div><span>Hidden</span><strong>Client details, strategy, full vault, billing</strong></div>
-              <div><span>Proof required</span><strong>Receipt, timestamp, GPS, next date</strong></div>
+              <div><span>Proof required</span><strong>Inspection slip, timestamp, next date, short report</strong></div>
               <div><span>Room expires</span><strong>Tonight 11:59 PM</strong></div>
             </div>
+            <div class="mission-actions">
+              <button class="gold-button" data-task-action="Accepted by RNA counsel B">Accept Mission</button>
+              <button class="ghost-button" data-task-action="Proof uploaded: inspection slip, photo and next date note">Upload Proof</button>
+              <button class="ghost-button" data-task-action="Mission marked ongoing. Payment remains locked.">Mark Ongoing</button>
+            </div>
+            <p id="task-action-status">Current status: inspection ongoing, escrow locked.</p>
           </div>
         </section>
 
@@ -467,11 +517,106 @@
         </section>
 
         <section class="view" id="client">
-          <div class="workspace-head"><div><span class="eyebrow">Client Portal</span><h2>Simple case tracking without internal strategy.</h2></div><button class="ghost-button">Secure Message</button></div>
-          <div class="dashboard-grid">
-            <section class="panel wide"><h3>My Case</h3><div class="client-timeline"><span class="done">Filed</span><span class="done">Notice issued</span><span>Reply awaited</span><span>Evidence</span><span>Arguments</span><span>Order</span></div></section>
-            <section class="panel"><h3>Next Hearing</h3><strong class="big-date">23 Jun</strong><p>Lawyer assigned: R. Nagpal</p></section>
+          <div class="workspace-head client-head">
+            <div>
+              <span class="eyebrow">People Shield - Phase 1</span>
+              <h2>Legal help without panic.</h2>
+              <p>Start with free AI clarity, then connect to RNA trusted counsel by chat, audio, video, office visit, or doorstep consult.</p>
+            </div>
+            <button class="gold-button" data-client-action="Legal SOS opened. Choose a trusted RNA counsel or start with free AI triage.">Open Legal SOS</button>
           </div>
+
+          <section class="client-hero-panel panel">
+            <div>
+              <span class="eyebrow">Legal SOS</span>
+              <h3>Talk to a real lawyer when it matters.</h3>
+              <p>For urgent confusion, the app first asks AI-safe questions, then routes you to a verified RNA counsel with transparent fees.</p>
+              <p id="client-action-status">Ready: tell us what happened, or choose a counsel below.</p>
+            </div>
+            <div class="sos-grid">
+              <button data-client-action="Police station SOS selected. AI checklist prepared, RNA criminal counsel next.">Police station issue</button>
+              <button data-client-action="Court notice selected. Upload notice, AI will explain basics before lawyer review.">Court notice received</button>
+              <button data-client-action="Cyber fraud SOS selected. Save UPI screenshots, bank complaint number, and police diary details.">Cyber fraud / UPI</button>
+              <button data-client-action="Property dispute selected. Collect title papers, possession proof, notices and photographs.">Property dispute</button>
+              <button data-client-action="Domestic safety selected. Emergency checklist opened. Lawyer connection recommended.">Domestic safety</button>
+              <button data-client-action="Money recovery selected. Prepare agreement, transfer proof, chats and demand history.">Money recovery</button>
+            </div>
+          </section>
+
+          <section class="panel client-counsel-board">
+            <div class="section-head">
+              <div><span class="eyebrow">RNA Trusted Counsels</span><h3>Legal SOS consult menu.</h3></div>
+              <span class="status-dot">Verified</span>
+            </div>
+            <div class="counsel-grid">
+              <article>
+                <span>Criminal / Police SOS</span>
+                <strong>Adv. Rishika Nagpal</strong>
+                <p>Audio Rs. 200 / 2 min · Video Rs. 499 / 10 min · Attorney Shield from Rs. 1,999</p>
+                <button data-client-action="Connecting you to Adv. Rishika Nagpal. AI is preparing your police SOS summary first.">Call / Video</button>
+              </article>
+              <article>
+                <span>Property / Family</span>
+                <strong>Adv. Ananya Sharma</strong>
+                <p>Chat Rs. 99 · Office consult Rs. 799 · Doorstep consult from Rs. 1,499</p>
+                <button data-client-action="Booking Adv. Ananya Sharma. Choose office visit or doorstep consult next.">Book Counsel</button>
+              </article>
+              <article>
+                <span>Contracts / Notices</span>
+                <strong>Adv. Rishabh Mehra</strong>
+                <p>Notice review Rs. 299 · Agreement vetting Rs. 499 · Draft call Rs. 200 / 2 min</p>
+                <button data-client-action="Connecting to Adv. Rishabh Mehra. AI will summarize your document first.">Start Chat</button>
+              </article>
+            </div>
+          </section>
+
+          <div class="client-dashboard">
+            <section class="panel case-tracker-card">
+              <div class="section-head"><h3>Case Tracker</h3><span class="status-dot">On Track</span></div>
+              <div class="client-timeline"><span class="done">Filed</span><span class="done">Notice issued</span><span class="active">Reply awaited</span><span>Evidence</span><span>Arguments</span><span>Order</span></div>
+              <div class="case-health">
+                <div><span>Next Hearing</span><strong>23 Jun</strong><small>Lawyer assigned: R. Nagpal</small></div>
+                <div><span>Juris-Score</span><strong>82%</strong><small>2 documents pending</small></div>
+                <div><span>Payment</span><strong>Clear</strong><small>Receipt saved</small></div>
+              </div>
+            </section>
+
+            <section class="panel client-ai-card">
+              <span class="eyebrow">Free AI Legal Triage</span>
+              <h3>Ask small doubts without fear.</h3>
+              <div class="chat-box">
+                <p><strong>AI Desk:</strong> Tell me what happened. I will stay within Indian bare-act style basics and suggest documents to collect.</p>
+                <p id="client-ai-answer"><strong>You:</strong> I received a legal notice. What should I do?</p>
+              </div>
+              <div class="ai-prompt-row">
+                <button data-client-ai="Do not panic. Read the sender, date, deadline and allegation. Collect the notice, envelope, related agreement, payment proof and chats. This is general information, not legal advice. Connect with a lawyer before replying.">Explain notice</button>
+                <button data-client-ai="Checklist: ID proof, agreement, payment records, screenshots, previous notices, timeline of events, witness details, and any court/police papers.">Make checklist</button>
+                <button data-client-ai="AI summary prepared. We are connecting you to an RNA lawyer with only the facts needed for first review.">Connect lawyer</button>
+              </div>
+              <small>Disclaimer: AI gives general legal information from Indian law basics. It is not legal advice. For action, consult a lawyer.</small>
+            </section>
+          </div>
+
+          <div class="client-modules">
+            <article class="panel"><span>Drafts & Templates</span><strong>Documents without drama</strong><p>Rent agreement, legal notice reply, complaint format, affidavit, undertaking, authority letter.</p><button class="ghost-button" data-client-action="Draft Studio opened: rent agreement, notice reply, affidavit and undertaking templates ready.">Open Draft Studio</button></article>
+            <article class="panel"><span>e-Stamp & Agreements</span><strong>Stamp, sign, store</strong><p>Rent agreement flow, e-stamp guidance, witness checklist, PDF vault and lawyer review option.</p><button class="ghost-button" data-client-action="Agreement flow opened. Pick rent, service, NDA, settlement, loan or affidavit.">Start Agreement</button></article>
+            <article class="panel booking-card"><span>Book Advocate</span><strong>Office, chat or doorstep</strong><p>Meet at RNA Trust Office, book doorstep visit, or start low-cost chat before full consultation.</p><button class="gold-button book-now-button" data-open-booking>Book Now</button></article>
+            <article class="panel"><span>Orders Simplified</span><strong>Plain-language order card</strong><p>What court said, what it means, next date, documents needed, risk level, next action.</p><button class="ghost-button" data-client-action="Latest order simplified: next action and required documents are ready.">Read Latest Order</button></article>
+          </div>
+          <section class="panel booking-dock" id="booking-dock" aria-live="polite">
+            <div>
+              <span class="eyebrow">Choose Your Legal Connect Mode</span>
+              <h3>How do you want to meet counsel?</h3>
+              <p id="booking-status">Pick one option. We will first prepare an AI summary, then connect you to RNA counsel.</p>
+            </div>
+            <div class="booking-options">
+              <button data-book-option="Attorney Shield selected. RNA counsel will protect the matter, review documents, and guide next legal action.">Attorney Shield<br><small>from Rs. 1,999</small></button>
+              <button data-book-option="Video consult selected. Slot held for 10 minutes with a verified RNA counsel.">Video Call<br><small>Rs. 499 / 10 min</small></button>
+              <button data-book-option="Audio SOS selected. Connecting for a focused 2 minute emergency consult.">Audio Call<br><small>Rs. 200 / 2 min</small></button>
+              <button data-book-option="Chat consult selected. AI summary will be shared first, then counsel joins the chat.">Chat<br><small>Rs. 99</small></button>
+              <button data-book-option="Doorstep consult selected. RNA office will confirm location, timing, and counsel availability.">Doorstep<br><small>from Rs. 1,499</small></button>
+            </div>
+          </section>
         </section>
 
         <section class="view" id="intern">
@@ -488,6 +633,7 @@
             <article class="judgment-card"><span>+420 XP</span><h3>Draft exemption application</h3><p>Template provided. Associate review required. No private client contact.</p></article>
             <article class="judgment-card"><span>+300 XP</span><h3>Court 18 observation quest</h3><p>Note bench, item flow, pass-over practice, and order dictation style.</p></article>
             <article class="judgment-card"><span>+650 XP</span><h3>Research sprint: NDPS bail</h3><p>Find 5 current judgments, ratio, useful paragraphs, and practical argument points.</p></article>
+            <article class="judgment-card"><span>+150 XP</span><h3>Saket inspection support</h3><p>Shadow RNA clerk, learn inspection workflow, and upload a checklist for review.</p></article>
           </div>
         </section>
 
