@@ -610,11 +610,27 @@
               <p id="booking-status">Pick one option. We will first prepare an AI summary, then connect you to RNA counsel.</p>
             </div>
             <div class="booking-options">
-              <button data-book-option="Attorney Shield selected. RNA counsel will protect the matter, review documents, and guide next legal action.">Attorney Shield<br><small>from Rs. 1,999</small></button>
-              <button data-book-option="Video consult selected. Slot held for 10 minutes with a verified RNA counsel.">Video Call<br><small>Rs. 499 / 10 min</small></button>
-              <button data-book-option="Audio SOS selected. Connecting for a focused 2 minute emergency consult.">Audio Call<br><small>Rs. 200 / 2 min</small></button>
-              <button data-book-option="Chat consult selected. AI summary will be shared first, then counsel joins the chat.">Chat<br><small>Rs. 99</small></button>
-              <button data-book-option="Doorstep consult selected. RNA office will confirm location, timing, and counsel availability.">Doorstep<br><small>from Rs. 1,499</small></button>
+              <button data-book-option="Attorney Shield" data-book-price="1999" data-book-route="Shield desk: matter vault, document review, action plan and lawyer call unlocked.">Attorney Shield<br><small>from Rs. 1,999</small></button>
+              <button data-book-option="Video Call" data-book-price="499" data-book-route="Video room: secure consult link and 10 minute timer generated.">Video Call<br><small>Rs. 499 / 10 min</small></button>
+              <button data-book-option="Audio Call" data-book-price="200" data-book-route="Audio SOS: verified RNA counsel joins for a focused 2 minute emergency consult.">Audio Call<br><small>Rs. 200 / 2 min</small></button>
+              <button data-book-option="Chat" data-book-price="99" data-book-route="Chat room: AI summary shared first, then counsel joins the thread.">Chat<br><small>Rs. 99</small></button>
+              <button data-book-option="Doorstep" data-book-price="1499" data-book-route="Doorstep desk: location, slot and counsel availability confirmation started.">Doorstep<br><small>from Rs. 1,499</small></button>
+            </div>
+            <div class="payment-simulator">
+              <div>
+                <span>Selected Plan</span>
+                <strong id="selected-plan">None selected</strong>
+              </div>
+              <div>
+                <span>Payment Gateway</span>
+                <strong id="selected-price">Choose plan</strong>
+              </div>
+              <button class="gold-button" type="button" data-pay-booking>Pay &amp; Confirm</button>
+            </div>
+            <div class="booking-confirmation" id="booking-confirmation">
+              <span>Booking Status</span>
+              <strong>No booking confirmed yet.</strong>
+              <p>After payment, this will show where the client goes next: chat room, video room, audio SOS, Attorney Shield, or doorstep desk.</p>
             </div>
           </section>
         </section>

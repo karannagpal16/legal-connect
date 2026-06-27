@@ -123,6 +123,10 @@ document.querySelectorAll("[data-client-ai]").forEach((button) => {
 
 const bookingDock = document.querySelector("#booking-dock");
 const bookingStatus = document.querySelector("#booking-status");
+const selectedPlan = document.querySelector("#selected-plan");
+const selectedPrice = document.querySelector("#selected-price");
+const bookingConfirmation = document.querySelector("#booking-confirmation");
+let activeBooking = null;
 
 document.querySelectorAll("[data-open-booking]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -133,9 +137,46 @@ document.querySelectorAll("[data-open-booking]").forEach((button) => {
 
 document.querySelectorAll("[data-book-option]").forEach((button) => {
   button.addEventListener("click", () => {
-    if (bookingStatus) bookingStatus.textContent = button.dataset.bookOption;
+    activeBooking = {
+      plan: button.dataset.bookOption,
+      price: button.dataset.bookPrice,
+      route: button.dataset.bookRoute
+    };
+    if (bookingStatus) bookingStatus.textContent = `${activeBooking.plan} selected. Review amount and confirm payment.`;
+    if (selectedPlan) selectedPlan.textContent = activeBooking.plan;
+    if (selectedPrice) selectedPrice.textContent = `Rs. ${activeBooking.price}`;
   });
 });
+
+document.querySelectorAll("[data-pay-booking]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!activeBooking) {
+      if (bookingStatus) bookingStatus.textContent = "Please select Attorney Shield, Video, Audio, Chat, or Doorstep first.";
+      return;
+    }
+
+    const bookingId = `LC-${Date.now().toString().slice(-6)}`;
+    const receipt = {
+      id: bookingId,
+      plan: activeBooking.plan,
+      amount: activeBooking.price,
+      route: activeBooking.route,
+      status: "Paid demo booking"
+    };
+
+    localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
+    if (bookingConfirmation) {
+      bookingConfirmation.innerHTML = `<span>Booking Confirmed</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p>`;
+    }
+    if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} confirmed. Receipt ${receipt.id} saved in this browser.`;
+  });
+});
+
+const savedClientBooking = localStorage.getItem("legalConnectClientBooking");
+if (bookingConfirmation && savedClientBooking) {
+  const receipt = JSON.parse(savedClientBooking);
+  bookingConfirmation.innerHTML = `<span>Last Booking</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p>`;
+}
 
 const initialView = location.hash.replace("#", "");
 if (initialView && document.getElementById(initialView)) {
