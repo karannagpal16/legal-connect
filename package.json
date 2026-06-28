@@ -2,6 +2,7 @@
   "name": "legal-connect-workspace",
   "private": true,
   "scripts": {
-    "build": "pnpm -C artifacts/law-firm run build"
+    "build": "node --check app.js && node --check artifacts/api-server/server.js && node --check artifacts/api-server/public/app.js",
+    "start": "node artifacts/api-server/server.js"
   }
 }

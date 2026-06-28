@@ -57,7 +57,7 @@ To trigger the advocate connection flow, end your message with exactly this phra
 TONE: Warm, reassuring, conversational. Like a knowledgeable friend who works at the law firm. Use simple English, Hinglish is welcome. Keep responses concise (3-5 sentences max unless explaining a concept). Start by greeting the user and asking how you can help them today.`,
 };
 
-router.post("/api/ai/chat", async (req, res) => {
+router.post("/ai/chat", async (req, res) => {
   const { messages, context = "client" } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
