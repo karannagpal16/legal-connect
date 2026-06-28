@@ -393,17 +393,36 @@
         </section>
 
         <section class="view" id="diary">
-          <div class="workspace-head"><div><span class="eyebrow">Paperless Practice</span><h2>Case Diary and reminders.</h2></div><button class="gold-button" data-demo-action="Hearing note created. Voice note, next date, order summary and client update draft are ready.">Add Hearing Note</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">Court Sync</span><h2>Case Diary and reminders, powered by official eCourts data.</h2></div><button class="gold-button" data-track-case>+ Track Case</button></div>
+          <section class="court-sync-panel">
+            <div>
+              <span class="eyebrow">Custom Legal Connect Layer</span>
+              <h3>Use official court data, but keep the experience ours.</h3>
+              <p>Listings, next dates and order events are designed as Legal Connect cards, timelines, reminders and mission triggers. No government app screen or flow is copied.</p>
+            </div>
+            <div class="court-sync-form">
+              <label>Court<select id="court-sync-court"><option>Delhi High Court</option><option>Saket District Court</option><option>Rohini District Court</option></select></label>
+              <label>State<select id="court-sync-state"><option value="DL">Delhi</option><option value="HR">Haryana</option><option value="UP">Uttar Pradesh</option></select></label>
+              <label>Case No.<input id="court-sync-case" value="2023/CRL-1234" /></label>
+            </div>
+            <div class="reminder-pills">
+              <button class="active" data-reminder-setting="24h before">24h before</button>
+              <button data-reminder-setting="Same morning">Same morning</button>
+              <button data-reminder-setting="On change only">On change only</button>
+            </div>
+            <p class="court-sync-status" id="court-sync-status">Ready: add a case to the diary and Court Sync will watch for next date, stage and order changes.</p>
+          </section>
           <div class="diary-layout">
             <section class="panel">
               <h3>22 Jun</h3>
               <div class="calendar-stack"><button class="active" data-demo-action="Diary switched to court-wise view.">Court-wise</button><button data-demo-action="Diary switched to matter-wise view.">Matter-wise</button><button data-demo-action="Voice notes opened. Two notes are waiting for transcription.">Voice Notes</button><button data-demo-action="PDF upload tray opened. Drag order or pleading PDF here.">PDF Uploads</button></div>
             </section>
             <section class="panel wide">
-              <div class="timeline">
+              <div class="timeline" id="court-sync-timeline">
                 <div><time>09:00</time><strong>Cause list check</strong><span>DHC Court 18, item 42 moved to supplementary list.</span></div>
                 <div><time>11:40</time><strong>Order awaiting review</strong><span>Certified copy collection reminder created.</span></div>
                 <div><time>17:30</time><strong>Client update</strong><span>AI draft ready, internal strategy hidden from client portal.</span></div>
+                <div id="court-sync-release-entry"><time>Mission</time><strong>Saket inspection mission</strong><span>Waiting for proof approval before diary completion.</span></div>
               </div>
             </section>
           </div>

@@ -15,6 +15,11 @@ const demoStore = {
       status: "Active",
       nextDate: "2026-07-04",
       court: "District Court, Rohini",
+      courtType: "district",
+      stateCode: "DL",
+      caseNo: "2023/CRL-1234",
+      reminder: "24h before",
+      stage: "Reply awaited",
     },
     {
       id: "case-demo-2",
@@ -22,6 +27,11 @@ const demoStore = {
       status: "Active",
       nextDate: "2026-07-12",
       court: "Consumer Commission, Delhi",
+      courtType: "consumer",
+      stateCode: "DL",
+      caseNo: "2024/CC-2201",
+      reminder: "Same morning",
+      stage: "Evidence",
     },
   ],
   tasks: [
@@ -171,6 +181,63 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/cases" && req.method === "GET") {
     sendJson(res, 200, demoStore.cases);
+    return;
+  }
+
+  if (url.pathname === "/api/cases" && req.method === "POST") {
+    const body = await readBody(req);
+    const missing = ["court", "stateCode", "caseNo"].filter((field) => !body[field]);
+    if (missing.length > 0) {
+      sendJson(res, 400, { error: `Missing required fields: ${missing.join(", ")}` });
+      return;
+    }
+
+    const trackedCase = {
+      id: `case-${Date.now()}`,
+      title: body.title || `${body.court} | ${body.caseNo}`,
+      status: "Active",
+      nextDate: body.nextDate || "Sync pending",
+      court: body.court,
+      courtType: body.courtType || "district",
+      stateCode: body.stateCode,
+      caseNo: body.caseNo,
+      reminder: body.reminder || "24h before",
+      stage: body.stage || "Court Sync pending",
+      createdAt: new Date().toISOString(),
+    };
+    demoStore.cases.push(trackedCase);
+    sendJson(res, 201, trackedCase);
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/cases/") && req.method === "GET") {
+    const id = url.pathname.split("/").pop();
+    const trackedCase = demoStore.cases.find((item) => item.id === id);
+    if (!trackedCase) {
+      sendJson(res, 404, { error: "Case not found" });
+      return;
+    }
+    sendJson(res, 200, trackedCase);
+    return;
+  }
+
+  if (url.pathname === "/api/case-updates" && req.method === "GET") {
+    const update = {
+      type: "caseUpdate",
+      message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.",
+      caseId: "case-demo-1",
+      nextDate: "2026-07-04",
+      source: "Official eCourts Services data - demo stream",
+    };
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.write(`event: caseUpdate\n`);
+    res.write(`data: ${JSON.stringify(update)}\n\n`);
+    res.end();
     return;
   }
 

@@ -110,7 +110,7 @@ const lawbotAnswers = {
   booking: "Booking flow: client selects Attorney Shield, video, audio, chat, or doorstep; the demo locks a payment receipt in browser storage and routes the client to the right next step.",
   next: "Next build: connect backend database, real login roles for Client, Advocate, RNA and Intern, save bookings/chats/tasks/SOS requests, and add RNA admin review dashboard.",
   sos: "Legal SOS starts with a simple issue type, prepares an AI summary, then routes to trusted RNA counsel. Real calls and payments need backend plus provider integration.",
-  case: "Case tracker demo shows timeline, orders, reminders and next action. Live court data needs backend polling, compliance checks and source permissions.",
+  case: "Case tracker demo shows timeline, orders, reminders and next action. Court Sync adds POST /api/cases, GET /api/cases/:id and /api/case-updates for next-date update flow. Live eCourts access needs permitted official endpoints and compliance checks.",
   advocate: "Lawyer portal opens the Advocate OS: Court Mission Board, lawyer services, eCourts links, case diary, chambers coordination, proxy workflow, and RNA trust oversight."
 };
 
@@ -198,6 +198,36 @@ const missionReleaseStep = document.querySelector("#mission-release-step");
 const escrowProofStep = document.querySelector("#escrow-proof-step");
 const escrowApprovalStep = document.querySelector("#escrow-approval-step");
 const escrowReleaseStep = document.querySelector("#escrow-release-step");
+const courtSyncStatus = document.querySelector("#court-sync-status");
+const courtSyncTimeline = document.querySelector("#court-sync-timeline");
+const courtSyncReleaseEntry = document.querySelector("#court-sync-release-entry");
+let activeReminderSetting = "24h before";
+
+document.querySelectorAll("[data-reminder-setting]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-reminder-setting]").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    activeReminderSetting = button.dataset.reminderSetting;
+    if (courtSyncStatus) courtSyncStatus.textContent = `Reminder set: ${activeReminderSetting}. Court Sync will notify through the Legal Connect status strip.`;
+    setDemoStatus(`Court Sync reminder set: ${activeReminderSetting}.`);
+  });
+});
+
+document.querySelectorAll("[data-track-case]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const court = document.querySelector("#court-sync-court")?.value || "Delhi High Court";
+    const stateCode = document.querySelector("#court-sync-state")?.value || "DL";
+    const caseNo = document.querySelector("#court-sync-case")?.value || "2023/CRL-1234";
+    const message = `Court Sync tracking added: ${court} | ${caseNo} | reminder ${activeReminderSetting}.`;
+
+    localStorage.setItem("legalConnectCourtSyncCase", JSON.stringify({ court, stateCode, caseNo, reminder: activeReminderSetting }));
+    if (courtSyncStatus) courtSyncStatus.textContent = `${message} Demo API route: POST /api/cases.`;
+    if (courtSyncTimeline) {
+      courtSyncTimeline.insertAdjacentHTML("afterbegin", `<div><time>Sync</time><strong>${court}</strong><span>${caseNo} tracked. Next-date check queued every 6 hours.</span></div>`);
+    }
+    setDemoStatus(message);
+  });
+});
 
 document.querySelectorAll("[data-task-action]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -217,6 +247,11 @@ document.querySelectorAll("[data-task-action]").forEach((button) => {
     if (message.includes("released")) {
       missionReleaseStep?.classList.add("done");
       escrowReleaseStep?.classList.add("done");
+      courtSyncReleaseEntry?.classList.add("done");
+      if (courtSyncReleaseEntry) {
+        courtSyncReleaseEntry.querySelector("span").textContent = "Mission proof approved. Diary entry marked completed and removed from Upcoming.";
+      }
+      if (courtSyncStatus) courtSyncStatus.textContent = "Escrow release synced with Case Diary. Associated mission entry is now completed.";
     }
 
     setDemoStatus(message);
