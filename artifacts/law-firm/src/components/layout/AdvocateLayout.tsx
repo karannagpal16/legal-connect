@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Scale, Home, BookOpen, Briefcase, Library, Bell,
-  BarChart3, Users, Menu, X, Gavel, Video, CalendarCheck, MessageSquare, Landmark, FileSearch
+  BarChart3, Users, Menu, X, Gavel, Video, CalendarCheck, MessageSquare, Landmark, FileSearch,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,6 +13,7 @@ const navigation = [
   { name: "My Diary", href: "/advocate/diary", icon: BookOpen },
   { name: "Client Calls", href: "/advocate/calls", icon: Video },
   { name: "Client Messages", href: "/advocate/chat", icon: MessageSquare },
+  { name: "LawBot Research", href: "/advocate/lawbot", icon: Sparkles },
   { name: "Proxy Hub", href: "/advocate/proxy", icon: Briefcase },
   { name: "Judges Roster", href: "/advocate/judges", icon: Landmark },
   { name: "Case Tracker", href: "/advocate/cases", icon: FileSearch },

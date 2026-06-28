@@ -35,6 +35,16 @@ const sections = [
     badge: "Network",
   },
   {
+    title: "LawBot Research",
+    desc: "Source-restricted Indian legal research with citations",
+    icon: Scale,
+    href: "/advocate/lawbot",
+    color: "text-emerald-400",
+    gradient: "from-emerald-500/25 to-emerald-600/5",
+    border: "border-emerald-500/35",
+    badge: "Cited",
+  },
+  {
     title: "Case Reminders",
     desc: "Hearing alerts, deadlines & notifications",
     icon: Bell,

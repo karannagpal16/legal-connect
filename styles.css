@@ -16,6 +16,279 @@
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.phase-command {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+  padding: 22px;
+  border: 1px solid rgba(212, 160, 80, 0.32);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(212, 160, 80, 0.2), transparent 34%),
+    linear-gradient(135deg, rgba(6, 24, 25, 0.92), rgba(10, 17, 24, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.phase-command h3 {
+  margin: 6px 0 8px;
+  color: #f7d78a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+
+.phase-command p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.65;
+}
+
+.phase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.phase-grid article {
+  padding: 18px;
+  border: 1px solid rgba(212, 160, 80, 0.26);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.phase-grid span {
+  display: block;
+  margin-bottom: 8px;
+  color: #d4a050;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.phase-grid strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #fff4cf;
+  font-size: 1.05rem;
+}
+
+.floating-lawbot {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  pointer-events: none;
+}
+
+.lawbot-orb,
+.lawbot-panel {
+  pointer-events: auto;
+}
+
+.lawbot-orb {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border: 1px solid rgba(245, 199, 106, 0.72);
+  border-radius: 50%;
+  color: #111820;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 30% 25%, #fff3bc, transparent 24%),
+    linear-gradient(145deg, #f5c76a, #a86d16 58%, #35230a);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32), 0 0 36px rgba(212, 160, 80, 0.32);
+}
+
+.lawbot-orb strong {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+}
+
+.orb-ring {
+  position: absolute;
+  inset: -8px;
+  border: 1px solid rgba(245, 199, 106, 0.45);
+  border-radius: inherit;
+  animation: lawbotPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes lawbotPulse {
+  0%, 100% { transform: scale(0.94); opacity: 0.45; }
+  50% { transform: scale(1.08); opacity: 0.9; }
+}
+
+.lawbot-panel {
+  display: none;
+  width: 390px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 160, 80, 0.36);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(212, 160, 80, 0.2), transparent 34%),
+    linear-gradient(180deg, rgba(11, 20, 26, 0.98), rgba(5, 11, 15, 0.98));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+}
+
+.floating-lawbot.open .lawbot-panel {
+  display: block;
+  animation: lawbotRise 0.22s ease-out;
+}
+
+@keyframes lawbotRise {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.lawbot-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(212, 160, 80, 0.18);
+}
+
+.lawbot-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, transparent 47%, rgba(245, 199, 106, 0.9) 48%, rgba(245, 199, 106, 0.9) 52%, transparent 53%),
+    linear-gradient(0deg, transparent 47%, rgba(245, 199, 106, 0.9) 48%, rgba(245, 199, 106, 0.9) 52%, transparent 53%),
+    radial-gradient(circle, rgba(245, 199, 106, 0.95) 0 12%, rgba(245, 199, 106, 0.18) 13% 52%, transparent 53%);
+  border: 1px solid rgba(245, 199, 106, 0.4);
+  animation: spin 12s linear infinite;
+}
+
+.lawbot-head span {
+  display: block;
+  color: #d4a050;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lawbot-head strong {
+  display: block;
+  margin-top: 2px;
+  color: #fff4cf;
+}
+
+.lawbot-head button {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lawbot-thread {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 16px;
+}
+
+.lawbot-thread p {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  line-height: 1.55;
+}
+
+.lawbot-thread p.user {
+  margin-left: 34px;
+  border-color: rgba(212, 160, 80, 0.28);
+  color: #fff2c7;
+  background: rgba(212, 160, 80, 0.12);
+}
+
+.lawbot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 14px;
+}
+
+.lawbot-chips button,
+.lawbot-input button {
+  border: 1px solid rgba(212, 160, 80, 0.36);
+  border-radius: 999px;
+  color: #f5c76a;
+  background: rgba(212, 160, 80, 0.1);
+  cursor: pointer;
+}
+
+.lawbot-chips button {
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.lawbot-input {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 0 16px 14px;
+}
+
+.lawbot-input input {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 11px 13px;
+  color: #fff;
+  outline: none;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.lawbot-input button {
+  padding: 0 16px;
+  font-weight: 800;
+}
+
+.lawbot-panel small {
+  display: block;
+  padding: 0 16px 16px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .phase-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .floating-lawbot {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .lawbot-orb {
+    width: 62px;
+    height: 62px;
+  }
+
+  .lawbot-panel {
+    width: min(92vw, 360px);
+    max-height: 74vh;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

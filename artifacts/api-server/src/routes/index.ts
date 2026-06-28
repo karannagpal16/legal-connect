@@ -7,6 +7,7 @@ import internQuestsRouter from "./intern_quests";
 import analyticsRouter from "./analytics";
 import bookingsRouter from "./bookings";
 import aiRouter from "./ai";
+import lawbotRouter from "./lawbot";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(internQuestsRouter);
 router.use(analyticsRouter);
 router.use(bookingsRouter);
 router.use(aiRouter);
+router.use(lawbotRouter);
 
 export default router;

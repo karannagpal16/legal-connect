@@ -27,6 +27,7 @@ import { ClientLibrary } from "@/pages/client/ClientLibrary";
 import { ClientLegalGuide } from "@/pages/client/ClientLegalGuide";
 import { ClientDIYDocs } from "@/pages/client/ClientDIYDocs";
 import { ClientAIAssistant } from "@/pages/client/ClientAIAssistant";
+import { ClientLawBot } from "@/pages/client/ClientLawBot";
 import { ClientChat } from "@/pages/client/ClientChat";
 import { ClientConnectChat } from "@/pages/client/ClientConnectChat";
 import { ClientWellness } from "@/pages/client/ClientWellness";
@@ -43,6 +44,7 @@ import { AdvocateLibrary } from "@/pages/advocate/AdvocateLibrary";
 import { AdvocateRevenue } from "@/pages/advocate/AdvocateRevenue";
 import { AdvocateTeam } from "@/pages/advocate/AdvocateTeam";
 import { AdvocateChat } from "@/pages/advocate/AdvocateChat";
+import { AdvocateLawBot } from "@/pages/advocate/AdvocateLawBot";
 import { AdvocateJudges } from "@/pages/advocate/AdvocateJudges";
 
 import { InternDashboard } from "@/pages/intern/InternDashboard";
@@ -131,6 +133,9 @@ function Router() {
       <Route path="/client/ai-assistant">
         <ClientLayout><ClientAIAssistant /></ClientLayout>
       </Route>
+      <Route path="/client/lawbot">
+        <ClientLayout><ClientLawBot /></ClientLayout>
+      </Route>
       <Route path="/client/chat">
         <ClientLayout><ClientChat /></ClientLayout>
       </Route>
@@ -168,6 +173,9 @@ function Router() {
       </Route>
       <Route path="/advocate/chat">
         <AdvocateLayout><AdvocateChat /></AdvocateLayout>
+      </Route>
+      <Route path="/advocate/lawbot">
+        <AdvocateLayout><AdvocateLawBot /></AdvocateLayout>
       </Route>
       <Route path="/advocate/judges">
         <AdvocateLayout><AdvocateJudges /></AdvocateLayout>

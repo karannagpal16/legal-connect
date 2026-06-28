@@ -19,14 +19,14 @@ const quickActions = [
   {
     icon: Sparkles,
     title: "AI Legal Assistant",
-    desc: "Ask any question, get instant guidance",
-    href: "/client/ai-assistant",
+    desc: "Answers only from approved legal sources",
+    href: "/client/lawbot",
     color: "text-violet-400",
     glow: "shadow-violet-500/20",
     gradient: "from-violet-500/30 to-violet-600/5",
     border: "border-violet-500/40",
-    cta: "Ask LexBot",
-    badge: "AI POWERED",
+    cta: "Ask LawBot",
+    badge: "SOURCE LOCKED",
     badgeColor: "bg-violet-500/20 text-violet-300",
   },
   {

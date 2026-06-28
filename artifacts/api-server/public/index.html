@@ -146,6 +146,26 @@
               </div>
               <footer>Legal protection for people. Litigation command for lawyers.</footer>
             </section>
+
+            <section class="phase-command">
+              <div>
+                <span class="eyebrow">Launch Map</span>
+                <h3>Phase 1 demo is now a working trust layer.</h3>
+                <p>Mock LawBot sources, client and advocate UI, booking simulation, Legal SOS, case tracker, and deployment path are grouped into one visible product story.</p>
+              </div>
+              <div class="phase-grid">
+                <article>
+                  <span>Now / Phase 1</span>
+                  <strong>Demo-ready flows</strong>
+                  <p>LawBot mock sources, Client and Advocate UI, booking/payment simulation, Legal SOS, case tracker, build and Render deployment.</p>
+                </article>
+                <article>
+                  <span>Next Step</span>
+                  <strong>Real operating system</strong>
+                  <p>Backend database, real login lanes, saved bookings, chats, tasks, SOS requests, and RNA admin review dashboard.</p>
+                </article>
+              </div>
+            </section>
           </div>
         </section>
         <section class="view" id="login">
@@ -676,9 +696,40 @@
           </section>
         </section>
       </main>
+
+      <aside class="floating-lawbot" id="floating-lawbot" aria-live="polite">
+        <button class="lawbot-orb" id="lawbot-toggle" type="button" aria-label="Open Legal Connect LawBot">
+          <span class="orb-ring"></span>
+          <strong>AI</strong>
+        </button>
+        <section class="lawbot-panel" id="lawbot-panel">
+          <div class="lawbot-head">
+            <div class="lawbot-mark" aria-hidden="true"></div>
+            <div>
+              <span>Legal Connect LawBot</span>
+              <strong>Source-locked legal desk</strong>
+            </div>
+            <button id="lawbot-close" type="button" aria-label="Close LawBot">x</button>
+          </div>
+          <div class="lawbot-thread" id="lawbot-thread">
+            <p><strong>LawBot:</strong> Namaste. I can explain Phase 1, Legal SOS, booking flow, case tracker, or approved mock legal sources.</p>
+          </div>
+          <div class="lawbot-chips">
+            <button data-lawbot-prompt="phase">Phase 1 status</button>
+            <button data-lawbot-prompt="sources">LawBot sources</button>
+            <button data-lawbot-prompt="booking">Booking flow</button>
+            <button data-lawbot-prompt="next">Next build</button>
+          </div>
+          <form class="lawbot-input" id="lawbot-form">
+            <input id="lawbot-input" placeholder="Ask about this demo..." autocomplete="off" />
+            <button type="submit">Ask</button>
+          </form>
+          <small>This is legal information, not legal advice. Real SCC, Bar &amp; Bench, payments and live data need backend/API work.</small>
+        </section>
+      </aside>
     </div>
 
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
   </body>
 </html>
 

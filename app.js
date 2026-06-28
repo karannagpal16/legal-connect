@@ -95,6 +95,72 @@ document.querySelectorAll("[data-ai-reply]").forEach((button) => {
   });
 });
 
+const floatingLawbot = document.querySelector("#floating-lawbot");
+const lawbotToggle = document.querySelector("#lawbot-toggle");
+const lawbotClose = document.querySelector("#lawbot-close");
+const lawbotThread = document.querySelector("#lawbot-thread");
+const lawbotForm = document.querySelector("#lawbot-form");
+const lawbotInput = document.querySelector("#lawbot-input");
+
+const lawbotAnswers = {
+  phase: "Phase 1 is demo-ready: LawBot mock sources, Client and Advocate UI, booking/payment simulation, Legal SOS demo, case tracker demo, and Render deployment path are visible.",
+  sources: "LawBot is source-locked in mock mode. It uses only approved demo snippets for BNS, BNSS, BSA, NI Act Section 138, Consumer Protection, tenancy, sample Supreme Court and High Court notes, and amendment updates.",
+  booking: "Booking flow: client selects Attorney Shield, video, audio, chat, or doorstep; the demo locks a payment receipt in browser storage and routes the client to the right next step.",
+  next: "Next build: connect backend database, real login roles for Client, Advocate, RNA and Intern, save bookings/chats/tasks/SOS requests, and add RNA admin review dashboard.",
+  sos: "Legal SOS starts with a simple issue type, prepares an AI summary, then routes to trusted RNA counsel. Real calls and payments need backend plus provider integration.",
+  case: "Case tracker demo shows timeline, orders, reminders and next action. Live court data needs backend polling, compliance checks and source permissions."
+};
+
+function appendLawbotMessage(role, message) {
+  if (!lawbotThread) return;
+  const bubble = document.createElement("p");
+  bubble.className = role === "user" ? "user" : "";
+  bubble.innerHTML = `<strong>${role === "user" ? "You" : "LawBot"}:</strong> ${message}`;
+  lawbotThread.appendChild(bubble);
+  lawbotThread.scrollTop = lawbotThread.scrollHeight;
+}
+
+function getLawbotAnswer(prompt) {
+  const text = String(prompt || "").toLowerCase();
+  if (lawbotAnswers[prompt]) return lawbotAnswers[prompt];
+  if (text.includes("phase") || text.includes("ready") || text.includes("render")) return lawbotAnswers.phase;
+  if (text.includes("source") || text.includes("scc") || text.includes("bar") || text.includes("kanoon") || text.includes("lawbot")) return lawbotAnswers.sources;
+  if (text.includes("book") || text.includes("payment") || text.includes("razor") || text.includes("pay")) return lawbotAnswers.booking;
+  if (text.includes("sos") || text.includes("emergency") || text.includes("call")) return lawbotAnswers.sos;
+  if (text.includes("case") || text.includes("tracker") || text.includes("diary") || text.includes("order")) return lawbotAnswers.case;
+  if (text.includes("backend") || text.includes("login") || text.includes("database") || text.includes("admin") || text.includes("next")) return lawbotAnswers.next;
+  return "I could not find this in the approved legal sources. Try asking about Phase 1, Legal SOS, booking, case tracker, or next backend build.";
+}
+
+lawbotToggle?.addEventListener("click", () => {
+  floatingLawbot?.classList.toggle("open");
+  setDemoStatus("LawBot opened. Source-locked demo assistant is ready.");
+});
+
+lawbotClose?.addEventListener("click", () => {
+  floatingLawbot?.classList.remove("open");
+});
+
+document.querySelectorAll("[data-lawbot-prompt]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const prompt = button.dataset.lawbotPrompt;
+    appendLawbotMessage("user", button.textContent || "Quick prompt");
+    appendLawbotMessage("bot", getLawbotAnswer(prompt));
+    setDemoStatus("LawBot answered from approved Phase 1 demo sources.");
+  });
+});
+
+lawbotForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const question = lawbotInput?.value.trim();
+  if (!question) return;
+  appendLawbotMessage("user", question);
+  appendLawbotMessage("bot", getLawbotAnswer(question));
+  lawbotInput.value = "";
+  floatingLawbot?.classList.add("open");
+  setDemoStatus("LawBot response generated with demo guardrails.");
+});
+
 document.querySelectorAll("[data-demo-action]").forEach((button) => {
   button.addEventListener("click", () => setDemoStatus(button.dataset.demoAction));
 });

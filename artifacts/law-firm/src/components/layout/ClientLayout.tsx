@@ -16,6 +16,7 @@ const navigation = [
   { name: "Case Reminders", href: "/client/reminders", icon: Bell, section: "Daily Tools" },
   { name: "Law Made Simple", href: "/client/legal-guide", icon: BookOpen, section: "Resources" },
   { name: "DIY Documents", href: "/client/diy-docs", icon: Pen, section: "Resources" },
+  { name: "LawBot / Legal AI", href: "/client/lawbot", icon: Sparkles, section: "Resources" },
   { name: "AI Assistant", href: "/client/ai-assistant", icon: Sparkles, section: "Resources" },
   { name: "Legal Library", href: "/client/library", icon: Library, section: "Resources" },
 ];
