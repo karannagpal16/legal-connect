@@ -83,6 +83,65 @@
   pointer-events: none;
 }
 
+.lawbot-greeting {
+  position: absolute;
+  right: 86px;
+  bottom: 8px;
+  min-width: 210px;
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 199, 106, 0.34);
+  border-radius: 20px 20px 4px 20px;
+  color: #fff4cf;
+  text-align: left;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at top right, rgba(245, 199, 106, 0.2), transparent 36%),
+    rgba(8, 18, 22, 0.94);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  animation: greetFloat 3.4s ease-in-out infinite;
+}
+
+.lawbot-greeting::after {
+  content: "";
+  position: absolute;
+  right: -7px;
+  bottom: 18px;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid rgba(245, 199, 106, 0.34);
+  border-right: 1px solid rgba(245, 199, 106, 0.34);
+  background: rgba(8, 18, 22, 0.94);
+  transform: rotate(45deg);
+}
+
+.lawbot-greeting span {
+  display: block;
+  color: #d4a050;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.lawbot-greeting strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.92rem;
+}
+
+.floating-lawbot.open .lawbot-greeting {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  pointer-events: none;
+  animation: none;
+}
+
+@keyframes greetFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
 .lawbot-orb,
 .lawbot-panel {
   pointer-events: auto;
@@ -90,33 +149,91 @@
 
 .lawbot-orb {
   position: relative;
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border: 1px solid rgba(245, 199, 106, 0.72);
-  border-radius: 50%;
+  border-radius: 28px;
   color: #111820;
   cursor: pointer;
   background:
     radial-gradient(circle at 30% 25%, #fff3bc, transparent 24%),
     linear-gradient(145deg, #f5c76a, #a86d16 58%, #35230a);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32), 0 0 36px rgba(212, 160, 80, 0.32);
+  transform: rotate(-3deg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.lawbot-orb strong {
-  position: relative;
+.lawbot-orb:hover {
+  transform: translateY(-3px) rotate(0deg);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.38), 0 0 44px rgba(245, 199, 106, 0.42);
+}
+
+.bot-face {
+  position: absolute;
+  inset: 13px;
   z-index: 2;
-  display: grid;
-  place-items: center;
-  height: 100%;
-  font-size: 1.1rem;
-  letter-spacing: 0.08em;
+  display: block;
+  border: 2px solid rgba(17, 24, 32, 0.72);
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, transparent 47%, rgba(17, 24, 32, 0.5) 48%, rgba(17, 24, 32, 0.5) 52%, transparent 53%),
+    radial-gradient(circle at 50% 108%, rgba(17, 24, 32, 0.26) 0 18%, transparent 19%),
+    rgba(255, 239, 177, 0.5);
+}
+
+.bot-face::before,
+.bot-face::after {
+  content: "";
+  position: absolute;
+  top: 17px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #111820;
+  animation: botBlink 4.5s ease-in-out infinite;
+}
+
+.bot-face::before {
+  left: 13px;
+}
+
+.bot-face::after {
+  right: 13px;
+}
+
+.bot-face i {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  width: 22px;
+  height: 8px;
+  border-bottom: 2px solid rgba(17, 24, 32, 0.74);
+  border-radius: 0 0 22px 22px;
+  transform: translateX(-50%);
+}
+
+.bot-face b {
+  position: absolute;
+  left: 50%;
+  top: -11px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(17, 24, 32, 0.72);
+  border-radius: 50%;
+  background: #f5c76a;
+  transform: translateX(-50%);
+}
+
+@keyframes botBlink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.12); }
 }
 
 .orb-ring {
   position: absolute;
   inset: -8px;
   border: 1px solid rgba(245, 199, 106, 0.45);
-  border-radius: inherit;
+  border-radius: 34px;
   animation: lawbotPulse 2.2s ease-in-out infinite;
 }
 
@@ -278,9 +395,38 @@
     bottom: 14px;
   }
 
+  .lawbot-greeting {
+    right: 72px;
+    min-width: 174px;
+    padding: 10px 12px;
+  }
+
+  .lawbot-greeting strong {
+    font-size: 0.82rem;
+  }
+
   .lawbot-orb {
     width: 62px;
     height: 62px;
+    border-radius: 24px;
+  }
+
+  .bot-face {
+    inset: 11px;
+    border-radius: 15px;
+  }
+
+  .bot-face::before,
+  .bot-face::after {
+    top: 13px;
+  }
+
+  .bot-face::before {
+    left: 10px;
+  }
+
+  .bot-face::after {
+    right: 10px;
   }
 
   .lawbot-panel {

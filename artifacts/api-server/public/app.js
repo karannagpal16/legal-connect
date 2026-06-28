@@ -97,18 +97,21 @@ document.querySelectorAll("[data-ai-reply]").forEach((button) => {
 
 const floatingLawbot = document.querySelector("#floating-lawbot");
 const lawbotToggle = document.querySelector("#lawbot-toggle");
+const lawbotGreeting = document.querySelector("#lawbot-greeting");
 const lawbotClose = document.querySelector("#lawbot-close");
 const lawbotThread = document.querySelector("#lawbot-thread");
 const lawbotForm = document.querySelector("#lawbot-form");
 const lawbotInput = document.querySelector("#lawbot-input");
 
 const lawbotAnswers = {
+  concierge: "I can take you to the right lane: urgent Legal SOS, book a verified counsel, check a case timeline, open advocate command, or answer from approved mock legal sources.",
   phase: "Phase 1 is demo-ready: LawBot mock sources, Client and Advocate UI, booking/payment simulation, Legal SOS demo, case tracker demo, and Render deployment path are visible.",
   sources: "LawBot is source-locked in mock mode. It uses only approved demo snippets for BNS, BNSS, BSA, NI Act Section 138, Consumer Protection, tenancy, sample Supreme Court and High Court notes, and amendment updates.",
   booking: "Booking flow: client selects Attorney Shield, video, audio, chat, or doorstep; the demo locks a payment receipt in browser storage and routes the client to the right next step.",
   next: "Next build: connect backend database, real login roles for Client, Advocate, RNA and Intern, save bookings/chats/tasks/SOS requests, and add RNA admin review dashboard.",
   sos: "Legal SOS starts with a simple issue type, prepares an AI summary, then routes to trusted RNA counsel. Real calls and payments need backend plus provider integration.",
-  case: "Case tracker demo shows timeline, orders, reminders and next action. Live court data needs backend polling, compliance checks and source permissions."
+  case: "Case tracker demo shows timeline, orders, reminders and next action. Live court data needs backend polling, compliance checks and source permissions.",
+  advocate: "Lawyer portal opens the Advocate OS: Court Mission Board, lawyer services, eCourts links, case diary, chambers coordination, proxy workflow, and RNA trust oversight."
 };
 
 function appendLawbotMessage(role, message) {
@@ -128,14 +131,18 @@ function getLawbotAnswer(prompt) {
   if (text.includes("book") || text.includes("payment") || text.includes("razor") || text.includes("pay")) return lawbotAnswers.booking;
   if (text.includes("sos") || text.includes("emergency") || text.includes("call")) return lawbotAnswers.sos;
   if (text.includes("case") || text.includes("tracker") || text.includes("diary") || text.includes("order")) return lawbotAnswers.case;
+  if (text.includes("lawyer") || text.includes("advocate") || text.includes("portal") || text.includes("court mission")) return lawbotAnswers.advocate;
   if (text.includes("backend") || text.includes("login") || text.includes("database") || text.includes("admin") || text.includes("next")) return lawbotAnswers.next;
   return "I could not find this in the approved legal sources. Try asking about Phase 1, Legal SOS, booking, case tracker, or next backend build.";
 }
 
-lawbotToggle?.addEventListener("click", () => {
-  floatingLawbot?.classList.toggle("open");
-  setDemoStatus("LawBot opened. Source-locked demo assistant is ready.");
-});
+function toggleLawbot(open) {
+  floatingLawbot?.classList.toggle("open", open ?? !floatingLawbot.classList.contains("open"));
+  setDemoStatus("LawBot opened. Choose your first legal move.");
+}
+
+lawbotToggle?.addEventListener("click", () => toggleLawbot());
+lawbotGreeting?.addEventListener("click", () => toggleLawbot(true));
 
 lawbotClose?.addEventListener("click", () => {
   floatingLawbot?.classList.remove("open");
