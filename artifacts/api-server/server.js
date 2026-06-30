@@ -2,8 +2,9 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const config = require("./config");
 
-const PORT = process.env.PORT || 3000;
+const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
 
 const demoStore = {
@@ -72,7 +73,7 @@ const lawbotSources = [
 function sendJson(res, status, data) {
   res.writeHead(status, {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": config.allowedOrigin,
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   });
@@ -233,7 +234,7 @@ const server = http.createServer(async (req, res) => {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": config.allowedOrigin,
     });
     res.write(`event: caseUpdate\n`);
     res.write(`data: ${JSON.stringify(update)}\n\n`);

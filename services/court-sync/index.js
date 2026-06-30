@@ -1,5 +1,9 @@
-const POLL_FREQ_MIN = Number(process.env.POLL_FREQ_MIN || 360);
-const OFFICIAL_ECOURTS_BASE_URL = process.env.OFFICIAL_ECOURTS_BASE_URL || "https://services.ecourts.gov.in";
+import { envNumber, envUrl, readEnv } from "../shared/env.mjs";
+
+readEnv();
+
+const POLL_FREQ_MIN = envNumber("POLL_FREQ_MIN", 360);
+const OFFICIAL_ECOURTS_BASE_URL = envUrl("OFFICIAL_ECOURTS_BASE_URL", "https://services.ecourts.gov.in");
 
 const demoTrackedCases = [
   {

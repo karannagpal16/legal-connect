@@ -1,3 +1,7 @@
+import { readEnv } from "../shared/env.mjs";
+
+readEnv();
+
 const REQUIRED_REAL_MODE_ENV = [
   "DB_URL",
   "REDIS_URL",
