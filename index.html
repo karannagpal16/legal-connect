@@ -429,11 +429,44 @@
             <p class="court-sync-status" id="court-sync-status">Ready: add a case to the diary and Court Sync will watch for next date, stage and order changes.</p>
           </section>
           <div class="diary-layout">
-            <section class="panel">
-              <h3>22 Jun</h3>
-              <div class="calendar-stack"><button class="active" data-demo-action="Diary switched to court-wise view.">Court-wise</button><button data-demo-action="Diary switched to matter-wise view.">Matter-wise</button><button data-demo-action="Voice notes opened. Two notes are waiting for transcription.">Voice Notes</button><button data-demo-action="PDF upload tray opened. Drag order or pleading PDF here.">PDF Uploads</button></div>
+            <section class="panel calendar-panel">
+              <div class="calendar-head">
+                <div>
+                  <span class="eyebrow">June 2026</span>
+                  <h3>Clash Calendar</h3>
+                </div>
+                <button class="ghost-button" data-check-clashes>Check Date</button>
+              </div>
+              <div class="court-legend">
+                <span><i class="court-dot dhc"></i>Delhi HC</span>
+                <span><i class="court-dot saket"></i>Saket</span>
+                <span><i class="court-dot rohini"></i>Rohini</span>
+              </div>
+              <div class="case-calendar" id="case-calendar" aria-label="Court date calendar">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                <button class="muted">1</button><button class="muted">2</button><button class="muted">3</button><button class="muted">4</button>
+                <button class="court-day saket" data-calendar-day="5" data-court="Saket District Court" data-calendar-note="Saket District Court: two proxy-friendly matters. Good date if the lawyer is already in Saket.">5<span></span></button>
+                <button>6</button><button>7</button>
+                <button>8</button><button>9</button><button class="court-day dhc" data-calendar-day="10" data-court="Delhi High Court" data-calendar-note="Delhi High Court: item 42 plus filing objection. Keep travel buffer.">10<span></span></button><button>11</button><button>12</button><button>13</button><button>14</button>
+                <button>15</button><button class="court-day rohini" data-calendar-day="16" data-court="Rohini District Court" data-calendar-note="Rohini District Court: evidence matter. No clash yet.">16<span></span></button><button>17</button><button>18</button><button>19</button><button>20</button><button>21</button>
+                <button class="today">22</button><button>23</button><button>24</button><button class="court-day clash" data-calendar-day="25" data-court="Delhi High Court + Saket District Court" data-calendar-note="Clash risk: Delhi HC in morning and Saket inspection on same date. Assign proxy or request pass-over.">25<span></span></button><button>26</button><button>27</button><button>28</button>
+                <button>29</button><button>30</button>
+              </div>
+              <p class="clash-status" id="clash-status">Select a marked date to see court load, clash risk, and date recommendation.</p>
             </section>
             <section class="panel wide">
+              <div class="diary-intelligence">
+                <article>
+                  <span>Best Date Suggestion</span>
+                  <strong>5 June - Saket advantage</strong>
+                  <p>Already one Saket matter listed. If a judge gives a choice, prefer this date to reduce travel and proxy cost.</p>
+                </article>
+                <article class="warning">
+                  <span>Clash Alert</span>
+                  <strong>25 June - split court day</strong>
+                  <p>Delhi HC and Saket overlap. Assign proxy, seek pass-over, or avoid accepting fresh date here.</p>
+                </article>
+              </div>
               <div class="timeline" id="court-sync-timeline">
                 <div><time>09:00</time><strong>Cause list check</strong><span>DHC Court 18, item 42 moved to supplementary list.</span></div>
                 <div><time>11:40</time><strong>Order awaiting review</strong><span>Certified copy collection reminder created.</span></div>

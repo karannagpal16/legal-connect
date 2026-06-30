@@ -201,6 +201,7 @@ const escrowReleaseStep = document.querySelector("#escrow-release-step");
 const courtSyncStatus = document.querySelector("#court-sync-status");
 const courtSyncTimeline = document.querySelector("#court-sync-timeline");
 const courtSyncReleaseEntry = document.querySelector("#court-sync-release-entry");
+const clashStatus = document.querySelector("#clash-status");
 let activeReminderSetting = "24h before";
 let caseUpdateStream = null;
 
@@ -317,6 +318,28 @@ document.querySelectorAll("[data-diary-tab]").forEach((button) => {
     const tab = button.dataset.diaryTab;
     if (courtSyncStatus) courtSyncStatus.textContent = `${tab} matters loaded. Phase 1 uses demo diary data; live filtering needs DB persistence.`;
     setDemoStatus(`Case Diary switched to ${tab}.`);
+  });
+});
+
+document.querySelectorAll("[data-calendar-note]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-calendar-note]").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    const note = button.dataset.calendarNote;
+    const day = button.dataset.calendarDay;
+    if (clashStatus) clashStatus.textContent = `${day} June: ${note}`;
+    if (courtSyncStatus) courtSyncStatus.textContent = `Calendar intelligence: ${note}`;
+    setDemoStatus(`Calendar checked for ${day} June.`);
+  });
+});
+
+document.querySelectorAll("[data-check-clashes]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const message = "Clash check complete: avoid 25 June, prefer 5 June for Saket matters, keep 10 June for Delhi HC only.";
+    if (clashStatus) clashStatus.textContent = message;
+    if (courtSyncStatus) courtSyncStatus.textContent = message;
+    addCourtSyncTimelineEntry("Calendar", "Date strategy updated", message);
+    setDemoStatus(message);
   });
 });
 

@@ -3121,9 +3121,171 @@ select,
 
 .diary-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: minmax(320px, 0.92fr) 1fr;
   gap: 16px;
   margin-top: 16px;
+}
+
+.calendar-panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.calendar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calendar-head h3 {
+  margin: 4px 0 0;
+}
+
+.court-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: rgba(255, 250, 240, 0.72);
+  font-size: 0.8rem;
+}
+
+.court-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.court-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.court-dot.dhc,
+.court-day.dhc span {
+  background: #6aa8ff;
+}
+
+.court-dot.saket,
+.court-day.saket span {
+  background: #f5c76a;
+}
+
+.court-dot.rohini,
+.court-day.rohini span {
+  background: #7fd39a;
+}
+
+.case-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.case-calendar > span {
+  color: rgba(255, 250, 240, 0.42);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.case-calendar button {
+  position: relative;
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: rgba(255, 250, 240, 0.78);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.case-calendar button.muted {
+  opacity: 0.5;
+}
+
+.case-calendar button.today {
+  border-color: rgba(245, 199, 106, 0.48);
+  color: #f5c76a;
+  background: rgba(245, 199, 106, 0.1);
+}
+
+.case-calendar button.court-day {
+  color: #fff7dd;
+  border-color: rgba(245, 199, 106, 0.32);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.2));
+}
+
+.case-calendar button.court-day span {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.case-calendar button.clash {
+  border-color: rgba(218, 92, 92, 0.75);
+  color: #ffd8d0;
+  box-shadow: 0 0 0 1px rgba(218, 92, 92, 0.14), 0 0 22px rgba(218, 92, 92, 0.18);
+}
+
+.case-calendar button.clash span {
+  background: linear-gradient(90deg, #6aa8ff 0 48%, #f5c76a 52% 100%);
+}
+
+.clash-status {
+  margin: 0;
+  border: 1px solid rgba(245, 199, 106, 0.2);
+  border-radius: 14px;
+  padding: 12px;
+  color: rgba(255, 250, 240, 0.78);
+  background: rgba(245, 199, 106, 0.07);
+}
+
+.diary-intelligence {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.diary-intelligence article {
+  border: 1px solid rgba(127, 211, 154, 0.22);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(127, 211, 154, 0.07);
+}
+
+.diary-intelligence article.warning {
+  border-color: rgba(218, 92, 92, 0.28);
+  background: rgba(218, 92, 92, 0.08);
+}
+
+.diary-intelligence span {
+  color: var(--gold-2);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.diary-intelligence strong {
+  display: block;
+  margin: 7px 0;
+  color: #fff4cf;
+}
+
+.diary-intelligence p {
+  margin: 0;
+  color: rgba(255, 250, 240, 0.68);
+  line-height: 1.5;
 }
 
 .court-sync-panel {
