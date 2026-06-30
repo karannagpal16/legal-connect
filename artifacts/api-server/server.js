@@ -3,6 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const config = require("./config");
+const db = require("./db");
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
@@ -85,7 +86,7 @@ function sendSse(res, data) {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": config.allowedOrigin,
   });
   res.write(`data: ${JSON.stringify({ content: data.answer })}\n\n`);
   res.write(`data: ${JSON.stringify({ done: true, citations: data.citations })}\n\n`);
@@ -126,6 +127,65 @@ function queryLawbot(question) {
     answer: `Based only on approved demo sources: ${matches.map((source) => source.text).join(" ")} This is legal information, not legal advice. Consult a verified advocate before taking action.`,
     citations: matches,
   };
+}
+
+function mapCase(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    title: row.title,
+    court: row.court,
+    caseNo: row.case_number,
+    caseNumber: row.case_number,
+    cnr: row.cnr,
+    nextDate: row.next_date,
+    status: row.status,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...(row.payload || {}),
+  };
+}
+
+function mapBooking(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    serviceType: row.service_type,
+    amount: row.amount,
+    paymentStatus: row.payment_status,
+    receiptNo: row.receipt_no,
+    nextDestination: row.next_destination,
+    createdAt: row.created_at,
+    ...(row.payload || {}),
+  };
+}
+
+function mapTask(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    court: row.court,
+    taskType: row.task_type,
+    amount: row.amount,
+    fee: row.amount,
+    escrowStatus: row.escrow_status,
+    status: row.status,
+    postedBy: row.posted_by,
+    acceptedBy: row.accepted_by,
+    proofUrl: row.proof_url,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...(row.payload || {}),
+  };
+}
+
+async function saveLawbotChat(userId, question, result) {
+  if (!db.dbAvailable) return;
+  await db.query(
+    "INSERT INTO lawbot_chats (user_id, question, answer, sources) VALUES ($1, $2, $3, $4)",
+    [userId || null, question, result.answer, JSON.stringify(result.citations || [])],
+  );
 }
 
 function contentType(filePath) {
@@ -176,18 +236,31 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/health" || url.pathname === "/api/health") {
-    sendJson(res, 200, { ok: true, app: "Legal Connect", mode: "Phase 1 demo backend" });
+    sendJson(res, 200, {
+      ok: true,
+      app: "Legal Connect",
+      mode: "Phase 1 backend",
+      db: db.dbAvailable ? "connected" : "fallback",
+    });
     return;
   }
 
   if (url.pathname === "/api/cases" && req.method === "GET") {
+    if (db.dbAvailable) {
+      const result = await db.query("SELECT * FROM cases ORDER BY created_at DESC");
+      sendJson(res, 200, result.rows.map(mapCase));
+      return;
+    }
     sendJson(res, 200, demoStore.cases);
     return;
   }
 
   if (url.pathname === "/api/cases" && req.method === "POST") {
     const body = await readBody(req);
-    const missing = ["court", "stateCode", "caseNo"].filter((field) => !body[field]);
+    const caseNumber = body.caseNo || body.case_number;
+    const missing = [];
+    if (!body.court) missing.push("court");
+    if (!caseNumber) missing.push("caseNo");
     if (missing.length > 0) {
       sendJson(res, 400, { error: `Missing required fields: ${missing.join(", ")}` });
       return;
@@ -195,17 +268,37 @@ const server = http.createServer(async (req, res) => {
 
     const trackedCase = {
       id: `case-${Date.now()}`,
-      title: body.title || `${body.court} | ${body.caseNo}`,
+      title: body.title || `${body.court} | ${caseNumber}`,
       status: "Active",
       nextDate: body.nextDate || "Sync pending",
       court: body.court,
       courtType: body.courtType || "district",
       stateCode: body.stateCode,
-      caseNo: body.caseNo,
+      caseNo: caseNumber,
       reminder: body.reminder || "24h before",
       stage: body.stage || "Court Sync pending",
       createdAt: new Date().toISOString(),
     };
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `INSERT INTO cases (user_id, title, court, case_number, cnr, next_date, status, notes, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          body.userId || body.user_id || null,
+          trackedCase.title,
+          trackedCase.court,
+          caseNumber,
+          body.cnr || null,
+          trackedCase.nextDate,
+          trackedCase.status,
+          body.notes || null,
+          JSON.stringify({ ...body, stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
+        ],
+      );
+      sendJson(res, 201, mapCase(result.rows[0]));
+      return;
+    }
     demoStore.cases.push(trackedCase);
     sendJson(res, 201, trackedCase);
     return;
@@ -213,6 +306,15 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith("/api/cases/") && req.method === "GET") {
     const id = url.pathname.split("/").pop();
+    if (db.dbAvailable) {
+      const result = await db.query("SELECT * FROM cases WHERE id = $1", [id]);
+      if (result.rows.length === 0) {
+        sendJson(res, 404, { error: "Case not found" });
+        return;
+      }
+      sendJson(res, 200, mapCase(result.rows[0]));
+      return;
+    }
     const trackedCase = demoStore.cases.find((item) => item.id === id);
     if (!trackedCase) {
       sendJson(res, 404, { error: "Case not found" });
@@ -256,6 +358,22 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith("/api/cases/") && url.pathname.endsWith("/complete") && req.method === "POST") {
     const id = url.pathname.split("/")[3];
+    if (db.dbAvailable) {
+      const result = await db.query(
+        "UPDATE cases SET status = $2, updated_at = now() WHERE id = $1 RETURNING *",
+        [id, "Completed"],
+      );
+      if (result.rows.length === 0) {
+        sendJson(res, 404, { error: "Case not found" });
+        return;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        case: mapCase(result.rows[0]),
+        message: "Diary entry completed after proof approval and escrow release.",
+      });
+      return;
+    }
     const trackedCase = demoStore.cases.find((item) => item.id === id);
     if (!trackedCase) {
       sendJson(res, 404, { error: "Case not found" });
@@ -272,11 +390,21 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/tasks" && req.method === "GET") {
+    if (db.dbAvailable) {
+      const result = await db.query("SELECT * FROM tasks ORDER BY created_at DESC");
+      sendJson(res, 200, result.rows.map(mapTask));
+      return;
+    }
     sendJson(res, 200, demoStore.tasks);
     return;
   }
 
   if (url.pathname === "/api/bookings" && req.method === "GET") {
+    if (db.dbAvailable) {
+      const result = await db.query("SELECT * FROM bookings ORDER BY created_at DESC");
+      sendJson(res, 200, result.rows.map(mapBooking));
+      return;
+    }
     sendJson(res, 200, demoStore.bookings);
     return;
   }
@@ -284,6 +412,24 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/bookings" && req.method === "POST") {
     const body = await readBody(req);
     const booking = { id: `booking-${Date.now()}`, status: "Pending", createdAt: new Date().toISOString(), ...body };
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `INSERT INTO bookings (user_id, service_type, amount, payment_status, receipt_no, next_destination, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [
+          body.userId || body.user_id || null,
+          body.serviceType || body.service_type || body.plan || "Legal Connect booking",
+          Number(body.amount || body.price || 0),
+          body.paymentStatus || body.payment_status || body.status || "Pending",
+          body.receiptNo || body.receipt_no || null,
+          body.nextDestination || body.next_destination || body.route || null,
+          JSON.stringify(body),
+        ],
+      );
+      sendJson(res, 201, mapBooking(result.rows[0]));
+      return;
+    }
     demoStore.bookings.push(booking);
     sendJson(res, 201, booking);
     return;
@@ -292,6 +438,27 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/tasks" && req.method === "POST") {
     const body = await readBody(req);
     const task = { id: `task-${Date.now()}`, status: "Open", createdAt: new Date().toISOString(), ...body };
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, accepted_by, proof_url, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING *`,
+        [
+          body.title || "Legal Connect mission",
+          body.court || null,
+          body.taskType || body.task_type || body.type || "Mission",
+          Number(body.amount || body.fee || 0),
+          body.escrowStatus || body.escrow_status || "Not locked",
+          body.status || "Open",
+          body.postedBy || body.posted_by || null,
+          body.acceptedBy || body.accepted_by || null,
+          body.proofUrl || body.proof_url || null,
+          JSON.stringify(body),
+        ],
+      );
+      sendJson(res, 201, mapTask(result.rows[0]));
+      return;
+    }
     demoStore.tasks.push(task);
     sendJson(res, 201, task);
     return;
@@ -299,7 +466,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/lawbot/query" && req.method === "POST") {
     const body = await readBody(req);
-    sendJson(res, 200, queryLawbot(body.query || body.message || ""));
+    const question = body.query || body.message || "";
+    const result = queryLawbot(question);
+    await saveLawbotChat(body.userId || body.user_id || null, question, result);
+    sendJson(res, 200, result);
     return;
   }
 
@@ -307,13 +477,59 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content || "";
-    sendSse(res, queryLawbot(lastUserMessage));
+    const result = queryLawbot(lastUserMessage);
+    await saveLawbotChat(body.userId || body.user_id || null, lastUserMessage, result);
+    sendSse(res, result);
+    return;
+  }
+
+  if (url.pathname === "/api/sos" && req.method === "POST") {
+    const body = await readBody(req);
+    const sosRequest = {
+      id: `sos-${Date.now()}`,
+      userId: body.userId || body.user_id || null,
+      serviceType: body.serviceType || body.service_type || "Legal SOS",
+      urgency: body.urgency || "Normal",
+      status: body.status || "Open",
+      createdAt: new Date().toISOString(),
+      ...body,
+    };
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `INSERT INTO sos_requests (user_id, service_type, urgency, status, payload)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [sosRequest.userId, sosRequest.serviceType, sosRequest.urgency, sosRequest.status, JSON.stringify(body)],
+      );
+      sendJson(res, 201, {
+        id: result.rows[0].id,
+        userId: result.rows[0].user_id,
+        serviceType: result.rows[0].service_type,
+        urgency: result.rows[0].urgency,
+        status: result.rows[0].status,
+        createdAt: result.rows[0].created_at,
+        ...(result.rows[0].payload || {}),
+      });
+      return;
+    }
+    demoStore.sosRequests = demoStore.sosRequests || [];
+    demoStore.sosRequests.push(sosRequest);
+    sendJson(res, 201, sosRequest);
     return;
   }
 
   serveStatic(req, res);
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on ${PORT}`);
+async function startServer() {
+  await db.initDb();
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on ${PORT}`);
+    console.log(`Database mode: ${db.dbAvailable ? "connected" : "fallback"}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Server failed to start", error);
+  process.exit(1);
 });
