@@ -175,21 +175,23 @@
               <span class="eyebrow">Secure Login</span>
               <h2>The app recognizes your lane.</h2>
               <div class="role-grid">
-                <button class="role-card selected"><strong>RNA Counsel</strong><span>Trust command, proxy acceptance, audit, escrow</span></button>
-                <button class="role-card"><strong>Independent Advocate</strong><span>Public feed, own cases, proxy posting, diary</span></button>
-                <button class="role-card"><strong>Proxy Contract Counsel</strong><span>NDA task rooms, proof upload, side income</span></button>
-                <button class="role-card"><strong>Intern Board</strong><span>XP missions, court tasks, drafts, PPO path</span></button>
+                <button class="role-card selected" data-login-role="rna"><strong>RNA Counsel</strong><span>Trust command, proxy acceptance, audit, payment lock</span></button>
+                <button class="role-card" data-login-role="advocate"><strong>Independent Advocate</strong><span>Public feed, own cases, proxy posting, diary</span></button>
+                <button class="role-card" data-login-role="client"><strong>Client</strong><span>Book counsel, Legal SOS, receipts, case updates</span></button>
+                <button class="role-card" data-login-role="intern"><strong>Intern Board</strong><span>XP missions, court tasks, drafts, PPO path</span></button>
               </div>
             </div>
-            <form class="panel form-panel">
-              <label>Mobile OTP<input value="+91 98XX XX4210" /></label>
-              <label>Email OTP<input value="karan@rna.example" /></label>
+            <form class="panel form-panel" id="role-login-form">
+              <label>Name<input id="login-name" value="Karan Nagpal" /></label>
+              <label>Email<input id="login-email" value="karan@rna.example" /></label>
+              <label>Phone<input id="login-phone" value="+91 98XX XX4210" /></label>
               <label>Bar Council ID<input value="D/4210/2019" /></label>
               <label>State Bar Council<select><option>Delhi</option><option>Haryana</option><option>Uttar Pradesh</option></select></label>
               <label>Practice Areas<input value="Criminal, Commercial, Arbitration" /></label>
               <label>Court Preferences<input value="DHC, Tis Hazari, Saket, Dwarka" /></label>
-              <label>Detected Lane<select><option>RNA Counsel - Trust Command</option><option>Independent Advocate</option><option>Proxy Contract Counsel</option><option>Intern Board</option></select></label>
-              <button class="gold-button" type="button">Verify and Route Securely</button>
+              <label>Detected Lane<select id="login-role"><option value="rna">RNA Counsel - Trust Command</option><option value="advocate">Independent Advocate</option><option value="client">Client</option><option value="intern">Intern Board</option><option value="admin">Admin</option></select></label>
+              <button class="gold-button" type="submit">Verify and Route Securely</button>
+              <p class="auth-status" id="auth-status">Login creates a Phase 1 session and routes your dashboard lane.</p>
             </form>
           </div>
         </section>
@@ -747,13 +749,30 @@
         </section>
 
         <section class="view" id="admin">
-          <div class="workspace-head"><div><span class="eyebrow">RNA Trust Command</span><h2>RNA keeps Phase 1 transparent, private, and payment-safe.</h2></div><button class="ghost-button" data-demo-action="Audit export prepared: lane checks, escrow events, proof approvals and privacy logs.">Export Audit</button></div>
-          <div class="metric-grid">
-            <article><span>Lane Verifications</span><strong>42</strong><small>RNA / Non-RNA / proxy / intern</small></article>
-            <article><span>Token Holds</span><strong>19</strong><small>Rs. 5-10 task confirmations</small></article>
-            <article><span>NDA Records</span><strong>118</strong><small>Proxy counsel contract layer</small></article>
-            <article><span>Privacy Events</span><strong>4,912</strong><small>24h file and call audit</small></article>
+          <div class="workspace-head"><div><span class="eyebrow">RNA Control Room</span><h2>Command Center for users, missions, payments, SOS, and case risk.</h2></div><button class="ghost-button" data-refresh-admin>Refresh Control Room</button></div>
+          <div class="metric-grid" id="admin-metrics">
+            <article><span>Total Users</span><strong>--</strong><small>Clients, advocates, RNA, interns</small></article>
+            <article><span>Bookings</span><strong>--</strong><small>Pending / confirmed / paid</small></article>
+            <article><span>Proxy Missions</span><strong>--</strong><small>Pending, accepted, proof, released</small></article>
+            <article><span>SOS + LawBot</span><strong>--</strong><small>Recent questions and urgent requests</small></article>
           </div>
+          <section class="panel command-actions">
+            <div>
+              <span class="eyebrow">Persistent Demo Actions</span>
+              <h3>Task/payment status controls.</h3>
+              <p id="admin-action-status">Choose an action. With DB connected, status updates persist.</p>
+            </div>
+            <div class="admin-action-grid">
+              <button data-admin-action="approve_task">Approve task</button>
+              <button data-admin-action="assign_lawyer">Assign lawyer</button>
+              <button data-admin-action="assign_intern">Assign intern</button>
+              <button data-admin-action="mark_payment_locked">Mark payment locked</button>
+              <button data-admin-action="mark_proof_approved">Mark proof approved</button>
+              <button data-admin-action="release_payment">Release payment</button>
+              <button data-admin-action="refund">Refund</button>
+              <button data-admin-action="close_task">Close task</button>
+            </div>
+          </section>
           <section class="panel trust-map">
             <h3>RNA Oversight Map</h3>
             <div class="brief-grid">
@@ -762,7 +781,41 @@
               <article><span>Contract Counsel</span><strong>NDA and fine clause</strong><p>RNA-approved counsel can earn side income without stealing clients or breaking trust.</p></article>
             </div>
           </section>
+          <section class="panel" id="admin-feed">
+            <h3>Recent Operating Feed</h3>
+            <div class="timeline" id="admin-feed-list">
+              <div><time>Live</time><strong>Waiting for data</strong><span>Refresh the control room after login as RNA/Admin.</span></div>
+            </div>
+          </section>
         </section>
+
+        <section class="view legal-view" id="privacy-policy">
+          <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Privacy Policy</h2></div></div>
+          <section class="panel"><p>Legal Connect protects user data through role-based access and audit-friendly flows. Real production use requires a final privacy policy reviewed by counsel.</p></section>
+        </section>
+        <section class="view legal-view" id="terms">
+          <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Terms</h2></div></div>
+          <section class="panel"><p>Legal Connect is a technology platform and not a law firm. Platform use is subject to verification, fair use, and professional responsibility rules.</p></section>
+        </section>
+        <section class="view legal-view" id="refund-policy">
+          <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Refund Policy</h2></div></div>
+          <section class="panel"><p>Payment lock and escrow-like labels are Phase 1 internal demo statuses until regulated payment setup and final legal review are completed.</p></section>
+        </section>
+        <section class="view legal-view" id="disclaimer">
+          <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Disclaimer</h2></div></div>
+          <section class="panel"><p>AI/LawBot answers are informational only and must be reviewed by a verified advocate before reliance. No scraping or unauthorized use of licensed content is permitted.</p></section>
+        </section>
+        <section class="view legal-view" id="contact">
+          <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Contact</h2></div></div>
+          <section class="panel"><p>For Phase 1 demo support, use the RNA Control Room or Legal SOS flow. Production contact details should be added after domain and firm approvals.</p></section>
+        </section>
+        <footer class="legal-footer">
+          <button data-jump="privacy-policy">Privacy Policy</button>
+          <button data-jump="terms">Terms</button>
+          <button data-jump="refund-policy">Refund Policy</button>
+          <button data-jump="disclaimer">Disclaimer</button>
+          <button data-jump="contact">Contact</button>
+        </footer>
       </main>
 
       <aside class="floating-lawbot" id="floating-lawbot" aria-live="polite">

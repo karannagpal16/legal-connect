@@ -14,13 +14,50 @@ const titles = {
   escrow: "Escrow Status",
   client: "Client Portal",
   intern: "Intern Portal",
-  admin: "Admin Panel"
+  admin: "Admin Panel",
+  "privacy-policy": "Privacy Policy",
+  terms: "Terms",
+  "refund-policy": "Refund Policy",
+  disclaimer: "Disclaimer",
+  contact: "Contact"
 };
 
 const navItems = [...document.querySelectorAll(".nav-item")];
 const views = [...document.querySelectorAll(".view")];
 const title = document.querySelector("#view-title");
 const demoStatus = document.querySelector("#demo-status");
+const API_BASE = location.protocol === "file:" ? "http://127.0.0.1:3000" : "";
+let currentSession = null;
+
+function getSession() {
+  if (currentSession) return currentSession;
+  try {
+    currentSession = JSON.parse(localStorage.getItem("legalConnectSession") || "null");
+  } catch {
+    currentSession = null;
+  }
+  return currentSession;
+}
+
+function authHeaders() {
+  const session = getSession();
+  return session?.token ? { Authorization: `Bearer ${session.token}` } : {};
+}
+
+async function apiFetch(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+  return response.json();
+}
 
 function setDemoStatus(message) {
   if (!demoStatus || !message) return;
@@ -39,6 +76,7 @@ function activateView(id) {
   setDemoStatus(`${titles[id] || "Legal Connect"} opened.`);
   history.replaceState(null, "", `#${id}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (id === "admin") refreshAdminDashboard();
 }
 
 document.addEventListener("click", (event) => {
@@ -56,8 +94,47 @@ document.querySelectorAll(".role-card").forEach((card) => {
   card.addEventListener("click", () => {
     document.querySelectorAll(".role-card").forEach((item) => item.classList.remove("selected"));
     card.classList.add("selected");
+    const roleSelect = document.querySelector("#login-role");
+    if (roleSelect && card.dataset.loginRole) roleSelect.value = card.dataset.loginRole;
     setDemoStatus(`${card.querySelector("strong")?.textContent || "Role"} selected. Login routing preview updated.`);
   });
+});
+
+const roleLoginForm = document.querySelector("#role-login-form");
+const authStatus = document.querySelector("#auth-status");
+const roleRoutes = {
+  client: "client",
+  advocate: "advocate",
+  rna: "admin",
+  intern: "intern",
+  admin: "admin",
+};
+
+roleLoginForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    name: document.querySelector("#login-name")?.value || "Legal Connect User",
+    email: document.querySelector("#login-email")?.value || "",
+    phone: document.querySelector("#login-phone")?.value || "",
+    role: document.querySelector("#login-role")?.value || "client",
+  };
+  try {
+    const result = await apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    currentSession = result;
+    localStorage.setItem("legalConnectSession", JSON.stringify(result));
+    const destination = roleRoutes[result.user.role] || "client";
+    if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}. Routing to ${titles[destination]}.`;
+    setDemoStatus(`Logged in as ${result.user.role}.`);
+    activateView(destination);
+  } catch (error) {
+    if (authStatus) authStatus.textContent = "Login API unavailable. Demo lane selected locally.";
+    currentSession = { token: "", user: payload };
+    localStorage.setItem("legalConnectSession", JSON.stringify(currentSession));
+    activateView(roleRoutes[payload.role] || "client");
+  }
 });
 
 const dailyGreetings = [
@@ -238,6 +315,16 @@ document.querySelectorAll("[data-track-case]").forEach((button) => {
     if (courtSyncStatus) courtSyncStatus.textContent = `${message} Demo API route: POST /api/cases.`;
     addCourtSyncTimelineEntry("Sync", court, `${caseNo} tracked. Next-date check queued every 6 hours.`);
     setDemoStatus(message);
+    try {
+      const saved = await apiFetch("/api/cases", {
+        method: "POST",
+        body: JSON.stringify({ court, stateCode, caseNo, reminder: activeReminderSetting, title: `${court} | ${caseNo}` }),
+      });
+      localStorage.setItem("legalConnectLastCaseId", saved.id);
+      if (courtSyncStatus) courtSyncStatus.textContent = `${message} Saved to backend case diary.`;
+    } catch {
+      if (courtSyncStatus) courtSyncStatus.textContent = `${message} Local preview saved; backend unavailable.`;
+    }
   });
 });
 
@@ -330,6 +417,15 @@ document.querySelectorAll("[data-calendar-note]").forEach((button) => {
     if (clashStatus) clashStatus.textContent = `${day} June: ${note}`;
     if (courtSyncStatus) courtSyncStatus.textContent = `Calendar intelligence: ${note}`;
     setDemoStatus(`Calendar checked for ${day} June.`);
+    apiFetch("/api/case-updates", {
+      method: "POST",
+      body: JSON.stringify({
+        caseId: localStorage.getItem("legalConnectLastCaseId"),
+        updateType: "calendar_decision",
+        decision: `${day} June: ${note}`,
+        day,
+      }),
+    }).catch(() => undefined);
   });
 });
 
@@ -340,6 +436,14 @@ document.querySelectorAll("[data-check-clashes]").forEach((button) => {
     if (courtSyncStatus) courtSyncStatus.textContent = message;
     addCourtSyncTimelineEntry("Calendar", "Date strategy updated", message);
     setDemoStatus(message);
+    apiFetch("/api/case-updates", {
+      method: "POST",
+      body: JSON.stringify({
+        caseId: localStorage.getItem("legalConnectLastCaseId"),
+        updateType: "clash_warning",
+        message,
+      }),
+    }).catch(() => undefined);
   });
 });
 
@@ -418,7 +522,7 @@ document.querySelectorAll("[data-book-option]").forEach((button) => {
 });
 
 document.querySelectorAll("[data-pay-booking]").forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     if (!activeBooking) {
       if (bookingStatus) bookingStatus.textContent = "Please select Attorney Shield, Video, Audio, Chat, or Doorstep first.";
       setDemoStatus("Select a booking mode before payment.");
@@ -433,6 +537,27 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       route: activeBooking.route,
       status: "Paid demo booking"
     };
+
+    try {
+      const order = await apiFetch("/api/payments/create-order", {
+        method: "POST",
+        body: JSON.stringify({ amount: Number(activeBooking.price), serviceType: activeBooking.plan }),
+      });
+      const savedBooking = await apiFetch("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          serviceType: activeBooking.plan,
+          amount: Number(activeBooking.price),
+          paymentStatus: order.order?.payment_lock_status || "locked",
+          receiptNo: bookingId,
+          nextDestination: activeBooking.route,
+        }),
+      });
+      receipt.backendId = savedBooking.id;
+      receipt.paymentMode = order.mode;
+    } catch {
+      receipt.paymentMode = "local-fallback";
+    }
 
     localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
     if (bookingConfirmation) {
@@ -449,7 +574,74 @@ if (bookingConfirmation && savedClientBooking) {
   bookingConfirmation.innerHTML = `<span>Last Booking</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p>`;
 }
 
-const initialView = location.hash.replace("#", "");
+const adminMetrics = document.querySelector("#admin-metrics");
+const adminFeedList = document.querySelector("#admin-feed-list");
+const adminActionStatus = document.querySelector("#admin-action-status");
+
+function countRows(rows = []) {
+  return rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+}
+
+async function refreshAdminDashboard() {
+  if (!adminMetrics || !adminFeedList) return;
+  try {
+    const summary = await apiFetch("/api/admin/summary");
+    const totalUsers = countRows(summary.users);
+    const totalBookings = countRows(summary.bookings);
+    const totalTasks = countRows(summary.tasks);
+    const sosCount = (summary.sosRequests || []).length;
+    const lawbotCount = (summary.recentLawbotQuestions || []).length;
+    adminMetrics.innerHTML = `
+      <article><span>Total Users</span><strong>${totalUsers}</strong><small>${(summary.users || []).map((item) => `${item.role}: ${item.count}`).join(" / ") || "No users yet"}</small></article>
+      <article><span>Bookings</span><strong>${totalBookings}</strong><small>${(summary.bookings || []).map((item) => `${item.payment_status || "pending"}: ${item.count}`).join(" / ") || "No bookings yet"}</small></article>
+      <article><span>Proxy Missions</span><strong>${totalTasks}</strong><small>${(summary.tasks || []).map((item) => `${item.status}: ${item.count}`).join(" / ") || "No missions yet"}</small></article>
+      <article><span>SOS + LawBot</span><strong>${sosCount + lawbotCount}</strong><small>${sosCount} SOS / ${lawbotCount} questions</small></article>
+    `;
+    const cases = summary.recentCases || [];
+    adminFeedList.innerHTML = cases.length
+      ? cases.map((item) => `<div><time>${item.next_date || item.nextDate || "Date pending"}</time><strong>${item.title || "Case"}</strong><span>${item.court || "Court pending"} - ${item.status || "Active"}</span></div>`).join("")
+      : `<div><time>Live</time><strong>No recent cases</strong><span>Create a case from Case Diary to populate this feed.</span></div>`;
+    setDemoStatus("RNA Control Room refreshed.");
+  } catch {
+    if (adminActionStatus) adminActionStatus.textContent = "Admin API unavailable. Login as RNA/Admin after backend deploy.";
+  }
+}
+
+document.querySelectorAll("[data-refresh-admin]").forEach((button) => {
+  button.addEventListener("click", refreshAdminDashboard);
+});
+
+document.querySelectorAll("[data-admin-action]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const action = button.dataset.adminAction;
+    try {
+      const result = await apiFetch("/api/admin/task-action", {
+        method: "POST",
+        body: JSON.stringify({ action, status: action.replaceAll("_", " ") }),
+      });
+      if (adminActionStatus) adminActionStatus.textContent = `Action saved: ${result.status || action}.`;
+      setDemoStatus(`RNA action saved: ${action}.`);
+    } catch {
+      if (adminActionStatus) adminActionStatus.textContent = `Demo action queued locally: ${action}.`;
+    }
+  });
+});
+
+async function refreshNotifications() {
+  try {
+    const notifications = await apiFetch("/api/notifications");
+    if (notifications[0]) {
+      setDemoStatus(`${notifications[0].title || "Notification"}: ${notifications[0].message || "New update"}`);
+    }
+  } catch {
+    // Keep static preview quiet.
+  }
+}
+
+refreshNotifications();
+
+const pathView = location.pathname.replace("/", "");
+const initialView = location.hash.replace("#", "") || (document.getElementById(pathView) ? pathView : "");
 if (initialView && document.getElementById(initialView)) {
   activateView(initialView);
 }

@@ -43,6 +43,9 @@ async function initDb() {
       )
     `);
 
+    await query(`CREATE INDEX IF NOT EXISTS users_email_idx ON users (email) WHERE email IS NOT NULL`);
+    await query(`CREATE INDEX IF NOT EXISTS users_phone_idx ON users (phone) WHERE phone IS NOT NULL`);
+
     await query(`
       CREATE TABLE IF NOT EXISTS cases (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -121,6 +124,19 @@ async function initDb() {
         service_type text,
         urgency text,
         status text,
+        payload jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid,
+        event_type text,
+        title text,
+        message text,
+        read_at timestamptz,
         payload jsonb,
         created_at timestamptz DEFAULT now()
       )

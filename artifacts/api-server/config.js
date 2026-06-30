@@ -61,6 +61,11 @@ const config = {
   webPushPrivateKey: optionalString("WEB_PUSH_PRIVATE_KEY"),
   razorpayKeyId: optionalString("RAZORPAY_KEY_ID"),
   razorpayKeySecret: optionalString("RAZORPAY_KEY_SECRET"),
+  razorpayWebhookSecret: optionalString("RAZORPAY_WEBHOOK_SECRET") || optionalString("WEBHOOK_SECRET"),
+  emailProvider: optionalString("EMAIL_PROVIDER"),
+  sendgridApiKey: optionalString("SENDGRID_API_KEY") || optionalString("SENDGRID_KEY"),
+  resendApiKey: optionalString("RESEND_API_KEY"),
+  fromEmail: optionalString("FROM_EMAIL"),
 };
 
 if (config.nodeEnv === "production") {
