@@ -3199,6 +3199,49 @@ select,
   background: linear-gradient(135deg, #f5c76a, #c88b2a);
 }
 
+.court-sync-actions,
+.sync-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.court-sync-actions .ghost-button {
+  min-height: 42px;
+}
+
+.sync-tabs button {
+  border: 1px solid rgba(224, 200, 139, 0.22);
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: var(--gold-2);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.sync-tabs button.active {
+  color: #101927;
+  background: linear-gradient(135deg, var(--gold), var(--gold-2));
+}
+
+.deployment-strip {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.deployment-strip span {
+  border: 1px solid rgba(224, 200, 139, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  color: rgba(255, 250, 240, 0.78);
+  background: rgba(0, 0, 0, 0.18);
+  text-align: center;
+  font-size: 0.78rem;
+}
+
 .court-sync-status {
   grid-column: 1 / -1;
   margin: 0;
@@ -3211,6 +3254,12 @@ select,
 #court-sync-release-entry.done {
   border-color: rgba(67, 214, 149, 0.44);
   background: rgba(67, 214, 149, 0.08);
+}
+
+@media (max-width: 760px) {
+  .deployment-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .feed-grid,

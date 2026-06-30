@@ -202,6 +202,19 @@ const courtSyncStatus = document.querySelector("#court-sync-status");
 const courtSyncTimeline = document.querySelector("#court-sync-timeline");
 const courtSyncReleaseEntry = document.querySelector("#court-sync-release-entry");
 let activeReminderSetting = "24h before";
+let caseUpdateStream = null;
+
+function addCourtSyncTimelineEntry(time, title, message) {
+  if (!courtSyncTimeline) return;
+  courtSyncTimeline.insertAdjacentHTML("afterbegin", `<div><time>${time}</time><strong>${title}</strong><span>${message}</span></div>`);
+}
+
+function handleCaseUpdate(update) {
+  const message = update.message || "Court Sync update received.";
+  if (courtSyncStatus) courtSyncStatus.textContent = message;
+  addCourtSyncTimelineEntry("Live", update.caseId || "Court Sync", message);
+  setDemoStatus(message);
+}
 
 document.querySelectorAll("[data-reminder-setting]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -222,10 +235,88 @@ document.querySelectorAll("[data-track-case]").forEach((button) => {
 
     localStorage.setItem("legalConnectCourtSyncCase", JSON.stringify({ court, stateCode, caseNo, reminder: activeReminderSetting }));
     if (courtSyncStatus) courtSyncStatus.textContent = `${message} Demo API route: POST /api/cases.`;
-    if (courtSyncTimeline) {
-      courtSyncTimeline.insertAdjacentHTML("afterbegin", `<div><time>Sync</time><strong>${court}</strong><span>${caseNo} tracked. Next-date check queued every 6 hours.</span></div>`);
-    }
+    addCourtSyncTimelineEntry("Sync", court, `${caseNo} tracked. Next-date check queued every 6 hours.`);
     setDemoStatus(message);
+  });
+});
+
+document.querySelectorAll("[data-sync-stream]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (location.protocol === "file:") {
+      handleCaseUpdate({
+        caseId: "case-demo-1",
+        message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5. Local preview stream simulated.",
+      });
+      return;
+    }
+
+    if (caseUpdateStream) {
+      if (courtSyncStatus) courtSyncStatus.textContent = "Court Sync update stream is already watching.";
+      return;
+    }
+
+    caseUpdateStream = new EventSource("/api/case-updates");
+    caseUpdateStream.addEventListener("caseUpdate", (event) => {
+      handleCaseUpdate(JSON.parse(event.data));
+      caseUpdateStream.close();
+      caseUpdateStream = null;
+    });
+    caseUpdateStream.onerror = () => {
+      if (courtSyncStatus) courtSyncStatus.textContent = "Court Sync stream is unavailable in this preview. Demo fallback loaded.";
+      handleCaseUpdate({
+        caseId: "case-demo-1",
+        message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5. Demo fallback.",
+      });
+      caseUpdateStream?.close();
+      caseUpdateStream = null;
+    };
+    if (courtSyncStatus) courtSyncStatus.textContent = "Watching Court Sync update stream...";
+  });
+});
+
+document.querySelectorAll("[data-enable-push]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    if (!("serviceWorker" in navigator) || !("Notification" in window)) {
+      if (courtSyncStatus) courtSyncStatus.textContent = "Push demo is not supported in this browser preview.";
+      return;
+    }
+    if (location.protocol === "file:") {
+      if (courtSyncStatus) courtSyncStatus.textContent = "Push demo needs the local server URL, not a file preview. Open http://127.0.0.1:3000.";
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.register("./service-worker.js");
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      if (courtSyncStatus) courtSyncStatus.textContent = "Notification permission was not granted. Court Sync can still show in-app alerts.";
+      return;
+    }
+
+    registration.showNotification("Legal Connect Court Sync", {
+      body: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.",
+      tag: "legal-connect-court-sync",
+    });
+    if (courtSyncStatus) courtSyncStatus.textContent = "Push demo enabled. Real delivery needs VAPID keys and notify-worker deployment.";
+  });
+});
+
+document.querySelectorAll("[data-case-link]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const caseId = button.dataset.caseLink || "case-demo-1";
+    const route = `#case-${caseId}`;
+    history.pushState(null, "", route);
+    addCourtSyncTimelineEntry("Open", "Case Snapshot", `${caseId} opened as a Legal Connect deep link.`);
+    if (courtSyncStatus) courtSyncStatus.textContent = `Case snapshot opened: ${route}. Backend route GET /api/cases/${caseId} is ready in demo mode.`;
+  });
+});
+
+document.querySelectorAll("[data-diary-tab]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-diary-tab]").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    const tab = button.dataset.diaryTab;
+    if (courtSyncStatus) courtSyncStatus.textContent = `${tab} matters loaded. Phase 1 uses demo diary data; live filtering needs DB persistence.`;
+    setDemoStatus(`Case Diary switched to ${tab}.`);
   });
 });
 

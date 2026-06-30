@@ -241,6 +241,35 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/notify/test" && req.method === "POST") {
+    const body = await readBody(req);
+    sendJson(res, 202, {
+      queued: true,
+      mode: "demo",
+      channels: ["web-push-demo", "email-demo", "sms-placeholder"],
+      message: body.message || "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.",
+      requiredEnv: ["REDIS_URL", "SENDGRID_KEY", "WEB_PUSH_PUBLIC_KEY", "WEB_PUSH_PRIVATE_KEY"],
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/cases/") && url.pathname.endsWith("/complete") && req.method === "POST") {
+    const id = url.pathname.split("/")[3];
+    const trackedCase = demoStore.cases.find((item) => item.id === id);
+    if (!trackedCase) {
+      sendJson(res, 404, { error: "Case not found" });
+      return;
+    }
+    trackedCase.status = "Completed";
+    trackedCase.completedAt = new Date().toISOString();
+    sendJson(res, 200, {
+      ok: true,
+      case: trackedCase,
+      message: "Diary entry completed after proof approval and escrow release.",
+    });
+    return;
+  }
+
   if (url.pathname === "/api/tasks" && req.method === "GET") {
     sendJson(res, 200, demoStore.tasks);
     return;
