@@ -30,7 +30,7 @@
           <button class="nav-item" data-view="appearance">Court Mission Board</button>
           <button class="nav-item" data-view="posttask">Post Mission</button>
           <button class="nav-item" data-view="task">Task Detail</button>
-          <button class="nav-item" data-view="escrow">Escrow</button>
+          <button class="nav-item" data-view="escrow">Work Hold</button>
           <button class="nav-item" data-view="client">Client Portal</button>
           <button class="nav-item" data-view="intern">Intern Portal</button>
           <button class="nav-item" data-view="admin">Admin</button>
@@ -326,7 +326,7 @@
 
             <section class="advocate-shields">
               <span>Bar Council Verified</span>
-              <span>Escrow Payment</span>
+              <span>Work Completion Hold</span>
               <span>Legal SOS</span>
               <span>NDA Required</span>
               <span>Location Based Tasks</span>
@@ -534,11 +534,11 @@
         </section>
 
         <section class="view" id="appearance">
-          <div class="workspace-head"><div><span class="eyebrow">Court Mission Board + Legal SOS</span><h2>Posted missions, accepted work, proof, and escrow release.</h2></div><button class="gold-button" data-jump="posttask">Post Mission</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">Court Mission Board + Legal SOS</span><h2>Posted missions, accepted work, proof, and work completion release.</h2></div><button class="gold-button" data-jump="posttask">Post Mission</button></div>
           <section class="panel mission-command-center">
             <div class="section-head">
               <div><span class="eyebrow">Mission Control</span><h3>Every proxy task follows one clean path.</h3></div>
-              <span class="status-dot">Escrow protected</span>
+              <span class="status-dot">Completion hold active</span>
             </div>
             <div class="client-flow-strip">
               <span class="done">1. Posted by A</span>
@@ -554,7 +554,7 @@
             </div>
           </section>
           <div class="task-grid">
-            <article class="task-card trusted" data-jump="task"><span>In Progress - posted by Adv. A</span><h3>Saket Court inspection</h3><p>Inspect civil file, note next date, photograph inspection slip. Client identity hidden.</p><strong>Escrow locked: Rs. 1,000</strong><small>Accepted by RNA verified counsel B</small></article>
+            <article class="task-card trusted" data-jump="task"><span>In Progress - posted by Adv. A</span><h3>Saket Court inspection</h3><p>Inspect civil file, note next date, photograph inspection slip. Client identity hidden.</p><strong>Work hold locked: Rs. 1,000</strong><small>Accepted by RNA verified counsel B</small></article>
             <article class="task-card" data-jump="task"><span>Open Mission</span><h3>Certified copy collection</h3><p>Saket filing counter, receipt proof and order copy required before release.</p><strong>Fee locked: Rs. 650</strong><small>Status: awaiting acceptance</small></article>
             <article class="task-card runner"><span>Legal SOS</span><h3>Urgent police station support</h3><p>Prepare first-response checklist and connect verified counsel for emergency guidance.</p><strong>Priority token: Rs. 10</strong><small>Status: route to client shield</small></article>
           </div>
@@ -570,7 +570,7 @@
             <div class="case-health">
               <div><span>Advocate A</span><strong>Task poster</strong><small>Sees mission status, proof, fee locked, counsel identity after acceptance.</small></div>
               <div><span>Advocate B</span><strong>Completing counsel</strong><small>Sees court, task, instructions, proof required, payment status. Client strategy stays hidden.</small></div>
-              <div><span>RNA Coordinator</span><strong>Escrow + trust desk</strong><small>Sees all mission details, payment, proof, dispute notes and release control.</small></div>
+              <div><span>RNA Coordinator</span><strong>Work hold + trust desk</strong><small>Sees all mission details, payment, proof, dispute notes and release control.</small></div>
             </div>
           </section>
         </section>
@@ -600,7 +600,7 @@
         <section class="view" id="task">
           <div class="panel task-detail">
             <span class="eyebrow">Court Mission Room</span>
-            <h2>Saket Court inspection - escrow Rs. 1,000</h2>
+            <h2>Saket Court inspection - work hold Rs. 1,000</h2>
             <div class="case-card">
               <div><span>Visible to counsel B</span><strong>Court, mission, instruction, required proof</strong></div>
               <div><span>Hidden</span><strong>Client details, strategy, full vault, billing</strong></div>
@@ -611,21 +611,21 @@
               <button class="gold-button" data-task-action="Accepted by RNA counsel B">Accept Mission</button>
               <button class="ghost-button" data-task-action="Proof uploaded: inspection slip, photo and next date note">Upload Proof</button>
               <button class="ghost-button" data-task-action="Mission marked ongoing. Payment remains locked.">Mark Ongoing</button>
-              <button class="ghost-button" data-task-action="Advocate A approved proof. Escrow is ready for release.">Approve Proof</button>
+              <button class="ghost-button" data-task-action="Advocate A approved proof. Work completion hold is ready for release.">Approve Proof</button>
               <button class="gold-button" data-task-action="Payment released to Advocate B. Receipt saved for RNA audit.">Release Payment</button>
             </div>
-            <p id="task-action-status">Current status: inspection ongoing, escrow locked.</p>
+            <p id="task-action-status">Current status: inspection ongoing, work completion hold active.</p>
           </div>
         </section>
 
         <section class="view" id="escrow">
           <div class="panel">
             <span class="eyebrow">Financial Integrity</span>
-            <h2>Escrow status</h2>
+            <h2>Work Completion Hold</h2>
             <div class="escrow-flow">
-              <span class="done">Posted</span><span class="done">Amount Locked</span><span class="done">Accepted</span><span class="active">GPS Check-in</span><span id="escrow-proof-step">Proof Uploaded</span><span id="escrow-approval-step">Approval</span><span id="escrow-release-step">Released</span>
+              <span class="done">Posted</span><span class="done">Amount Held</span><span class="done">Accepted</span><span class="active">GPS Check-in</span><span id="escrow-proof-step">Proof Uploaded</span><span id="escrow-approval-step">Approval</span><span id="escrow-release-step">Released</span>
             </div>
-            <p id="escrow-status">Escrow status: Rs. 1,000 locked. Release requires proof and poster approval.</p>
+            <p id="escrow-status">Work Completion Hold: Rs. 1,000 locked. Release requires proof and poster approval.</p>
           </div>
         </section>
 
@@ -826,7 +826,7 @@
               <button data-admin-action="approve_task">Approve task</button>
               <button data-admin-action="assign_lawyer">Assign lawyer</button>
               <button data-admin-action="assign_intern">Assign intern</button>
-              <button data-admin-action="mark_payment_locked">Mark payment locked</button>
+              <button data-admin-action="mark_payment_locked">Mark work hold</button>
               <button data-admin-action="mark_proof_approved">Mark proof approved</button>
               <button data-admin-action="release_payment">Release payment</button>
               <button data-admin-action="refund">Refund</button>
@@ -838,7 +838,7 @@
               <div>
                 <span class="eyebrow">Legal AI Source Library</span>
                 <h3>Approve the law before LawBot can answer from it.</h3>
-                <p>Paste authorised Bare Acts, rules, notifications, bills, government sources, court judgments, or licensed case-law excerpts. No scraping is done here.</p>
+                <p>Paste authorised text or upload an official PDF. PDF text is extracted, split section-wise, saved as pending sources, and only becomes LawBot material after approval and indexing.</p>
               </div>
               <button class="ghost-button" data-refresh-sources>Refresh Sources</button>
             </div>
@@ -858,19 +858,29 @@
               <label>Title<input id="source-title" placeholder="e.g. Negotiable Instruments Act Section 138" /></label>
               <label>Citation<input id="source-citation" placeholder="e.g. NI Act, 1881, Section 138" /></label>
               <label>Source URL metadata<input id="source-url" placeholder="Paste official URL metadata only; no scraping yet" /></label>
+              <label>Official PDF Upload<input id="source-pdf" type="file" accept="application/pdf" /></label>
               <label class="source-text">Approved text excerpt<textarea id="source-text" placeholder="Paste the authorised legal text here. LawBot will answer only from approved and indexed chunks."></textarea></label>
-              <button class="gold-button" type="submit">Add Pending Source</button>
+              <button class="gold-button" type="submit">Create Pending Source / Ingest PDF</button>
             </form>
             <p id="legal-source-status">Login as RNA/Admin, add a source, approve it, then index chunks.</p>
             <div class="source-list" id="legal-source-list">
               <article><strong>No sources loaded</strong><span>Refresh after adding your first authorised source.</span></article>
             </div>
           </section>
+          <section class="panel audit-panel">
+            <div class="section-head">
+              <div><span class="eyebrow">Audit Trail</span><h3>RNA action log.</h3></div>
+              <button class="ghost-button" data-refresh-audit>Refresh Audit</button>
+            </div>
+            <div class="timeline" id="audit-log-list">
+              <div><time>Live</time><strong>No audit logs loaded</strong><span>Task actions, source approval/rejection/chunking, refunds and role changes appear here.</span></div>
+            </div>
+          </section>
           <section class="panel trust-map">
             <h3>RNA Oversight Map</h3>
             <div class="brief-grid">
               <article><span>Data Privacy</span><strong>Client Shield enforced</strong><p>No phone, email, address, strategy, or full vault shown to proxy counsel.</p></article>
-              <article><span>Payment Gateway</span><strong>Token to escrow</strong><p>Small confirmation fee reduces fake tasks; final fee locks before execution.</p></article>
+              <article><span>Payment Gateway</span><strong>Token to work hold</strong><p>Small confirmation fee reduces fake tasks; final fee locks before execution.</p></article>
               <article><span>Contract Counsel</span><strong>NDA and fine clause</strong><p>RNA-approved counsel can earn side income without stealing clients or breaking trust.</p></article>
             </div>
           </section>
@@ -892,7 +902,7 @@
         </section>
         <section class="view legal-view" id="refund-policy">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Refund Policy</h2></div></div>
-          <section class="panel"><p>Payment lock and escrow-like labels are Phase 1 internal demo statuses until regulated payment setup and final legal review are completed.</p></section>
+          <section class="panel"><p>Payment lock and work-completion-hold labels are Phase 1 internal demo statuses until regulated payment setup and final legal review are completed.</p></section>
         </section>
         <section class="view legal-view" id="disclaimer">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Disclaimer</h2></div></div>
@@ -953,10 +963,4 @@
     <script src="app.js?v=4"></script>
   </body>
 </html>
-
-
-
-
-
-
 

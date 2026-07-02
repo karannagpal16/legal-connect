@@ -11,7 +11,7 @@ const titles = {
   appearance: "Court Mission Board",
   posttask: "Post Court Mission",
   task: "Task Detail",
-  escrow: "Escrow Status",
+  escrow: "Work Completion Hold",
   client: "Client Portal",
   intern: "Intern Portal",
   admin: "Admin Panel",
@@ -283,7 +283,7 @@ document.querySelectorAll("[data-save-mission]").forEach((button) => {
     const mission = "Saket Court inspection - Rs. 1,000 locked - status: in progress";
     localStorage.setItem("legalConnectMission", mission);
     if (missionSaveStatus) missionSaveStatus.textContent = `Saved: ${mission}`;
-    setDemoStatus("Mission posted. Rs. 1,000 locked in escrow. It now appears on Court Mission Board.");
+    setDemoStatus("Mission posted. Rs. 1,000 held until completion. It now appears on Court Mission Board.");
     activateView("appearance");
   });
 });
@@ -474,7 +474,7 @@ document.querySelectorAll("[data-task-action]").forEach((button) => {
     const message = button.dataset.taskAction;
     if (taskActionStatus) taskActionStatus.textContent = `Current status: ${message}`;
     if (missionBoardStatus) missionBoardStatus.textContent = `Mission board status: ${message}`;
-    if (escrowStatus) escrowStatus.textContent = `Escrow status: ${message}`;
+    if (escrowStatus) escrowStatus.textContent = `Work Completion Hold: ${message}`;
 
     if (message.includes("Proof uploaded")) {
       missionProofStep?.classList.add("done");
@@ -491,7 +491,7 @@ document.querySelectorAll("[data-task-action]").forEach((button) => {
       if (courtSyncReleaseEntry) {
         courtSyncReleaseEntry.querySelector("span").textContent = "Mission proof approved. Diary entry marked completed and removed from Upcoming.";
       }
-      if (courtSyncStatus) courtSyncStatus.textContent = "Escrow release synced with Case Diary. Associated mission entry is now completed.";
+      if (courtSyncStatus) courtSyncStatus.textContent = "Work completion release synced with Case Diary. Associated mission entry is now completed.";
     }
 
     setDemoStatus(message);
@@ -648,6 +648,7 @@ const adminActionStatus = document.querySelector("#admin-action-status");
 const legalSourceForm = document.querySelector("#legal-source-form");
 const legalSourceList = document.querySelector("#legal-source-list");
 const legalSourceStatus = document.querySelector("#legal-source-status");
+const auditLogList = document.querySelector("#audit-log-list");
 
 function countRows(rows = []) {
   return rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
@@ -674,9 +675,19 @@ async function refreshAdminDashboard() {
       : `<div><time>Live</time><strong>No recent cases</strong><span>Create a case from Case Diary to populate this feed.</span></div>`;
     setDemoStatus("RNA Control Room refreshed.");
     refreshLegalSources();
+    refreshAuditLogs();
   } catch {
     if (adminActionStatus) adminActionStatus.textContent = "Admin API unavailable. Login as RNA/Admin after backend deploy.";
   }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 async function refreshLegalSources() {
@@ -708,6 +719,7 @@ async function refreshLegalSources() {
 
 legalSourceForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const pdfFile = document.querySelector("#source-pdf")?.files?.[0];
   const payload = {
     sourceType: document.querySelector("#source-type")?.value || "Bare Acts",
     sourceName: document.querySelector("#source-name")?.value || "Legal Connect Source Library",
@@ -718,17 +730,39 @@ legalSourceForm?.addEventListener("submit", async (event) => {
     status: "pending",
   };
   try {
-    const created = await apiFetch("/api/admin/legal-sources", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    if (legalSourceStatus) legalSourceStatus.textContent = `Pending source added: ${created.title}. Approve and index it before LawBot can use it.`;
+    if (pdfFile) {
+      const pdfBase64 = await readFileAsDataUrl(pdfFile);
+      const result = await apiFetch("/api/admin/legal-sources/pdf", {
+        method: "POST",
+        body: JSON.stringify({ ...payload, fileName: pdfFile.name, pdfBase64 }),
+      });
+      if (legalSourceStatus) legalSourceStatus.textContent = `PDF ingested: ${result.sourcesCreated} pending source(s), ${result.extractedWords} extracted words. Approve and index before LawBot can use them.`;
+    } else {
+      const created = await apiFetch("/api/admin/legal-sources", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (legalSourceStatus) legalSourceStatus.textContent = `Pending source added: ${created.title}. Approve and index it before LawBot can use it.`;
+    }
     legalSourceForm.reset();
     await refreshLegalSources();
+    await refreshAuditLogs();
   } catch {
-    if (legalSourceStatus) legalSourceStatus.textContent = "Could not add source. Login as RNA/Admin and keep backend running.";
+    if (legalSourceStatus) legalSourceStatus.textContent = "Could not add source/PDF. Login as RNA/Admin. If PDF is scanned, run OCR or paste extracted text.";
   }
 });
+
+async function refreshAuditLogs() {
+  if (!auditLogList) return;
+  try {
+    const logs = await apiFetch("/api/admin/audit-logs");
+    auditLogList.innerHTML = logs.length
+      ? logs.map((item) => `<div><time>${new Date(item.createdAt).toLocaleString()}</time><strong>${escapeHtml(item.action || "audit")}</strong><span>${escapeHtml(item.message || "Action recorded")} ${item.actorRole ? `- ${escapeHtml(item.actorRole)}` : ""}</span></div>`).join("")
+      : `<div><time>Live</time><strong>No audit logs yet</strong><span>Approve a source, chunk a source, or run an admin task action.</span></div>`;
+  } catch {
+    auditLogList.innerHTML = `<div><time>Locked</time><strong>RNA/Admin login required</strong><span>Audit logs are protected.</span></div>`;
+  }
+}
 
 document.querySelectorAll("[data-refresh-admin]").forEach((button) => {
   button.addEventListener("click", refreshAdminDashboard);
@@ -736,6 +770,10 @@ document.querySelectorAll("[data-refresh-admin]").forEach((button) => {
 
 document.querySelectorAll("[data-refresh-sources]").forEach((button) => {
   button.addEventListener("click", refreshLegalSources);
+});
+
+document.querySelectorAll("[data-refresh-audit]").forEach((button) => {
+  button.addEventListener("click", refreshAuditLogs);
 });
 
 legalSourceList?.addEventListener("click", async (event) => {
@@ -753,6 +791,7 @@ legalSourceList?.addEventListener("click", async (event) => {
         : `Source ${action} saved.`;
     }
     await refreshLegalSources();
+    await refreshAuditLogs();
   } catch {
     if (legalSourceStatus) legalSourceStatus.textContent = `Could not ${action} this source. Check RNA/Admin login.`;
   }
@@ -768,6 +807,7 @@ document.querySelectorAll("[data-admin-action]").forEach((button) => {
       });
       if (adminActionStatus) adminActionStatus.textContent = `Action saved: ${result.status || action}.`;
       setDemoStatus(`RNA action saved: ${action}.`);
+      refreshAuditLogs();
     } catch {
       if (adminActionStatus) adminActionStatus.textContent = `Demo action queued locally: ${action}.`;
     }

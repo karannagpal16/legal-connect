@@ -52,6 +52,7 @@ const demoStore = {
   legalChunks: [],
   lawbotQueries: [],
   lawbotFeedback: [],
+  auditLogs: [],
 };
 
 const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
@@ -231,6 +232,44 @@ function mapLegalSource(row) {
   };
 }
 
+function mapAuditLog(row) {
+  return {
+    id: row.id,
+    actorId: row.actor_id,
+    actorRole: row.actor_role,
+    action: row.action,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    message: row.message,
+    payload: row.payload || {},
+    createdAt: row.created_at,
+  };
+}
+
+async function writeAuditLog(actor, action, targetType, targetId, message, payload = {}) {
+  const audit = {
+    id: `audit-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+    actorId: actor?.id || null,
+    actorRole: actor?.role || "system",
+    action,
+    targetType,
+    targetId: targetId || null,
+    message,
+    payload,
+    createdAt: new Date().toISOString(),
+  };
+  if (db.dbAvailable) {
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, actor_role, action, target_type, target_id, message, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [audit.actorId, audit.actorRole, action, targetType, audit.targetId, message, JSON.stringify(payload)],
+    );
+  } else {
+    demoStore.auditLogs.unshift(audit);
+  }
+  return audit;
+}
+
 async function createNotification(eventType, title, message, payload = {}, userId = null) {
   const notification = {
     id: `notification-${Date.now()}-${Math.round(Math.random() * 1000)}`,
@@ -278,6 +317,74 @@ function legalSourcePayload(body, authUser) {
     text_content: body.textContent || body.text_content || body.text || "",
     uploaded_by: authUser?.id || null,
   };
+}
+
+async function createLegalSourceRecord(source) {
+  if (db.dbAvailable) {
+    const result = await db.query(
+      `INSERT INTO legal_sources (source_type, source_name, title, court, act_name, section_no, citation, source_url, published_date, status, text_content, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [source.source_type, source.source_name, source.title, source.court, source.act_name, source.section_no, source.citation, source.source_url, source.published_date, source.status, source.text_content, source.uploaded_by],
+    );
+    return mapLegalSource(result.rows[0]);
+  }
+  const fallbackSource = { ...source, id: `legal-source-${Date.now()}-${Math.round(Math.random() * 1000)}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  demoStore.legalSources.unshift(fallbackSource);
+  return mapLegalSource(fallbackSource);
+}
+
+function decodePdfString(value) {
+  return String(value || "")
+    .replace(/\\n/g, " ")
+    .replace(/\\r/g, " ")
+    .replace(/\\t/g, " ")
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/\\\\/g, "\\")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractPdfTextFromBase64(pdfBase64) {
+  const clean = String(pdfBase64 || "").replace(/^data:application\/pdf;base64,/, "");
+  const raw = Buffer.from(clean, "base64").toString("latin1");
+  const fragments = [];
+  const tjRegex = /\(([^()]*(?:\\.[^()]*)*)\)\s*Tj/g;
+  const arrayRegex = /\[((?:.|\n|\r)*?)\]\s*TJ/g;
+  let match;
+  while ((match = tjRegex.exec(raw))) {
+    const text = decodePdfString(match[1]);
+    if (text) fragments.push(text);
+  }
+  while ((match = arrayRegex.exec(raw))) {
+    const part = [...match[1].matchAll(/\(([^()]*(?:\\.[^()]*)*)\)/g)].map((item) => decodePdfString(item[1])).join(" ");
+    if (part.trim()) fragments.push(part.trim());
+  }
+  return fragments.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function splitSectionsFromText(text, fallbackTitle) {
+  const clean = String(text || "")
+    .replace(/\r/g, "\n")
+    .replace(/\s+(?=(?:Section\s+)?\d+[A-Z]?\.\s+[A-Z])/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!clean) return [];
+  const matches = [...clean.matchAll(/(?:^|\n)\s*(?:Section\s+)?(\d+[A-Z]?)\.\s+([^\n]{0,120})/gi)];
+  if (matches.length < 2) {
+    return [{ sectionNo: null, title: fallbackTitle, text: clean }];
+  }
+  return matches.map((match, index) => {
+    const start = match.index + match[0].indexOf(match[1]);
+    const end = matches[index + 1] ? matches[index + 1].index : clean.length;
+    const sectionText = clean.slice(start, end).trim();
+    return {
+      sectionNo: match[1],
+      title: `${fallbackTitle} - Section ${match[1]}`,
+      text: sectionText,
+    };
+  }).filter((section) => section.text.split(/\s+/).length > 8);
 }
 
 function splitLegalText(text) {
@@ -555,11 +662,15 @@ const server = http.createServer(async (req, res) => {
           : { rows: [] };
 
       if (existing.rows.length) {
+        const previousRole = existing.rows[0].role;
         const updated = await db.query(
           "UPDATE users SET name = $2, phone = COALESCE($3, phone), role = $4 WHERE id = $1 RETURNING *",
           [existing.rows[0].id, name, phone, role],
         );
         user = mapUser(updated.rows[0]);
+        if (previousRole !== role) {
+          await writeAuditLog(user, "role_changed", "user", user.id, `User role changed from ${previousRole || "unknown"} to ${role}`, { previousRole, nextRole: role, email, phone });
+        }
       } else {
         const created = await db.query(
           "INSERT INTO users (name, email, phone, role) VALUES ($1, $2, $3, $4) RETURNING *",
@@ -573,7 +684,11 @@ const server = http.createServer(async (req, res) => {
         user = { id: `user-${Date.now()}`, name, email, phone, role, createdAt: new Date().toISOString() };
         demoStore.users.push(user);
       } else {
+        const previousRole = user.role;
         Object.assign(user, { name, phone, role });
+        if (previousRole !== role) {
+          await writeAuditLog(user, "role_changed", "user", user.id, `User role changed from ${previousRole || "unknown"} to ${role}`, { previousRole, nextRole: role, email, phone });
+        }
       }
     }
 
@@ -825,10 +940,24 @@ const server = http.createServer(async (req, res) => {
         "UPDATE tasks SET status = $2, escrow_status = COALESCE($3, escrow_status), updated_at = now() WHERE id = $1 RETURNING *",
         [body.taskId, nextStatus, body.paymentLockStatus || body.payment_lock_status || null],
       );
+      await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
       sendJson(res, 200, { ok: true, task: result.rows[0] ? mapTask(result.rows[0]) : null });
       return;
     }
+    await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId || "demo-task", `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
     sendJson(res, 200, { ok: true, action: body.action, status: nextStatus });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/audit-logs" && req.method === "GET") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    if (db.dbAvailable) {
+      const result = await db.query("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 80");
+      sendJson(res, 200, result.rows.map(mapAuditLog));
+      return;
+    }
+    sendJson(res, 200, demoStore.auditLogs.slice(0, 80));
     return;
   }
 
@@ -868,27 +997,49 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 400, { error: "Add source text or URL metadata before saving." });
       return;
     }
-    if (db.dbAvailable) {
-      const result = await db.query(
-        `INSERT INTO legal_sources (source_type, source_name, title, court, act_name, section_no, citation, source_url, published_date, status, text_content, uploaded_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         RETURNING *`,
-        [source.source_type, source.source_name, source.title, source.court, source.act_name, source.section_no, source.citation, source.source_url, source.published_date, source.status, source.text_content, source.uploaded_by],
-      );
-      sendJson(res, 201, mapLegalSource(result.rows[0]));
+    const created = await createLegalSourceRecord(source);
+    await writeAuditLog(authUser, "source_created", "legal_source", created.id, `Pending legal source created: ${created.title}`, { title: created.title, sourceType: created.sourceType });
+    sendJson(res, 201, created);
+    return;
+  }
+
+  if (url.pathname === "/api/admin/legal-sources/pdf" && req.method === "POST") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const body = await readBody(req);
+    const baseTitle = body.title || body.fileName || "Uploaded legal PDF";
+    const extractedText = body.textContent || body.text || extractPdfTextFromBase64(body.pdfBase64 || body.fileBase64 || "");
+    if (!extractedText || extractedText.split(/\s+/).length < 12) {
+      sendJson(res, 422, {
+        error: "Could not extract readable text from this PDF. Upload a text-based PDF, run OCR first, or paste the extracted text.",
+        mode: "best-effort-pdf-text-extraction",
+      });
       return;
     }
-    const fallbackSource = { ...source, id: `legal-source-${Date.now()}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    demoStore.legalSources.unshift(fallbackSource);
+    const sections = splitSectionsFromText(extractedText, baseTitle);
+    const createdSources = [];
+    for (const section of sections) {
+      const source = legalSourcePayload({
+        ...body,
+        title: section.title || baseTitle,
+        sectionNo: section.sectionNo,
+        textContent: section.text,
+        status: "pending",
+      }, authUser);
+      createdSources.push(await createLegalSourceRecord(source));
+    }
+    await writeAuditLog(authUser, "pdf_ingested", "legal_source", createdSources.map((source) => source.id).join(","), `${createdSources.length} pending source(s) created from PDF upload`, {
+      fileName: body.fileName || null,
+      sourceName: body.sourceName || body.source_name || null,
+      sections: createdSources.length,
+      sourceUrl: body.sourceUrl || body.source_url || null,
+    });
     sendJson(res, 201, {
-      id: fallbackSource.id,
-      sourceType: fallbackSource.source_type,
-      sourceName: fallbackSource.source_name,
-      title: fallbackSource.title,
-      citation: fallbackSource.citation,
-      status: fallbackSource.status,
-      textContent: fallbackSource.text_content,
-      createdAt: fallbackSource.created_at,
+      ok: true,
+      extractedWords: extractedText.split(/\s+/).length,
+      sourcesCreated: createdSources.length,
+      sources: createdSources,
+      next: "Approve the pending sources, then run chunk/index before LawBot can use them.",
     });
     return;
   }
@@ -926,6 +1077,7 @@ const server = http.createServer(async (req, res) => {
         demoStore.legalChunks = demoStore.legalChunks.filter((chunk) => chunk.sourceId !== sourceId);
         demoStore.legalSources = demoStore.legalSources.filter((source) => source.id !== sourceId);
       }
+      await writeAuditLog(authUser, "source_deleted", "legal_source", sourceId, "Legal source deleted with its chunks", {});
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -937,7 +1089,9 @@ const server = http.createServer(async (req, res) => {
           sendJson(res, 404, { error: "Source not found" });
           return;
         }
-        sendJson(res, 200, mapLegalSource(result.rows[0]));
+        const mapped = mapLegalSource(result.rows[0]);
+        await writeAuditLog(authUser, "source_approved", "legal_source", sourceId, `Legal source approved: ${mapped.title}`, { title: mapped.title });
+        sendJson(res, 200, mapped);
         return;
       }
       const source = demoStore.legalSources.find((item) => item.id === sourceId);
@@ -947,6 +1101,7 @@ const server = http.createServer(async (req, res) => {
       }
       source.status = "approved";
       source.updated_at = new Date().toISOString();
+      await writeAuditLog(authUser, "source_approved", "legal_source", sourceId, `Legal source approved: ${source.title}`, { title: source.title });
       sendJson(res, 200, source);
       return;
     }
@@ -958,7 +1113,9 @@ const server = http.createServer(async (req, res) => {
           sendJson(res, 404, { error: "Source not found" });
           return;
         }
-        sendJson(res, 200, mapLegalSource(result.rows[0]));
+        const mapped = mapLegalSource(result.rows[0]);
+        await writeAuditLog(authUser, "source_rejected", "legal_source", sourceId, `Legal source rejected: ${mapped.title}`, { title: mapped.title });
+        sendJson(res, 200, mapped);
         return;
       }
       const source = demoStore.legalSources.find((item) => item.id === sourceId);
@@ -968,6 +1125,7 @@ const server = http.createServer(async (req, res) => {
       }
       source.status = "rejected";
       source.updated_at = new Date().toISOString();
+      await writeAuditLog(authUser, "source_rejected", "legal_source", sourceId, `Legal source rejected: ${source.title}`, { title: source.title });
       sendJson(res, 200, source);
       return;
     }
@@ -978,6 +1136,7 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, result.status || 400, { error: result.error });
         return;
       }
+      await writeAuditLog(authUser, "source_chunked", "legal_source", sourceId, `Legal source indexed into ${result.chunks} chunk(s)`, { chunks: result.chunks });
       sendJson(res, 200, result);
       return;
     }

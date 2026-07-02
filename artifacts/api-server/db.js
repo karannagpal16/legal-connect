@@ -198,8 +198,23 @@ async function initDb() {
       )
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        actor_id uuid,
+        actor_role text,
+        action text,
+        target_type text,
+        target_id text,
+        message text,
+        payload jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+
     await query(`CREATE INDEX IF NOT EXISTS legal_sources_status_idx ON legal_sources (status)`);
     await query(`CREATE INDEX IF NOT EXISTS legal_chunks_source_idx ON legal_chunks (source_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS audit_logs_created_idx ON audit_logs (created_at DESC)`);
 
     available = true;
     return true;
