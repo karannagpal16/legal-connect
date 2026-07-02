@@ -327,7 +327,7 @@ async function chunkLegalSource(sourceId) {
 }
 
 const lawbotStopWords = new Set([
-  "about", "after", "before", "from", "have", "into", "legal", "please", "that", "this", "what", "when", "where", "which", "with", "your", "kya", "hai", "the", "and", "for", "are", "can", "will", "should",
+  "about", "according", "after", "approved", "before", "court", "from", "have", "into", "judgment", "judgements", "judgments", "latest", "legal", "please", "source", "sources", "supreme", "that", "this", "what", "when", "where", "which", "with", "your", "kya", "hai", "the", "and", "for", "are", "can", "will", "should",
 ]);
 
 function questionTerms(question) {
