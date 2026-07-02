@@ -519,27 +519,60 @@ const bookingStatus = document.querySelector("#booking-status");
 const selectedPlan = document.querySelector("#selected-plan");
 const selectedPrice = document.querySelector("#selected-price");
 const bookingConfirmation = document.querySelector("#booking-confirmation");
+const clientDeskStatus = document.querySelector("#client-desk-status");
+const deskBookingTitle = document.querySelector("#desk-booking-title");
+const deskBookingDetail = document.querySelector("#desk-booking-detail");
+const deskNextStep = document.querySelector("#desk-next-step");
+const deskNextDetail = document.querySelector("#desk-next-detail");
 let activeBooking = null;
+
+function renderClientDesk(receipt) {
+  if (!receipt) return;
+  if (clientDeskStatus) clientDeskStatus.textContent = receipt.status?.includes("Paid") ? "Booked" : "Selected";
+  if (deskBookingTitle) deskBookingTitle.textContent = `${receipt.plan} - Rs. ${receipt.amount || receipt.price}`;
+  if (deskBookingDetail) deskBookingDetail.textContent = `Receipt ${receipt.id || "pending"} is saved. Payment mode: ${receipt.paymentMode || "selection pending"}.`;
+  if (deskNextStep) deskNextStep.textContent = receipt.plan?.includes("Audio")
+    ? "Open Audio SOS"
+    : receipt.plan?.includes("Video")
+      ? "Open Video Room"
+      : receipt.plan?.includes("Chat")
+        ? "Open Chat Thread"
+        : receipt.plan?.includes("Doorstep")
+          ? "Confirm Doorstep Slot"
+          : "Open Attorney Shield";
+  if (deskNextDetail) deskNextDetail.textContent = receipt.route || "Choose a booking option and confirm payment to unlock the next room.";
+}
+
+function selectBookingOption(button) {
+  if (!button) return;
+  activeBooking = {
+    plan: button.dataset.bookOption,
+    price: button.dataset.bookPrice,
+    route: button.dataset.bookRoute
+  };
+  document.querySelectorAll("[data-book-option]").forEach((option) => option.classList.toggle("selected", option === button));
+  if (bookingStatus) bookingStatus.textContent = `${activeBooking.plan} selected. Now press Pay & Confirm.`;
+  if (selectedPlan) selectedPlan.textContent = activeBooking.plan;
+  if (selectedPrice) selectedPrice.textContent = `Rs. ${activeBooking.price}`;
+  renderClientDesk({ ...activeBooking, amount: activeBooking.price, status: "Selected" });
+  setDemoStatus(`${activeBooking.plan} selected for Rs. ${activeBooking.price}.`);
+}
 
 document.querySelectorAll("[data-open-booking]").forEach((button) => {
   button.addEventListener("click", () => {
-    if (clientActionStatus) clientActionStatus.textContent = "Booking desk opened. Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
+    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Booking desk opened. Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
     setDemoStatus("Booking desk opened. Select a consult mode and confirm payment.");
     bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (button.dataset.preselectBooking) {
+      const preselect = [...document.querySelectorAll("[data-book-option]")].find((option) => option.dataset.bookOption === button.dataset.preselectBooking);
+      selectBookingOption(preselect);
+    }
   });
 });
 
 document.querySelectorAll("[data-book-option]").forEach((button) => {
   button.addEventListener("click", () => {
-    activeBooking = {
-      plan: button.dataset.bookOption,
-      price: button.dataset.bookPrice,
-      route: button.dataset.bookRoute
-    };
-    if (bookingStatus) bookingStatus.textContent = `${activeBooking.plan} selected. Review amount and confirm payment.`;
-    if (selectedPlan) selectedPlan.textContent = activeBooking.plan;
-    if (selectedPrice) selectedPrice.textContent = `Rs. ${activeBooking.price}`;
-    setDemoStatus(`${activeBooking.plan} selected for Rs. ${activeBooking.price}.`);
+    selectBookingOption(button);
   });
 });
 
@@ -582,8 +615,9 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
     }
 
     localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
+    renderClientDesk(receipt);
     if (bookingConfirmation) {
-      bookingConfirmation.innerHTML = `<span>Booking Confirmed</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p>`;
+      bookingConfirmation.innerHTML = `<span>Booking Confirmed</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> This booking is also visible at the top in My Legal Desk.</p>`;
     }
     if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} confirmed. Receipt ${receipt.id} saved in this browser.`;
     setDemoStatus(`${receipt.plan} paid. Receipt ${receipt.id} saved.`);
@@ -593,8 +627,20 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
 const savedClientBooking = localStorage.getItem("legalConnectClientBooking");
 if (bookingConfirmation && savedClientBooking) {
   const receipt = JSON.parse(savedClientBooking);
-  bookingConfirmation.innerHTML = `<span>Last Booking</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p>`;
+  renderClientDesk(receipt);
+  bookingConfirmation.innerHTML = `<span>Last Booking</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> This booking is also visible at the top in My Legal Desk.</p>`;
 }
+
+document.querySelectorAll("[data-scroll-booking]").forEach((button) => {
+  button.addEventListener("click", () => bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" }));
+});
+
+document.querySelectorAll("[data-scroll-client-section]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = document.querySelector(`.${button.dataset.scrollClientSection}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+});
 
 const adminMetrics = document.querySelector("#admin-metrics");
 const adminFeedList = document.querySelector("#admin-feed-list");
