@@ -142,6 +142,65 @@ async function initDb() {
       )
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS legal_sources (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        source_type text,
+        source_name text,
+        title text,
+        court text,
+        act_name text,
+        section_no text,
+        citation text,
+        source_url text,
+        published_date text,
+        status text DEFAULT 'pending',
+        text_content text,
+        uploaded_by uuid,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS legal_chunks (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        source_id uuid,
+        chunk_index integer,
+        chunk_ref text,
+        chunk_text text,
+        embedding jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS lawbot_queries (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid,
+        question text,
+        answer text,
+        sources jsonb,
+        confidence text,
+        mode text,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS lawbot_feedback (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        query_id uuid,
+        user_id uuid,
+        rating text,
+        comment text,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+
+    await query(`CREATE INDEX IF NOT EXISTS legal_sources_status_idx ON legal_sources (status)`);
+    await query(`CREATE INDEX IF NOT EXISTS legal_chunks_source_idx ON legal_chunks (source_id)`);
+
     available = true;
     return true;
   } catch (error) {

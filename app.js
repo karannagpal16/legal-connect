@@ -26,7 +26,7 @@ const navItems = [...document.querySelectorAll(".nav-item")];
 const views = [...document.querySelectorAll(".view")];
 const title = document.querySelector("#view-title");
 const demoStatus = document.querySelector("#demo-status");
-const API_BASE = location.protocol === "file:" ? "http://127.0.0.1:3000" : "";
+const API_BASE = location.protocol === "file:" ? "http://127.0.0.1:5000" : "";
 let currentSession = null;
 
 function getSession() {
@@ -180,37 +180,64 @@ const lawbotThread = document.querySelector("#lawbot-thread");
 const lawbotForm = document.querySelector("#lawbot-form");
 const lawbotInput = document.querySelector("#lawbot-input");
 
-const lawbotAnswers = {
-  concierge: "I can take you to the right lane: urgent Legal SOS, book a verified counsel, check a case timeline, open advocate command, or answer from approved mock legal sources.",
-  phase: "Phase 1 is demo-ready: LawBot mock sources, Client and Advocate UI, booking/payment simulation, Legal SOS demo, case tracker demo, and Render deployment path are visible.",
-  sources: "LawBot is source-locked in mock mode. It uses only approved demo snippets for BNS, BNSS, BSA, NI Act Section 138, Consumer Protection, tenancy, sample Supreme Court and High Court notes, and amendment updates.",
-  booking: "Booking flow: client selects Attorney Shield, video, audio, chat, or doorstep; the demo locks a payment receipt in browser storage and routes the client to the right next step.",
-  next: "Next build: connect backend database, real login roles for Client, Advocate, RNA and Intern, save bookings/chats/tasks/SOS requests, and add RNA admin review dashboard.",
-  sos: "Legal SOS starts with a simple issue type, prepares an AI summary, then routes to trusted RNA counsel. Real calls and payments need backend plus provider integration.",
-  case: "Case tracker demo shows timeline, orders, reminders and next action. Court Sync adds POST /api/cases, GET /api/cases/:id and /api/case-updates for next-date update flow. Live eCourts access needs permitted official endpoints and compliance checks.",
-  advocate: "Lawyer portal opens the Advocate OS: Court Mission Board, lawyer services, eCourts links, case diary, chambers coordination, proxy workflow, and RNA trust oversight."
-};
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-function appendLawbotMessage(role, message) {
+function citationMarkup(citations = []) {
+  if (!citations.length) return "";
+  return `
+    <div class="lawbot-citations">
+      <span>Verified citations</span>
+      ${citations.map((source) => `
+        <article>
+          <strong>${escapeHtml(source.title || "Approved source")}</strong>
+          <small>${escapeHtml(source.citation || source.sourceName || "Citation pending")} ${source.chunkRef ? `- ${escapeHtml(source.chunkRef)}` : ""}</small>
+          ${source.sourceUrl ? `<a href="${escapeHtml(source.sourceUrl)}" target="_blank" rel="noreferrer">Open source metadata</a>` : ""}
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function feedbackMarkup(queryId) {
+  if (!queryId) return "";
+  return `
+    <div class="lawbot-feedback">
+      <button data-lawbot-feedback="helpful" data-query-id="${escapeHtml(queryId)}">Helpful</button>
+      <button data-lawbot-feedback="incorrect" data-query-id="${escapeHtml(queryId)}">Incorrect</button>
+      <button data-lawbot-feedback="needs advocate review" data-query-id="${escapeHtml(queryId)}">Needs advocate review</button>
+    </div>
+  `;
+}
+
+function appendLawbotMessage(role, message, citations = [], queryId = "") {
   if (!lawbotThread) return;
   const bubble = document.createElement("p");
   bubble.className = role === "user" ? "user" : "";
-  bubble.innerHTML = `<strong>${role === "user" ? "You" : "LawBot"}:</strong> ${message}`;
+  bubble.innerHTML = `<strong>${role === "user" ? "You" : "LawBot"}:</strong> ${escapeHtml(message)}${citationMarkup(citations)}${feedbackMarkup(queryId)}`;
   lawbotThread.appendChild(bubble);
   lawbotThread.scrollTop = lawbotThread.scrollHeight;
 }
 
-function getLawbotAnswer(prompt) {
-  const text = String(prompt || "").toLowerCase();
-  if (lawbotAnswers[prompt]) return lawbotAnswers[prompt];
-  if (text.includes("phase") || text.includes("ready") || text.includes("render")) return lawbotAnswers.phase;
-  if (text.includes("source") || text.includes("scc") || text.includes("bar") || text.includes("kanoon") || text.includes("lawbot")) return lawbotAnswers.sources;
-  if (text.includes("book") || text.includes("payment") || text.includes("razor") || text.includes("pay")) return lawbotAnswers.booking;
-  if (text.includes("sos") || text.includes("emergency") || text.includes("call")) return lawbotAnswers.sos;
-  if (text.includes("case") || text.includes("tracker") || text.includes("diary") || text.includes("order")) return lawbotAnswers.case;
-  if (text.includes("lawyer") || text.includes("advocate") || text.includes("portal") || text.includes("court mission")) return lawbotAnswers.advocate;
-  if (text.includes("backend") || text.includes("login") || text.includes("database") || text.includes("admin") || text.includes("next")) return lawbotAnswers.next;
-  return "I could not find this in the approved legal sources. Try asking about Phase 1, Legal SOS, booking, case tracker, or next backend build.";
+async function askLawbot(question) {
+  appendLawbotMessage("user", question);
+  try {
+    const result = await apiFetch("/api/lawbot/query", {
+      method: "POST",
+      body: JSON.stringify({ query: question, mode: "source-locked" }),
+    });
+    appendLawbotMessage("bot", result.answer, result.citations || [], result.queryId || "");
+    setDemoStatus(result.citations?.length ? "LawBot answered from approved source citations." : "LawBot refused because no approved source matched.");
+  } catch {
+    appendLawbotMessage("bot", "I could not verify this from Legal Connect's approved legal sources. Please consult an advocate or add an authorised source.");
+    setDemoStatus("LawBot API unavailable. Source-locked fallback refusal shown.");
+  }
 }
 
 function toggleLawbot(open) {
@@ -227,22 +254,17 @@ lawbotClose?.addEventListener("click", () => {
 
 document.querySelectorAll("[data-lawbot-prompt]").forEach((button) => {
   button.addEventListener("click", () => {
-    const prompt = button.dataset.lawbotPrompt;
-    appendLawbotMessage("user", button.textContent || "Quick prompt");
-    appendLawbotMessage("bot", getLawbotAnswer(prompt));
-    setDemoStatus("LawBot answered from approved Phase 1 demo sources.");
+    askLawbot(button.dataset.lawbotPrompt || button.textContent || "Legal source query");
   });
 });
 
-lawbotForm?.addEventListener("submit", (event) => {
+lawbotForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const question = lawbotInput?.value.trim();
   if (!question) return;
-  appendLawbotMessage("user", question);
-  appendLawbotMessage("bot", getLawbotAnswer(question));
   lawbotInput.value = "";
   floatingLawbot?.classList.add("open");
-  setDemoStatus("LawBot response generated with demo guardrails.");
+  await askLawbot(question);
 });
 
 document.querySelectorAll("[data-demo-action]").forEach((button) => {
@@ -577,6 +599,9 @@ if (bookingConfirmation && savedClientBooking) {
 const adminMetrics = document.querySelector("#admin-metrics");
 const adminFeedList = document.querySelector("#admin-feed-list");
 const adminActionStatus = document.querySelector("#admin-action-status");
+const legalSourceForm = document.querySelector("#legal-source-form");
+const legalSourceList = document.querySelector("#legal-source-list");
+const legalSourceStatus = document.querySelector("#legal-source-status");
 
 function countRows(rows = []) {
   return rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
@@ -602,13 +627,89 @@ async function refreshAdminDashboard() {
       ? cases.map((item) => `<div><time>${item.next_date || item.nextDate || "Date pending"}</time><strong>${item.title || "Case"}</strong><span>${item.court || "Court pending"} - ${item.status || "Active"}</span></div>`).join("")
       : `<div><time>Live</time><strong>No recent cases</strong><span>Create a case from Case Diary to populate this feed.</span></div>`;
     setDemoStatus("RNA Control Room refreshed.");
+    refreshLegalSources();
   } catch {
     if (adminActionStatus) adminActionStatus.textContent = "Admin API unavailable. Login as RNA/Admin after backend deploy.";
   }
 }
 
+async function refreshLegalSources() {
+  if (!legalSourceList) return;
+  try {
+    const sources = await apiFetch("/api/admin/legal-sources");
+    legalSourceList.innerHTML = sources.length
+      ? sources.map((source) => `
+        <article>
+          <div>
+            <span>${escapeHtml(source.sourceType || "Legal source")} - ${escapeHtml(source.status || "pending")}</span>
+            <strong>${escapeHtml(source.title || "Untitled source")}</strong>
+            <small>${escapeHtml(source.citation || source.sourceName || "Citation pending")}</small>
+          </div>
+          <div class="source-actions">
+            <button data-source-action="approve" data-source-id="${escapeHtml(source.id)}">Approve</button>
+            <button data-source-action="reject" data-source-id="${escapeHtml(source.id)}">Reject</button>
+            <button data-source-action="chunk" data-source-id="${escapeHtml(source.id)}">Index chunks</button>
+            <button data-source-action="delete" data-source-id="${escapeHtml(source.id)}">Delete</button>
+          </div>
+        </article>
+      `).join("")
+      : `<article><strong>No sources yet</strong><span>Add a pending source, approve it, then index chunks.</span></article>`;
+    if (legalSourceStatus) legalSourceStatus.textContent = `${sources.length} source record(s) loaded. LawBot only uses approved indexed chunks.`;
+  } catch {
+    if (legalSourceStatus) legalSourceStatus.textContent = "Login as RNA/Admin to manage the Legal AI Source Library.";
+  }
+}
+
+legalSourceForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    sourceType: document.querySelector("#source-type")?.value || "Bare Acts",
+    sourceName: document.querySelector("#source-name")?.value || "Legal Connect Source Library",
+    title: document.querySelector("#source-title")?.value || "Untitled legal source",
+    citation: document.querySelector("#source-citation")?.value || "",
+    sourceUrl: document.querySelector("#source-url")?.value || "",
+    textContent: document.querySelector("#source-text")?.value || "",
+    status: "pending",
+  };
+  try {
+    const created = await apiFetch("/api/admin/legal-sources", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (legalSourceStatus) legalSourceStatus.textContent = `Pending source added: ${created.title}. Approve and index it before LawBot can use it.`;
+    legalSourceForm.reset();
+    await refreshLegalSources();
+  } catch {
+    if (legalSourceStatus) legalSourceStatus.textContent = "Could not add source. Login as RNA/Admin and keep backend running.";
+  }
+});
+
 document.querySelectorAll("[data-refresh-admin]").forEach((button) => {
   button.addEventListener("click", refreshAdminDashboard);
+});
+
+document.querySelectorAll("[data-refresh-sources]").forEach((button) => {
+  button.addEventListener("click", refreshLegalSources);
+});
+
+legalSourceList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-source-action]");
+  if (!button) return;
+  const sourceId = button.dataset.sourceId;
+  const action = button.dataset.sourceAction;
+  try {
+    const method = action === "delete" ? "DELETE" : "POST";
+    const path = action === "delete" ? `/api/admin/legal-sources/${sourceId}` : `/api/admin/legal-sources/${sourceId}/${action}`;
+    const result = await apiFetch(path, { method, body: method === "POST" ? JSON.stringify({}) : undefined });
+    if (legalSourceStatus) {
+      legalSourceStatus.textContent = action === "chunk"
+        ? `Indexed ${result.chunks || 0} chunk(s). LawBot can now cite approved content.`
+        : `Source ${action} saved.`;
+    }
+    await refreshLegalSources();
+  } catch {
+    if (legalSourceStatus) legalSourceStatus.textContent = `Could not ${action} this source. Check RNA/Admin login.`;
+  }
 });
 
 document.querySelectorAll("[data-admin-action]").forEach((button) => {
@@ -625,6 +726,20 @@ document.querySelectorAll("[data-admin-action]").forEach((button) => {
       if (adminActionStatus) adminActionStatus.textContent = `Demo action queued locally: ${action}.`;
     }
   });
+});
+
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-lawbot-feedback]");
+  if (!button) return;
+  try {
+    await apiFetch("/api/lawbot/feedback", {
+      method: "POST",
+      body: JSON.stringify({ queryId: button.dataset.queryId, rating: button.dataset.lawbotFeedback }),
+    });
+    setDemoStatus(`LawBot feedback saved: ${button.dataset.lawbotFeedback}.`);
+  } catch {
+    setDemoStatus("LawBot feedback could not be saved yet.");
+  }
 });
 
 async function refreshNotifications() {

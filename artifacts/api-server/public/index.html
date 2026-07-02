@@ -773,6 +773,39 @@
               <button data-admin-action="close_task">Close task</button>
             </div>
           </section>
+          <section class="panel source-library">
+            <div class="source-library-head">
+              <div>
+                <span class="eyebrow">Legal AI Source Library</span>
+                <h3>Approve the law before LawBot can answer from it.</h3>
+                <p>Paste authorised Bare Acts, rules, notifications, bills, government sources, court judgments, or licensed case-law excerpts. No scraping is done here.</p>
+              </div>
+              <button class="ghost-button" data-refresh-sources>Refresh Sources</button>
+            </div>
+            <form id="legal-source-form" class="source-form">
+              <label>Source Type
+                <select id="source-type">
+                  <option>Bare Acts</option>
+                  <option>Rules</option>
+                  <option>Notifications</option>
+                  <option>Bills</option>
+                  <option>Government authorised websites</option>
+                  <option>Official court judgments</option>
+                  <option>Licensed case law source</option>
+                </select>
+              </label>
+              <label>Source Name<input id="source-name" placeholder="e.g. India Code, Supreme Court of India, SCC Online licensed upload" /></label>
+              <label>Title<input id="source-title" placeholder="e.g. Negotiable Instruments Act Section 138" /></label>
+              <label>Citation<input id="source-citation" placeholder="e.g. NI Act, 1881, Section 138" /></label>
+              <label>Source URL metadata<input id="source-url" placeholder="Paste official URL metadata only; no scraping yet" /></label>
+              <label class="source-text">Approved text excerpt<textarea id="source-text" placeholder="Paste the authorised legal text here. LawBot will answer only from approved and indexed chunks."></textarea></label>
+              <button class="gold-button" type="submit">Add Pending Source</button>
+            </form>
+            <p id="legal-source-status">Login as RNA/Admin, add a source, approve it, then index chunks.</p>
+            <div class="source-list" id="legal-source-list">
+              <article><strong>No sources loaded</strong><span>Refresh after adding your first authorised source.</span></article>
+            </div>
+          </section>
           <section class="panel trust-map">
             <h3>RNA Oversight Map</h3>
             <div class="brief-grid">
@@ -840,22 +873,19 @@
             <button id="lawbot-close" type="button" aria-label="Close LawBot">x</button>
           </div>
           <div class="lawbot-thread" id="lawbot-thread">
-            <p><strong>LawBot:</strong> Welcome to Legal Connect. Pick your first move: urgent help, book counsel, track a case, open advocate command, or ask from approved legal sources.</p>
+            <p><strong>LawBot:</strong> Source-Locked Mode is on. I answer only from approved Legal Connect sources. If nothing is approved, I will refuse instead of guessing.</p>
           </div>
           <div class="lawbot-chips">
-            <button data-lawbot-prompt="sos">Legal SOS</button>
-            <button data-lawbot-prompt="booking">Book counsel</button>
-            <button data-lawbot-prompt="case">Case tracker</button>
-            <button data-lawbot-prompt="advocate">Lawyer portal</button>
-            <button data-lawbot-prompt="phase">Phase 1 status</button>
-            <button data-lawbot-prompt="sources">LawBot sources</button>
-            <button data-lawbot-prompt="next">Next build</button>
+            <button data-lawbot-prompt="What does Section 138 say about cheque dishonour?">Cheque bounce</button>
+            <button data-lawbot-prompt="Explain consumer complaint basics from approved sources">Consumer basics</button>
+            <button data-lawbot-prompt="What should a rent agreement contain?">Rent agreement</button>
+            <button data-lawbot-prompt="What are my bail chances?">Advocate review</button>
           </div>
           <form class="lawbot-input" id="lawbot-form">
-            <input id="lawbot-input" placeholder="Ask about this demo..." autocomplete="off" />
+            <input id="lawbot-input" placeholder="Ask from approved legal sources..." autocomplete="off" />
             <button type="submit">Ask</button>
           </form>
-          <small>This is legal information, not legal advice. Real SCC, Bar &amp; Bench, payments and live data need backend/API work.</small>
+          <small>Source-Locked Mode: no open internet, no general AI knowledge, no unauthorised SCC/Bar &amp; Bench/eCourts scraping.</small>
         </section>
       </aside>
     </div>
