@@ -98,6 +98,15 @@ function userRole(user) {
   return user?.role || "demo";
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function sendJson(res, status, data) {
   res.writeHead(status, {
     "Content-Type": "application/json",
@@ -119,6 +128,45 @@ function sendSse(res, data) {
   res.write(`data: ${JSON.stringify({ content: data.answer })}\n\n`);
   res.write(`data: ${JSON.stringify({ done: true, citations: data.citations })}\n\n`);
   res.end();
+}
+
+function emailProviderStatus() {
+  if (config.resendApiKey) {
+    return { provider: "resend", status: "ready" };
+  }
+  if (config.sendgridApiKey) {
+    return { provider: "sendgrid", status: "configured-not-wired" };
+  }
+  return { provider: "none", status: "demo" };
+}
+
+async function sendEmail({ to, subject, html, text }) {
+  const provider = emailProviderStatus();
+  if (!to) {
+    return { sent: false, provider: provider.provider, mode: "skipped", reason: "missing-recipient" };
+  }
+  if (provider.provider !== "resend") {
+    return { sent: false, provider: provider.provider, mode: "demo", reason: "email-provider-not-ready" };
+  }
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: config.fromEmail || "Legal Connect <onboarding@resend.dev>",
+      to,
+      subject,
+      html,
+      text,
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return { sent: false, provider: "resend", mode: "error", status: response.status, error: payload };
+  }
+  return { sent: true, provider: "resend", mode: "live", id: payload.id || null };
 }
 
 function readBody(req) {
@@ -642,6 +690,7 @@ const server = http.createServer(async (req, res) => {
       approved_sources_count: lawbotCounts.approved_sources_count,
       legal_chunks_count: lawbotCounts.legal_chunks_count,
       payments: config.razorpayKeyId && config.razorpayKeySecret ? "razorpay-ready" : "demo",
+      email: emailProviderStatus(),
     });
     return;
   }
@@ -818,13 +867,27 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/notify/test" && req.method === "POST") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
     const body = await readBody(req);
+    const title = body.title || "Legal Connect reminder";
+    const message = body.message || "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.";
+    const recipient = body.to || body.email || authUser?.email || null;
+    const emailResult = await sendEmail({
+      to: recipient,
+      subject: title,
+      text: message,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2 style="color:#0f2a25">Legal Connect</h2><p>${escapeHtml(message)}</p><p style="color:#64748b;font-size:12px">This is a Legal Connect notification test.</p></div>`,
+    });
+    await createNotification("notify_test", title, message, { email: emailResult, channels: ["in-app", "email"] }, authUser?.id || body.userId || null);
+    await writeAuditLog(authUser || { role: "system" }, "notification_test", "notification", emailResult.id || "notify-test", `Notification test ${emailResult.sent ? "sent" : "queued in demo mode"}`, { recipient, email: emailResult });
     sendJson(res, 202, {
       queued: true,
-      mode: "demo",
-      channels: ["web-push-demo", "email-demo", "sms-placeholder"],
-      message: body.message || "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.",
-      requiredEnv: ["REDIS_URL", "SENDGRID_KEY", "WEB_PUSH_PUBLIC_KEY", "WEB_PUSH_PRIVATE_KEY"],
+      mode: emailResult.sent ? "live" : "demo",
+      channels: ["in-app", emailResult.sent ? "resend-email" : "email-demo", "web-push-demo", "sms-placeholder"],
+      message,
+      email: emailResult,
+      requiredEnv: ["RESEND_API_KEY", "FROM_EMAIL", "WEB_PUSH_PUBLIC_KEY", "WEB_PUSH_PRIVATE_KEY"],
     });
     return;
   }

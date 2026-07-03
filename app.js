@@ -649,6 +649,8 @@ const legalSourceForm = document.querySelector("#legal-source-form");
 const legalSourceList = document.querySelector("#legal-source-list");
 const legalSourceStatus = document.querySelector("#legal-source-status");
 const auditLogList = document.querySelector("#audit-log-list");
+const notifyTestForm = document.querySelector("#notify-test-form");
+const notifyTestStatus = document.querySelector("#notify-test-status");
 
 function countRows(rows = []) {
   return rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
@@ -812,6 +814,28 @@ document.querySelectorAll("[data-admin-action]").forEach((button) => {
       if (adminActionStatus) adminActionStatus.textContent = `Demo action queued locally: ${action}.`;
     }
   });
+});
+
+notifyTestForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    email: document.querySelector("#notify-test-email")?.value || "",
+    title: document.querySelector("#notify-test-title")?.value || "Legal Connect reminder",
+    message: document.querySelector("#notify-test-message")?.value || "Your Legal Connect reminder is active.",
+  };
+  try {
+    const result = await apiFetch("/api/notify/test", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    const channel = result.email?.sent ? "Resend email sent" : "Demo/in-app notification queued";
+    if (notifyTestStatus) notifyTestStatus.textContent = `${channel}: ${result.message}`;
+    setDemoStatus(channel);
+    await refreshAuditLogs();
+    await refreshNotifications();
+  } catch {
+    if (notifyTestStatus) notifyTestStatus.textContent = "Notification test failed. Login as RNA/Admin or check server env keys.";
+  }
 });
 
 document.addEventListener("click", async (event) => {

@@ -833,6 +833,19 @@
               <button data-admin-action="close_task">Close task</button>
             </div>
           </section>
+          <section class="panel command-actions">
+            <div>
+              <span class="eyebrow">Resend Notifications</span>
+              <h3>Send one live test reminder.</h3>
+              <p id="notify-test-status">Uses Resend if keys are configured; otherwise saves an in-app demo notification.</p>
+            </div>
+            <form id="notify-test-form" class="source-form">
+              <label>Recipient Email<input id="notify-test-email" type="email" placeholder="client@example.com" /></label>
+              <label>Title<input id="notify-test-title" placeholder="Legal Connect reminder" /></label>
+              <label class="source-text">Message<textarea id="notify-test-message" placeholder="Your case reminder / booking update / SOS follow-up message."></textarea></label>
+              <button class="gold-button" type="submit">Send Notification Test</button>
+            </form>
+          </section>
           <section class="panel source-library">
             <div class="source-library-head">
               <div>
