@@ -131,42 +131,68 @@ function sendSse(res, data) {
 }
 
 function emailProviderStatus() {
-  if (config.resendApiKey) {
+  const provider = String(config.emailProvider || "").trim().toLowerCase() || "demo";
+  const resendConfigured = provider === "resend" && Boolean(config.resendApiKey);
+  if (resendConfigured) {
     return { provider: "resend", status: "ready" };
   }
   if (config.sendgridApiKey) {
     return { provider: "sendgrid", status: "configured-not-wired" };
   }
-  return { provider: "none", status: "demo" };
+  return { provider: "demo", status: "fallback" };
+}
+
+function emailAdminStatus() {
+  const status = emailProviderStatus();
+  return {
+    provider: status.provider,
+    resend_configured: status.provider === "resend" && status.status === "ready",
+    from_email_configured: Boolean(config.fromEmail),
+    support_email_configured: Boolean(config.supportEmail),
+    status: status.status,
+  };
+}
+
+function safeEmailError(result) {
+  if (!result) return "Email provider did not return a response.";
+  if (typeof result.safeError === "string" && result.safeError.trim()) return result.safeError.trim();
+  const detail = result.error?.message || result.error?.error || result.error?.name || result.reason;
+  if (typeof detail === "string" && detail.trim()) return detail.slice(0, 180);
+  if (result.status) return `Email provider returned status ${result.status}.`;
+  return "Email provider rejected the request.";
 }
 
 async function sendEmail({ to, subject, html, text }) {
   const provider = emailProviderStatus();
   if (!to) {
-    return { sent: false, provider: provider.provider, mode: "skipped", reason: "missing-recipient" };
+    return { sent: false, provider: provider.provider, mode: "skipped", reason: "missing-recipient", safeError: "Recipient email is missing." };
   }
   if (provider.provider !== "resend") {
     return { sent: false, provider: provider.provider, mode: "demo", reason: "email-provider-not-ready" };
   }
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: config.fromEmail || "Legal Connect <onboarding@resend.dev>",
-      to,
-      subject,
-      html,
-      text,
-    }),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    return { sent: false, provider: "resend", mode: "error", status: response.status, error: payload };
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: config.fromEmail || "Legal Connect <onboarding@resend.dev>",
+        to,
+        subject,
+        html,
+        text,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { sent: false, provider: "resend", mode: "error", status: response.status, error: payload, safeError: safeEmailError({ status: response.status, error: payload }) };
+    }
+    return { sent: true, provider: "resend", mode: "live", id: payload.id || null };
+  } catch (error) {
+    return { sent: false, provider: "resend", mode: "error", error: { message: error?.message }, safeError: "Could not reach Resend email API." };
   }
-  return { sent: true, provider: "resend", mode: "live", id: payload.id || null };
 }
 
 function readBody(req) {
@@ -695,6 +721,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/admin/email/status" && req.method === "GET") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    sendJson(res, 200, emailAdminStatus());
+    return;
+  }
+
   if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
     const role = roles.has(body.role) ? body.role : "client";
@@ -873,21 +906,44 @@ const server = http.createServer(async (req, res) => {
     const title = body.title || "Legal Connect reminder";
     const message = body.message || "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.";
     const recipient = body.to || body.email || authUser?.email || null;
+    const provider = emailProviderStatus();
+    if (provider.provider !== "resend" || provider.status !== "ready") {
+      const demoMessage = "Demo/in-app notification queued because Resend is not configured.";
+      await createNotification("notify_test", title, message, { mode: "demo", channels: ["in-app", "email-demo"] }, authUser.id || body.userId || null);
+      await writeAuditLog(authUser, "notification_test_demo_queued", "notification", "notify-test", demoMessage, { recipient, provider: emailAdminStatus() });
+      sendJson(res, 202, {
+        ok: true,
+        mode: "demo",
+        status: "queued",
+        message: demoMessage,
+      });
+      return;
+    }
     const emailResult = await sendEmail({
       to: recipient,
       subject: title,
       text: message,
       html: `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2 style="color:#0f2a25">Legal Connect</h2><p>${escapeHtml(message)}</p><p style="color:#64748b;font-size:12px">This is a Legal Connect notification test.</p></div>`,
     });
-    await createNotification("notify_test", title, message, { email: emailResult, channels: ["in-app", "email"] }, authUser?.id || body.userId || null);
-    await writeAuditLog(authUser || { role: "system" }, "notification_test", "notification", emailResult.id || "notify-test", `Notification test ${emailResult.sent ? "sent" : "queued in demo mode"}`, { recipient, email: emailResult });
-    sendJson(res, 202, {
-      queued: true,
-      mode: emailResult.sent ? "live" : "demo",
-      channels: ["in-app", emailResult.sent ? "resend-email" : "email-demo", "web-push-demo", "sms-placeholder"],
-      message,
-      email: emailResult,
-      requiredEnv: ["RESEND_API_KEY", "FROM_EMAIL", "WEB_PUSH_PUBLIC_KEY", "WEB_PUSH_PRIVATE_KEY"],
+    if (emailResult.sent) {
+      await createNotification("notify_test", title, message, { mode: "resend", status: "sent", providerMessageId: emailResult.id }, authUser.id || body.userId || null);
+      await writeAuditLog(authUser, "notification_test_resend_sent", "notification", emailResult.id || "resend-email", "Notification test sent through Resend.", { recipient, providerMessageId: emailResult.id || null });
+      sendJson(res, 202, {
+        ok: true,
+        mode: "resend",
+        status: "sent",
+        provider_message_id: emailResult.id || null,
+      });
+      return;
+    }
+    const errorMessage = safeEmailError(emailResult);
+    await createNotification("notify_test_failed", title, `Resend email failed: ${errorMessage}`, { mode: "resend", status: "failed" }, authUser.id || body.userId || null);
+    await writeAuditLog(authUser, "notification_test_resend_failed", "notification", "resend-email", `Resend email failed: ${errorMessage}`, { recipient, status: emailResult.status || null });
+    sendJson(res, 200, {
+      ok: false,
+      mode: "resend",
+      status: "failed",
+      error_message: errorMessage,
     });
     return;
   }
@@ -1457,6 +1513,7 @@ async function startServer() {
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on ${PORT}`);
     console.log(`Database mode: ${db.dbAvailable ? "connected" : "fallback"}`);
+    console.log(`Email provider: ${emailProviderStatus().provider === "resend" && emailProviderStatus().status === "ready" ? "resend configured" : "demo fallback"}`);
   });
 }
 

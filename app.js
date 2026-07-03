@@ -828,8 +828,19 @@ notifyTestForm?.addEventListener("submit", async (event) => {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    const channel = result.email?.sent ? "Resend email sent" : "Demo/in-app notification queued";
-    if (notifyTestStatus) notifyTestStatus.textContent = `${channel}: ${result.message}`;
+    let channel = "Demo notification queued";
+    let message = "Demo notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render.";
+    if (result.mode === "resend" && result.status === "sent") {
+      channel = "Resend email sent";
+      message = `Email sent through Resend. Provider ID: ${result.provider_message_id || "not returned"}`;
+    } else if (result.mode === "resend" && result.status === "failed") {
+      channel = "Resend email failed";
+      message = `Resend email failed: ${result.error_message || "safe error unavailable"}`;
+    } else if (result.mode === "demo") {
+      channel = "Demo notification queued";
+      message = "Demo notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render.";
+    }
+    if (notifyTestStatus) notifyTestStatus.textContent = message;
     setDemoStatus(channel);
     await refreshAuditLogs();
     await refreshNotifications();

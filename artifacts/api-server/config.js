@@ -66,6 +66,7 @@ const config = {
   sendgridApiKey: optionalString("SENDGRID_API_KEY") || optionalString("SENDGRID_KEY"),
   resendApiKey: optionalString("RESEND_API_KEY"),
   fromEmail: optionalString("FROM_EMAIL"),
+  supportEmail: optionalString("SUPPORT_EMAIL"),
 };
 
 if (config.nodeEnv === "production") {
