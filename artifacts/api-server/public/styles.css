@@ -2358,6 +2358,34 @@ p {
   font-size: clamp(1.2rem, 3vw, 2rem);
 }
 
+.msme-trust-badge {
+  display: grid;
+  gap: 3px;
+  min-width: min(100%, 310px);
+  margin-top: 2px;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  border-radius: 999px;
+  padding: 10px 18px;
+  color: var(--ivory);
+  background:
+    linear-gradient(135deg, rgba(212, 175, 55, 0.18), rgba(255, 255, 255, 0.04)),
+    rgba(2, 15, 14, 0.72);
+  box-shadow: 0 18px 42px rgba(212, 175, 55, 0.12);
+}
+
+.msme-trust-badge strong {
+  color: var(--gold-2);
+  font-size: 0.86rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.msme-trust-badge span {
+  color: rgba(255, 250, 240, 0.72);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .poster-gates {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4511,6 +4539,16 @@ textarea {
   margin: 28px 0 8px;
   padding: 18px 0 0;
   border-top: 1px solid rgba(224, 200, 139, 0.16);
+}
+
+.footer-trust {
+  flex-basis: 100%;
+  color: rgba(224, 200, 139, 0.78);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .legal-footer button {
