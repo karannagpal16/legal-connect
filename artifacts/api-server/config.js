@@ -48,12 +48,27 @@ function validateUrl(name, value, required = false) {
   }
 }
 
+function parseAllowedOrigins(value, fallbackOrigin) {
+  const raw = value || fallbackOrigin || "*";
+  if (raw === "*") return ["*"];
+  return raw
+    .split(",")
+    .map((item) => validateUrl("ALLOWED_ORIGINS", item.trim()))
+    .filter(Boolean);
+}
+
 loadDotEnv();
+
+const fallbackPublicUrl = "https://legal-connect-7ewz.onrender.com";
+const configuredPublicUrl = validateUrl("PUBLIC_APP_URL", optionalString("PUBLIC_APP_URL") || optionalString("APP_URL") || fallbackPublicUrl);
 
 const config = {
   nodeEnv: optionalString("NODE_ENV", "development"),
   port: optionalNumber("PORT", 3000),
   allowedOrigin: validateUrl("ALLOWED_ORIGIN", optionalString("ALLOWED_ORIGIN", "*")),
+  allowedOrigins: parseAllowedOrigins(optionalString("ALLOWED_ORIGINS"), optionalString("ALLOWED_ORIGIN", "*")),
+  appUrl: validateUrl("APP_URL", optionalString("APP_URL") || configuredPublicUrl),
+  publicAppUrl: configuredPublicUrl,
   dbUrl: optionalString("DB_URL"),
   redisUrl: optionalString("REDIS_URL"),
   sendgridKey: optionalString("SENDGRID_KEY"),
@@ -72,7 +87,7 @@ const config = {
 if (config.nodeEnv === "production") {
   const warnings = [];
   if (!config.dbUrl) warnings.push("DB_URL");
-  if (!config.allowedOrigin || config.allowedOrigin === "*") warnings.push("ALLOWED_ORIGIN");
+  if (!config.allowedOrigins.length || config.allowedOrigins.includes("*")) warnings.push("ALLOWED_ORIGINS");
   if (warnings.length) {
     console.warn(`Production config warning: ${warnings.join(", ")} not configured. Running demo-safe mode.`);
   }

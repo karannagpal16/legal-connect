@@ -107,10 +107,21 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+function corsOriginFor(req) {
+  const origins = config.allowedOrigins?.length ? config.allowedOrigins : [config.allowedOrigin || "*"];
+  if (origins.includes("*")) return "*";
+  const requestOrigin = req?.headers?.origin;
+  if (requestOrigin && origins.includes(requestOrigin.replace(/\/$/, ""))) {
+    return requestOrigin;
+  }
+  return origins[0] || config.publicAppUrl;
+}
+
 function sendJson(res, status, data) {
   res.writeHead(status, {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": config.allowedOrigin,
+    "Access-Control-Allow-Origin": res.localsCorsOrigin || config.allowedOrigin,
+    "Vary": "Origin",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Legal-Connect-Token",
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
   });
@@ -122,7 +133,8 @@ function sendSse(res, data) {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
-    "Access-Control-Allow-Origin": config.allowedOrigin,
+    "Access-Control-Allow-Origin": res.localsCorsOrigin || config.allowedOrigin,
+    "Vary": "Origin",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Legal-Connect-Token",
   });
   res.write(`data: ${JSON.stringify({ content: data.answer })}\n\n`);
@@ -144,12 +156,14 @@ function emailProviderStatus() {
 
 function emailAdminStatus() {
   const status = emailProviderStatus();
+  const testingSender = /onboarding@resend\.dev/i.test(config.fromEmail || "");
   return {
     provider: status.provider,
     resend_configured: status.provider === "resend" && status.status === "ready",
     from_email_configured: Boolean(config.fromEmail),
     support_email_configured: Boolean(config.supportEmail),
     status: status.status,
+    warning: testingSender ? "Resend testing sender may only send to the account email. Verify legal-connect.in in Resend to send from no-reply@legal-connect.in." : "",
   };
 }
 
@@ -211,6 +225,53 @@ function readBody(req) {
   });
 }
 
+function readRawBody(req) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+  });
+}
+
+async function createRazorpayOrder({ amount, currency = "INR", receipt, notes = {} }) {
+  const auth = Buffer.from(`${config.razorpayKeyId}:${config.razorpayKeySecret}`).toString("base64");
+  const response = await fetch("https://api.razorpay.com/v1/orders", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: Math.round(Number(amount || 0) * 100),
+      currency,
+      receipt,
+      notes,
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload.error?.description || payload.error?.reason || `Razorpay order failed with status ${response.status}`;
+    return { ok: false, status: response.status, error_message: String(message).slice(0, 180) };
+  }
+  return { ok: true, order: payload };
+}
+
+function verifyRazorpayPaymentSignature(orderId, paymentId, signature) {
+  if (!config.razorpayKeySecret || !orderId || !paymentId || !signature) return false;
+  const expected = crypto.createHmac("sha256", config.razorpayKeySecret).update(`${orderId}|${paymentId}`).digest("hex");
+  const actual = Buffer.from(String(signature));
+  const expectedBuffer = Buffer.from(expected);
+  return actual.length === expectedBuffer.length && crypto.timingSafeEqual(expectedBuffer, actual);
+}
+
+function verifyRazorpayWebhookSignature(rawBody, signature) {
+  if (!config.razorpayWebhookSecret || !signature) return false;
+  const expected = crypto.createHmac("sha256", config.razorpayWebhookSecret).update(rawBody).digest("hex");
+  const actual = Buffer.from(String(signature));
+  const expectedBuffer = Buffer.from(expected);
+  return actual.length === expectedBuffer.length && crypto.timingSafeEqual(expectedBuffer, actual);
+}
+
 function mapCase(row) {
   return {
     id: row.id,
@@ -238,6 +299,10 @@ function mapBooking(row) {
     paymentStatus: row.payment_status,
     receiptNo: row.receipt_no,
     nextDestination: row.next_destination,
+    razorpayOrderId: row.razorpay_order_id,
+    razorpayPaymentId: row.razorpay_payment_id,
+    workHoldStatus: row.work_hold_status,
+    failureReason: row.failure_reason,
     createdAt: row.created_at,
     ...(row.payload || {}),
   };
@@ -536,6 +601,8 @@ function citationForChunk(row) {
     title: row.title || "Approved legal source",
     citation: row.citation || "Citation pending",
     sourceName: row.source_name || row.sourceName || "Legal Connect Source Library",
+    actName: row.act_name || row.actName || "",
+    sectionNo: row.section_no || row.sectionNo || "",
     sourceUrl: row.source_url || row.sourceUrl || "",
     chunkRef: row.chunk_ref || row.chunkRef || "Source excerpt",
   };
@@ -585,11 +652,28 @@ function answerFromChunks(question, chunks) {
   }
 
   const excerpts = chunks.slice(0, 3).map((chunk) => String(chunk.chunk_text || chunk.chunkText || "").split(/(?<=[.!?])\s+/).slice(0, 2).join(" "));
+  const primary = chunks[0];
+  const citation = citationForChunk(primary);
   const reviewLine = needsAdvocateReview(question)
-    ? " This is source-based legal information only; a verified advocate must review strategy, drafting, risk, bail, settlement, or court action before you rely on it."
-    : " This is legal information, not legal advice. Consult a verified advocate before taking action.";
+    ? "This is source-based legal information only; a verified advocate must review strategy, drafting, risk, bail, settlement, or court action before you rely on it."
+    : "This is legal information, not legal advice. Consult a verified advocate before taking action.";
   return {
-    answer: `Source-locked answer based only on Legal Connect's approved sources: ${excerpts.join(" ")}${reviewLine}`,
+    answer: [
+      "Short Answer",
+      excerpts[0] || "The approved source contains relevant legal text.",
+      "",
+      "Legal Basis",
+      excerpts.join(" "),
+      "",
+      "Practical Meaning",
+      "Legal Connect found this only in approved indexed source material. Use it as a starting point for understanding the issue.",
+      "",
+      "Source Citation",
+      `${citation.actName || citation.title}${citation.sectionNo ? `, Section ${citation.sectionNo}` : ""}; ${citation.citation}; ${citation.sourceName}; ${citation.chunkRef}.`,
+      "",
+      "Caution",
+      reviewLine,
+    ].join("\n"),
     citations: chunks.map(citationForChunk),
     confidence: chunks[0].score >= 3 ? "high" : "medium",
     mode: "source-locked",
@@ -697,6 +781,7 @@ function serveStatic(req, res) {
 }
 
 const server = http.createServer(async (req, res) => {
+  res.localsCorsOrigin = corsOriginFor(req);
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (req.method === "OPTIONS") {
@@ -715,8 +800,12 @@ const server = http.createServer(async (req, res) => {
       lawbot: "source-locked",
       approved_sources_count: lawbotCounts.approved_sources_count,
       legal_chunks_count: lawbotCounts.legal_chunks_count,
+      pdf_ingestion: "enabled",
+      audit_logs: "enabled",
       payments: config.razorpayKeyId && config.razorpayKeySecret ? "razorpay-ready" : "demo",
       email: emailProviderStatus(),
+      public_url: config.publicAppUrl,
+      allowed_origins_count: (config.allowedOrigins || []).filter((origin) => origin !== "*").length,
     });
     return;
   }
@@ -891,7 +980,8 @@ const server = http.createServer(async (req, res) => {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
-      "Access-Control-Allow-Origin": config.allowedOrigin,
+      "Access-Control-Allow-Origin": res.localsCorsOrigin || config.allowedOrigin,
+      "Vary": "Origin",
     });
     res.write(`event: caseUpdate\n`);
     res.write(`data: ${JSON.stringify(update)}\n\n`);
@@ -923,7 +1013,7 @@ const server = http.createServer(async (req, res) => {
       to: recipient,
       subject: title,
       text: message,
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2 style="color:#0f2a25">Legal Connect</h2><p>${escapeHtml(message)}</p><p style="color:#64748b;font-size:12px">This is a Legal Connect notification test.</p></div>`,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2 style="color:#0f2a25">Legal Connect</h2><p>${escapeHtml(message)}</p><p><a href="${escapeHtml(config.publicAppUrl)}" style="color:#b8872b">Open Legal Connect dashboard</a></p><p style="color:#64748b;font-size:12px">This is a Legal Connect notification test.</p></div>`,
     });
     if (emailResult.sent) {
       await createNotification("notify_test", title, message, { mode: "resend", status: "sent", providerMessageId: emailResult.id }, authUser.id || body.userId || null);
@@ -1003,19 +1093,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (db.dbAvailable) {
-      const [users, bookings, tasks, cases, lawbot, sos] = await Promise.all([
+      const [users, bookings, tasks, cases, lawbot, sos, recentBookings] = await Promise.all([
         db.query("SELECT role, count(*)::int AS count FROM users GROUP BY role"),
         db.query("SELECT payment_status, count(*)::int AS count FROM bookings GROUP BY payment_status"),
         db.query("SELECT status, escrow_status, count(*)::int AS count FROM tasks GROUP BY status, escrow_status"),
         db.query("SELECT id, title, court, next_date, status FROM cases ORDER BY created_at DESC LIMIT 8"),
         db.query("SELECT question, created_at FROM lawbot_chats ORDER BY created_at DESC LIMIT 8"),
         db.query("SELECT service_type, urgency, status, created_at FROM sos_requests ORDER BY created_at DESC LIMIT 8"),
+        db.query("SELECT id, service_type, amount, payment_status, work_hold_status, razorpay_order_id, razorpay_payment_id, failure_reason, created_at FROM bookings ORDER BY created_at DESC LIMIT 8"),
       ]);
       sendJson(res, 200, {
         users: users.rows,
         bookings: bookings.rows,
         tasks: tasks.rows,
         recentCases: cases.rows,
+        recentBookings: recentBookings.rows,
         recentLawbotQuestions: lawbot.rows,
         sosRequests: sos.rows,
       });
@@ -1030,6 +1122,7 @@ const server = http.createServer(async (req, res) => {
       bookings: [{ payment_status: "Pending", count: demoStore.bookings.length }],
       tasks: [{ status: "Open", escrow_status: "Not locked", count: demoStore.tasks.length }],
       recentCases: demoStore.cases.slice(0, 8),
+      recentBookings: demoStore.bookings.slice(0, 8),
       recentLawbotQuestions: [],
       sosRequests: demoStore.sosRequests || [],
     });
@@ -1262,39 +1355,147 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/payments/create-order" && req.method === "POST") {
+    const authUser = getAuthUser(req);
     const body = await readBody(req);
     const amount = Number(body.amount || 0);
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+    if (!amount || amount <= 0) {
+      sendJson(res, 400, { ok: false, error: "Valid amount is required." });
+      return;
+    }
+    if (hasRazorpay) {
+      const orderResult = await createRazorpayOrder({
+        amount,
+        currency: body.currency || "INR",
+        receipt: body.receiptNo || body.receipt_no || body.bookingId || `LC-${Date.now()}`,
+        notes: {
+          booking_id: body.bookingId || body.booking_id || "",
+          service_type: body.serviceType || body.service_type || "Legal Connect booking",
+        },
+      });
+      if (!orderResult.ok) {
+        await writeAuditLog(authUser || { role: "system" }, "payment_order_failed", "payment", body.bookingId || "razorpay-order", orderResult.error_message, { amount });
+        sendJson(res, 502, { ok: false, mode: "razorpay", status: "failed", error_message: orderResult.error_message });
+        return;
+      }
+      if (db.dbAvailable && (body.bookingId || body.booking_id)) {
+        await db.query(
+          `UPDATE bookings
+           SET razorpay_order_id = $2, payment_status = 'order_created', work_hold_status = COALESCE(work_hold_status, 'pending'), payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+           WHERE id = $1`,
+          [body.bookingId || body.booking_id, orderResult.order.id, JSON.stringify({ razorpay_order_id: orderResult.order.id })],
+        );
+      }
+      await writeAuditLog(authUser || { role: "system" }, "payment_order_created", "payment", orderResult.order.id, "Razorpay order created.", { amount, bookingId: body.bookingId || body.booking_id || null });
+      sendJson(res, 200, {
+        ok: true,
+        mode: "razorpay",
+        order: orderResult.order,
+        keyId: config.razorpayKeyId,
+        public_url: config.publicAppUrl,
+      });
+      return;
+    }
     sendJson(res, 200, {
       ok: true,
-      mode: hasRazorpay ? "razorpay-ready-placeholder" : "demo",
+      mode: "demo",
       order: {
-        id: hasRazorpay ? `order_todo_${Date.now()}` : `demo_order_${Date.now()}`,
+        id: `demo_order_${Date.now()}`,
         amount,
         currency: body.currency || "INR",
         status: "created",
-        payment_lock_status: "locked",
+        payment_lock_status: "pending",
       },
       keyId: config.razorpayKeyId || "demo_key",
-      todo: hasRazorpay ? "Install Razorpay SDK and replace placeholder creation." : "Add Razorpay env vars for real test-mode orders.",
+      message: "Demo order created because Razorpay is not configured.",
     });
     return;
   }
 
   if (url.pathname === "/api/payments/verify" && req.method === "POST") {
+    const authUser = getAuthUser(req);
     const body = await readBody(req);
-    sendJson(res, 200, {
-      ok: true,
-      mode: config.razorpayKeySecret ? "razorpay-ready-placeholder" : "demo",
-      payment_status: body.paymentId || body.razorpay_payment_id ? "paid" : "demo_paid",
-      payment_lock_status: "locked",
-    });
+    const orderId = body.order_id || body.razorpay_order_id;
+    const paymentId = body.payment_id || body.razorpay_payment_id;
+    const signature = body.signature || body.razorpay_signature;
+    const bookingId = body.bookingId || body.booking_id;
+    if (!config.razorpayKeySecret) {
+      sendJson(res, 200, { ok: true, mode: "demo", status: "queued", payment_status: "demo_pending", work_hold_status: "pending" });
+      return;
+    }
+    const valid = verifyRazorpayPaymentSignature(orderId, paymentId, signature);
+    if (valid) {
+      if (db.dbAvailable && bookingId) {
+        await db.query(
+          `UPDATE bookings
+           SET payment_status = 'paid', work_hold_status = 'active', razorpay_order_id = $2, razorpay_payment_id = $3, failure_reason = NULL,
+               payload = COALESCE(payload, '{}'::jsonb) || $4::jsonb
+           WHERE id = $1`,
+          [bookingId, orderId, paymentId, JSON.stringify({ razorpay_order_id: orderId, razorpay_payment_id: paymentId, work_hold_status: "active" })],
+        );
+      } else if (bookingId) {
+        const booking = demoStore.bookings.find((item) => item.id === bookingId);
+        if (booking) Object.assign(booking, { paymentStatus: "paid", workHoldStatus: "active", razorpayOrderId: orderId, razorpayPaymentId: paymentId });
+      }
+      await writeAuditLog(authUser || { role: "system" }, "payment_verified", "booking", bookingId || orderId, "Payment verified. Work Completion Hold activated.", { orderId, paymentId });
+      await createNotification("payment_verified", "Payment verified", "Payment verified. Work Completion Hold is active.", { bookingId, orderId, paymentId }, authUser?.id || body.userId || null);
+      sendJson(res, 200, { ok: true, mode: "razorpay", status: "verified", payment_status: "paid", work_hold_status: "active" });
+      return;
+    }
+    if (db.dbAvailable && bookingId) {
+      await db.query(
+        `UPDATE bookings
+         SET payment_status = 'verification_failed', work_hold_status = 'pending', failure_reason = $2,
+             payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+         WHERE id = $1`,
+        [bookingId, "Invalid Razorpay signature", JSON.stringify({ razorpay_order_id: orderId, razorpay_payment_id: paymentId, payment_verification_failed: true })],
+      );
+    }
+    await writeAuditLog(authUser || { role: "system" }, "payment_verification_failed", "booking", bookingId || orderId, "Payment verification failed.", { orderId, paymentId });
+    sendJson(res, 400, { ok: false, mode: "razorpay", status: "failed", payment_status: "verification_failed", work_hold_status: "pending", error_message: "Invalid payment signature." });
     return;
   }
 
   if (url.pathname === "/api/payments/webhook" && req.method === "POST") {
-    const body = await readBody(req);
-    sendJson(res, 200, { ok: true, received: true, mode: config.razorpayWebhookSecret ? "razorpay-ready-placeholder" : "demo", event: body.event || "demo.event" });
+    const rawBody = await readRawBody(req);
+    const signature = req.headers["x-razorpay-signature"];
+    if (config.razorpayWebhookSecret && !verifyRazorpayWebhookSignature(rawBody, signature)) {
+      await writeAuditLog({ role: "system" }, "payment_webhook_invalid_signature", "payment", "razorpay-webhook", "Invalid Razorpay webhook signature.", {});
+      sendJson(res, 400, { ok: false, error: "Invalid webhook signature." });
+      return;
+    }
+    let body = {};
+    try {
+      body = JSON.parse(rawBody.toString("utf8") || "{}");
+    } catch {
+      sendJson(res, 400, { ok: false, error: "Invalid webhook body." });
+      return;
+    }
+    const event = body.event || "demo.event";
+    const payment = body.payload?.payment?.entity || {};
+    const order = body.payload?.order?.entity || {};
+    const orderId = payment.order_id || order.id || null;
+    const paymentId = payment.id || null;
+    if (db.dbAvailable && orderId && ["payment.captured", "order.paid"].includes(event)) {
+      await db.query(
+        `UPDATE bookings
+         SET payment_status = 'paid', work_hold_status = 'active', razorpay_payment_id = COALESCE($2, razorpay_payment_id),
+             payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+         WHERE razorpay_order_id = $1`,
+        [orderId, paymentId, JSON.stringify({ webhook_event: event, razorpay_payment_id: paymentId })],
+      );
+    }
+    if (db.dbAvailable && orderId && event === "payment.failed") {
+      await db.query(
+        `UPDATE bookings
+         SET payment_status = 'failed', work_hold_status = 'pending', failure_reason = $2,
+             payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+         WHERE razorpay_order_id = $1`,
+        [orderId, payment.error_description || "Payment failed", JSON.stringify({ webhook_event: event })],
+      );
+    }
+    await writeAuditLog({ role: "system" }, "payment_webhook_received", "payment", orderId || "razorpay-webhook", `Razorpay webhook received: ${event}`, { event, paymentId });
+    sendJson(res, 200, { ok: true, received: true, mode: config.razorpayWebhookSecret ? "razorpay" : "demo", event });
     return;
   }
 
@@ -1366,8 +1567,8 @@ const server = http.createServer(async (req, res) => {
     const booking = { id: `booking-${Date.now()}`, userId: bookingUserId, status: "Pending", createdAt: new Date().toISOString(), ...body };
     if (db.dbAvailable) {
       const result = await db.query(
-        `INSERT INTO bookings (user_id, service_type, amount, payment_status, receipt_no, next_destination, payload)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO bookings (user_id, service_type, amount, payment_status, receipt_no, next_destination, razorpay_order_id, razorpay_payment_id, work_hold_status, failure_reason, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
         [
           bookingUserId,
@@ -1376,6 +1577,10 @@ const server = http.createServer(async (req, res) => {
           body.paymentStatus || body.payment_status || body.status || "Pending",
           body.receiptNo || body.receipt_no || null,
           body.nextDestination || body.next_destination || body.route || null,
+          body.razorpayOrderId || body.razorpay_order_id || null,
+          body.razorpayPaymentId || body.razorpay_payment_id || null,
+          body.workHoldStatus || body.work_hold_status || "pending",
+          body.failureReason || body.failure_reason || null,
           JSON.stringify({ ...body, user_id: bookingUserId, role: userRole(authUser) }),
         ],
       );
@@ -1425,7 +1630,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/lawbot/query" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
-    const question = body.query || body.message || "";
+    const question = body.query || body.question || body.message || "";
     const result = await queryLawbot(question, userIdForWrite(body, authUser), body.mode || "lawbot");
     await saveLawbotChat(userIdForWrite(body, authUser), question, result);
     sendJson(res, 200, result);

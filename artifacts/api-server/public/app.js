@@ -59,6 +59,20 @@ async function apiFetch(path, options = {}) {
   return response.json();
 }
 
+function loadRazorpayCheckout() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve(window.Razorpay);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(window.Razorpay);
+    script.onerror = () => reject(new Error("Razorpay Checkout could not load."));
+    document.head.appendChild(script);
+  });
+}
+
 function setDemoStatus(message) {
   if (!demoStatus || !message) return;
   demoStatus.textContent = message;
@@ -590,37 +604,80 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       plan: activeBooking.plan,
       amount: activeBooking.price,
       route: activeBooking.route,
-      status: "Paid demo booking"
+      status: "Payment pending verification"
     };
 
     try {
-      const order = await apiFetch("/api/payments/create-order", {
-        method: "POST",
-        body: JSON.stringify({ amount: Number(activeBooking.price), serviceType: activeBooking.plan }),
-      });
+      if (bookingStatus) bookingStatus.textContent = "Creating booking and secure payment order...";
       const savedBooking = await apiFetch("/api/bookings", {
         method: "POST",
         body: JSON.stringify({
           serviceType: activeBooking.plan,
           amount: Number(activeBooking.price),
-          paymentStatus: order.order?.payment_lock_status || "locked",
+          paymentStatus: "pending",
           receiptNo: bookingId,
           nextDestination: activeBooking.route,
+          workHoldStatus: "pending",
         }),
+      });
+      const order = await apiFetch("/api/payments/create-order", {
+        method: "POST",
+        body: JSON.stringify({ amount: Number(activeBooking.price), serviceType: activeBooking.plan, bookingId: savedBooking.id, receiptNo: bookingId }),
       });
       receipt.backendId = savedBooking.id;
       receipt.paymentMode = order.mode;
+      receipt.razorpayOrderId = order.order?.id;
+      if (order.mode === "razorpay" && order.keyId && order.order?.id) {
+        if (bookingStatus) bookingStatus.textContent = "Opening Razorpay Checkout. Payment will show paid only after backend verification.";
+        const Razorpay = await loadRazorpayCheckout();
+        const checkout = new Razorpay({
+          key: order.keyId,
+          amount: order.order.amount,
+          currency: order.order.currency || "INR",
+          name: "Legal Connect",
+          description: activeBooking.plan,
+          order_id: order.order.id,
+          handler: async (response) => {
+            try {
+              const verification = await apiFetch("/api/payments/verify", {
+                method: "POST",
+                body: JSON.stringify({ ...response, bookingId: savedBooking.id }),
+              });
+              receipt.status = verification.payment_status === "paid" ? "Paid - Work Completion Hold active" : "Payment pending";
+              receipt.workHoldStatus = verification.work_hold_status || "pending";
+              receipt.razorpayPaymentId = response.razorpay_payment_id;
+              localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
+              renderClientDesk(receipt);
+              if (bookingConfirmation) bookingConfirmation.innerHTML = `<span>Booking Verified</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}</p>`;
+              if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} payment verified. Work Completion Hold is active.`;
+              localStorage.setItem("legalConnectPaymentVerified", "true");
+              setDemoStatus("Payment verified by backend.");
+            } catch {
+              if (bookingStatus) bookingStatus.textContent = "Payment verification failed. Work Completion Hold was not activated.";
+              setDemoStatus("Payment verification failed.");
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              if (bookingStatus) bookingStatus.textContent = "Checkout closed. Booking remains pending until payment is verified.";
+            },
+          },
+        });
+        checkout.open();
+        return;
+      }
     } catch {
       receipt.paymentMode = "local-fallback";
     }
 
+    receipt.status = receipt.paymentMode === "demo" ? "Demo payment queued - not paid" : receipt.status;
     localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
     renderClientDesk(receipt);
     if (bookingConfirmation) {
-      bookingConfirmation.innerHTML = `<span>Booking Confirmed</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> This booking is also visible at the top in My Legal Desk.</p>`;
+      bookingConfirmation.innerHTML = `<span>Booking Created</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}. Real paid status requires backend verification.</p>`;
     }
-    if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} confirmed. Receipt ${receipt.id} saved in this browser.`;
-    setDemoStatus(`${receipt.plan} paid. Receipt ${receipt.id} saved.`);
+    if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} booking created. Payment is not marked paid until verified.`;
+    setDemoStatus(`${receipt.plan} booking created. Verification pending.`);
   });
 });
 
@@ -649,6 +706,7 @@ const legalSourceForm = document.querySelector("#legal-source-form");
 const legalSourceList = document.querySelector("#legal-source-list");
 const legalSourceStatus = document.querySelector("#legal-source-status");
 const auditLogList = document.querySelector("#audit-log-list");
+const betaReadinessList = document.querySelector("#beta-readiness-list");
 const notifyTestForm = document.querySelector("#notify-test-form");
 const notifyTestStatus = document.querySelector("#notify-test-status");
 
@@ -656,10 +714,33 @@ function countRows(rows = []) {
   return rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
 }
 
+function renderBetaReadiness(health = {}) {
+  if (!betaReadinessList) return;
+  const checks = [
+    ["DB connected", health.db === "connected"],
+    ["LawBot source-locked", health.lawbot === "source-locked"],
+    ["PDF ingestion enabled", health.pdf_ingestion === "enabled"],
+    ["Audit logs enabled", health.audit_logs === "enabled"],
+    ["Resend ready", health.email?.provider === "resend" && health.email?.status === "ready"],
+    ["Razorpay ready", health.payments === "razorpay-ready"],
+    ["UDYAM badge visible", document.body.textContent.includes("UDYAM-DL-11-0164811")],
+    ["Domain configured", String(health.public_url || "").includes("legal-connect")],
+    ["Legal pages present", Boolean(document.querySelector("#privacy-policy") && document.querySelector("#terms") && document.querySelector("#refund-policy"))],
+    ["Test notification sent", localStorage.getItem("legalConnectNotifyTest") === "sent"],
+    ["Test payment verified", localStorage.getItem("legalConnectPaymentVerified") === "true"],
+    ["BNSS source indexed", Number(health.legal_chunks_count || 0) > 0],
+    ["UI duplication fixed", document.querySelectorAll(".rail").length === 1 && document.querySelectorAll(".legal-footer").length === 1 && document.querySelectorAll("#floating-lawbot").length === 1],
+  ];
+  betaReadinessList.innerHTML = checks.map(([label, ok]) => `<div><time>${ok ? "Pass" : "Warning"}</time><strong>${escapeHtml(label)}</strong><span>${ok ? "Ready for controlled beta." : "Needs live verification or configured provider."}</span></div>`).join("");
+}
+
 async function refreshAdminDashboard() {
   if (!adminMetrics || !adminFeedList) return;
   try {
-    const summary = await apiFetch("/api/admin/summary");
+    const [summary, health] = await Promise.all([
+      apiFetch("/api/admin/summary"),
+      apiFetch("/api/health"),
+    ]);
     const totalUsers = countRows(summary.users);
     const totalBookings = countRows(summary.bookings);
     const totalTasks = countRows(summary.tasks);
@@ -672,10 +753,16 @@ async function refreshAdminDashboard() {
       <article><span>SOS + LawBot</span><strong>${sosCount + lawbotCount}</strong><small>${sosCount} SOS / ${lawbotCount} questions</small></article>
     `;
     const cases = summary.recentCases || [];
-    adminFeedList.innerHTML = cases.length
-      ? cases.map((item) => `<div><time>${item.next_date || item.nextDate || "Date pending"}</time><strong>${item.title || "Case"}</strong><span>${item.court || "Court pending"} - ${item.status || "Active"}</span></div>`).join("")
+    const payments = summary.recentBookings || [];
+    const feedItems = [
+      ...payments.map((item) => `<div><time>${item.payment_status || item.paymentStatus || "pending"}</time><strong>${escapeHtml(item.service_type || item.serviceType || "Booking")} - Rs. ${item.amount || 0}</strong><span>Work Hold: ${escapeHtml(item.work_hold_status || item.workHoldStatus || "pending")} / Order: ${escapeHtml(item.razorpay_order_id || item.razorpayOrderId || "not created")} / Payment: ${escapeHtml(item.razorpay_payment_id || item.razorpayPaymentId || "not verified")}${item.failure_reason || item.failureReason ? ` / ${escapeHtml(item.failure_reason || item.failureReason)}` : ""}</span></div>`),
+      ...cases.map((item) => `<div><time>${item.next_date || item.nextDate || "Date pending"}</time><strong>${escapeHtml(item.title || "Case")}</strong><span>${escapeHtml(item.court || "Court pending")} - ${escapeHtml(item.status || "Active")}</span></div>`),
+    ];
+    adminFeedList.innerHTML = feedItems.length
+      ? feedItems.join("")
       : `<div><time>Live</time><strong>No recent cases</strong><span>Create a case from Case Diary to populate this feed.</span></div>`;
     setDemoStatus("RNA Control Room refreshed.");
+    renderBetaReadiness(health);
     refreshLegalSources();
     refreshAuditLogs();
   } catch {
@@ -833,6 +920,7 @@ notifyTestForm?.addEventListener("submit", async (event) => {
     if (result.mode === "resend" && result.status === "sent") {
       channel = "Resend email sent";
       message = `Email sent through Resend. Provider ID: ${result.provider_message_id || "not returned"}`;
+      localStorage.setItem("legalConnectNotifyTest", "sent");
     } else if (result.mode === "resend" && result.status === "failed") {
       channel = "Resend email failed";
       message = `Resend email failed: ${result.error_message || "safe error unavailable"}`;
