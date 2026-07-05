@@ -1,0 +1,34 @@
+Data Safety Draft for Google Play Internal Testing
+
+Data users may provide:
+- Name
+- Phone number
+- Email address
+- Case details
+- Uploaded documents
+- Payment references
+- Support requests
+- Legal SOS requests
+- LawBot questions
+
+Purpose of data use:
+- Account access
+- Legal-support coordination
+- Advocate/client workflow
+- Notifications
+- Payment verification
+- Audit logs
+- Service delivery
+- Case tracking and reminder support
+
+Document processing:
+Users may upload documents for legal-support coordination. Documents should be handled through the live Legal Connect platform and stored according to the backend configuration and privacy policy.
+
+Payments:
+Payment processing is handled through Razorpay. Legal Connect stores payment references and verification status for service coordination and Work Completion Hold.
+
+Notifications:
+Email notifications may be handled through Resend.
+
+Legal disclaimer:
+Legal Connect does not guarantee bail, case success, legal outcome, emergency rescue, police immunity, or any specific result. LawBot and platform information are source-based and informational. Final legal advice is subject to advocate consultation.

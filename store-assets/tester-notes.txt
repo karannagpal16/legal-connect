@@ -1,0 +1,17 @@
+This is an internal testing build of Legal Connect.
+
+Please test:
+1. App launch and splash screen.
+2. Loading of https://www.legal-connect.in.
+3. Login role selection for Client, Advocate, RNA/Admin, and Intern.
+4. Client Portal booking flow.
+5. Legal SOS flow.
+6. Source-locked LawBot flow.
+7. Case tracker and notifications UI.
+8. Document/file upload if enabled on the live web app.
+9. Razorpay checkout flow.
+10. Back button behavior.
+11. Offline/error screen.
+
+Payment note:
+Payment is in Razorpay test mode only if the backend is configured with rzp_test keys. If UPI shows invalid, confirm test mode keys or use Razorpay test card method.

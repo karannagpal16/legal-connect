@@ -1,0 +1,13 @@
+This is an internal testing build of Legal Connect.
+
+The Android app is a native WebView shell that loads the live Legal Connect web platform:
+https://www.legal-connect.in
+
+The backend health endpoint is:
+https://www.legal-connect.in/api/health
+
+Test credentials can be provided separately. Role-based login supports Client, Advocate, RNA/Admin, and Intern demo flows depending on backend configuration.
+
+Payment is in Razorpay test mode only if the server is configured with Razorpay test keys. The app does not mark a booking as paid until backend signature verification succeeds. Work Completion Hold activates only after verified payment.
+
+Legal Connect is a legal-tech and legal-support coordination platform. Information in the app is informational and not a substitute for legal advice from an advocate.

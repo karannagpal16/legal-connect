@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lc_navy">#060D18</color>
+    <color name="lc_panel">#081B1A</color>
+    <color name="lc_gold">#D4AF37</color>
+    <color name="lc_cream">#E8DBBA</color>
+    <color name="lc_white">#FFFFFF</color>
+</resources>

@@ -53,3 +53,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Android build output
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/

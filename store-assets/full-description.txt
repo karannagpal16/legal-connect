@@ -1,0 +1,6 @@
+Legal Connect is a legal-tech and legal-support coordination platform built for clients, advocates, and chambers. It provides Legal SOS, consultation booking, case tracking, document support, advocate workflow tools, source-locked legal information, payment tracking, notifications, and Work Completion Hold based task flow.
+
+Legal Connect helps users understand and manage legal support requests more systematically.
+
+Disclaimer:
+Legal Connect is a legal-tech and legal-support coordination platform. Information provided through the platform, including LawBot responses, is source-based and informational. It is not a substitute for legal advice from an advocate. Final legal advice or representation is subject to advocate consultation.
