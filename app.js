@@ -54,7 +54,14 @@ async function apiFetch(path, options = {}) {
     },
   });
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    let message = `Request failed: ${response.status}`;
+    try {
+      const payload = await response.json();
+      message = payload.error_message || payload.error || message;
+    } catch {
+      // Keep the generic status message when the server does not return JSON.
+    }
+    throw new Error(message);
   }
   return response.json();
 }
@@ -68,7 +75,7 @@ function loadRazorpayCheckout() {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => resolve(window.Razorpay);
-    script.onerror = () => reject(new Error("Razorpay Checkout could not load."));
+    script.onerror = () => reject(new Error("Razorpay checkout could not load. Please try again."));
     document.head.appendChild(script);
   });
 }
@@ -626,17 +633,31 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       });
       receipt.backendId = savedBooking.id;
       receipt.paymentMode = order.mode;
-      receipt.razorpayOrderId = order.order?.id;
-      if (order.mode === "razorpay" && order.keyId && order.order?.id) {
+      receipt.razorpayOrderId = order.order_id || order.order?.id;
+      const razorpayKey = order.key_id || order.keyId;
+      const razorpayOrderId = order.order_id || order.order?.id;
+      const razorpayAmount = order.amount || order.order?.amount;
+      const razorpayCurrency = order.currency || order.order?.currency || "INR";
+      if (order.warning && bookingStatus) bookingStatus.textContent = order.warning;
+      if (order.provider === "razorpay" && razorpayKey && razorpayOrderId) {
         if (bookingStatus) bookingStatus.textContent = "Opening Razorpay Checkout. Payment will show paid only after backend verification.";
         const Razorpay = await loadRazorpayCheckout();
+        const session = getSession()?.user || {};
         const checkout = new Razorpay({
-          key: order.keyId,
-          amount: order.order.amount,
-          currency: order.order.currency || "INR",
+          key: razorpayKey,
+          amount: razorpayAmount,
+          currency: razorpayCurrency,
           name: "Legal Connect",
           description: activeBooking.plan,
-          order_id: order.order.id,
+          order_id: razorpayOrderId,
+          prefill: {
+            name: session.name || "",
+            email: session.email || "",
+            contact: session.phone || "",
+          },
+          theme: {
+            color: "#d4af37",
+          },
           handler: async (response) => {
             try {
               const verification = await apiFetch("/api/payments/verify", {
@@ -652,9 +673,9 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
               if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} payment verified. Work Completion Hold is active.`;
               localStorage.setItem("legalConnectPaymentVerified", "true");
               setDemoStatus("Payment verified by backend.");
-            } catch {
-              if (bookingStatus) bookingStatus.textContent = "Payment verification failed. Work Completion Hold was not activated.";
-              setDemoStatus("Payment verification failed.");
+            } catch (error) {
+              if (bookingStatus) bookingStatus.textContent = error.message || "Payment verification failed. Please contact support.";
+              setDemoStatus("Payment verification failed. Work Completion Hold remains pending.");
             }
           },
           modal: {
@@ -666,8 +687,10 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
         checkout.open();
         return;
       }
-    } catch {
+    } catch (error) {
       receipt.paymentMode = "local-fallback";
+      if (bookingStatus) bookingStatus.textContent = error.message || "Razorpay checkout could not load. Please try again.";
+      setDemoStatus(error.message || "Payment order could not be created.");
     }
 
     receipt.status = receipt.paymentMode === "demo" ? "Demo payment queued - not paid" : receipt.status;
@@ -709,6 +732,7 @@ const auditLogList = document.querySelector("#audit-log-list");
 const betaReadinessList = document.querySelector("#beta-readiness-list");
 const notifyTestForm = document.querySelector("#notify-test-form");
 const notifyTestStatus = document.querySelector("#notify-test-status");
+const paymentStatusPanel = document.querySelector("#payment-status-panel");
 
 function countRows(rows = []) {
   return rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
@@ -734,12 +758,32 @@ function renderBetaReadiness(health = {}) {
   betaReadinessList.innerHTML = checks.map(([label, ok]) => `<div><time>${ok ? "Pass" : "Warning"}</time><strong>${escapeHtml(label)}</strong><span>${ok ? "Ready for controlled beta." : "Needs live verification or configured provider."}</span></div>`).join("");
 }
 
+function renderPaymentStatus(status = {}) {
+  if (!paymentStatusPanel) return;
+  const latest = status.latest_payment || {};
+  const modeMessage = status.mode === "live"
+    ? "Live Razorpay key detected. Test UPI IDs may be invalid in live mode. Use rzp_test keys for beta testing."
+    : status.mode === "test"
+      ? "Test mode detected. Use Razorpay test card/UPI details."
+      : "Razorpay mode unknown or not configured.";
+  const rows = [
+    ["Configured", status.payments_configured ? "Yes" : "No", status.payments_configured ? "Razorpay key id and secret are present." : "Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."],
+    ["Mode", status.mode || "unknown", modeMessage],
+    ["Webhook", status.webhook_secret_present ? "Present" : "Missing", status.webhook_secret_present ? "Webhook signature can be verified." : "Add RAZORPAY_WEBHOOK_SECRET before launch."],
+    ["Latest Status", status.latest_payment_status || latest.paymentStatus || "None", `Work Completion Hold: ${status.latest_work_hold_status || latest.workHoldStatus || "none"}`],
+    ["Latest Order", status.latest_order_id || latest.razorpayOrderId || "Not created", `Payment ID: ${status.latest_payment_id || latest.razorpayPaymentId || "not verified"}`],
+    ["Last Error", status.last_payment_error || latest.failureReason || "None", "Failed UPI/card attempts should stay unpaid until verified."],
+  ];
+  paymentStatusPanel.innerHTML = rows.map(([time, title, detail]) => `<div><time>${escapeHtml(time)}</time><strong>${escapeHtml(String(title))}</strong><span>${escapeHtml(String(detail))}</span></div>`).join("");
+}
+
 async function refreshAdminDashboard() {
   if (!adminMetrics || !adminFeedList) return;
   try {
-    const [summary, health] = await Promise.all([
+    const [summary, health, paymentStatus] = await Promise.all([
       apiFetch("/api/admin/summary"),
       apiFetch("/api/health"),
+      apiFetch("/api/admin/payments/status"),
     ]);
     const totalUsers = countRows(summary.users);
     const totalBookings = countRows(summary.bookings);
@@ -763,6 +807,7 @@ async function refreshAdminDashboard() {
       : `<div><time>Live</time><strong>No recent cases</strong><span>Create a case from Case Diary to populate this feed.</span></div>`;
     setDemoStatus("RNA Control Room refreshed.");
     renderBetaReadiness(health);
+    renderPaymentStatus(paymentStatus);
     refreshLegalSources();
     refreshAuditLogs();
   } catch {

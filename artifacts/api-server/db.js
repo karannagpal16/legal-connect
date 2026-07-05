@@ -62,11 +62,6 @@ async function initDb() {
         updated_at timestamptz DEFAULT now()
       )
     `);
-    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS razorpay_order_id text`);
-    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS razorpay_payment_id text`);
-    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS work_hold_status text`);
-    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS failure_reason text`);
-
     await query(`
       CREATE TABLE IF NOT EXISTS bookings (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -80,6 +75,11 @@ async function initDb() {
         created_at timestamptz DEFAULT now()
       )
     `);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS razorpay_order_id text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS razorpay_payment_id text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS work_hold_status text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS failure_reason text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS verified_at timestamptz`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS tasks (

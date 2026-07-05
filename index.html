@@ -830,6 +830,16 @@
               <div><time>Check</time><strong>Waiting for health check</strong><span>Refresh Control Room after RNA/Admin login.</span></div>
             </div>
           </section>
+          <section class="panel audit-panel">
+            <div class="section-head">
+              <div><span class="eyebrow">Payment Debug</span><h3>Razorpay beta diagnostics.</h3></div>
+              <button class="ghost-button" data-refresh-admin>Refresh Payment Status</button>
+            </div>
+            <div class="timeline" id="payment-status-panel">
+              <div><time>Check</time><strong>Waiting for payment status</strong><span>Login as RNA/Admin and refresh. Test UPI works only with rzp_test keys.</span></div>
+            </div>
+            <p class="fine-print">For Razorpay Test Mode, use test keys starting with rzp_test. UPI success test: success@razorpay. UPI failure test: failure@razorpay. If UPI shows invalid, try test card method or confirm test-mode keys.</p>
+          </section>
           <section class="panel command-actions">
             <div>
               <span class="eyebrow">Persistent Demo Actions</span>

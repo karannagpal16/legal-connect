@@ -233,7 +233,40 @@ function readRawBody(req) {
   });
 }
 
+function razorpayMode() {
+  if (!config.razorpayKeyId) return "unknown";
+  if (config.razorpayKeyId.startsWith("rzp_test")) return "test";
+  if (config.razorpayKeyId.startsWith("rzp_live")) return "live";
+  return "unknown";
+}
+
+function razorpayKeyPrefix() {
+  if (!config.razorpayKeyId) return "unknown";
+  if (config.razorpayKeyId.startsWith("rzp_test")) return "rzp_test";
+  if (config.razorpayKeyId.startsWith("rzp_live")) return "rzp_live";
+  return "unknown";
+}
+
+function paymentConfigStatus() {
+  const mode = razorpayMode();
+  return {
+    payments_configured: Boolean(config.razorpayKeyId && config.razorpayKeySecret),
+    key_id_present: Boolean(config.razorpayKeyId),
+    key_id_prefix: razorpayKeyPrefix(),
+    mode,
+    webhook_secret_present: Boolean(config.razorpayWebhookSecret),
+    checkout_script_url: "https://checkout.razorpay.com/v1/checkout.js",
+    warning: mode === "live" ? "Live key detected. Razorpay test UPI IDs may not work in live mode. Use test key pair for sandbox testing." : "",
+  };
+}
+
 async function createRazorpayOrder({ amount, currency = "INR", receipt, notes = {} }) {
+  const rupees = Number(amount || 0);
+  const amountPaise = Math.round(rupees * 100);
+  if (!Number.isInteger(amountPaise) || amountPaise <= 0) {
+    return { ok: false, status: 400, error_message: "Amount must be a positive integer value in paise." };
+  }
+  const safeCurrency = "INR";
   const auth = Buffer.from(`${config.razorpayKeyId}:${config.razorpayKeySecret}`).toString("base64");
   const response = await fetch("https://api.razorpay.com/v1/orders", {
     method: "POST",
@@ -242,8 +275,8 @@ async function createRazorpayOrder({ amount, currency = "INR", receipt, notes = 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      amount: Math.round(Number(amount || 0) * 100),
-      currency,
+      amount: amountPaise,
+      currency: safeCurrency,
       receipt,
       notes,
     }),
@@ -303,6 +336,7 @@ function mapBooking(row) {
     razorpayPaymentId: row.razorpay_payment_id,
     workHoldStatus: row.work_hold_status,
     failureReason: row.failure_reason,
+    verifiedAt: row.verified_at,
     createdAt: row.created_at,
     ...(row.payload || {}),
   };
@@ -817,6 +851,39 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/admin/payments/status" && req.method === "GET") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const paymentStatus = paymentConfigStatus();
+    let latestPayment = null;
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `SELECT id, service_type, amount, payment_status, work_hold_status, razorpay_order_id, razorpay_payment_id, failure_reason, verified_at, created_at
+         FROM bookings
+         ORDER BY created_at DESC
+         LIMIT 1`,
+      );
+      latestPayment = result.rows[0] || null;
+    } else {
+      latestPayment = demoStore.bookings[demoStore.bookings.length - 1] || null;
+    }
+    const latestPaymentView = latestPayment
+      ? db.dbAvailable
+        ? mapBooking(latestPayment)
+        : latestPayment
+      : null;
+    sendJson(res, 200, {
+      ...paymentStatus,
+      latest_payment: latestPaymentView,
+      latest_payment_status: latestPayment?.payment_status || latestPayment?.paymentStatus || null,
+      latest_order_id: latestPayment?.razorpay_order_id || latestPayment?.razorpayOrderId || null,
+      latest_payment_id: latestPayment?.razorpay_payment_id || latestPayment?.razorpayPaymentId || null,
+      latest_work_hold_status: latestPayment?.work_hold_status || latestPayment?.workHoldStatus || null,
+      last_payment_error: latestPayment?.failure_reason || latestPayment?.failureReason || "",
+    });
+    return;
+  }
+
   if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
     const role = roles.has(body.role) ? body.role : "client";
@@ -1100,7 +1167,7 @@ const server = http.createServer(async (req, res) => {
         db.query("SELECT id, title, court, next_date, status FROM cases ORDER BY created_at DESC LIMIT 8"),
         db.query("SELECT question, created_at FROM lawbot_chats ORDER BY created_at DESC LIMIT 8"),
         db.query("SELECT service_type, urgency, status, created_at FROM sos_requests ORDER BY created_at DESC LIMIT 8"),
-        db.query("SELECT id, service_type, amount, payment_status, work_hold_status, razorpay_order_id, razorpay_payment_id, failure_reason, created_at FROM bookings ORDER BY created_at DESC LIMIT 8"),
+        db.query("SELECT id, service_type, amount, payment_status, work_hold_status, razorpay_order_id, razorpay_payment_id, failure_reason, verified_at, created_at FROM bookings ORDER BY created_at DESC LIMIT 8"),
       ]);
       sendJson(res, 200, {
         users: users.rows,
@@ -1359,14 +1426,25 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const amount = Number(body.amount || 0);
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+    const paymentStatus = paymentConfigStatus();
     if (!amount || amount <= 0) {
       sendJson(res, 400, { ok: false, error: "Valid amount is required." });
+      return;
+    }
+    if (!hasRazorpay) {
+      sendJson(res, 503, {
+        ok: false,
+        success: false,
+        mode: "demo",
+        status: "not_configured",
+        error_message: "Razorpay is not configured.",
+      });
       return;
     }
     if (hasRazorpay) {
       const orderResult = await createRazorpayOrder({
         amount,
-        currency: body.currency || "INR",
+        currency: "INR",
         receipt: body.receiptNo || body.receipt_no || body.bookingId || `LC-${Date.now()}`,
         notes: {
           booking_id: body.bookingId || body.booking_id || "",
@@ -1375,7 +1453,7 @@ const server = http.createServer(async (req, res) => {
       });
       if (!orderResult.ok) {
         await writeAuditLog(authUser || { role: "system" }, "payment_order_failed", "payment", body.bookingId || "razorpay-order", orderResult.error_message, { amount });
-        sendJson(res, 502, { ok: false, mode: "razorpay", status: "failed", error_message: orderResult.error_message });
+        sendJson(res, 502, { ok: false, success: false, mode: paymentStatus.mode, status: "failed", error_message: orderResult.error_message });
         return;
       }
       if (db.dbAvailable && (body.bookingId || body.booking_id)) {
@@ -1389,27 +1467,21 @@ const server = http.createServer(async (req, res) => {
       await writeAuditLog(authUser || { role: "system" }, "payment_order_created", "payment", orderResult.order.id, "Razorpay order created.", { amount, bookingId: body.bookingId || body.booking_id || null });
       sendJson(res, 200, {
         ok: true,
-        mode: "razorpay",
+        success: true,
+        mode: paymentStatus.mode,
+        provider: "razorpay",
         order: orderResult.order,
         keyId: config.razorpayKeyId,
+        key_id: config.razorpayKeyId,
+        order_id: orderResult.order.id,
+        amount: orderResult.order.amount,
+        currency: orderResult.order.currency || "INR",
+        receipt: orderResult.order.receipt || body.receiptNo || body.receipt_no || body.bookingId || null,
+        warning: paymentStatus.warning,
         public_url: config.publicAppUrl,
       });
       return;
     }
-    sendJson(res, 200, {
-      ok: true,
-      mode: "demo",
-      order: {
-        id: `demo_order_${Date.now()}`,
-        amount,
-        currency: body.currency || "INR",
-        status: "created",
-        payment_lock_status: "pending",
-      },
-      keyId: config.razorpayKeyId || "demo_key",
-      message: "Demo order created because Razorpay is not configured.",
-    });
-    return;
   }
 
   if (url.pathname === "/api/payments/verify" && req.method === "POST") {
@@ -1429,13 +1501,14 @@ const server = http.createServer(async (req, res) => {
         await db.query(
           `UPDATE bookings
            SET payment_status = 'paid', work_hold_status = 'active', razorpay_order_id = $2, razorpay_payment_id = $3, failure_reason = NULL,
+               verified_at = now(),
                payload = COALESCE(payload, '{}'::jsonb) || $4::jsonb
            WHERE id = $1`,
-          [bookingId, orderId, paymentId, JSON.stringify({ razorpay_order_id: orderId, razorpay_payment_id: paymentId, work_hold_status: "active" })],
+          [bookingId, orderId, paymentId, JSON.stringify({ razorpay_order_id: orderId, razorpay_payment_id: paymentId, work_hold_status: "active", verified_at: new Date().toISOString() })],
         );
       } else if (bookingId) {
         const booking = demoStore.bookings.find((item) => item.id === bookingId);
-        if (booking) Object.assign(booking, { paymentStatus: "paid", workHoldStatus: "active", razorpayOrderId: orderId, razorpayPaymentId: paymentId });
+        if (booking) Object.assign(booking, { paymentStatus: "paid", workHoldStatus: "active", razorpayOrderId: orderId, razorpayPaymentId: paymentId, verifiedAt: new Date().toISOString() });
       }
       await writeAuditLog(authUser || { role: "system" }, "payment_verified", "booking", bookingId || orderId, "Payment verified. Work Completion Hold activated.", { orderId, paymentId });
       await createNotification("payment_verified", "Payment verified", "Payment verified. Work Completion Hold is active.", { bookingId, orderId, paymentId }, authUser?.id || body.userId || null);
@@ -1452,7 +1525,7 @@ const server = http.createServer(async (req, res) => {
       );
     }
     await writeAuditLog(authUser || { role: "system" }, "payment_verification_failed", "booking", bookingId || orderId, "Payment verification failed.", { orderId, paymentId });
-    sendJson(res, 400, { ok: false, mode: "razorpay", status: "failed", payment_status: "verification_failed", work_hold_status: "pending", error_message: "Invalid payment signature." });
+    sendJson(res, 400, { ok: false, mode: "razorpay", status: "failed", payment_status: "verification_failed", work_hold_status: "pending", error_message: "Payment verification failed. Please contact support." });
     return;
   }
 
@@ -1480,8 +1553,9 @@ const server = http.createServer(async (req, res) => {
       await db.query(
         `UPDATE bookings
          SET payment_status = 'paid', work_hold_status = 'active', razorpay_payment_id = COALESCE($2, razorpay_payment_id),
+             verified_at = COALESCE(verified_at, now()),
              payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
-         WHERE razorpay_order_id = $1`,
+         WHERE razorpay_order_id = $1 AND COALESCE(payment_status, '') <> 'paid'`,
         [orderId, paymentId, JSON.stringify({ webhook_event: event, razorpay_payment_id: paymentId })],
       );
     }
@@ -1490,7 +1564,7 @@ const server = http.createServer(async (req, res) => {
         `UPDATE bookings
          SET payment_status = 'failed', work_hold_status = 'pending', failure_reason = $2,
              payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
-         WHERE razorpay_order_id = $1`,
+         WHERE razorpay_order_id = $1 AND COALESCE(payment_status, '') <> 'paid'`,
         [orderId, payment.error_description || "Payment failed", JSON.stringify({ webhook_event: event })],
       );
     }
