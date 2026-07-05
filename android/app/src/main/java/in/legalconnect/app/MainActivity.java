@@ -1,17 +1,14 @@
 package in.legalconnect.app;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,7 +32,6 @@ import java.util.Set;
 public class MainActivity extends Activity {
     private static final String HOME_URL = "https://www.legal-connect.in";
     private static final int FILE_CHOOSER_REQUEST = 4101;
-    private static final int PERMISSION_REQUEST = 4102;
     private static final Set<String> INTERNAL_HOSTS = new HashSet<>(Arrays.asList(
             "legal-connect.in",
             "www.legal-connect.in",
@@ -53,7 +49,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestNeededPermissions();
         buildLayout();
         configureWebView();
         if (isOnline()) {
@@ -145,7 +140,7 @@ public class MainActivity extends Activity {
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
             CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
         }
         CookieManager.getInstance().setAcceptCookie(true);
@@ -263,14 +258,6 @@ public class MainActivity extends Activity {
         loadingView.setVisibility(View.GONE);
         offlineView.setVisibility(View.VISIBLE);
         webView.setVisibility(View.INVISIBLE);
-    }
-
-    private void requestNeededPermissions() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
-        String readPermission = Build.VERSION.SDK_INT >= 33 ? Manifest.permission.READ_MEDIA_IMAGES : Manifest.permission.READ_EXTERNAL_STORAGE;
-        if (checkSelfPermission(readPermission) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{readPermission, Manifest.permission.CAMERA}, PERMISSION_REQUEST);
-        }
     }
 
     @Override

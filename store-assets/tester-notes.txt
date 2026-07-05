@@ -15,3 +15,7 @@ Please test:
 
 Payment note:
 Payment is in Razorpay test mode only if the backend is configured with rzp_test keys. If UPI shows invalid, confirm test mode keys or use Razorpay test card method.
+If Razorpay checkout fails inside WebView during beta, test payment through mobile browser fallback.
+
+Upload note:
+Document upload uses the Android file picker during internal testing. Native camera capture is not enabled in this shell yet.
