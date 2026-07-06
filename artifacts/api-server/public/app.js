@@ -124,6 +124,9 @@ document.querySelectorAll(".role-card").forEach((card) => {
 
 const roleLoginForm = document.querySelector("#role-login-form");
 const authStatus = document.querySelector("#auth-status");
+const verificationStatus = document.querySelector("#verification-status");
+const requestLoginCode = document.querySelector("#request-login-code");
+const verifyLoginCode = document.querySelector("#verify-login-code");
 const roleRoutes = {
   client: "client",
   advocate: "advocate",
@@ -132,6 +135,49 @@ const roleRoutes = {
   admin: "admin",
 };
 
+function loginContactPayload() {
+  return {
+    email: document.querySelector("#login-email")?.value || "",
+    phone: document.querySelector("#login-phone")?.value || "",
+  };
+}
+
+requestLoginCode?.addEventListener("click", async () => {
+  const payload = loginContactPayload();
+  if (!payload.email && !payload.phone) {
+    if (verificationStatus) verificationStatus.textContent = "Add an email or phone number first.";
+    return;
+  }
+  try {
+    const result = await apiFetch("/api/auth/request-code", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    const devHint = result.devCode ? ` Demo code: ${result.devCode}` : "";
+    if (verificationStatus) verificationStatus.textContent = `${result.destinationMasked || "Contact"} verification ${result.status}. ${result.message || ""}${devHint}`;
+  } catch (error) {
+    if (verificationStatus) verificationStatus.textContent = "Verification code could not be sent. Check email keys or SMS provider settings.";
+  }
+});
+
+verifyLoginCode?.addEventListener("click", async () => {
+  const code = document.querySelector("#login-code")?.value || "";
+  const payload = { ...loginContactPayload(), code };
+  if (!code) {
+    if (verificationStatus) verificationStatus.textContent = "Enter the 6-digit code first.";
+    return;
+  }
+  try {
+    const result = await apiFetch("/api/auth/verify-code", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (verificationStatus) verificationStatus.textContent = `${result.destinationMasked || "Contact"} verified. You can continue securely.`;
+  } catch (error) {
+    if (verificationStatus) verificationStatus.textContent = "Invalid or expired code.";
+  }
+});
+
 roleLoginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const payload = {
@@ -139,7 +185,12 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     email: document.querySelector("#login-email")?.value || "",
     phone: document.querySelector("#login-phone")?.value || "",
     role: document.querySelector("#login-role")?.value || "client",
+    privacyConsent: Boolean(document.querySelector("#privacy-consent")?.checked),
   };
+  if (!payload.privacyConsent) {
+    if (authStatus) authStatus.textContent = "Consent is required for role-based login, receipts, notifications, and support records.";
+    return;
+  }
   try {
     const result = await apiFetch("/api/auth/login", {
       method: "POST",
@@ -148,7 +199,8 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     currentSession = result;
     localStorage.setItem("legalConnectSession", JSON.stringify(result));
     const destination = roleRoutes[result.user.role] || "client";
-    if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}. Routing to ${titles[destination]}.`;
+    const verifyNote = result.verification?.emailVerified || result.verification?.phoneVerified ? " Contact verified." : " Contact verification pending.";
+    if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}. Routing to ${titles[destination]}.${verifyNote}`;
     setDemoStatus(`Logged in as ${result.user.role}.`);
     activateView(destination);
   } catch (error) {

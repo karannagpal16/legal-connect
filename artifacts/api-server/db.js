@@ -45,6 +45,24 @@ async function initDb() {
 
     await query(`CREATE INDEX IF NOT EXISTS users_email_idx ON users (email) WHERE email IS NOT NULL`);
     await query(`CREATE INDEX IF NOT EXISTS users_phone_idx ON users (phone) WHERE phone IS NOT NULL`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at timestamptz`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at timestamptz`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS login_verifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text,
+        phone text,
+        code_hash text,
+        purpose text DEFAULT 'login',
+        expires_at timestamptz,
+        consumed_at timestamptz,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS login_verifications_email_idx ON login_verifications (email) WHERE email IS NOT NULL`);
+    await query(`CREATE INDEX IF NOT EXISTS login_verifications_phone_idx ON login_verifications (phone) WHERE phone IS NOT NULL`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS cases (

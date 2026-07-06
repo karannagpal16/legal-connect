@@ -54,6 +54,7 @@ const demoStore = {
   lawbotFeedback: [],
   auditLogs: [],
   receipts: [],
+  verifications: [],
 };
 
 const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
@@ -62,8 +63,6 @@ function encodeSession(user) {
   const payload = {
     id: user.id,
     name: user.name,
-    email: user.email,
-    phone: user.phone,
     role: user.role,
     iat: Date.now(),
   };
@@ -106,6 +105,72 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function maskEmail(email) {
+  const value = String(email || "").trim();
+  if (!value.includes("@")) return "";
+  const [name, domain] = value.split("@");
+  const visible = name.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(name.length - 2, 2))}@${domain}`;
+}
+
+function maskPhone(phone) {
+  const value = String(phone || "").replace(/\s+/g, "");
+  if (!value) return "";
+  return `${value.slice(0, 3)}****${value.slice(-3)}`;
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function normalizePhone(phone) {
+  return String(phone || "").replace(/[^\d+]/g, "");
+}
+
+function verificationHash(destination, code) {
+  const salt = process.env.SESSION_SECRET || config.razorpayWebhookSecret || "legal-connect-phase1-verification";
+  return crypto.createHash("sha256").update(`${destination}:${code}:${salt}`).digest("hex");
+}
+
+function verificationCode() {
+  return String(crypto.randomInt(100000, 999999));
+}
+
+function publicUser(user) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    name: user.name,
+    role: user.role,
+    emailMasked: maskEmail(user.email),
+    phoneMasked: maskPhone(user.phone),
+    emailVerified: Boolean(user.emailVerifiedAt || user.email_verified_at),
+    phoneVerified: Boolean(user.phoneVerifiedAt || user.phone_verified_at),
+    consentRecorded: Boolean(user.consentAt || user.consent_at),
+    createdAt: user.createdAt || user.created_at,
+  };
+}
+
+async function verifiedContactFlags(email, phone) {
+  const flags = { emailVerified: false, phoneVerified: false };
+  if (!email && !phone) return flags;
+  if (db.dbAvailable) {
+    const result = await db.query(
+      `SELECT
+         EXISTS (SELECT 1 FROM login_verifications WHERE email = $1 AND consumed_at IS NOT NULL) AS email_verified,
+         EXISTS (SELECT 1 FROM login_verifications WHERE phone = $2 AND consumed_at IS NOT NULL) AS phone_verified`,
+      [email || null, phone || null],
+    );
+    return {
+      emailVerified: Boolean(result.rows[0]?.email_verified),
+      phoneVerified: Boolean(result.rows[0]?.phone_verified),
+    };
+  }
+  flags.emailVerified = Boolean(email && demoStore.verifications.some((item) => item.email === email && item.consumedAt));
+  flags.phoneVerified = Boolean(phone && demoStore.verifications.some((item) => item.phone === phone && item.consumedAt));
+  return flags;
 }
 
 function corsOriginFor(req) {
@@ -369,6 +434,9 @@ function mapUser(row) {
     email: row.email,
     phone: row.phone,
     role: row.role,
+    emailVerifiedAt: row.email_verified_at,
+    phoneVerifiedAt: row.phone_verified_at,
+    consentAt: row.consent_at,
     createdAt: row.created_at,
   };
 }
@@ -962,12 +1030,166 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/auth/request-code" && req.method === "POST") {
+    const body = await readBody(req);
+    const email = normalizeEmail(body.email);
+    const phone = normalizePhone(body.phone);
+    const destination = email || phone;
+    const destinationType = email ? "email" : "phone";
+    if (!destination) {
+      sendJson(res, 400, { ok: false, error: "Email or phone is required for verification." });
+      return;
+    }
+
+    const code = verificationCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const record = {
+      id: `verify-${Date.now()}`,
+      email: email || null,
+      phone: phone || null,
+      codeHash: verificationHash(destination, code),
+      purpose: "login",
+      expiresAt,
+      consumedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (db.dbAvailable) {
+      await db.query(
+        `INSERT INTO login_verifications (email, phone, code_hash, purpose, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [record.email, record.phone, record.codeHash, record.purpose, record.expiresAt],
+      );
+    } else {
+      demoStore.verifications.unshift(record);
+    }
+
+    if (email) {
+      const emailResult = await sendEmail({
+        to: email,
+        subject: "Legal Connect verification code",
+        text: `Your Legal Connect verification code is ${code}. It expires in 10 minutes.`,
+        html: `<p>Your Legal Connect verification code is <strong>${code}</strong>.</p><p>It expires in 10 minutes. Do not share this code with anyone.</p>`,
+      });
+      if (emailResult.sent) {
+        sendJson(res, 200, {
+          ok: true,
+          mode: "resend",
+          status: "sent",
+          destinationType,
+          destinationMasked: maskEmail(email),
+          expiresAt,
+          provider_message_id: emailResult.id || null,
+        });
+        return;
+      }
+      if (emailProviderStatus().provider === "resend" && emailProviderStatus().status === "ready") {
+        sendJson(res, 502, {
+          ok: false,
+          mode: "resend",
+          status: "failed",
+          destinationType,
+          destinationMasked: maskEmail(email),
+          error_message: safeEmailError(emailResult),
+        });
+        return;
+      }
+    }
+
+    sendJson(res, 200, {
+      ok: true,
+      mode: destinationType === "phone" ? "sms-demo" : "demo",
+      status: "queued",
+      destinationType,
+      destinationMasked: destinationType === "email" ? maskEmail(email) : maskPhone(phone),
+      expiresAt,
+      message: destinationType === "phone"
+        ? "Phone OTP provider is not configured yet. SMS delivery is ready to connect."
+        : "Demo verification queued because email provider is not configured.",
+      ...(config.nodeEnv === "production" ? {} : { devCode: code }),
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/auth/verify-code" && req.method === "POST") {
+    const body = await readBody(req);
+    const email = normalizeEmail(body.email);
+    const phone = normalizePhone(body.phone);
+    const destination = email || phone;
+    const code = String(body.code || "").trim();
+    if (!destination || !code) {
+      sendJson(res, 400, { ok: false, error: "Destination and code are required." });
+      return;
+    }
+    const expectedHash = verificationHash(destination, code);
+    let verified = false;
+    let verificationId = null;
+
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `SELECT * FROM login_verifications
+         WHERE (($1::text IS NOT NULL AND email = $1) OR ($2::text IS NOT NULL AND phone = $2))
+           AND purpose = 'login'
+           AND consumed_at IS NULL
+           AND expires_at > now()
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [email || null, phone || null],
+      );
+      const item = result.rows[0];
+      verified = Boolean(item && item.code_hash === expectedHash);
+      if (verified) {
+        verificationId = item.id;
+        await db.query("UPDATE login_verifications SET consumed_at = now() WHERE id = $1", [item.id]);
+        if (email) {
+          await db.query("UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE email = $1", [email]);
+        }
+        if (phone) {
+          await db.query("UPDATE users SET phone_verified_at = COALESCE(phone_verified_at, now()) WHERE phone = $1", [phone]);
+        }
+      }
+    } else {
+      const item = demoStore.verifications.find((candidate) => {
+        const sameDestination = (email && candidate.email === email) || (phone && candidate.phone === phone);
+        return sameDestination && !candidate.consumedAt && new Date(candidate.expiresAt).getTime() > Date.now();
+      });
+      verified = Boolean(item && item.codeHash === expectedHash);
+      if (verified) {
+        verificationId = item.id;
+        item.consumedAt = new Date().toISOString();
+        demoStore.users.forEach((user) => {
+          if (email && user.email === email) user.emailVerifiedAt = new Date().toISOString();
+          if (phone && user.phone === phone) user.phoneVerifiedAt = new Date().toISOString();
+        });
+      }
+    }
+
+    if (!verified) {
+      sendJson(res, 400, { ok: false, status: "failed", message: "Verification code is invalid or expired." });
+      return;
+    }
+
+    await writeAuditLog(getAuthUser(req), "login_contact_verified", "verification", verificationId, "Login contact verification completed.", {
+      emailMasked: maskEmail(email),
+      phoneMasked: maskPhone(phone),
+    });
+    sendJson(res, 200, {
+      ok: true,
+      status: "verified",
+      destinationMasked: email ? maskEmail(email) : maskPhone(phone),
+      destinationType: email ? "email" : "phone",
+    });
+    return;
+  }
+
   if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
     const role = roles.has(body.role) ? body.role : "client";
     const name = body.name || body.email || body.phone || "Legal Connect User";
-    const email = body.email || null;
-    const phone = body.phone || null;
+    const email = normalizeEmail(body.email) || null;
+    const phone = normalizePhone(body.phone) || null;
+    const privacyConsent = body.privacyConsent === true || body.privacyConsent === "true";
+    const verifiedFlags = await verifiedContactFlags(email, phone);
     let user;
 
     if (db.dbAvailable) {
@@ -980,30 +1202,57 @@ const server = http.createServer(async (req, res) => {
       if (existing.rows.length) {
         const previousRole = existing.rows[0].role;
         const updated = await db.query(
-          "UPDATE users SET name = $2, phone = COALESCE($3, phone), role = $4 WHERE id = $1 RETURNING *",
-          [existing.rows[0].id, name, phone, role],
+          `UPDATE users
+           SET name = $2,
+               phone = COALESCE($3, phone),
+               role = $4,
+               consent_at = CASE WHEN $5 THEN COALESCE(consent_at, now()) ELSE consent_at END,
+               email_verified_at = CASE WHEN $6 THEN COALESCE(email_verified_at, now()) ELSE email_verified_at END,
+               phone_verified_at = CASE WHEN $7 THEN COALESCE(phone_verified_at, now()) ELSE phone_verified_at END
+           WHERE id = $1
+           RETURNING *`,
+          [existing.rows[0].id, name, phone, role, privacyConsent, verifiedFlags.emailVerified, verifiedFlags.phoneVerified],
         );
         user = mapUser(updated.rows[0]);
         if (previousRole !== role) {
-          await writeAuditLog(user, "role_changed", "user", user.id, `User role changed from ${previousRole || "unknown"} to ${role}`, { previousRole, nextRole: role, email, phone });
+          await writeAuditLog(user, "role_changed", "user", user.id, `User role changed from ${previousRole || "unknown"} to ${role}`, { previousRole, nextRole: role, emailMasked: maskEmail(email), phoneMasked: maskPhone(phone) });
         }
       } else {
         const created = await db.query(
-          "INSERT INTO users (name, email, phone, role) VALUES ($1, $2, $3, $4) RETURNING *",
-          [name, email, phone, role],
+          `INSERT INTO users (name, email, phone, role, consent_at, email_verified_at, phone_verified_at)
+           VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() ELSE NULL END, CASE WHEN $6 THEN now() ELSE NULL END, CASE WHEN $7 THEN now() ELSE NULL END)
+           RETURNING *`,
+          [name, email, phone, role, privacyConsent, verifiedFlags.emailVerified, verifiedFlags.phoneVerified],
         );
         user = mapUser(created.rows[0]);
       }
     } else {
       user = demoStore.users.find((item) => (email && item.email === email) || (phone && item.phone === phone));
       if (!user) {
-        user = { id: `user-${Date.now()}`, name, email, phone, role, createdAt: new Date().toISOString() };
+        user = {
+          id: `user-${Date.now()}`,
+          name,
+          email,
+          phone,
+          role,
+          emailVerifiedAt: verifiedFlags.emailVerified ? new Date().toISOString() : null,
+          phoneVerifiedAt: verifiedFlags.phoneVerified ? new Date().toISOString() : null,
+          consentAt: privacyConsent ? new Date().toISOString() : null,
+          createdAt: new Date().toISOString(),
+        };
         demoStore.users.push(user);
       } else {
         const previousRole = user.role;
-        Object.assign(user, { name, phone, role });
+        Object.assign(user, {
+          name,
+          phone,
+          role,
+          emailVerifiedAt: verifiedFlags.emailVerified ? user.emailVerifiedAt || new Date().toISOString() : user.emailVerifiedAt,
+          phoneVerifiedAt: verifiedFlags.phoneVerified ? user.phoneVerifiedAt || new Date().toISOString() : user.phoneVerifiedAt,
+          consentAt: privacyConsent ? user.consentAt || new Date().toISOString() : user.consentAt,
+        });
         if (previousRole !== role) {
-          await writeAuditLog(user, "role_changed", "user", user.id, `User role changed from ${previousRole || "unknown"} to ${role}`, { previousRole, nextRole: role, email, phone });
+          await writeAuditLog(user, "role_changed", "user", user.id, `User role changed from ${previousRole || "unknown"} to ${role}`, { previousRole, nextRole: role, emailMasked: maskEmail(email), phoneMasked: maskPhone(phone) });
         }
       }
     }
@@ -1019,9 +1268,9 @@ const server = http.createServer(async (req, res) => {
       targetType: "user",
       targetId: user.id,
       visibility: "private",
-      payload: { role: user.role, email: user.email || null },
+      payload: { role: user.role, emailMasked: maskEmail(user.email), phoneMasked: maskPhone(user.phone), consentRecorded: privacyConsent },
     });
-    sendJson(res, 200, { ok: true, token, user });
+    sendJson(res, 200, { ok: true, token, user: publicUser(user), verification: { emailVerified: Boolean(user.emailVerifiedAt), phoneVerified: Boolean(user.phoneVerifiedAt), consentRecorded: Boolean(user.consentAt) } });
     return;
   }
 
@@ -1223,12 +1472,16 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/receipts" && req.method === "GET") {
     const authUser = getAuthUser(req);
     const limit = Math.min(Number(url.searchParams.get("limit") || 60), 100);
+    if (!authUser) {
+      sendJson(res, 200, []);
+      return;
+    }
     if (db.dbAvailable) {
-      const result = canSeeAll(authUser) || !authUser
+      const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM receipts ORDER BY created_at DESC LIMIT $1", [limit])
         : await db.query(
           `SELECT * FROM receipts
-           WHERE user_id = $1 OR actor_id = $1 OR visibility IN ('public', 'team')
+           WHERE user_id = $1 OR actor_id = $1
            ORDER BY created_at DESC
            LIMIT $2`,
           [authUser.id, limit],
@@ -1236,9 +1489,9 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, result.rows.map(mapReceipt));
       return;
     }
-    const receipts = canSeeAll(authUser) || !authUser
+    const receipts = canSeeAll(authUser)
       ? demoStore.receipts
-      : demoStore.receipts.filter((receipt) => receipt.userId === authUser.id || receipt.actorId === authUser.id || ["public", "team"].includes(receipt.visibility));
+      : demoStore.receipts.filter((receipt) => receipt.userId === authUser.id || receipt.actorId === authUser.id);
     sendJson(res, 200, receipts.slice(0, limit));
     return;
   }

@@ -186,16 +186,27 @@
               </div>
             </div>
             <form class="panel form-panel" id="role-login-form">
-              <label>Name<input id="login-name" value="Karan Nagpal" /></label>
-              <label>Email<input id="login-email" value="karan@rna.example" /></label>
-              <label>Phone<input id="login-phone" value="+91 98XX XX4210" /></label>
+              <label>Name<input id="login-name" value="Legal Connect Beta User" /></label>
+              <label>Email<input id="login-email" value="" placeholder="you@example.com" /></label>
+              <label>Phone<input id="login-phone" value="" placeholder="+91 98XX XX4210" /></label>
+              <div class="verification-box">
+                <strong>Contact Verification</strong>
+                <p>Email OTP works when Resend is configured. Phone OTP is SMS-provider ready and remains demo until an approved SMS vendor is connected.</p>
+                <div class="verification-actions">
+                  <button class="ghost-button" type="button" id="request-login-code">Send Code</button>
+                  <label>Code<input id="login-code" inputmode="numeric" maxlength="6" placeholder="6-digit code" /></label>
+                  <button class="ghost-button" type="button" id="verify-login-code">Verify</button>
+                </div>
+                <p class="auth-status" id="verification-status">No code requested yet.</p>
+              </div>
               <label>Bar Council ID<input value="D/4210/2019" /></label>
               <label>State Bar Council<select><option>Delhi</option><option>Haryana</option><option>Uttar Pradesh</option></select></label>
               <label>Practice Areas<input value="Criminal, Commercial, Arbitration" /></label>
               <label>Court Preferences<input value="DHC, Tis Hazari, Saket, Dwarka" /></label>
               <label>Detected Lane<select id="login-role"><option value="rna">RNA Counsel - Trust Command</option><option value="advocate">Independent Advocate</option><option value="client">Client</option><option value="intern">Intern Board</option><option value="admin">Admin</option></select></label>
+              <label class="consent-line"><input id="privacy-consent" type="checkbox" checked /> I consent to Legal Connect processing my login, booking, case, notification, receipt, and support data for role-based legal workflow access.</label>
               <button class="gold-button" type="submit">Verify and Route Securely</button>
-              <p class="auth-status" id="auth-status">Login creates a Phase 1 session and routes your dashboard lane.</p>
+              <p class="auth-status" id="auth-status">Login creates a confidential Phase 1 session. Receipts are private to you and RNA/Admin governance.</p>
             </form>
           </div>
         </section>
@@ -218,8 +229,8 @@
               <div class="advocate-seal" aria-hidden="true"><span></span></div>
               <div class="advocate-profile">
                 <span class="notify-bell">3</span>
-                <strong>Adv. Rishabh Sharma</strong>
-                <small>Bar Council Verified</small>
+                <strong>RNA Verified Counsel Desk</strong>
+                <small>Identity shown after secure login</small>
               </div>
             </section>
 
@@ -330,7 +341,7 @@
             </section>
 
             <section class="advocate-shields">
-              <span>Bar Council Verified</span>
+              <span>Identity shown after secure login</span>
               <span>Work Completion Hold</span>
               <span>Legal SOS</span>
               <span>NDA Required</span>
@@ -349,8 +360,8 @@
               <div class="section-head"><h3>Chamber Dashboard</h3><span class="lock-chip">Firm Vault Locked</span></div>
               <div class="matter-table">
                 <div class="table-row header"><span>Matter</span><span>Owner</span><span>Status</span><span>Next Action</span></div>
-                <div class="table-row"><span>RNA v. Metro Infra</span><span>Rishika + Ananya</span><span>Arguments done</span><span>Upload written submissions</span></div>
-                <div class="table-row"><span>Mehta Bail Application</span><span>Rishabh</span><span>Reply awaited</span><span>Prepare rejoinder checklist</span></div>
+                <div class="table-row"><span>RNA v. Metro Infra</span><span>RNA Commercial Desk</span><span>Arguments done</span><span>Upload written submissions</span></div>
+                <div class="table-row"><span>Mehta Bail Application</span><span>RNA Criminal Desk</span><span>Reply awaited</span><span>Prepare rejoinder checklist</span></div>
                 <div class="table-row"><span>Estate Partition</span><span>Associate Desk</span><span>Evidence ongoing</span><span>Intern to index exhibits</span></div>
                 <div class="table-row"><span>Saket Inspection Mission</span><span>Clerk + Mission Counsel</span><span>Ongoing</span><span>Proof pending before payment release</span></div>
               </div>
@@ -716,21 +727,21 @@
             <div class="counsel-grid">
               <article>
                 <span>Criminal / Police SOS</span>
-                <strong>Adv. Rishika Nagpal</strong>
+                <strong>RNA Criminal SOS Desk</strong>
                 <p>Audio Rs. 200 / 2 min · Video Rs. 499 / 10 min · Attorney Shield from Rs. 1,999</p>
-                <button data-open-booking data-preselect-booking="Audio Call" data-client-action="Adv. Rishika selected. Choose Audio, Video, or Attorney Shield below.">Call / Video</button>
+                <button data-open-booking data-preselect-booking="Audio Call" data-client-action="RNA Criminal SOS Desk selected. Choose Audio, Video, or Attorney Shield below.">Call / Video</button>
               </article>
               <article>
                 <span>Property / Family</span>
-                <strong>Adv. Ananya Sharma</strong>
+                <strong>RNA Property & Family Desk</strong>
                 <p>Chat Rs. 99 · Office consult Rs. 799 · Doorstep consult from Rs. 1,499</p>
-                <button data-open-booking data-preselect-booking="Doorstep" data-client-action="Adv. Ananya selected. Choose office visit, chat, or doorstep below.">Book Counsel</button>
+                <button data-open-booking data-preselect-booking="Doorstep" data-client-action="RNA Property & Family Desk selected. Choose office visit, chat, or doorstep below.">Book Counsel</button>
               </article>
               <article>
                 <span>Contracts / Notices</span>
-                <strong>Adv. Rishabh Mehra</strong>
+                <strong>RNA Contracts & Notices Desk</strong>
                 <p>Notice review Rs. 299 · Agreement vetting Rs. 499 · Draft call Rs. 200 / 2 min</p>
-                <button data-open-booking data-preselect-booking="Chat" data-client-action="Adv. Rishabh selected. Start with Chat or document review below.">Start Chat</button>
+                <button data-open-booking data-preselect-booking="Chat" data-client-action="Adv. RNA Criminal Desk selected. Start with Chat or document review below.">Start Chat</button>
               </article>
             </div>
           </section>
@@ -740,7 +751,7 @@
               <div class="section-head"><h3>Case Tracker</h3><span class="status-dot">On Track</span></div>
               <div class="client-timeline"><span class="done">Filed</span><span class="done">Notice issued</span><span class="active">Reply awaited</span><span>Evidence</span><span>Arguments</span><span>Order</span></div>
               <div class="case-health">
-                <div><span>Next Hearing</span><strong>23 Jun</strong><small>Lawyer assigned: R. Nagpal</small></div>
+                <div><span>Next Hearing</span><strong>23 Jun</strong><small>Counsel desk assigned after booking</small></div>
                 <div><span>Juris-Score</span><strong>82%</strong><small>2 documents pending</small></div>
                 <div><span>Payment</span><strong>Clear</strong><small>Receipt saved</small></div>
               </div>
@@ -1020,4 +1031,5 @@
     <script src="app.js?v=4"></script>
   </body>
 </html>
+
 
