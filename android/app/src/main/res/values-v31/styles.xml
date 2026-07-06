@@ -10,6 +10,5 @@
         <item name="android:windowBackground">@color/lc_navy</item>
         <item name="android:windowSplashScreenBackground">@color/lc_navy</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_legacy</item>
-        <item name="android:postSplashScreenTheme">@style/Theme.LegalConnect</item>
     </style>
 </resources>
