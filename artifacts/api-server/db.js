@@ -147,6 +147,26 @@ async function initDb() {
     `);
 
     await query(`
+      CREATE TABLE IF NOT EXISTS receipts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        receipt_no text,
+        user_id uuid,
+        actor_id uuid,
+        actor_role text,
+        receipt_type text,
+        title text,
+        message text,
+        status text,
+        amount integer,
+        target_type text,
+        target_id text,
+        visibility text DEFAULT 'private',
+        payload jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+
+    await query(`
       CREATE TABLE IF NOT EXISTS legal_sources (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         source_type text,
@@ -219,6 +239,8 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS legal_sources_status_idx ON legal_sources (status)`);
     await query(`CREATE INDEX IF NOT EXISTS legal_chunks_source_idx ON legal_chunks (source_id)`);
     await query(`CREATE INDEX IF NOT EXISTS audit_logs_created_idx ON audit_logs (created_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS receipts_user_created_idx ON receipts (user_id, created_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS receipts_created_idx ON receipts (created_at DESC)`);
 
     available = true;
     return true;

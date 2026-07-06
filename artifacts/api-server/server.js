@@ -53,6 +53,7 @@ const demoStore = {
   lawbotQueries: [],
   lawbotFeedback: [],
   auditLogs: [],
+  receipts: [],
 };
 
 const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
@@ -385,6 +386,26 @@ function mapNotification(row) {
   };
 }
 
+function mapReceipt(row) {
+  return {
+    id: row.id,
+    receiptNo: row.receipt_no,
+    userId: row.user_id,
+    actorId: row.actor_id,
+    actorRole: row.actor_role,
+    receiptType: row.receipt_type,
+    title: row.title,
+    message: row.message,
+    status: row.status,
+    amount: row.amount,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    visibility: row.visibility,
+    payload: row.payload || {},
+    createdAt: row.created_at,
+  };
+}
+
 function mapLegalSource(row) {
   return {
     id: row.id,
@@ -463,6 +484,63 @@ async function createNotification(eventType, title, message, payload = {}, userI
     demoStore.notifications.unshift(notification);
   }
   return notification;
+}
+
+async function createReceipt({
+  userId = null,
+  actor = null,
+  receiptType = "activity",
+  title = "Legal Connect receipt",
+  message = "Activity recorded.",
+  status = "recorded",
+  amount = null,
+  targetType = "system",
+  targetId = null,
+  visibility = "private",
+  payload = {},
+} = {}) {
+  const receipt = {
+    id: `receipt-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+    receiptNo: `LC-RCPT-${Date.now().toString().slice(-8)}-${Math.round(Math.random() * 900 + 100)}`,
+    userId,
+    actorId: actor?.id || null,
+    actorRole: actor?.role || "system",
+    receiptType,
+    title,
+    message,
+    status,
+    amount: amount === null || amount === undefined ? null : Number(amount),
+    targetType,
+    targetId: targetId || null,
+    visibility,
+    payload,
+    createdAt: new Date().toISOString(),
+  };
+  if (db.dbAvailable) {
+    const result = await db.query(
+      `INSERT INTO receipts (receipt_no, user_id, actor_id, actor_role, receipt_type, title, message, status, amount, target_type, target_id, visibility, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING *`,
+      [
+        receipt.receiptNo,
+        receipt.userId,
+        receipt.actorId,
+        receipt.actorRole,
+        receipt.receiptType,
+        receipt.title,
+        receipt.message,
+        receipt.status,
+        receipt.amount,
+        receipt.targetType,
+        receipt.targetId,
+        receipt.visibility,
+        JSON.stringify(receipt.payload),
+      ],
+    );
+    return mapReceipt(result.rows[0]);
+  }
+  demoStore.receipts.unshift(receipt);
+  return receipt;
 }
 
 function sourceAdminUser(req, res) {
@@ -931,6 +1009,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     const token = encodeSession(user);
+    await createReceipt({
+      userId: user.id,
+      actor: user,
+      receiptType: "login",
+      title: "Login receipt",
+      message: `${user.role || "user"} workspace opened.`,
+      status: "signed-in",
+      targetType: "user",
+      targetId: user.id,
+      visibility: "private",
+      payload: { role: user.role, email: user.email || null },
+    });
     sendJson(res, 200, { ok: true, token, user });
     return;
   }
@@ -1130,6 +1220,29 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/receipts" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    const limit = Math.min(Number(url.searchParams.get("limit") || 60), 100);
+    if (db.dbAvailable) {
+      const result = canSeeAll(authUser) || !authUser
+        ? await db.query("SELECT * FROM receipts ORDER BY created_at DESC LIMIT $1", [limit])
+        : await db.query(
+          `SELECT * FROM receipts
+           WHERE user_id = $1 OR actor_id = $1 OR visibility IN ('public', 'team')
+           ORDER BY created_at DESC
+           LIMIT $2`,
+          [authUser.id, limit],
+        );
+      sendJson(res, 200, result.rows.map(mapReceipt));
+      return;
+    }
+    const receipts = canSeeAll(authUser) || !authUser
+      ? demoStore.receipts
+      : demoStore.receipts.filter((receipt) => receipt.userId === authUser.id || receipt.actorId === authUser.id || ["public", "team"].includes(receipt.visibility));
+    sendJson(res, 200, receipts.slice(0, limit));
+    return;
+  }
+
   if (url.pathname === "/api/case-updates" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
@@ -1142,6 +1255,18 @@ const server = http.createServer(async (req, res) => {
         [body.caseId || body.case_id || null, body.updateType || body.update_type || "calendar_decision", message, JSON.stringify({ ...body, user_id: authUser?.id || body.userId || body.user_id || null })],
       );
       await createNotification("clash_warning", "Calendar decision saved", message, { caseUpdateId: result.rows[0].id }, authUser?.id || body.userId || body.user_id || null);
+      await createReceipt({
+        userId: authUser?.id || body.userId || body.user_id || null,
+        actor: authUser || { role: "system" },
+        receiptType: "case_update",
+        title: "Case calendar receipt",
+        message,
+        status: "saved",
+        targetType: "case_update",
+        targetId: result.rows[0].id,
+        visibility: "team",
+        payload: { caseId: body.caseId || body.case_id || null, updateType: body.updateType || body.update_type || "calendar_decision" },
+      });
       sendJson(res, 201, result.rows[0]);
       return;
     }
@@ -1149,6 +1274,18 @@ const server = http.createServer(async (req, res) => {
     demoStore.caseUpdates = demoStore.caseUpdates || [];
     demoStore.caseUpdates.unshift(update);
     await createNotification("clash_warning", "Calendar decision saved", message, update, authUser?.id || body.userId || body.user_id || null);
+    await createReceipt({
+      userId: authUser?.id || body.userId || body.user_id || null,
+      actor: authUser || { role: "system" },
+      receiptType: "case_update",
+      title: "Case calendar receipt",
+      message,
+      status: "saved",
+      targetType: "case_update",
+      targetId: update.id,
+      visibility: "team",
+      payload: { caseId: body.caseId || body.case_id || null, updateType: body.updateType || body.update_type || "calendar_decision" },
+    });
     sendJson(res, 201, update);
     return;
   }
@@ -1220,10 +1357,34 @@ const server = http.createServer(async (req, res) => {
         [body.taskId, nextStatus, body.paymentLockStatus || body.payment_lock_status || null],
       );
       await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
+      await createReceipt({
+        userId: authUser?.id || null,
+        actor: authUser,
+        receiptType: "admin_task_action",
+        title: "RNA/Admin action receipt",
+        message: `Task action saved: ${nextStatus}`,
+        status: nextStatus,
+        targetType: "task",
+        targetId: body.taskId,
+        visibility: "team",
+        payload: { action: body.action, paymentLockStatus: body.paymentLockStatus || body.payment_lock_status || null },
+      });
       sendJson(res, 200, { ok: true, task: result.rows[0] ? mapTask(result.rows[0]) : null });
       return;
     }
     await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId || "demo-task", `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
+    await createReceipt({
+      userId: authUser?.id || null,
+      actor: authUser,
+      receiptType: "admin_task_action",
+      title: "RNA/Admin action receipt",
+      message: `Task action saved: ${nextStatus}`,
+      status: nextStatus,
+      targetType: "task",
+      targetId: body.taskId || "demo-task",
+      visibility: "team",
+      payload: { action: body.action, paymentLockStatus: body.paymentLockStatus || body.payment_lock_status || null },
+    });
     sendJson(res, 200, { ok: true, action: body.action, status: nextStatus });
     return;
   }
@@ -1465,6 +1626,19 @@ const server = http.createServer(async (req, res) => {
         );
       }
       await writeAuditLog(authUser || { role: "system" }, "payment_order_created", "payment", orderResult.order.id, "Razorpay order created.", { amount, bookingId: body.bookingId || body.booking_id || null });
+      await createReceipt({
+        userId: authUser?.id || body.userId || body.user_id || null,
+        actor: authUser || { role: "system" },
+        receiptType: "payment_order",
+        title: "Payment order receipt",
+        message: `Razorpay order created for Rs. ${amount}. Work Completion Hold is still pending.`,
+        status: "order_created",
+        amount,
+        targetType: "booking",
+        targetId: body.bookingId || body.booking_id || orderResult.order.id,
+        visibility: "private",
+        payload: { razorpayOrderId: orderResult.order.id, workHoldStatus: "pending" },
+      });
       sendJson(res, 200, {
         ok: true,
         success: true,
@@ -1512,6 +1686,18 @@ const server = http.createServer(async (req, res) => {
       }
       await writeAuditLog(authUser || { role: "system" }, "payment_verified", "booking", bookingId || orderId, "Payment verified. Work Completion Hold activated.", { orderId, paymentId });
       await createNotification("payment_verified", "Payment verified", "Payment verified. Work Completion Hold is active.", { bookingId, orderId, paymentId }, authUser?.id || body.userId || null);
+      await createReceipt({
+        userId: authUser?.id || body.userId || body.user_id || null,
+        actor: authUser || { role: "system" },
+        receiptType: "payment_verified",
+        title: "Verified payment receipt",
+        message: "Payment verified by backend. Work Completion Hold is active.",
+        status: "paid",
+        targetType: "booking",
+        targetId: bookingId || orderId,
+        visibility: "private",
+        payload: { orderId, paymentId, workHoldStatus: "active" },
+      });
       sendJson(res, 200, { ok: true, mode: "razorpay", status: "verified", payment_status: "paid", work_hold_status: "active" });
       return;
     }
@@ -1525,6 +1711,18 @@ const server = http.createServer(async (req, res) => {
       );
     }
     await writeAuditLog(authUser || { role: "system" }, "payment_verification_failed", "booking", bookingId || orderId, "Payment verification failed.", { orderId, paymentId });
+    await createReceipt({
+      userId: authUser?.id || body.userId || body.user_id || null,
+      actor: authUser || { role: "system" },
+      receiptType: "payment_failed",
+      title: "Payment verification failed receipt",
+      message: "Payment verification failed. Work Completion Hold remains pending.",
+      status: "verification_failed",
+      targetType: "booking",
+      targetId: bookingId || orderId,
+      visibility: "private",
+      payload: { orderId, paymentId, workHoldStatus: "pending" },
+    });
     sendJson(res, 400, { ok: false, mode: "razorpay", status: "failed", payment_status: "verification_failed", work_hold_status: "pending", error_message: "Payment verification failed. Please contact support." });
     return;
   }
@@ -1658,11 +1856,38 @@ const server = http.createServer(async (req, res) => {
           JSON.stringify({ ...body, user_id: bookingUserId, role: userRole(authUser) }),
         ],
       );
-      await createNotification("booking_confirmed", "Booking received", "Your Legal Connect booking has been recorded.", { bookingId: result.rows[0].id }, bookingUserId);
-      sendJson(res, 201, mapBooking(result.rows[0]));
+      const savedBooking = mapBooking(result.rows[0]);
+      await createNotification("booking_confirmed", "Booking received", "Your Legal Connect booking has been recorded.", { bookingId: savedBooking.id }, bookingUserId);
+      const receipt = await createReceipt({
+        userId: bookingUserId,
+        actor: authUser || { role: userRole(authUser) },
+        receiptType: "booking",
+        title: "Booking receipt",
+        message: `${savedBooking.serviceType || "Legal Connect booking"} recorded. Payment status: ${savedBooking.paymentStatus || "pending"}.`,
+        status: savedBooking.paymentStatus || "pending",
+        amount: savedBooking.amount,
+        targetType: "booking",
+        targetId: savedBooking.id,
+        visibility: "private",
+        payload: { nextDestination: savedBooking.nextDestination, workHoldStatus: savedBooking.workHoldStatus },
+      });
+      sendJson(res, 201, { ...savedBooking, transparencyReceipt: receipt });
       return;
     }
     await createNotification("booking_confirmed", "Booking received", "Your Legal Connect booking has been recorded.", { bookingId: booking.id }, booking.userId || null);
+    booking.transparencyReceipt = await createReceipt({
+      userId: booking.userId || null,
+      actor: authUser || { role: userRole(authUser) },
+      receiptType: "booking",
+      title: "Booking receipt",
+      message: `${booking.serviceType || booking.plan || "Legal Connect booking"} recorded. Payment status: ${booking.paymentStatus || booking.status || "pending"}.`,
+      status: booking.paymentStatus || booking.status || "pending",
+      amount: booking.amount || booking.price || null,
+      targetType: "booking",
+      targetId: booking.id,
+      visibility: "private",
+      payload: { nextDestination: booking.nextDestination || booking.route || null, workHoldStatus: booking.workHoldStatus || "pending" },
+    });
     demoStore.bookings.push(booking);
     sendJson(res, 201, booking);
     return;
@@ -1691,11 +1916,38 @@ const server = http.createServer(async (req, res) => {
           JSON.stringify({ ...body, user_id: actorId, role: userRole(authUser), payment_lock_status: body.paymentLockStatus || body.payment_lock_status || body.escrowStatus || "none" }),
         ],
       );
-      await createNotification("task_posted", "Mission posted", result.rows[0].title || "A court mission was posted.", { taskId: result.rows[0].id }, actorId);
-      sendJson(res, 201, mapTask(result.rows[0]));
+      const savedTask = mapTask(result.rows[0]);
+      await createNotification("task_posted", "Mission posted", savedTask.title || "A court mission was posted.", { taskId: savedTask.id }, actorId);
+      const receipt = await createReceipt({
+        userId: actorId,
+        actor: authUser || { role: userRole(authUser) },
+        receiptType: "mission",
+        title: "Court mission receipt",
+        message: `${savedTask.title || "Court mission"} posted for ${savedTask.court || "court support"}.`,
+        status: savedTask.status || "open",
+        amount: savedTask.amount,
+        targetType: "task",
+        targetId: savedTask.id,
+        visibility: "team",
+        payload: { court: savedTask.court, taskType: savedTask.taskType, workHoldStatus: savedTask.escrowStatus },
+      });
+      sendJson(res, 201, { ...savedTask, transparencyReceipt: receipt });
       return;
     }
     await createNotification("task_posted", "Mission posted", task.title || "A court mission was posted.", { taskId: task.id }, task.postedBy || null);
+    task.transparencyReceipt = await createReceipt({
+      userId: task.postedBy || null,
+      actor: authUser || { role: userRole(authUser) },
+      receiptType: "mission",
+      title: "Court mission receipt",
+      message: `${task.title || "Court mission"} posted for ${task.court || "court support"}.`,
+      status: task.status || "Open",
+      amount: task.amount || task.fee || null,
+      targetType: "task",
+      targetId: task.id,
+      visibility: "team",
+      payload: { court: task.court || null, taskType: task.taskType || task.type || null, workHoldStatus: task.escrowStatus || "Not locked" },
+    });
     demoStore.tasks.push(task);
     sendJson(res, 201, task);
     return;
@@ -1707,6 +1959,18 @@ const server = http.createServer(async (req, res) => {
     const question = body.query || body.question || body.message || "";
     const result = await queryLawbot(question, userIdForWrite(body, authUser), body.mode || "lawbot");
     await saveLawbotChat(userIdForWrite(body, authUser), question, result);
+    await createReceipt({
+      userId: userIdForWrite(body, authUser),
+      actor: authUser || { role: userRole(authUser) },
+      receiptType: "lawbot",
+      title: "LawBot query receipt",
+      message: result.citations?.length ? "LawBot answered with approved-source citations." : "LawBot refused because no approved source matched.",
+      status: result.citations?.length ? "answered-with-source" : "source-not-found",
+      targetType: "lawbot_query",
+      targetId: result.queryId || null,
+      visibility: "private",
+      payload: { mode: body.mode || "lawbot", question: question.slice(0, 240), citations: result.citations || [] },
+    });
     sendJson(res, 200, result);
     return;
   }
@@ -1766,7 +2030,7 @@ const server = http.createServer(async (req, res) => {
         [sosRequest.userId, sosRequest.serviceType, sosRequest.urgency, sosRequest.status, JSON.stringify({ ...body, role: userRole(authUser) })],
       );
       await createNotification("sos_created", "Legal SOS created", `${sosRequest.urgency} SOS request saved.`, { sosId: result.rows[0].id }, sosUserId);
-      sendJson(res, 201, {
+      const sosResponse = {
         id: result.rows[0].id,
         userId: result.rows[0].user_id,
         serviceType: result.rows[0].service_type,
@@ -1774,12 +2038,37 @@ const server = http.createServer(async (req, res) => {
         status: result.rows[0].status,
         createdAt: result.rows[0].created_at,
         ...(result.rows[0].payload || {}),
+      };
+      sosResponse.transparencyReceipt = await createReceipt({
+        userId: sosUserId,
+        actor: authUser || { role: userRole(authUser) },
+        receiptType: "sos",
+        title: "Legal SOS receipt",
+        message: `${sosResponse.urgency || "Normal"} SOS request saved. RNA desk can track follow-up.`,
+        status: sosResponse.status || "Open",
+        targetType: "sos_request",
+        targetId: sosResponse.id,
+        visibility: "team",
+        payload: { serviceType: sosResponse.serviceType, urgency: sosResponse.urgency },
       });
+      sendJson(res, 201, sosResponse);
       return;
     }
     demoStore.sosRequests = demoStore.sosRequests || [];
     demoStore.sosRequests.push(sosRequest);
     await createNotification("sos_created", "Legal SOS created", `${sosRequest.urgency} SOS request saved.`, { sosId: sosRequest.id }, sosUserId);
+    sosRequest.transparencyReceipt = await createReceipt({
+      userId: sosUserId,
+      actor: authUser || { role: userRole(authUser) },
+      receiptType: "sos",
+      title: "Legal SOS receipt",
+      message: `${sosRequest.urgency || "Normal"} SOS request saved. RNA desk can track follow-up.`,
+      status: sosRequest.status || "Open",
+      targetType: "sos_request",
+      targetId: sosRequest.id,
+      visibility: "team",
+      payload: { serviceType: sosRequest.serviceType, urgency: sosRequest.urgency },
+    });
     sendJson(res, 201, sosRequest);
     return;
   }

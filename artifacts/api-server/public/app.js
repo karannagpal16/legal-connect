@@ -98,6 +98,7 @@ function activateView(id) {
   history.replaceState(null, "", `#${id}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (id === "admin") refreshAdminDashboard();
+  if (id === "client" || id === "advocate" || id === "appearance" || id === "matter") refreshReceipts();
 }
 
 document.addEventListener("click", (event) => {
@@ -673,6 +674,7 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
               if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} payment verified. Work Completion Hold is active.`;
               localStorage.setItem("legalConnectPaymentVerified", "true");
               setDemoStatus("Payment verified by backend.");
+              refreshReceipts();
             } catch (error) {
               if (bookingStatus) bookingStatus.textContent = error.message || "Payment verification failed. Please contact support.";
               setDemoStatus("Payment verification failed. Work Completion Hold remains pending.");
@@ -701,6 +703,7 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
     }
     if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} booking created. Payment is not marked paid until verified.`;
     setDemoStatus(`${receipt.plan} booking created. Verification pending.`);
+    refreshReceipts();
   });
 });
 
@@ -729,6 +732,8 @@ const legalSourceForm = document.querySelector("#legal-source-form");
 const legalSourceList = document.querySelector("#legal-source-list");
 const legalSourceStatus = document.querySelector("#legal-source-status");
 const auditLogList = document.querySelector("#audit-log-list");
+const clientReceiptList = document.querySelector("#client-receipt-list");
+const adminReceiptList = document.querySelector("#admin-receipt-list");
 const betaReadinessList = document.querySelector("#beta-readiness-list");
 const notifyTestForm = document.querySelector("#notify-test-form");
 const notifyTestStatus = document.querySelector("#notify-test-status");
@@ -777,6 +782,30 @@ function renderPaymentStatus(status = {}) {
   paymentStatusPanel.innerHTML = rows.map(([time, title, detail]) => `<div><time>${escapeHtml(time)}</time><strong>${escapeHtml(String(title))}</strong><span>${escapeHtml(String(detail))}</span></div>`).join("");
 }
 
+function receiptHtml(item) {
+  const amount = item.amount || item.payload?.amount ? ` / Rs. ${item.amount || item.payload.amount}` : "";
+  const receiptNo = item.receiptNo || item.receipt_no || item.id || "receipt";
+  const status = item.status || "recorded";
+  const created = item.createdAt || item.created_at ? new Date(item.createdAt || item.created_at).toLocaleString() : "Now";
+  return `<div><time>${escapeHtml(status)}</time><strong>${escapeHtml(item.title || item.receiptType || "Receipt")} ${amount}</strong><span>${escapeHtml(receiptNo)} - ${escapeHtml(item.message || "Activity recorded.")}<br>${escapeHtml(created)}</span></div>`;
+}
+
+async function refreshReceipts() {
+  if (!clientReceiptList && !adminReceiptList) return;
+  try {
+    const receipts = await apiFetch("/api/receipts?limit=50");
+    const html = receipts.length
+      ? receipts.map(receiptHtml).join("")
+      : `<div><time>Ready</time><strong>No receipts yet</strong><span>Use booking, SOS, LawBot or admin actions to generate receipts.</span></div>`;
+    if (clientReceiptList) clientReceiptList.innerHTML = html;
+    if (adminReceiptList) adminReceiptList.innerHTML = html;
+  } catch {
+    const locked = `<div><time>Offline</time><strong>Receipts unavailable</strong><span>Login again or check backend connection.</span></div>`;
+    if (clientReceiptList) clientReceiptList.innerHTML = locked;
+    if (adminReceiptList) adminReceiptList.innerHTML = locked;
+  }
+}
+
 async function refreshAdminDashboard() {
   if (!adminMetrics || !adminFeedList) return;
   try {
@@ -810,6 +839,7 @@ async function refreshAdminDashboard() {
     renderPaymentStatus(paymentStatus);
     refreshLegalSources();
     refreshAuditLogs();
+    refreshReceipts();
   } catch {
     if (adminActionStatus) adminActionStatus.textContent = "Admin API unavailable. Login as RNA/Admin after backend deploy.";
   }
@@ -908,6 +938,10 @@ document.querySelectorAll("[data-refresh-sources]").forEach((button) => {
 
 document.querySelectorAll("[data-refresh-audit]").forEach((button) => {
   button.addEventListener("click", refreshAuditLogs);
+});
+
+document.querySelectorAll("[data-refresh-receipts]").forEach((button) => {
+  button.addEventListener("click", refreshReceipts);
 });
 
 legalSourceList?.addEventListener("click", async (event) => {
