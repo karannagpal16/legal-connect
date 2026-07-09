@@ -5,14 +5,15 @@ const titles = {
   chambers: "Chambers",
   matter: "Matter Vault",
   diary: "Case Diary",
-  bar: "Bar Desk",
-  bareact: "Bare Act Universe",
-  judgment: "Judgment Detail",
+  bar: "Digital Library",
+  bareact: "Digital Library - Bare Acts",
+  judgment: "Digital Library - Judgments",
   appearance: "Court Mission Board",
   posttask: "Post Court Mission",
   task: "Task Detail",
   escrow: "Work Completion Hold",
   client: "Client Portal",
+  documents: "Documents Without Drama",
   intern: "Intern Portal",
   admin: "Admin Panel",
   "privacy-policy": "Privacy Policy",
@@ -26,7 +27,7 @@ const navItems = [...document.querySelectorAll(".nav-item")];
 const views = [...document.querySelectorAll(".view")];
 const title = document.querySelector("#view-title");
 const demoStatus = document.querySelector("#demo-status");
-const API_BASE = location.protocol === "file:" ? "http://127.0.0.1:5000" : "";
+const API_BASE = location.protocol === "file:" ? "http://127.0.0.1:3000" : "";
 let currentSession = null;
 
 function getSession() {
@@ -87,7 +88,53 @@ function setDemoStatus(message) {
   window.setTimeout(() => demoStatus.classList.remove("pulse"), 450);
 }
 
+function showUpdateBanner(version) {
+  let banner = document.querySelector("#app-update-banner");
+  if (!banner) {
+    banner = document.createElement("button");
+    banner.id = "app-update-banner";
+    banner.className = "app-update-banner";
+    banner.type = "button";
+    document.body.appendChild(banner);
+  }
+  banner.textContent = "Legal Connect has been updated. Tap to refresh.";
+  banner.hidden = false;
+  banner.onclick = () => {
+    localStorage.setItem("legalConnectWebVersion", version.web_version);
+    const hash = location.hash || "#home";
+    location.replace(`${location.pathname}?v=${encodeURIComponent(version.web_version)}${hash}`);
+  };
+}
+
+async function checkAppVersion() {
+  try {
+    const version = await apiFetch("/api/app-version");
+    const previous = localStorage.getItem("legalConnectWebVersion");
+    if (previous && previous !== version.web_version) {
+      showUpdateBanner(version);
+    } else {
+      localStorage.setItem("legalConnectWebVersion", version.web_version);
+    }
+    document.querySelectorAll("[data-web-version]").forEach((node) => {
+      node.textContent = version.web_version || "unknown";
+    });
+    document.querySelectorAll("[data-build-time]").forEach((node) => {
+      node.textContent = version.build_time ? new Date(version.build_time).toLocaleString() : "unknown";
+    });
+    document.querySelectorAll("[data-public-url]").forEach((node) => {
+      node.textContent = version.public_url || location.origin;
+    });
+  } catch {
+    // Version checks are advisory; keep the app usable if the backend is waking up.
+  }
+}
+
 function activateView(id) {
+  const sessionRole = getSession()?.user?.role || getSession()?.role;
+  if (id === "matter" && !["rna", "admin"].includes(sessionRole)) {
+    setDemoStatus("Matter Vault is RNA/Admin only. Login as RNA/Admin to open confidential vault records.");
+    id = "login";
+  }
   const target = document.getElementById(id);
   if (!target) return;
 
@@ -99,6 +146,35 @@ function activateView(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (id === "admin") refreshAdminDashboard();
   if (id === "client" || id === "advocate" || id === "appearance" || id === "matter") refreshReceipts();
+}
+
+function applySessionToUi(session) {
+  const user = session?.user || session || {};
+  const name = user.name || "Legal Connect User";
+  const role = user.role || "client";
+  const label = role === "advocate"
+    ? `Adv. ${name}`
+    : role === "rna"
+      ? `${name} - RNA Trust Desk`
+      : role === "intern"
+        ? `${name} - Intern XP`
+        : `${name}`;
+  document.querySelectorAll("[data-user-name]").forEach((node) => {
+    node.textContent = label;
+  });
+  document.querySelectorAll("[data-user-role]").forEach((node) => {
+    node.textContent = role.toUpperCase();
+  });
+  const status = role === "advocate"
+    ? "Board ready: 2 cases tracked, proxy queue none, work hold receipts private."
+    : role === "client"
+      ? "People Shield ready: bookings, SOS, receipts and documents stay private."
+      : role === "intern"
+        ? "XP board ready: missions, deadlines and PPO progress are saved."
+        : "RNA/Admin control ready: sources, receipts, SOS and work holds supervised.";
+  document.querySelectorAll("[data-user-status]").forEach((node) => {
+    node.textContent = status;
+  });
 }
 
 document.addEventListener("click", (event) => {
@@ -153,8 +229,13 @@ requestLoginCode?.addEventListener("click", async () => {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    const devHint = result.devCode ? ` Demo code: ${result.devCode}` : "";
-    if (verificationStatus) verificationStatus.textContent = `${result.destinationMasked || "Contact"} verification ${result.status}. ${result.message || ""}${devHint}`;
+    const codeInput = document.querySelector("#login-code");
+    if (result.devCode && codeInput) codeInput.value = result.devCode;
+    const devHint = result.devCode ? " Testing code filled. Tap Verify." : "";
+    if (verificationStatus) {
+      verificationStatus.textContent = `${result.destinationMasked || "Contact"} verification ${result.status}. ${result.message || ""}${devHint}`;
+      verificationStatus.classList.remove("verified");
+    }
   } catch (error) {
     if (verificationStatus) verificationStatus.textContent = "Verification code could not be sent. Check email keys or SMS provider settings.";
   }
@@ -172,7 +253,10 @@ verifyLoginCode?.addEventListener("click", async () => {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    if (verificationStatus) verificationStatus.textContent = `${result.destinationMasked || "Contact"} verified. You can continue securely.`;
+    if (verificationStatus) {
+      verificationStatus.textContent = `${result.destinationMasked || "Contact"} OTP verified successfully. Continue secure login.`;
+      verificationStatus.classList.add("verified");
+    }
   } catch (error) {
     if (verificationStatus) verificationStatus.textContent = "Invalid or expired code.";
   }
@@ -202,14 +286,18 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     const verifyNote = result.verification?.emailVerified || result.verification?.phoneVerified ? " Contact verified." : " Contact verification pending.";
     if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}. Routing to ${titles[destination]}.${verifyNote}`;
     setDemoStatus(`Logged in as ${result.user.role}.`);
+    applySessionToUi(result);
     activateView(destination);
   } catch (error) {
-    if (authStatus) authStatus.textContent = "Login API unavailable. Demo lane selected locally.";
+    if (authStatus) authStatus.textContent = "Login saved locally for testing. Start the backend for permanent account records.";
     currentSession = { token: "", user: payload };
     localStorage.setItem("legalConnectSession", JSON.stringify(currentSession));
+    applySessionToUi(currentSession);
     activateView(roleRoutes[payload.role] || "client");
   }
 });
+
+applySessionToUi(getSession());
 
 const dailyGreetings = [
   {
@@ -301,17 +389,8 @@ function appendLawbotMessage(role, message, citations = [], queryId = "") {
 
 async function askLawbot(question) {
   appendLawbotMessage("user", question);
-  try {
-    const result = await apiFetch("/api/lawbot/query", {
-      method: "POST",
-      body: JSON.stringify({ query: question, mode: "source-locked" }),
-    });
-    appendLawbotMessage("bot", result.answer, result.citations || [], result.queryId || "");
-    setDemoStatus(result.citations?.length ? "LawBot answered from approved source citations." : "LawBot refused because no approved source matched.");
-  } catch {
-    appendLawbotMessage("bot", "I could not verify this from Legal Connect's approved legal sources. Please consult an advocate or add an authorised source.");
-    setDemoStatus("LawBot API unavailable. Source-locked fallback refusal shown.");
-  }
+  appendLawbotMessage("bot", "Legal AI is coming soon for live testing. The Source Library is ready in RNA/Admin: upload official text or PDFs, approve, then index before the LawBot is enabled.");
+  setDemoStatus("Legal AI marked Coming Soon. Source Library remains available in RNA/Admin.");
 }
 
 function toggleLawbot(open) {
@@ -353,11 +432,38 @@ if (missionSaveStatus && savedMission) {
 }
 
 document.querySelectorAll("[data-save-mission]").forEach((button) => {
-  button.addEventListener("click", () => {
-    const mission = "Saket Court inspection - Rs. 1,000 locked - status: in progress";
+  button.addEventListener("click", async () => {
+    const court = document.querySelector("#mission-court")?.value || "Saket District Court";
+    const type = document.querySelector("#mission-type")?.value || "Inspection";
+    const instruction = document.querySelector("#mission-instruction")?.value || "Inspect file and upload proof.";
+    const amountInput = Number(document.querySelector("#mission-fee")?.value || 300);
+    const amount = Math.max(300, amountInput);
+    const urgency = document.querySelector("#mission-urgency")?.value || "Normal - RNA sets 4 hour timer";
+    const note = document.querySelector("#mission-note")?.value || "No extra note.";
+    const mission = `${court} - ${type} - Rs. ${amount} work completion hold - ${urgency}`;
     localStorage.setItem("legalConnectMission", mission);
     if (missionSaveStatus) missionSaveStatus.textContent = `Saved: ${mission}`;
-    setDemoStatus("Mission posted. Rs. 1,000 held until completion. It now appears on Court Mission Board.");
+    if (missionBoardStatus) missionBoardStatus.textContent = `Mission board status: ${type} at ${court}. Amount Rs. ${amount}. Poster sees status and timestamp; completing counsel sees court/task/proof only. RNA timer: ${urgency}.`;
+    try {
+      const savedTask = await apiFetch("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          title: `${type} - ${court}`,
+          court,
+          taskType: type,
+          amount,
+          escrowStatus: "Work completion hold pending",
+          status: "Posted - awaiting RNA acceptance",
+          proofRequired: document.querySelector("#mission-proof-required")?.value || "Timestamped proof and short report",
+          urgency,
+          noteForCounsel: note,
+        }),
+      });
+      if (missionSaveStatus) missionSaveStatus.textContent = `Saved to Mission Board: ${savedTask.title || type}. Receipt: ${savedTask.transparencyReceipt?.receiptNo || savedTask.transparencyReceipt?.receipt_no || "created"}.`;
+      setDemoStatus("Mission saved. RNA can assign counsel and set the work timer.");
+    } catch {
+      setDemoStatus("Mission saved locally. Start/login backend to persist it for RNA/Admin.");
+    }
     activateView("appearance");
   });
 });
@@ -408,7 +514,7 @@ document.querySelectorAll("[data-track-case]").forEach((button) => {
     const message = `Court Sync tracking added: ${court} | ${caseNo} | reminder ${activeReminderSetting}.`;
 
     localStorage.setItem("legalConnectCourtSyncCase", JSON.stringify({ court, stateCode, caseNo, reminder: activeReminderSetting }));
-    if (courtSyncStatus) courtSyncStatus.textContent = `${message} Demo API route: POST /api/cases.`;
+    if (courtSyncStatus) courtSyncStatus.textContent = `${message} API route ready: POST /api/cases.`;
     addCourtSyncTimelineEntry("Sync", court, `${caseNo} tracked. Next-date check queued every 6 hours.`);
     setDemoStatus(message);
     try {
@@ -446,10 +552,10 @@ document.querySelectorAll("[data-sync-stream]").forEach((button) => {
       caseUpdateStream = null;
     });
     caseUpdateStream.onerror = () => {
-      if (courtSyncStatus) courtSyncStatus.textContent = "Court Sync stream is unavailable in this preview. Demo fallback loaded.";
+      if (courtSyncStatus) courtSyncStatus.textContent = "Court Sync stream is unavailable in this preview. Testing fallback loaded.";
       handleCaseUpdate({
         caseId: "case-demo-1",
-        message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5. Demo fallback.",
+        message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5. Testing fallback.",
       });
       caseUpdateStream?.close();
       caseUpdateStream = null;
@@ -461,11 +567,11 @@ document.querySelectorAll("[data-sync-stream]").forEach((button) => {
 document.querySelectorAll("[data-enable-push]").forEach((button) => {
   button.addEventListener("click", async () => {
     if (!("serviceWorker" in navigator) || !("Notification" in window)) {
-      if (courtSyncStatus) courtSyncStatus.textContent = "Push demo is not supported in this browser preview.";
+      if (courtSyncStatus) courtSyncStatus.textContent = "Push test is not supported in this browser preview.";
       return;
     }
     if (location.protocol === "file:") {
-      if (courtSyncStatus) courtSyncStatus.textContent = "Push demo needs the local server URL, not a file preview. Open http://127.0.0.1:3000.";
+      if (courtSyncStatus) courtSyncStatus.textContent = "Push test needs the local server URL, not a file preview. Open http://127.0.0.1:3000.";
       return;
     }
 
@@ -480,7 +586,7 @@ document.querySelectorAll("[data-enable-push]").forEach((button) => {
       body: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.",
       tag: "legal-connect-court-sync",
     });
-    if (courtSyncStatus) courtSyncStatus.textContent = "Push demo enabled. Real delivery needs VAPID keys and notify-worker deployment.";
+    if (courtSyncStatus) courtSyncStatus.textContent = "Push test enabled. Real delivery needs VAPID keys and notify-worker deployment.";
   });
 });
 
@@ -490,7 +596,7 @@ document.querySelectorAll("[data-case-link]").forEach((button) => {
     const route = `#case-${caseId}`;
     history.pushState(null, "", route);
     addCourtSyncTimelineEntry("Open", "Case Snapshot", `${caseId} opened as a Legal Connect deep link.`);
-    if (courtSyncStatus) courtSyncStatus.textContent = `Case snapshot opened: ${route}. Backend route GET /api/cases/${caseId} is ready in demo mode.`;
+    if (courtSyncStatus) courtSyncStatus.textContent = `Case snapshot opened: ${route}. Backend route GET /api/cases/${caseId} is ready.`;
   });
 });
 
@@ -499,7 +605,7 @@ document.querySelectorAll("[data-diary-tab]").forEach((button) => {
     document.querySelectorAll("[data-diary-tab]").forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
     const tab = button.dataset.diaryTab;
-    if (courtSyncStatus) courtSyncStatus.textContent = `${tab} matters loaded. Phase 1 uses demo diary data; live filtering needs DB persistence.`;
+    if (courtSyncStatus) courtSyncStatus.textContent = `${tab} matters loaded. Diary data is ready for DB-backed testing.`;
     setDemoStatus(`Case Diary switched to ${tab}.`);
   });
 });
@@ -747,7 +853,7 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       setDemoStatus(error.message || "Payment order could not be created.");
     }
 
-    receipt.status = receipt.paymentMode === "demo" ? "Demo payment queued - not paid" : receipt.status;
+    receipt.status = receipt.paymentMode === "demo" ? "Payment order created - verification pending" : receipt.status;
     localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
     renderClientDesk(receipt);
     if (bookingConfirmation) {
@@ -765,6 +871,92 @@ if (bookingConfirmation && savedClientBooking) {
   renderClientDesk(receipt);
   bookingConfirmation.innerHTML = `<span>Last Booking</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> This booking is also visible at the top in My Legal Desk.</p>`;
 }
+
+const floatingSos = document.querySelector("#floating-sos");
+const sosToggle = document.querySelector("#sos-toggle");
+const sosClose = document.querySelector("#sos-close");
+const sosStatus = document.querySelector("#sos-status");
+
+function openSosPanel() {
+  floatingSos?.classList.add("open");
+  setDemoStatus("Legal SOS opened. Pick a situation or book emergency counsel.");
+}
+
+sosToggle?.addEventListener("click", openSosPanel);
+sosClose?.addEventListener("click", () => floatingSos?.classList.remove("open"));
+
+document.querySelectorAll("[data-open-sos]").forEach((button) => {
+  button.addEventListener("click", openSosPanel);
+});
+
+document.querySelectorAll("[data-sos-case]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const message = `${button.dataset.sosCase} selected. Save notice/order/photos, then book counsel if urgent.`;
+    if (sosStatus) sosStatus.textContent = message;
+    if (clientActionStatus) clientActionStatus.textContent = message;
+    setDemoStatus(message);
+  });
+});
+
+document.querySelectorAll("[data-sos-book]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const serviceType = button.dataset.sosBook || "Legal SOS Video";
+    const amount = Number(button.dataset.sosPrice || 1500);
+    const message = `${serviceType} selected. Status: hold active, counsel selection pending.`;
+    if (sosStatus) sosStatus.textContent = message;
+    if (clientActionStatus) clientActionStatus.textContent = message;
+    try {
+      const saved = await apiFetch("/api/sos", {
+        method: "POST",
+        body: JSON.stringify({ serviceType, urgency: "High", status: "Counsel selection pending", amount }),
+      });
+      if (sosStatus) sosStatus.textContent = `${serviceType} saved. RNA/Admin can see SOS tracker. Receipt: ${saved.transparencyReceipt?.receiptNo || saved.transparencyReceipt?.receipt_no || "created"}.`;
+      setDemoStatus("Legal SOS saved and receipt generated.");
+      refreshReceipts();
+    } catch {
+      setDemoStatus("SOS selected locally. Start/login backend to save it for RNA/Admin.");
+    }
+    const videoOption = [...document.querySelectorAll("[data-book-option]")].find((option) => option.dataset.bookOption === "SOS Video");
+    selectBookingOption(videoOption || [...document.querySelectorAll("[data-book-option]")][0]);
+    activateView("client");
+  });
+});
+
+const draftForm = document.querySelector("#draft-form");
+const draftStatus = document.querySelector("#draft-status");
+
+draftForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const draftType = document.querySelector("#draft-type")?.value || "Agreement draft";
+  const contact = document.querySelector("#draft-contact")?.value || "";
+  const amount = Number(document.querySelector("#draft-fee")?.value || 499);
+  const receiptNeeded = document.querySelector("#draft-receipt")?.checked ? "Receipt requested" : "Receipt not requested";
+  const stampPaper = document.querySelector("#draft-stamp")?.checked ? "Stamp paper support requested" : "No stamp paper support";
+  const details = document.querySelector("#draft-details")?.value || "Details to be filled by client.";
+  const route = `${draftType}: ${receiptNeeded}. ${stampPaper}. Contact: ${contact || "pending"}.`;
+  if (draftStatus) draftStatus.textContent = "Draft request created. Payment and document review status: pending.";
+  try {
+    const saved = await apiFetch("/api/bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        serviceType: `Documents Without Drama - ${draftType}`,
+        amount,
+        paymentStatus: "draft payment pending",
+        receiptNo: `LCD-${Date.now().toString().slice(-6)}`,
+        nextDestination: "Draft desk: upload documents, pay fee, RNA document team reviews.",
+        workHoldStatus: "draft in queue",
+        route,
+        details,
+      }),
+    });
+    if (draftStatus) draftStatus.textContent = `Draft request saved. ${draftType} fee Rs. ${amount}. Receipt: ${saved.transparencyReceipt?.receiptNo || saved.transparencyReceipt?.receipt_no || "created"}.`;
+    setDemoStatus("Documents Without Drama request saved.");
+    refreshReceipts();
+  } catch {
+    if (draftStatus) draftStatus.textContent = "Draft request saved locally. Backend login required for permanent receipts.";
+    setDemoStatus("Draft request saved locally.");
+  }
+});
 
 document.querySelectorAll("[data-scroll-booking]").forEach((button) => {
   button.addEventListener("click", () => bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" }));
@@ -798,6 +990,11 @@ function countRows(rows = []) {
 function renderBetaReadiness(health = {}) {
   if (!betaReadinessList) return;
   const checks = [
+    [`Web version: ${health.web_version || "unknown"}`, Boolean(health.web_version)],
+    [`Build time: ${health.build_time ? new Date(health.build_time).toLocaleString() : "unknown"}`, Boolean(health.build_time)],
+    [`Public URL: ${health.public_url || "not configured"}`, Boolean(health.public_url)],
+    [`Android wrapper: ${health.android_wrapper_version || "1.0.0"}`, Boolean(health.android_wrapper_version)],
+    ["Update refresh ready", true],
     ["DB connected", health.db === "connected"],
     ["LawBot source-locked", health.lawbot === "source-locked"],
     ["PDF ingestion enabled", health.pdf_ingestion === "enabled"],
@@ -839,8 +1036,28 @@ function receiptHtml(item) {
   const receiptNo = item.receiptNo || item.receipt_no || item.id || "receipt";
   const status = item.status || "recorded";
   const created = item.createdAt || item.created_at ? new Date(item.createdAt || item.created_at).toLocaleString() : "Now";
-  return `<div><time>${escapeHtml(status)}</time><strong>${escapeHtml(item.title || item.receiptType || "Receipt")} ${amount}</strong><span>${escapeHtml(receiptNo)} - ${escapeHtml(item.message || "Activity recorded.")}<br>${escapeHtml(created)}</span></div>`;
+  return `<div><time>${escapeHtml(status)}</time><strong>${escapeHtml(item.title || item.receiptType || "Receipt")} ${amount}</strong><span>${escapeHtml(receiptNo)} - ${escapeHtml(item.message || "Activity recorded.")}<br>${escapeHtml(created)}</span><div class="receipt-actions"><button data-receipt-action="pdf" data-receipt-title="${escapeHtml(item.title || "Legal Connect Receipt")}" data-receipt-body="${escapeHtml(`${receiptNo} - ${item.message || "Activity recorded."} - ${created}`)}">PDF</button><button data-receipt-action="email" data-receipt-body="${escapeHtml(`${receiptNo} - ${item.message || "Activity recorded."}`)}">Email</button><button data-receipt-action="whatsapp" data-receipt-body="${escapeHtml(`${receiptNo} - ${item.message || "Activity recorded."}`)}">WhatsApp</button></div></div>`;
 }
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-receipt-action]");
+  if (!button) return;
+  const body = button.dataset.receiptBody || "Legal Connect receipt";
+  const action = button.dataset.receiptAction;
+  if (action === "pdf") {
+    const receiptWindow = window.open("", "_blank", "width=420,height=640");
+    receiptWindow?.document.write(`<title>Legal Connect Receipt</title><body style="font-family:Arial,sans-serif;padding:24px;line-height:1.6"><h2>${escapeHtml(button.dataset.receiptTitle || "Legal Connect Receipt")}</h2><p>${escapeHtml(body)}</p><p>Legal Connect - UDYAM-DL-11-0164811</p><script>window.print();</script></body>`);
+    setDemoStatus("Receipt opened as printable PDF.");
+  }
+  if (action === "email") {
+    window.location.href = `mailto:?subject=Legal Connect Receipt&body=${encodeURIComponent(body)}`;
+    setDemoStatus("Email receipt draft opened.");
+  }
+  if (action === "whatsapp") {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Legal Connect receipt: ${body}`)}`, "_blank", "noreferrer");
+    setDemoStatus("WhatsApp receipt share opened.");
+  }
+});
 
 async function refreshReceipts() {
   if (!clientReceiptList && !adminReceiptList) return;
@@ -1029,7 +1246,7 @@ document.querySelectorAll("[data-admin-action]").forEach((button) => {
       setDemoStatus(`RNA action saved: ${action}.`);
       refreshAuditLogs();
     } catch {
-      if (adminActionStatus) adminActionStatus.textContent = `Demo action queued locally: ${action}.`;
+      if (adminActionStatus) adminActionStatus.textContent = `Testing action queued locally: ${action}.`;
     }
   });
 });
@@ -1094,6 +1311,7 @@ async function refreshNotifications() {
 }
 
 refreshNotifications();
+checkAppVersion();
 
 const pathView = location.pathname.replace("/", "");
 const initialView = location.hash.replace("#", "") || (document.getElementById(pathView) ? pathView : "");

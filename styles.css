@@ -4597,3 +4597,340 @@ textarea {
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
 }
+
+.app-update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 90;
+  width: min(92vw, 420px);
+  transform: translateX(-50%);
+  border: 1px solid rgba(245, 199, 106, 0.58);
+  border-radius: 999px;
+  padding: 12px 18px;
+  color: #10131a;
+  background: linear-gradient(135deg, #ffe49a, #d4af37);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  font-weight: 900;
+}
+
+.auth-status.verified {
+  border-color: rgba(71, 219, 162, 0.5);
+  color: #d7ffe9;
+  background: rgba(31, 121, 82, 0.22);
+}
+
+.safe-board-grid,
+.version-strip,
+.receipt-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.safe-board-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.safe-board-grid article,
+.version-strip span {
+  min-width: 0;
+  border: 1px solid rgba(224, 200, 139, 0.16);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.safe-board-grid span,
+.version-strip span {
+  color: rgba(245, 199, 106, 0.82);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.safe-board-grid strong,
+.version-strip strong {
+  display: block;
+  margin-top: 5px;
+  color: #fff4cf;
+}
+
+.safe-board-grid small {
+  display: block;
+  margin-top: 5px;
+  color: rgba(255, 250, 240, 0.64);
+  line-height: 1.45;
+}
+
+.version-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.receipt-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.receipt-actions button {
+  border: 1px solid rgba(224, 200, 139, 0.2);
+  border-radius: 999px;
+  padding: 8px;
+  color: #f5c76a;
+  background: rgba(245, 199, 106, 0.08);
+  font-weight: 800;
+}
+
+.floating-sos,
+.floating-work {
+  position: fixed;
+  z-index: 74;
+}
+
+.floating-sos {
+  left: 22px;
+  bottom: 24px;
+}
+
+.sos-orb,
+.floating-work button {
+  border: 1px solid rgba(255, 223, 138, 0.64);
+  color: #10131a;
+  background: linear-gradient(135deg, #ffe49a, #d4af37);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
+  font-weight: 950;
+}
+
+.sos-orb {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+}
+
+.sos-panel {
+  position: absolute;
+  left: 0;
+  bottom: 76px;
+  display: none;
+  width: min(92vw, 380px);
+  max-height: 72vh;
+  overflow-y: auto;
+  border: 1px solid rgba(245, 199, 106, 0.34);
+  border-radius: 18px;
+  padding: 14px;
+  color: var(--ivory);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(245, 199, 106, 0.14), transparent 12rem),
+    rgba(8, 14, 24, 0.96);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.48);
+}
+
+.floating-sos.open .sos-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.sos-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sos-head span,
+.sos-counsel-list span {
+  color: var(--gold-2);
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sos-head strong,
+.sos-counsel-list strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--ivory);
+}
+
+.sos-head button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 250, 240, 0.18);
+  border-radius: 12px;
+  color: var(--ivory);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#sos-status {
+  margin: 0;
+  color: rgba(255, 250, 240, 0.72);
+  line-height: 1.5;
+}
+
+.sos-case-grid,
+.sos-counsel-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sos-case-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sos-case-grid button,
+.sos-counsel-list article {
+  min-width: 0;
+  border: 1px solid rgba(224, 200, 139, 0.2);
+  border-radius: 14px;
+  padding: 12px;
+  color: var(--ivory);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sos-counsel-list small {
+  display: block;
+  margin: 6px 0 10px;
+  color: rgba(255, 250, 240, 0.64);
+}
+
+.sos-counsel-list button {
+  width: 100%;
+  border: 1px solid rgba(245, 199, 106, 0.42);
+  border-radius: 12px;
+  padding: 10px;
+  color: #10131a;
+  background: linear-gradient(135deg, #ffe49a, #d4af37);
+  font-weight: 900;
+}
+
+.floating-work {
+  right: 108px;
+  bottom: 24px;
+}
+
+.floating-work button {
+  border-radius: 999px;
+  padding: 12px 16px;
+}
+
+@media (max-width: 760px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-shell,
+  main,
+  .view,
+  .panel,
+  .command-card,
+  .task-card,
+  .judgment-card,
+  .booking-dock,
+  .source-library,
+  .audit-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .safe-board-grid,
+  .version-strip,
+  .command-actions,
+  .admin-action-grid,
+  .source-form,
+  .source-library-head,
+  .booking-options,
+  .payment-simulator,
+  .booking-next-map,
+  .verification-actions,
+  .court-sync-form,
+  .case-health,
+  .client-flow-strip,
+  .mission-actions,
+  .brief-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-action-grid button,
+  .booking-options button,
+  .mission-actions button,
+  .sos-case-grid button {
+    min-height: auto;
+    padding: 12px;
+    line-height: 1.25;
+  }
+
+  .source-list article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .source-actions,
+  .receipt-actions {
+    justify-content: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .source-actions button {
+    width: 100%;
+  }
+
+  .floating-sos {
+    left: 12px;
+    bottom: 96px;
+  }
+
+  .floating-work {
+    right: 12px;
+    bottom: 96px;
+  }
+
+  .floating-lawbot {
+    right: 12px;
+    bottom: 14px;
+  }
+
+  .lawbot-greeting {
+    display: none;
+  }
+
+  .sos-panel {
+    bottom: 70px;
+    width: calc(100vw - 24px);
+    max-height: 68vh;
+  }
+
+  .topbar,
+  .client-head,
+  .workspace-head {
+    gap: 12px;
+  }
+
+  #login .form-panel {
+    order: 1;
+  }
+
+  #login .login-panel {
+    order: 2;
+  }
+
+  .poster-strip,
+  .poster-updates,
+  .poster-basics,
+  .phase-command {
+    display: none;
+  }
+}

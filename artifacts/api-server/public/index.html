@@ -24,14 +24,13 @@
           <button class="nav-item" data-view="chambers">Chambers</button>
           <button class="nav-item" data-view="matter">Matter Vault</button>
           <button class="nav-item" data-view="diary">Case Diary</button>
-          <button class="nav-item" data-view="bar">Bar Desk</button>
-          <button class="nav-item" data-view="bareact">Bare Acts</button>
-          <button class="nav-item" data-view="judgment">Judgment</button>
+          <button class="nav-item" data-view="bar">Digital Library</button>
           <button class="nav-item" data-view="appearance">Court Mission Board</button>
           <button class="nav-item" data-view="posttask">Post Mission</button>
           <button class="nav-item" data-view="task">Task Detail</button>
           <button class="nav-item" data-view="escrow">Work Hold</button>
           <button class="nav-item" data-view="client">Client Portal</button>
+          <button class="nav-item" data-view="documents">Documents</button>
           <button class="nav-item" data-view="intern">Intern Portal</button>
           <button class="nav-item" data-view="admin">Admin</button>
         </nav>
@@ -154,19 +153,19 @@
             <section class="phase-command">
               <div>
                 <span class="eyebrow">Launch Map</span>
-                <h3>Phase 1 demo is now a working trust layer.</h3>
-                <p>Mock LawBot sources, client and advocate UI, booking simulation, Legal SOS, case tracker, and deployment path are grouped into one visible product story.</p>
+                <h3>Testing phase is now a working trust layer.</h3>
+                <p>Client booking, advocate missions, Legal SOS, receipts, source library, case tracker, and deployment path are grouped into one visible product story.</p>
               </div>
               <div class="phase-grid">
                 <article>
                   <span>Now / Phase 1</span>
-                  <strong>Demo-ready flows</strong>
-                  <p>LawBot mock sources, Client and Advocate UI, booking/payment simulation, Legal SOS, case tracker, build and Render deployment.</p>
+                  <strong>Testing-ready flows</strong>
+                  <p>Client and advocate UI, booking/payment handoff, Legal SOS, case tracker, receipts, build and Render deployment.</p>
                 </article>
                 <article>
                   <span>Next Step</span>
-                  <strong>Real operating system</strong>
-                  <p>Backend database, real login lanes, saved bookings, chats, tasks, SOS requests, and RNA admin review dashboard.</p>
+                  <strong>Operational layer</strong>
+                  <p>Backend database, login lanes, saved bookings, chats, tasks, SOS requests, and RNA admin review dashboard.</p>
                 </article>
               </div>
             </section>
@@ -191,7 +190,7 @@
               <label>Phone<input id="login-phone" value="" placeholder="+91 98XX XX4210" /></label>
               <div class="verification-box">
                 <strong>Contact Verification</strong>
-                <p>Email OTP works when Resend is configured. Phone OTP is SMS-provider ready and remains demo until an approved SMS vendor is connected.</p>
+              <p>Email OTP works when Resend is configured. Phone OTP is SMS-provider ready and remains in testing fallback until an approved SMS vendor is connected.</p>
                 <div class="verification-actions">
                   <button class="ghost-button" type="button" id="request-login-code">Send Code</button>
                   <label>Code<input id="login-code" inputmode="numeric" maxlength="6" placeholder="6-digit code" /></label>
@@ -231,6 +230,20 @@
                 <span class="notify-bell">3</span>
                 <strong>RNA Verified Counsel Desk</strong>
                 <small>Identity shown after secure login</small>
+              </div>
+            </section>
+
+            <section class="panel login-session-board">
+              <div>
+                <span class="eyebrow">My Safe Board</span>
+                <h3 data-user-name>Advocate workspace</h3>
+                <p data-user-status>Login to load your private cases, court missions, proxy queue and receipts.</p>
+              </div>
+              <div class="safe-board-grid">
+                <article><span>Cases</span><strong>2 active</strong><small>Private case cards stored under your login.</small></article>
+                <article><span>Proxy Queue</span><strong>None</strong><small>No open proxy assigned to you right now.</small></article>
+                <article><span>Work Hold</span><strong>Safe</strong><small>Payments release only after proof approval.</small></article>
+                <article><span>Access</span><strong data-user-role>LOGIN</strong><small>Role-based privacy shield active.</small></article>
               </div>
             </section>
 
@@ -430,7 +443,7 @@
             </div>
             <div class="court-sync-actions">
               <button class="ghost-button" data-sync-stream>Watch Update Stream</button>
-              <button class="ghost-button" data-enable-push>Enable Push Demo</button>
+              <button class="ghost-button" data-enable-push>Enable Push Test</button>
               <button class="ghost-button" data-case-link="case-demo-1">Open Case Snapshot</button>
             </div>
             <div class="sync-tabs" aria-label="Case diary filters">
@@ -570,14 +583,14 @@
             </div>
           </section>
           <div class="task-grid">
-            <article class="task-card trusted" data-jump="task"><span>In Progress - posted by Adv. A</span><h3>Saket Court inspection</h3><p>Inspect civil file, note next date, photograph inspection slip. Client identity hidden.</p><strong>Work hold locked: Rs. 1,000</strong><small>Accepted by RNA verified counsel B</small></article>
+            <article class="task-card trusted" data-jump="task"><span>In Progress - posted by Adv. A</span><h3>Saket Court inspection</h3><p>Inspect civil file, note next date, photograph inspection slip. Client identity hidden.</p><strong>Work hold: amount selected by poster</strong><small>Accepted by RNA verified counsel B</small></article>
             <article class="task-card" data-jump="task"><span>Open Mission</span><h3>Certified copy collection</h3><p>Saket filing counter, receipt proof and order copy required before release.</p><strong>Fee locked: Rs. 650</strong><small>Status: awaiting acceptance</small></article>
             <article class="task-card runner"><span>Legal SOS</span><h3>Urgent police station support</h3><p>Prepare first-response checklist and connect verified counsel for emergency guidance.</p><strong>Priority token: Rs. 10</strong><small>Status: route to client shield</small></article>
           </div>
           <section class="panel mission-flow">
             <div class="section-head"><h3>Saket inspection mission timeline</h3><span class="status-dot">Ongoing</span></div>
             <div class="escrow-flow">
-              <span class="done">A posted task</span><span class="done">A paid Rs. 1,000</span><span class="done">B accepted</span><span class="active">Inspection ongoing</span><span id="mission-proof-step">Proof upload</span><span id="mission-approval-step">A approval</span><span id="mission-release-step">Release to B</span>
+              <span class="done">A posted task</span><span class="done">Amount selected</span><span class="done">B accepted</span><span class="active">Timer running</span><span id="mission-proof-step">Proof upload</span><span id="mission-approval-step">RNA proof check</span><span id="mission-release-step">Completion release</span>
             </div>
             <p id="mission-board-status">Mission board status: Saket inspection is ongoing. Payment stays locked until proof is uploaded and approved.</p>
           </section>
@@ -596,12 +609,14 @@
             <form class="panel form-panel">
               <span class="eyebrow">Court Mission Posting</span>
               <h2>Post a court mission</h2>
-              <label>Court<input value="Saket District Court" /></label>
-              <label>Mission Type<select><option>Inspection</option><option>Pass-over / Mentioning</option><option>Certified copy</option><option>Filing assistance</option><option>Order download</option><option>Legal SOS support</option></select></label>
-              <label>Instruction<input value="Inspect file, note next date, upload inspection slip and short report" /></label>
-              <label>Fee to lock now<input value="Rs. 1,000" /></label>
-              <label>Proof Required<select><option>Inspection slip + photo + next date note</option><option>Receipt + timestamp</option><option>Order PDF + court status</option></select></label>
-              <button class="gold-button" type="button" data-save-mission>Pay Rs. 1,000 and Publish</button>
+              <label>Court<input id="mission-court" value="Saket District Court" /></label>
+              <label>Mission Type<select id="mission-type"><option>Inspection</option><option>Pass-over / Mentioning</option><option>Certified copy</option><option>Filing assistance</option><option>Order download</option><option>Legal SOS support</option></select></label>
+              <label>Instruction<input id="mission-instruction" value="Inspect file, note next date, upload inspection slip and short report" /></label>
+              <label>Fee to hold now<input id="mission-fee" type="number" min="300" step="50" value="300" /></label>
+              <label>Urgency Timer<select id="mission-urgency"><option>Normal - RNA sets 4 hour timer</option><option>Urgent - RNA sets 2 hour timer</option><option>Same day - RNA custom timer</option></select></label>
+              <label>Proof Required<select id="mission-proof-required"><option>Inspection slip + photo + next date note</option><option>Receipt + timestamp</option><option>Order PDF + court status</option></select></label>
+              <label>Note for proxy counsel<textarea id="mission-note" placeholder="Anything the completing counsel must know. Do not add client secrets."></textarea></label>
+              <button class="gold-button" type="button" data-save-mission>Publish Mission &amp; Create Work Hold</button>
             </form>
             <section class="panel">
               <h3>Posting Preview</h3>
@@ -616,21 +631,21 @@
         <section class="view" id="task">
           <div class="panel task-detail">
             <span class="eyebrow">Court Mission Room</span>
-            <h2>Saket Court inspection - work hold Rs. 1,000</h2>
+            <h2>Saket Court inspection - work completion hold</h2>
             <div class="case-card">
               <div><span>Visible to counsel B</span><strong>Court, mission, instruction, required proof</strong></div>
               <div><span>Hidden</span><strong>Client details, strategy, full vault, billing</strong></div>
               <div><span>Proof required</span><strong>Inspection slip, timestamp, next date, short report</strong></div>
-              <div><span>Room expires</span><strong>Tonight 11:59 PM</strong></div>
+              <div><span>RNA timer</span><strong>Urgent: 2h / Normal: 4h</strong></div>
             </div>
             <div class="mission-actions">
               <button class="gold-button" data-task-action="Accepted by RNA counsel B">Accept Mission</button>
-              <button class="ghost-button" data-task-action="Proof uploaded: inspection slip, photo and next date note">Upload Proof</button>
+              <button class="ghost-button" data-task-action="Proof uploaded for RNA image verification: inspection slip, photo and next date note">Upload Proof for RNA Check</button>
               <button class="ghost-button" data-task-action="Mission marked ongoing. Payment remains locked.">Mark Ongoing</button>
               <button class="ghost-button" data-task-action="Advocate A approved proof. Work completion hold is ready for release.">Approve Proof</button>
               <button class="gold-button" data-task-action="Payment released to Advocate B. Receipt saved for RNA audit.">Release Payment</button>
             </div>
-            <p id="task-action-status">Current status: inspection ongoing, work completion hold active.</p>
+            <p id="task-action-status">Current status: inspection ongoing, RNA proof verification required before completion release.</p>
           </div>
         </section>
 
@@ -641,7 +656,7 @@
             <div class="escrow-flow">
               <span class="done">Posted</span><span class="done">Amount Held</span><span class="done">Accepted</span><span class="active">GPS Check-in</span><span id="escrow-proof-step">Proof Uploaded</span><span id="escrow-approval-step">Approval</span><span id="escrow-release-step">Released</span>
             </div>
-            <p id="escrow-status">Work Completion Hold: Rs. 1,000 locked. Release requires proof and poster approval.</p>
+            <p id="escrow-status">Work Completion Hold: amount selected by poster. Release requires RNA proof verification and poster approval.</p>
           </div>
         </section>
 
@@ -652,7 +667,7 @@
               <h2>Legal help without panic.</h2>
               <p>Start with free AI clarity, then connect to RNA trusted counsel by chat, audio, video, office visit, or doorstep consult.</p>
             </div>
-            <button class="gold-button" data-client-action="Legal SOS opened. Choose a trusted RNA counsel or start with free AI triage.">Open Legal SOS</button>
+            <button class="gold-button" data-open-sos data-client-action="Legal SOS opened. Choose a trusted RNA counsel or emergency video support.">Open Legal SOS</button>
           </div>
 
           <section class="panel client-command-center">
@@ -686,7 +701,7 @@
             <div class="client-flow-strip">
               <span class="done">1. Select issue</span>
               <span class="active">2. Book / SOS</span>
-              <span>3. Pay demo token</span>
+              <span>3. Confirm payment</span>
               <span>4. Go to next room</span>
               <span>5. Track status here</span>
             </div>
@@ -706,7 +721,7 @@
             <div>
               <span class="eyebrow">Legal SOS</span>
               <h3>Talk to a real lawyer when it matters.</h3>
-              <p>For urgent confusion, the app first asks AI-safe questions, then routes you to a verified RNA counsel with transparent fees.</p>
+              <p>For urgent confusion, the app routes you to a verified RNA counsel with transparent fees and receipts.</p>
               <p id="client-action-status">Ready: tell us what happened, or choose a counsel below.</p>
             </div>
             <div class="sos-grid">
@@ -729,7 +744,7 @@
                 <span>Criminal / Police SOS</span>
                 <strong>RNA Criminal SOS Desk</strong>
                 <p>Audio Rs. 200 / 2 min · Video Rs. 499 / 10 min · Attorney Shield from Rs. 1,999</p>
-                <button data-open-booking data-preselect-booking="Audio Call" data-client-action="RNA Criminal SOS Desk selected. Choose Audio, Video, or Attorney Shield below.">Call / Video</button>
+                <button data-open-sos data-client-action="RNA Criminal SOS Desk selected. Pick SOS video, chat, audio, or Attorney Shield.">Open SOS</button>
               </article>
               <article>
                 <span>Property / Family</span>
@@ -741,7 +756,7 @@
                 <span>Contracts / Notices</span>
                 <strong>RNA Contracts & Notices Desk</strong>
                 <p>Notice review Rs. 299 · Agreement vetting Rs. 499 · Draft call Rs. 200 / 2 min</p>
-                <button data-open-booking data-preselect-booking="Chat" data-client-action="Adv. RNA Criminal Desk selected. Start with Chat or document review below.">Start Chat</button>
+                <button data-open-booking data-preselect-booking="Chat 3 min" data-client-action="RNA Contracts Desk selected. Start with Chat or document review below.">Start Chat</button>
               </article>
             </div>
           </section>
@@ -758,23 +773,23 @@
             </section>
 
             <section class="panel client-ai-card">
-              <span class="eyebrow">Free AI Legal Triage</span>
-              <h3>Ask small doubts without fear.</h3>
+              <span class="eyebrow">Legal AI</span>
+              <h3>Coming soon for source-locked answers.</h3>
               <div class="chat-box">
-                <p><strong>AI Desk:</strong> Tell me what happened. I will stay within Indian bare-act style basics and suggest documents to collect.</p>
-                <p id="client-ai-answer"><strong>You:</strong> I received a legal notice. What should I do?</p>
+                <p><strong>Legal AI:</strong> Coming soon. For testing, use Legal SOS, Book Chat, Documents Without Drama, or RNA Source Library.</p>
+                <p id="client-ai-answer"><strong>Status:</strong> Source library import and approval are available in RNA/Admin. Answers stay disabled until approved content is indexed.</p>
               </div>
               <div class="ai-prompt-row">
-                <button data-client-ai="Do not panic. Read the sender, date, deadline and allegation. Collect the notice, envelope, related agreement, payment proof and chats. This is general information, not legal advice. Connect with a lawyer before replying.">Explain notice</button>
-                <button data-client-ai="Checklist: ID proof, agreement, payment records, screenshots, previous notices, timeline of events, witness details, and any court/police papers.">Make checklist</button>
-                <button data-client-ai="AI summary prepared. We are connecting you to an RNA lawyer with only the facts needed for first review.">Connect lawyer</button>
+                <button data-open-sos data-client-ai="Legal AI is coming soon. Legal SOS is open for human counsel routing.">Open SOS</button>
+                <button data-jump="documents" data-client-ai="Documents Without Drama opened. Fill details and upload files for lawyer-reviewed drafting.">Draft request</button>
+                <button data-open-booking data-preselect-booking="Chat 3 min" data-client-ai="Chat booking opened. Counsel joins after booking confirmation.">Book chat</button>
               </div>
-              <small>Disclaimer: AI gives general legal information from Indian law basics. It is not legal advice. For action, consult a lawyer.</small>
+              <small>Disclaimer: AI will answer only after approved sources are indexed. For action, consult a verified advocate.</small>
             </section>
           </div>
 
           <div class="client-modules">
-            <article class="panel"><span>Drafts & Templates</span><strong>Documents without drama</strong><p>Rent agreement, legal notice reply, complaint format, affidavit, undertaking, authority letter.</p><button class="ghost-button" data-client-action="Draft Studio opened: rent agreement, notice reply, affidavit and undertaking templates ready.">Open Draft Studio</button></article>
+            <article class="panel"><span>Drafts & Templates</span><strong>Documents without drama</strong><p>Rent agreement, loan agreement, notice reply, complaint format, affidavit, undertaking, authority letter.</p><button class="ghost-button" data-jump="documents" data-client-action="Documents Without Drama opened. Choose draft, upload documents and request receipt.">Open Draft Studio</button></article>
             <article class="panel"><span>e-Stamp & Agreements</span><strong>Stamp, sign, store</strong><p>Rent agreement flow, e-stamp guidance, witness checklist, PDF vault and lawyer review option.</p><button class="ghost-button" data-client-action="Agreement flow opened. Pick rent, service, NDA, settlement, loan or affidavit.">Start Agreement</button></article>
             <article class="panel booking-card"><span>Book Advocate</span><strong>Office, chat or doorstep</strong><p>Meet at RNA Trust Office, book doorstep visit, or start low-cost chat before full consultation.</p><button class="gold-button book-now-button" data-open-booking>Book Now</button></article>
             <article class="panel"><span>Orders Simplified</span><strong>Plain-language order card</strong><p>What court said, what it means, next date, documents needed, risk level, next action.</p><button class="ghost-button" data-client-action="Latest order simplified: next action and required documents are ready.">Read Latest Order</button></article>
@@ -787,9 +802,12 @@
             </div>
             <div class="booking-options">
               <button data-book-option="Attorney Shield" data-book-price="1999" data-book-route="Shield desk: matter vault, document review, action plan and lawyer call unlocked.">Attorney Shield<br><small>from Rs. 1,999</small></button>
+              <button data-book-option="SOS Video" data-book-price="1500" data-book-route="Emergency video room: counsel selection, timer and SOS receipt generated.">SOS Video<br><small>Rs. 1,500 / min</small></button>
               <button data-book-option="Video Call" data-book-price="499" data-book-route="Video room: secure consult link and 10 minute timer generated.">Video Call<br><small>Rs. 499 / 10 min</small></button>
               <button data-book-option="Audio Call" data-book-price="200" data-book-route="Audio SOS: verified RNA counsel joins for a focused 2 minute emergency consult.">Audio Call<br><small>Rs. 200 / 2 min</small></button>
-              <button data-book-option="Chat" data-book-price="99" data-book-route="Chat room: AI summary shared first, then counsel joins the thread.">Chat<br><small>Rs. 99</small></button>
+              <button data-book-option="Chat 3 min" data-book-price="99" data-book-route="Chat room: counsel joins for a 3 minute first question.">Chat 3m<br><small>Rs. 99</small></button>
+              <button data-book-option="Chat 8 min" data-book-price="150" data-book-route="Chat room: counsel joins for an 8 minute guided discussion.">Chat 8m<br><small>Rs. 150</small></button>
+              <button data-book-option="Chat 12 min" data-book-price="200" data-book-route="Chat room: counsel joins for a 12 minute detailed discussion.">Chat 12m<br><small>Rs. 200</small></button>
               <button data-book-option="Doorstep" data-book-price="1499" data-book-route="Doorstep desk: location, slot and counsel availability confirmation started.">Doorstep<br><small>from Rs. 1,499</small></button>
             </div>
             <div class="payment-simulator">
@@ -814,6 +832,63 @@
               <article><span>Shield / Doorstep</span><strong>Desk opens</strong><p>Documents, location, slot and action plan are tracked.</p></article>
             </div>
           </section>
+        </section>
+
+        <section class="view" id="documents">
+          <div class="workspace-head">
+            <div>
+              <span class="eyebrow">Documents Without Drama</span>
+              <h2>Choose the draft, upload papers, pay the fee, track the receipt.</h2>
+            </div>
+            <button class="ghost-button" data-jump="client">Back to Client Portal</button>
+          </div>
+          <div class="split">
+            <form class="panel form-panel" id="draft-form">
+              <label>Which draft do you want?
+                <select id="draft-type">
+                  <option>Rent Agreement</option>
+                  <option>Loan Agreement</option>
+                  <option>Legal Notice Reply</option>
+                  <option>Affidavit</option>
+                  <option>Undertaking</option>
+                  <option>NDA / Confidentiality Agreement</option>
+                  <option>Settlement Terms</option>
+                  <option>Authority Letter</option>
+                </select>
+              </label>
+              <label class="consent-line"><input id="draft-receipt" type="checkbox" checked /> Send receipt by email / WhatsApp share link</label>
+              <label class="consent-line"><input id="draft-stamp" type="checkbox" /> I need stamp paper / e-stamp guidance</label>
+              <label>Write your facts<textarea id="draft-details" placeholder="Type names, dates, address, amount, terms, deadline, and any special condition."></textarea></label>
+              <label>Upload documents related to draft<input id="draft-files" type="file" multiple /></label>
+              <label>Number to contact for details<input id="draft-contact" inputmode="tel" placeholder="+91 98XX XX4210" /></label>
+              <label>Fee
+                <select id="draft-fee">
+                  <option value="299">Rs. 299 - simple format</option>
+                  <option value="499" selected>Rs. 499 - lawyer review queue</option>
+                  <option value="999">Rs. 999 - urgent same-day draft</option>
+                </select>
+              </label>
+              <button class="gold-button" type="submit">Pay Fee &amp; Create Draft Request</button>
+            </form>
+            <section class="panel">
+              <span class="eyebrow">Draft Status</span>
+              <h3>What happens after booking?</h3>
+              <p id="draft-status">No draft request yet. Fill the form and create a request.</p>
+              <div class="client-flow-strip">
+                <span class="active">1. Draft selected</span>
+                <span>2. Documents uploaded</span>
+                <span>3. Fee paid</span>
+                <span>4. RNA review</span>
+                <span>5. Draft delivered</span>
+              </div>
+              <div class="shield-list">
+                <span>Receipt generated</span>
+                <span>Client documents stay private</span>
+                <span>Stamp paper support is only guidance until provider integration</span>
+                <span>Lawyer review required before legal use</span>
+              </div>
+            </section>
+          </div>
         </section>
 
         <section class="view" id="intern">
@@ -850,6 +925,13 @@
             <div class="timeline" id="beta-readiness-list">
               <div><time>Check</time><strong>Waiting for health check</strong><span>Refresh Control Room after RNA/Admin login.</span></div>
             </div>
+            <div class="version-strip">
+              <span>Web <strong data-web-version>checking</strong></span>
+              <span>Build <strong data-build-time>checking</strong></span>
+              <span>URL <strong data-public-url>checking</strong></span>
+              <span>Android wrapper <strong>1.0.0</strong></span>
+            </div>
+            <p class="fine-print">Web/backend/frontend changes reflect inside the installed Android app after refresh or reopen. A new Play Store upload is needed only for native Android changes.</p>
           </section>
           <section class="panel audit-panel">
             <div class="section-head">
@@ -863,7 +945,7 @@
           </section>
           <section class="panel command-actions">
             <div>
-              <span class="eyebrow">Persistent Demo Actions</span>
+              <span class="eyebrow">Persistent Controls</span>
               <h3>Task/payment status controls.</h3>
               <p id="admin-action-status">Choose an action. With DB connected, status updates persist.</p>
             </div>
@@ -882,7 +964,7 @@
             <div>
               <span class="eyebrow">Resend Notifications</span>
               <h3>Send one live test reminder.</h3>
-              <p id="notify-test-status">Uses Resend if keys are configured; otherwise saves an in-app demo notification.</p>
+              <p id="notify-test-status">Uses Resend if keys are configured; otherwise saves an in-app testing notification.</p>
             </div>
             <form id="notify-test-form" class="source-form">
               <label>Recipient Email<input id="notify-test-email" type="email" placeholder="client@example.com" /></label>
@@ -1011,7 +1093,7 @@
             <button id="lawbot-close" type="button" aria-label="Close LawBot">x</button>
           </div>
           <div class="lawbot-thread" id="lawbot-thread">
-            <p><strong>LawBot:</strong> Source-Locked Mode is on. I answer only from approved Legal Connect sources. If nothing is approved, I will refuse instead of guessing.</p>
+            <p><strong>Legal AI:</strong> Coming soon. RNA/Admin can already prepare the Source Library by uploading, approving and indexing official sources.</p>
           </div>
           <div class="lawbot-chips">
             <button data-lawbot-prompt="What does Section 138 say about cheque dishonour?">Cheque bounce</button>
@@ -1023,8 +1105,46 @@
             <input id="lawbot-input" placeholder="Ask from approved legal sources..." autocomplete="off" />
             <button type="submit">Ask</button>
           </form>
-          <small>Source-Locked Mode: no open internet, no general AI knowledge, no unauthorised SCC/Bar &amp; Bench/eCourts scraping.</small>
+          <small>Source-Locked Mode is being prepared: no open internet, no general AI knowledge, no unauthorised SCC/Bar &amp; Bench/eCourts scraping.</small>
         </section>
+      </aside>
+
+      <aside class="floating-sos" id="floating-sos" aria-live="polite">
+        <button class="sos-orb" id="sos-toggle" type="button" aria-label="Open Legal SOS">SOS</button>
+        <section class="sos-panel">
+          <div class="sos-head">
+            <div>
+              <span>Legal SOS</span>
+              <strong>RNA emergency desk</strong>
+            </div>
+            <button id="sos-close" type="button" aria-label="Close Legal SOS">x</button>
+          </div>
+          <p id="sos-status">Choose a situation. We save a receipt and route it to RNA/Admin tracking.</p>
+          <div class="sos-case-grid">
+            <button data-sos-case="Police station / arrest risk">Police station</button>
+            <button data-sos-case="Court notice / summon">Court notice</button>
+            <button data-sos-case="Cyber fraud / UPI complaint">Cyber fraud</button>
+            <button data-sos-case="Property possession / tenancy">Property</button>
+          </div>
+          <div class="sos-counsel-list">
+            <article>
+              <span>Emergency Video</span>
+              <strong>RNA SOS Counsel</strong>
+              <small>From Rs. 1,500 / min</small>
+              <button data-sos-book="Legal SOS Video" data-sos-price="1500">Start video route</button>
+            </article>
+            <article>
+              <span>Quick Chat</span>
+              <strong>RNA Chat Desk</strong>
+              <small>Rs. 99 / 3 min, Rs. 150 / 8 min, Rs. 200 / 12 min</small>
+              <button data-open-booking data-preselect-booking="Chat 3 min">Book chat</button>
+            </article>
+          </div>
+        </section>
+      </aside>
+
+      <aside class="floating-work">
+        <button type="button" data-jump="posttask">Post Work</button>
       </aside>
     </div>
 

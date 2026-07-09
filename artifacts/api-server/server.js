@@ -8,6 +8,31 @@ const db = require("./db");
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
+const SERVER_STARTED_AT = new Date().toISOString();
+
+function appVersionPayload() {
+  const candidates = ["app.js", "styles.css", "index.html"]
+    .map((fileName) => path.join(publicDir, fileName))
+    .filter((filePath) => fs.existsSync(filePath));
+  const latestMtime = candidates.reduce((latest, filePath) => {
+    const stat = fs.statSync(filePath);
+    return Math.max(latest, stat.mtimeMs);
+  }, 0);
+  const buildTime = latestMtime ? new Date(latestMtime).toISOString() : SERVER_STARTED_AT;
+  const webVersion = process.env.WEB_VERSION || crypto
+    .createHash("sha1")
+    .update(`${buildTime}:${config.publicAppUrl}`)
+    .digest("hex")
+    .slice(0, 12);
+  return {
+    web_version: webVersion,
+    build_time: buildTime,
+    minimum_android_version: "1.0.0",
+    android_wrapper_version: "1.0.0",
+    public_url: config.publicAppUrl,
+    message: "Legal Connect is up to date",
+  };
+}
 
 const demoStore = {
   users: [],
@@ -969,12 +994,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/app-version") {
+    sendJson(res, 200, appVersionPayload());
+    return;
+  }
+
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     const lawbotCounts = await lawbotHealthCounts();
+    const version = appVersionPayload();
     sendJson(res, 200, {
       ok: true,
       app: "Legal Connect",
       mode: "Phase 1 running backend",
+      web_version: version.web_version,
+      build_time: version.build_time,
+      minimum_android_version: version.minimum_android_version,
+      android_wrapper_version: version.android_wrapper_version,
       db: db.dbAvailable ? "connected" : "fallback",
       auth: "enabled",
       lawbot: "source-locked",
