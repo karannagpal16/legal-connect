@@ -5136,3 +5136,317 @@ textarea {
     display: none;
   }
 }
+
+/* Clean beta interface pass: app-like, readable, less chaotic. */
+.command-dock {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 1180px;
+  margin: 0 auto 18px;
+}
+
+.command-dock button,
+.home-route-summary article {
+  border: 1px solid rgba(224, 200, 139, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.055);
+}
+
+.command-dock button {
+  min-height: 58px;
+  padding: 10px 12px;
+  color: var(--ivory);
+  text-align: left;
+}
+
+.command-dock span,
+.home-route-summary span {
+  display: block;
+  color: #8bd4cf;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.command-dock strong,
+.home-route-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: #fff4cf;
+}
+
+.command-dock button:hover,
+.home-route-summary article:hover {
+  border-color: rgba(224, 200, 139, 0.52);
+  background: rgba(224, 200, 139, 0.1);
+}
+
+.home-route-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  width: min(100%, 1120px);
+  margin: 18px auto 0;
+}
+
+.home-route-summary article {
+  display: grid;
+  gap: 10px;
+  min-height: 150px;
+  padding: 16px;
+}
+
+.home-route-summary button {
+  align-self: end;
+  border: 1px solid rgba(224, 200, 139, 0.32);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #10131a;
+  background: linear-gradient(135deg, #fff0a8, #d4af37);
+  font-weight: 900;
+}
+
+main {
+  background:
+    linear-gradient(180deg, rgba(6, 14, 22, 0.42), rgba(8, 10, 13, 0.12));
+}
+
+.view {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.demo-status {
+  position: static;
+  max-width: 1180px;
+  margin: 0 auto 14px;
+  border-radius: 8px;
+}
+
+.topbar {
+  top: 0;
+}
+
+.rail {
+  scrollbar-width: thin;
+}
+
+.nav-group {
+  gap: 6px;
+}
+
+.nav-item {
+  padding: 9px 11px;
+  font-size: 0.9rem;
+}
+
+.rail-card {
+  display: none;
+}
+
+#home .cover-stage {
+  min-height: auto;
+  padding: clamp(18px, 4vw, 42px);
+  border: 1px solid rgba(224, 200, 139, 0.18);
+  border-radius: 8px;
+}
+
+#home .intro-loader,
+#home .cover-bg-orbit,
+#home .cover-gridline,
+#home .poster-strip,
+#home .poster-updates,
+#home .poster-basics,
+#home .phase-command {
+  display: none;
+}
+
+#home .poster-mast {
+  min-height: auto;
+  padding: 18px 0 8px;
+}
+
+#home .poster-mast h2 {
+  font-size: clamp(3rem, 8vw, 6rem);
+  line-height: 0.88;
+}
+
+#home .poster-mast p {
+  margin-bottom: 10px;
+}
+
+#home .poster-gates {
+  width: min(100%, 980px);
+  margin: 14px auto 0;
+}
+
+#home .poster-gates article {
+  min-height: 320px;
+  border-radius: 8px;
+}
+
+.panel,
+.glass-panel,
+.task-card,
+.judgment-card,
+.metric-grid article,
+.command-card,
+.booking-dock,
+.client-hero-panel,
+.client-command-center,
+.service-room-panel,
+.audit-panel {
+  border-radius: 8px;
+}
+
+.workspace-head,
+.client-head {
+  align-items: flex-start;
+  padding: 2px 0 8px;
+}
+
+.workspace-head h2,
+.client-head h2 {
+  margin-bottom: 6px;
+  line-height: 1.05;
+}
+
+.client-flow-strip span,
+.service-timeline span,
+.escrow-flow span {
+  border-radius: 8px;
+}
+
+@media (max-width: 1100px) {
+  .command-dock {
+    grid-template-columns: repeat(5, minmax(130px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .command-dock button {
+    min-width: 130px;
+  }
+
+  .home-route-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    background: #070b10;
+  }
+
+  main {
+    padding: 10px;
+  }
+
+  .rail {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 10px 10px 8px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(224, 200, 139, 0.16);
+  }
+
+  .brand {
+    padding-bottom: 8px;
+    border-bottom: 0;
+  }
+
+  .brand small {
+    display: none;
+  }
+
+  .nav-group {
+    display: flex;
+    gap: 8px;
+    margin: 6px -2px 0;
+    padding: 0 2px 4px;
+    overflow-x: auto;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 88px;
+    border-color: rgba(255, 250, 240, 0.08);
+    border-radius: 8px;
+    padding: 9px 10px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .topbar {
+    position: static;
+    margin: 0 0 10px;
+    padding: 10px 0 0;
+    border-bottom: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .topbar h1 {
+    font-size: 1.55rem;
+  }
+
+  .top-actions {
+    display: none;
+  }
+
+  .demo-status {
+    margin-bottom: 10px;
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+
+  .command-dock {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+  }
+
+  .command-dock button {
+    flex: 0 0 126px;
+    min-height: 54px;
+    padding: 9px 10px;
+  }
+
+  #home .cover-stage {
+    padding: 14px;
+  }
+
+  #home .poster-mast h2 {
+    font-size: clamp(2.6rem, 16vw, 4.4rem);
+  }
+
+  #home .poster-gates,
+  .home-route-summary {
+    grid-template-columns: 1fr;
+  }
+
+  #home .poster-gates article {
+    min-height: 260px;
+  }
+
+  .home-route-summary article {
+    min-height: 120px;
+  }
+
+  .workspace-head,
+  .client-head,
+  .section-head {
+    align-items: stretch;
+  }
+
+  .workspace-head button,
+  .client-head button,
+  .section-head button {
+    width: 100%;
+  }
+}

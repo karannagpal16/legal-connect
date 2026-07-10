@@ -54,6 +54,13 @@
           </div>
         </header>
         <div class="demo-status" id="demo-status">System ready. Choose a portal, post a mission, or book counsel.</div>
+        <section class="command-dock" aria-label="Legal Connect quick actions">
+          <button data-jump="home"><span>Home</span><strong>Start</strong></button>
+          <button data-jump="client"><span>People</span><strong>Legal help</strong></button>
+          <button data-jump="advocate"><span>Lawyers</span><strong>Practice OS</strong></button>
+          <button data-jump="login"><span>Secure</span><strong>Login</strong></button>
+          <button data-jump="service-room"><span>Status</span><strong>My request</strong></button>
+        </section>
 
         <section class="view active" id="home">
           <div class="cover-stage os-home command-interface cover-poster">
@@ -79,7 +86,7 @@
             <section class="poster-gates" aria-label="Choose Legal Connect gateway">
               <article data-jump="client">
                 <div class="portal-scene people-scene" aria-hidden="true">
-                  <img src="/news/news-1.png" alt="" />
+                  <img src="news/news-1.png" alt="" />
                   <span></span>
                 </div>
                 <div class="poster-icon people-icon" aria-hidden="true"></div>
@@ -90,7 +97,7 @@
               </article>
               <article data-jump="advocate">
                 <div class="portal-scene lawyer-scene" aria-hidden="true">
-                  <img src="/images/law-library-bg.png" alt="" />
+                  <img src="images/law-library-bg.png" alt="" />
                   <span></span>
                 </div>
                 <div class="poster-icon lawyer-icon" aria-hidden="true"></div>
@@ -98,6 +105,29 @@
                 <strong>Grow your practice</strong>
                 <p>Cases, tasks and command</p>
                 <button data-jump="advocate">Explore</button>
+              </article>
+            </section>
+
+            <section class="home-route-summary" aria-label="What can I do in Legal Connect">
+              <article>
+                <span>Legal SOS</span>
+                <strong>Urgent legal support request</strong>
+                <button data-open-sos>Open SOS</button>
+              </article>
+              <article>
+                <span>Book Counsel</span>
+                <strong>Chat, audio, video, office, doorstep</strong>
+                <button data-open-booking>Book now</button>
+              </article>
+              <article>
+                <span>Court Mission</span>
+                <strong>Post court work with receipt and hold</strong>
+                <button data-jump="posttask">Post work</button>
+              </article>
+              <article>
+                <span>Track</span>
+                <strong>Receipts, status and next room</strong>
+                <button data-jump="service-room">Open status</button>
               </article>
             </section>
 
