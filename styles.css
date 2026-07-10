@@ -557,9 +557,13 @@ button {
   place-items: center;
   width: 42px;
   height: 42px;
-  border: 1px solid rgba(199, 167, 101, 0.55);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(199, 167, 101, 0.28), transparent 58%);
+  border: 1px solid rgba(245, 199, 106, 0.7);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 34% 25%, rgba(255, 240, 168, 0.42), transparent 28%),
+    radial-gradient(circle, rgba(199, 167, 101, 0.28), transparent 58%),
+    linear-gradient(145deg, rgba(12, 34, 35, 0.96), rgba(4, 8, 14, 0.96));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 0 18px rgba(212, 175, 55, 0.18);
 }
 
 .brand-mark::before,
@@ -573,7 +577,27 @@ button {
   border-radius: 50%;
 }
 
-.brand-mark span,
+.brand-mark::after {
+  inset: 12px;
+  border-style: solid;
+  opacity: 0.62;
+}
+
+.brand-mark span {
+  position: relative;
+  z-index: 2;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  color: #fff0a8;
+  background: transparent;
+  font-family: var(--serif);
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  text-shadow: 0 0 12px rgba(212, 175, 55, 0.55);
+}
+
 .chakra-loader span {
   width: 4px;
   height: 4px;
@@ -584,6 +608,7 @@ button {
 .chakra-loader {
   width: 74px;
   height: 74px;
+  border-radius: 50%;
   margin-bottom: 18px;
   animation: spin 18s linear infinite;
 }
@@ -4816,6 +4841,143 @@ textarea {
   padding: 12px 16px;
 }
 
+.service-room-panel {
+  display: grid;
+  gap: 18px;
+  border-color: rgba(245, 199, 106, 0.34);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(245, 199, 106, 0.16), transparent 18rem),
+    linear-gradient(180deg, rgba(13, 27, 36, 0.94), rgba(5, 9, 16, 0.9));
+}
+
+.service-status-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid rgba(245, 199, 106, 0.26);
+  border-radius: var(--radius);
+  background: rgba(255, 250, 240, 0.045);
+}
+
+.service-status-card span {
+  color: var(--gold-2);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.service-status-card strong {
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: clamp(1.35rem, 3vw, 2.25rem);
+  line-height: 1.08;
+}
+
+.service-status-card p {
+  margin: 0;
+  color: rgba(255, 250, 240, 0.72);
+  line-height: 1.6;
+}
+
+.service-timeline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.service-timeline span {
+  min-width: 0;
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: 999px;
+  padding: 11px 12px;
+  color: rgba(255, 250, 240, 0.72);
+  background: rgba(255, 250, 240, 0.04);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.service-timeline span.active,
+.service-timeline span.done {
+  border-color: rgba(245, 199, 106, 0.6);
+  color: #10131a;
+  background: linear-gradient(135deg, #fff0a8, #d4af37);
+}
+
+.service-actions,
+.flow-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.floating-status {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  z-index: 999;
+}
+
+.flow-status-toggle {
+  border: 1px solid rgba(245, 199, 106, 0.48);
+  border-radius: 999px;
+  padding: 11px 15px;
+  color: #10131a;
+  background: linear-gradient(135deg, #fff0a8, #d4af37);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+  font-weight: 900;
+}
+
+.flow-status-panel {
+  position: absolute;
+  left: 0;
+  bottom: 54px;
+  width: min(320px, calc(100vw - 32px));
+  display: none;
+  gap: 8px;
+  padding: 15px;
+  border: 1px solid rgba(245, 199, 106, 0.32);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(245, 199, 106, 0.16), transparent 12rem),
+    rgba(8, 17, 24, 0.96);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.34);
+}
+
+.floating-status.open .flow-status-panel {
+  display: grid;
+}
+
+.flow-status-panel span {
+  color: var(--gold-2);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.flow-status-panel strong {
+  color: var(--ivory);
+  font-family: var(--serif);
+  font-size: 1.1rem;
+}
+
+.flow-status-panel p {
+  margin: 0;
+  color: rgba(255, 250, 240, 0.7);
+  line-height: 1.45;
+}
+
+.flow-status-actions button {
+  border: 1px solid rgba(255, 250, 240, 0.14);
+  border-radius: 999px;
+  padding: 8px 11px;
+  color: var(--ivory);
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 800;
+}
+
 @media (max-width: 760px) {
   html,
   body {
@@ -4855,6 +5017,7 @@ textarea {
   .booking-options,
   .payment-simulator,
   .booking-next-map,
+  .service-timeline,
   .verification-actions,
   .court-sync-form,
   .case-health,
@@ -4896,6 +5059,11 @@ textarea {
   .floating-work {
     right: 12px;
     bottom: 96px;
+  }
+
+  .floating-status {
+    left: 12px;
+    bottom: 150px;
   }
 
   .floating-lawbot {

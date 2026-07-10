@@ -4,13 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Legal Connect - Professional Legal OS</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="rail" aria-label="Primary navigation">
         <a class="brand" href="#home" aria-label="Legal Connect home">
-          <span class="brand-mark"><span></span></span>
+          <span class="brand-mark"><span>LC</span></span>
           <span>
             <strong>Legal Connect</strong>
             <small>India's Legal OS</small>
@@ -790,7 +792,7 @@
 
           <div class="client-modules">
             <article class="panel"><span>Drafts & Templates</span><strong>Documents without drama</strong><p>Rent agreement, loan agreement, notice reply, complaint format, affidavit, undertaking, authority letter.</p><button class="ghost-button" data-jump="documents" data-client-action="Documents Without Drama opened. Choose draft, upload documents and request receipt.">Open Draft Studio</button></article>
-            <article class="panel"><span>e-Stamp & Agreements</span><strong>Stamp, sign, store</strong><p>Rent agreement flow, e-stamp guidance, witness checklist, PDF vault and lawyer review option.</p><button class="ghost-button" data-client-action="Agreement flow opened. Pick rent, service, NDA, settlement, loan or affidavit.">Start Agreement</button></article>
+            <article class="panel"><span>e-Stamp & Agreements</span><strong>Stamp, sign, store</strong><p>Rent agreement flow, e-stamp guidance, witness checklist, PDF vault and lawyer review option.</p><button class="ghost-button" data-jump="documents" data-client-action="Agreement flow opened. Pick rent, service, NDA, settlement, loan or affidavit.">Start Agreement</button></article>
             <article class="panel booking-card"><span>Book Advocate</span><strong>Office, chat or doorstep</strong><p>Meet at RNA Trust Office, book doorstep visit, or start low-cost chat before full consultation.</p><button class="gold-button book-now-button" data-open-booking>Book Now</button></article>
             <article class="panel"><span>Orders Simplified</span><strong>Plain-language order card</strong><p>What court said, what it means, next date, documents needed, risk level, next action.</p><button class="ghost-button" data-client-action="Latest order simplified: next action and required documents are ready.">Read Latest Order</button></article>
           </div>
@@ -889,6 +891,35 @@
               </div>
             </section>
           </div>
+        </section>
+
+        <section class="view" id="service-room">
+          <div class="workspace-head">
+            <div>
+              <span class="eyebrow">Service Room</span>
+              <h2 id="service-room-title">Your Legal Connect request is ready.</h2>
+            </div>
+            <button class="ghost-button" data-jump="client">Back to Client Portal</button>
+          </div>
+          <section class="panel service-room-panel">
+            <div class="service-status-card">
+              <span id="service-room-status">Status: waiting for booking</span>
+              <strong id="service-room-route">Choose a service to unlock the next step.</strong>
+              <p id="service-room-detail">After booking, this page shows whether you go to chat, audio, video, Attorney Shield, doorstep, draft desk, or RNA review.</p>
+            </div>
+            <div class="service-timeline" id="service-room-timeline">
+              <span class="active">1. Request created</span>
+              <span>2. Payment verification</span>
+              <span>3. Counsel selection</span>
+              <span>4. Work Completion Hold</span>
+              <span>5. Receipt + next action</span>
+            </div>
+            <div class="service-actions">
+              <button class="gold-button" data-open-booking>Change Service</button>
+              <button class="ghost-button" data-refresh-receipts>Refresh Receipts</button>
+              <button class="ghost-button" data-jump="admin">RNA Review</button>
+            </div>
+          </section>
         </section>
 
         <section class="view" id="intern">
@@ -1145,6 +1176,20 @@
 
       <aside class="floating-work">
         <button type="button" data-jump="posttask">Post Work</button>
+      </aside>
+
+      <aside class="floating-status" id="flow-status">
+        <button class="flow-status-toggle" id="flow-status-toggle" type="button">Live Status</button>
+        <section class="flow-status-panel">
+          <span>Current Workspace</span>
+          <strong id="flow-status-title">Legal Connect ready</strong>
+          <p id="flow-status-detail">Login, book, post work, or open SOS. The latest status will stay here.</p>
+          <div class="flow-status-actions">
+            <button type="button" data-jump="client">Client</button>
+            <button type="button" data-jump="advocate">Advocate</button>
+            <button type="button" data-jump="admin">RNA</button>
+          </div>
+        </section>
       </aside>
     </div>
 
