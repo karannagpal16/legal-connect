@@ -258,6 +258,17 @@ function emailAdminStatus() {
   };
 }
 
+function otpRuntimeStatus() {
+  const emailStatus = emailProviderStatus();
+  const production = config.nodeEnv === "production";
+  const emailReady = emailStatus.provider === "resend" && emailStatus.status === "ready";
+  return {
+    otp_mode: emailReady ? "email" : production ? "disabled" : "demo",
+    otp_fallback_enabled: !production && !emailReady,
+    otp_delivery_ready: emailReady,
+  };
+}
+
 function safeEmailError(result) {
   if (!result) return "Email provider did not return a response.";
   if (typeof result.safeError === "string" && result.safeError.trim()) return result.safeError.trim();
@@ -347,7 +358,7 @@ function paymentConfigStatus() {
     mode,
     webhook_secret_present: Boolean(config.razorpayWebhookSecret),
     checkout_script_url: "https://checkout.razorpay.com/v1/checkout.js",
-    warning: mode === "live" ? "Live key detected. Razorpay test UPI IDs may not work in live mode. Use test key pair for sandbox testing." : "",
+    warning: mode === "live" ? "Live key detected. Use small controlled pilot only after verification." : "",
   };
 }
 
@@ -1002,6 +1013,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     const lawbotCounts = await lawbotHealthCounts();
     const version = appVersionPayload();
+    const otpStatus = otpRuntimeStatus();
     sendJson(res, 200, {
       ok: true,
       app: "Legal Connect",
@@ -1019,6 +1031,8 @@ const server = http.createServer(async (req, res) => {
       audit_logs: "enabled",
       payments: config.razorpayKeyId && config.razorpayKeySecret ? "razorpay-ready" : "demo",
       email: emailProviderStatus(),
+      otp_mode: otpStatus.otp_mode,
+      otp_fallback_enabled: otpStatus.otp_fallback_enabled,
       public_url: config.publicAppUrl,
       allowed_origins_count: (config.allowedOrigins || []).filter((origin) => origin !== "*").length,
     });
@@ -1071,8 +1085,31 @@ const server = http.createServer(async (req, res) => {
     const phone = normalizePhone(body.phone);
     const destination = email || phone;
     const destinationType = email ? "email" : "phone";
+    const otpStatus = otpRuntimeStatus();
     if (!destination) {
       sendJson(res, 400, { ok: false, error: "Email or phone is required for verification." });
+      return;
+    }
+    if (config.nodeEnv === "production" && destinationType === "phone") {
+      sendJson(res, 503, {
+        ok: false,
+        mode: "disabled",
+        status: "failed",
+        destinationType,
+        destinationMasked: maskPhone(phone),
+        error_message: "Phone OTP is not enabled yet. Use email verification for this controlled beta.",
+      });
+      return;
+    }
+    if (config.nodeEnv === "production" && destinationType === "email" && !otpStatus.otp_delivery_ready) {
+      sendJson(res, 503, {
+        ok: false,
+        mode: "disabled",
+        status: "failed",
+        destinationType,
+        destinationMasked: maskEmail(email),
+        error_message: "Email OTP is not configured. Add EMAIL_PROVIDER=resend and RESEND_API_KEY before production login.",
+      });
       return;
     }
 
@@ -1135,13 +1172,15 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       mode: destinationType === "phone" ? "sms-demo" : "demo",
       status: "queued",
+      otp_mode: otpStatus.otp_mode,
+      otp_fallback_enabled: otpStatus.otp_fallback_enabled,
       destinationType,
       destinationMasked: destinationType === "email" ? maskEmail(email) : maskPhone(phone),
       expiresAt,
       message: destinationType === "phone"
         ? "Phone OTP provider is not configured yet. SMS delivery is ready to connect."
         : "Demo verification queued because email provider is not configured.",
-      ...(config.nodeEnv === "production" ? {} : { devCode: code }),
+      ...(otpStatus.otp_fallback_enabled ? { devCode: code } : {}),
     });
     return;
   }

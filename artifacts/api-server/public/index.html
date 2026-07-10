@@ -192,7 +192,8 @@
               <label>Phone<input id="login-phone" value="" placeholder="+91 98XX XX4210" /></label>
               <div class="verification-box">
                 <strong>Contact Verification</strong>
-              <p>Email OTP works when Resend is configured. Phone OTP is SMS-provider ready and remains in testing fallback until an approved SMS vendor is connected.</p>
+                <p>Email OTP works when Resend is configured. Phone OTP is SMS-provider ready and remains in testing fallback until an approved SMS vendor is connected.</p>
+                <p class="otp-mode-note" data-otp-status>Checking OTP mode...</p>
                 <div class="verification-actions">
                   <button class="ghost-button" type="button" id="request-login-code">Send Code</button>
                   <label>Code<input id="login-code" inputmode="numeric" maxlength="6" placeholder="6-digit code" /></label>
@@ -906,6 +907,7 @@
               <span id="service-room-status">Status: waiting for booking</span>
               <strong id="service-room-route">Choose a service to unlock the next step.</strong>
               <p id="service-room-detail">After booking, this page shows whether you go to chat, audio, video, Attorney Shield, doorstep, draft desk, or RNA review.</p>
+              <p class="fine-print">This is a controlled beta. Our team may verify your request before action. If the backend is sleeping or local fallback is used, the request may show as saved locally until server sync. Support: karannagpal16@gmail.com.</p>
             </div>
             <div class="service-timeline" id="service-room-timeline">
               <span class="active">1. Request created</span>

@@ -34,6 +34,11 @@ const flowStatus = document.querySelector("#flow-status");
 const flowStatusToggle = document.querySelector("#flow-status-toggle");
 const flowStatusTitle = document.querySelector("#flow-status-title");
 const flowStatusDetail = document.querySelector("#flow-status-detail");
+const localTestingRuntime = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
+let publicHealth = {
+  otp_mode: localTestingRuntime ? "demo" : "unknown",
+  otp_fallback_enabled: localTestingRuntime,
+};
 
 function getSession() {
   if (currentSession) return currentSession;
@@ -137,6 +142,24 @@ async function checkAppVersion() {
     });
   } catch {
     // Version checks are advisory; keep the app usable if the backend is waking up.
+  }
+}
+
+async function refreshPublicHealth() {
+  try {
+    publicHealth = await apiFetch("/api/health");
+    const otpLabel = publicHealth.otp_fallback_enabled
+      ? "Testing OTP enabled only in demo mode."
+      : publicHealth.otp_mode === "email"
+        ? "Email OTP is active for this environment."
+        : "OTP fallback is disabled in production.";
+    document.querySelectorAll("[data-otp-status]").forEach((node) => {
+      node.textContent = `${otpLabel} Mode: ${publicHealth.otp_mode || "unknown"}.`;
+    });
+  } catch {
+    if (!localTestingRuntime) {
+      publicHealth.otp_fallback_enabled = false;
+    }
   }
 }
 
@@ -306,10 +329,16 @@ requestLoginCode?.addEventListener("click", async () => {
     }
   } catch (error) {
     const codeInput = document.querySelector("#login-code");
-    const localCode = "111111";
-    localStorage.setItem("legalConnectLocalOtp", localCode);
-    if (codeInput) codeInput.value = localCode;
-    if (verificationStatus) verificationStatus.textContent = "Testing OTP filled as 111111. Real email/SMS sends when provider keys are live.";
+    if (publicHealth.otp_fallback_enabled) {
+      const localCode = "111111";
+      localStorage.setItem("legalConnectLocalOtp", localCode);
+      if (codeInput) codeInput.value = localCode;
+      if (verificationStatus) verificationStatus.textContent = "Testing OTP enabled only in demo mode. Code filled as 111111.";
+      return;
+    }
+    localStorage.removeItem("legalConnectLocalOtp");
+    if (codeInput) codeInput.value = "";
+    if (verificationStatus) verificationStatus.textContent = error.message || "OTP delivery is not configured for production. Use email OTP after Resend is ready.";
   }
 });
 
@@ -331,7 +360,7 @@ verifyLoginCode?.addEventListener("click", async () => {
     }
   } catch (error) {
     const localCode = localStorage.getItem("legalConnectLocalOtp");
-    if (localCode && code === localCode) {
+    if (publicHealth.otp_fallback_enabled && localCode && code === localCode) {
       if (verificationStatus) {
         verificationStatus.textContent = "Testing OTP verified successfully. Continue secure login.";
         verificationStatus.classList.add("verified");
@@ -839,7 +868,10 @@ function updateServiceRoom(receipt = {}) {
   if (serviceRoomStatus) serviceRoomStatus.textContent = `Status: ${status}${amount ? ` / Rs. ${amount}` : ""}`;
   if (serviceRoomRoute) serviceRoomRoute.textContent = receipt.route || receipt.nextDestination || "RNA desk will assign the next step after confirmation.";
   if (serviceRoomDetail) {
-    serviceRoomDetail.textContent = `Receipt ${receipt.id || receipt.receiptNo || "pending"} is linked to your login. Client details stay private; RNA/Admin can review status and receipts.`;
+    const fallbackNote = receipt.paymentMode === "local-fallback" || /local/i.test(receipt.status || "")
+      ? " Saved locally for testing. Server sync may be required."
+      : "";
+    serviceRoomDetail.textContent = `Receipt ${receipt.id || receipt.receiptNo || "pending"} is linked to your login. Client details stay private; RNA/Admin can review status and receipts.${fallbackNote}`;
   }
   if (serviceRoomTimeline) {
     serviceRoomTimeline.innerHTML = serviceStepsFor(receipt)
@@ -866,9 +898,12 @@ function selectBookingOption(button) {
 
 document.querySelectorAll("[data-open-booking]").forEach((button) => {
   button.addEventListener("click", () => {
+    if (!document.querySelector("#client")?.classList.contains("active")) {
+      activateView("client");
+    }
     if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Booking desk opened. Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
     setDemoStatus("Booking desk opened. Select a consult mode and confirm payment.");
-    bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
     if (button.dataset.preselectBooking) {
       const preselect = [...document.querySelectorAll("[data-book-option]")].find((option) => option.dataset.bookOption === button.dataset.preselectBooking);
       selectBookingOption(preselect);
@@ -1175,6 +1210,8 @@ function renderBetaReadiness(health = {}) {
     ["Audit logs enabled", health.audit_logs === "enabled"],
     ["Resend ready", health.email?.provider === "resend" && health.email?.status === "ready"],
     ["Razorpay ready", health.payments === "razorpay-ready"],
+    [`OTP mode: ${health.otp_mode || "unknown"}`, health.otp_mode === "email" || health.otp_fallback_enabled === true],
+    [`OTP fallback: ${health.otp_fallback_enabled ? "demo only" : "disabled"}`, health.otp_fallback_enabled !== undefined],
     ["UDYAM badge visible", document.body.textContent.includes("UDYAM-DL-11-0164811")],
     ["Domain configured", String(health.public_url || "").includes("legal-connect")],
     ["Legal pages present", Boolean(document.querySelector("#privacy-policy") && document.querySelector("#terms") && document.querySelector("#refund-policy"))],
@@ -1190,7 +1227,7 @@ function renderPaymentStatus(status = {}) {
   if (!paymentStatusPanel) return;
   const latest = status.latest_payment || {};
   const modeMessage = status.mode === "live"
-    ? "Live Razorpay key detected. Test UPI IDs may be invalid in live mode. Use rzp_test keys for beta testing."
+    ? "Live key detected. Use small controlled pilot only after verification."
     : status.mode === "test"
       ? "Test mode detected. Use Razorpay test card/UPI details."
       : "Razorpay mode unknown or not configured.";
@@ -1501,6 +1538,43 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button || button.type === "submit" || button.disabled || button.closest("form")) return;
+  const handledKeys = [
+    "view",
+    "jump",
+    "loginRole",
+    "aiReply",
+    "demoAction",
+    "clientAction",
+    "clientAi",
+    "openBooking",
+    "bookOption",
+    "payBooking",
+    "openSos",
+    "sosCase",
+    "sosBook",
+    "saveMission",
+    "taskAction",
+    "courtSync",
+    "refreshAdmin",
+    "adminAction",
+    "refreshSources",
+    "refreshAudit",
+    "refreshReceipts",
+    "receiptAction",
+    "sourceAction",
+    "lawbotPrompt",
+    "lawbotFeedback",
+    "scrollBooking",
+    "scrollClientSection",
+  ];
+  if (handledKeys.some((key) => Object.prototype.hasOwnProperty.call(button.dataset, key))) return;
+  const label = button.textContent.trim().replace(/\s+/g, " ") || "This action";
+  setDemoStatus(`${label} is prepared for beta. Use Service Room or RNA Control Room to track the next step.`);
+});
+
 async function refreshNotifications() {
   try {
     const notifications = await apiFetch("/api/notifications");
@@ -1514,6 +1588,7 @@ async function refreshNotifications() {
 
 refreshNotifications();
 checkAppVersion();
+refreshPublicHealth();
 
 const pathView = location.pathname.replace("/", "");
 const initialView = location.hash.replace("#", "") || (document.getElementById(pathView) ? pathView : "");

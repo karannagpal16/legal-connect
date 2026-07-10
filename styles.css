@@ -4485,6 +4485,17 @@ textarea {
   accent-color: #d9aa4d;
 }
 
+.otp-mode-note {
+  margin: 8px 0 0;
+  border: 1px solid rgba(224, 200, 139, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #fff4cf;
+  background: rgba(224, 200, 139, 0.08);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .command-actions {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) 1.2fr;
@@ -5034,6 +5045,29 @@ textarea {
     min-height: auto;
     padding: 12px;
     line-height: 1.25;
+  }
+
+  .command-actions {
+    align-items: stretch;
+  }
+
+  .command-actions > div,
+  .command-actions form,
+  .command-actions .admin-action-grid {
+    width: 100%;
+  }
+
+  .admin-action-grid button {
+    min-height: 44px;
+    text-align: left;
+    font-size: 0.9rem;
+  }
+
+  .source-form label,
+  .source-form input,
+  .source-form select,
+  .source-form textarea {
+    width: 100%;
   }
 
   .source-list article {
