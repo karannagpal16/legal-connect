@@ -6550,3 +6550,341 @@ body::before {
     grid-template-columns: 1fr;
   }
 }
+
+/* Final Dharma OS home theme: sharp chakra, navy command stage, white and gold. */
+:root {
+  --dharma-midnight: #06142b;
+  --dharma-navy: #0a2d5f;
+  --dharma-royal: #123f82;
+  --dharma-gold: #d6a12b;
+  --dharma-gold-bright: #ffe08a;
+  --dharma-ivory: #fffdf7;
+  --dharma-ink: #0d2038;
+}
+
+#home .cover-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--dharma-ivory);
+  border: 1px solid rgba(255, 224, 138, 0.48);
+  background:
+    radial-gradient(circle at 50% 4%, rgba(255, 224, 138, 0.28), transparent 12rem),
+    radial-gradient(circle at 14% 16%, rgba(255, 255, 255, 0.14), transparent 14rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(155deg, #06142b 0%, #0a2d5f 48%, #123f82 72%, #06142b 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 34px 92px rgba(6, 20, 43, 0.28);
+}
+
+#home .cover-stage::before {
+  content: "";
+  position: absolute;
+  inset: -18% -10% auto;
+  height: 58%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(255, 224, 138, 0.2), transparent 58%),
+    linear-gradient(90deg, transparent, rgba(255, 224, 138, 0.36), transparent);
+  opacity: 0.7;
+  z-index: -1;
+}
+
+#home .cover-stage::after {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border: 1px solid rgba(255, 224, 138, 0.18);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+}
+
+#home .cover-bg-orbit,
+#home .cover-gridline {
+  opacity: 0.34;
+}
+
+#home .poster-mast {
+  gap: 14px;
+  max-width: 850px;
+}
+
+#home .poster-mast > span {
+  width: min(100%, 520px);
+  border-bottom: 1px solid rgba(255, 224, 138, 0.34);
+  padding-bottom: 10px;
+  color: var(--dharma-gold-bright);
+  font-size: 0.78rem;
+  letter-spacing: 0.34em;
+  text-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+}
+
+#home .poster-mast h2 {
+  margin-top: 6px;
+  background: linear-gradient(135deg, #ffffff 0%, #fff2bd 40%, #d6a12b 72%, #ffe08a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(4rem, 13vw, 8.2rem);
+  line-height: 0.82;
+  letter-spacing: 0;
+  filter: drop-shadow(0 20px 34px rgba(0, 0, 0, 0.28));
+}
+
+#home .poster-mast p {
+  color: rgba(255, 253, 247, 0.86);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+#home .poster-emblem {
+  width: clamp(132px, 20vw, 210px);
+  height: clamp(132px, 20vw, 210px);
+  border: 2px solid rgba(255, 224, 138, 0.86);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #06142b 0 12%, transparent 12.5% 21%, rgba(255, 224, 138, 0.92) 21.5% 24%, transparent 24.5%),
+    repeating-conic-gradient(from -2deg, rgba(255, 224, 138, 0.98) 0deg 3deg, transparent 3deg 22.5deg),
+    radial-gradient(circle, transparent 0 51%, rgba(255, 224, 138, 0.92) 51.5% 54%, transparent 54.5% 66%, rgba(255, 224, 138, 0.84) 66.5% 68%, transparent 68.5%),
+    linear-gradient(135deg, #fff6cf 0%, #d6a12b 46%, #7b4a0b 100%);
+  box-shadow:
+    inset 0 0 0 10px rgba(6, 20, 43, 0.72),
+    inset 0 0 0 20px rgba(255, 224, 138, 0.12),
+    0 0 0 12px rgba(255, 224, 138, 0.07),
+    0 22px 64px rgba(0, 0, 0, 0.32);
+  animation: dharmaChakraSpin 18s linear infinite;
+}
+
+#home .poster-emblem::before,
+#home .poster-emblem::after {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border: 1px solid rgba(255, 248, 210, 0.58);
+  border-radius: 50%;
+}
+
+#home .poster-emblem::after {
+  inset: -9%;
+  border-color: rgba(255, 224, 138, 0.16);
+}
+
+#home .poster-emblem i {
+  width: clamp(48px, 7vw, 68px);
+  height: clamp(48px, 7vw, 68px);
+  color: #06142b;
+  background: linear-gradient(135deg, #fff8d6, #d6a12b);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.78),
+    0 12px 28px rgba(0, 0, 0, 0.28);
+  animation: dharmaChakraCounterSpin 18s linear infinite;
+}
+
+#home .poster-emblem i::before {
+  content: "LC";
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+#home .dharma-quote-card {
+  width: min(100%, 760px);
+  margin-top: 4px;
+  border: 1px solid rgba(255, 224, 138, 0.4);
+  border-radius: 14px;
+  padding: clamp(16px, 3vw, 24px);
+  color: var(--dharma-ivory);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
+    rgba(6, 20, 43, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 24px 58px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+}
+
+#home .dharma-quote-card span {
+  color: var(--dharma-gold-bright);
+  letter-spacing: 0.22em;
+}
+
+#home .dharma-quote-card p {
+  color: #fffdf7;
+  font-size: clamp(1rem, 2.2vw, 1.32rem);
+  line-height: 1.58;
+}
+
+#home .dharma-quote-card cite {
+  color: rgba(255, 253, 247, 0.72);
+  font-size: 0.86rem;
+}
+
+#home .msme-trust-badge {
+  border-color: rgba(255, 224, 138, 0.52);
+  color: #06142b;
+  background: linear-gradient(135deg, #fff8d6, #d6a12b);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+#home .msme-trust-badge span {
+  color: rgba(6, 20, 43, 0.72);
+}
+
+#home .poster-gates {
+  width: min(100%, 980px);
+  gap: clamp(18px, 4vw, 34px);
+}
+
+#home .poster-gates article {
+  min-height: 294px;
+  overflow: hidden;
+  color: var(--dharma-ivory);
+  border: 1px solid rgba(255, 224, 138, 0.42);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(6, 20, 43, 0.34), rgba(6, 20, 43, 0.92)),
+    url("news/news-1.png") center/cover;
+  background-blend-mode: multiply;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 22px 58px rgba(0, 0, 0, 0.24);
+}
+
+#home .poster-gates article:nth-child(2) {
+  background:
+    linear-gradient(180deg, rgba(6, 20, 43, 0.34), rgba(6, 20, 43, 0.92)),
+    url("images/law-library-bg.png") center/cover;
+  background-blend-mode: multiply;
+}
+
+#home .poster-gates article::after {
+  content: "";
+  position: absolute;
+  inset: auto 18px 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 224, 138, 0.72), transparent);
+}
+
+#home .poster-gates h3 {
+  color: var(--dharma-gold-bright);
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  text-shadow: 0 14px 26px rgba(0, 0, 0, 0.28);
+}
+
+#home .poster-gates strong,
+#home .poster-gates p {
+  color: rgba(255, 253, 247, 0.88);
+}
+
+#home .poster-gates button,
+#home .home-route-summary button {
+  min-height: 44px;
+  border: 0;
+  color: var(--dharma-midnight);
+  background: linear-gradient(135deg, #fff8d6, #ffe08a 46%, #d6a12b);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.2);
+}
+
+#home .home-route-summary {
+  width: min(100%, 980px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#home .home-route-summary article {
+  min-height: 120px;
+  border: 1px solid rgba(10, 45, 95, 0.13);
+  border-radius: 14px;
+  color: var(--dharma-ink);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 249, 255, 0.92));
+  box-shadow: 0 16px 42px rgba(6, 20, 43, 0.12);
+}
+
+#home .home-route-summary span {
+  color: var(--dharma-royal);
+}
+
+#home .home-route-summary strong {
+  color: var(--dharma-ink);
+}
+
+#home .poster-strip,
+#home .cover-ai-desk {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home .poster-emblem,
+  #home .poster-emblem i {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  #home .cover-stage {
+    padding: 18px 12px 16px;
+    border-radius: 0;
+    background:
+      radial-gradient(circle at 50% 4%, rgba(255, 224, 138, 0.24), transparent 9rem),
+      linear-gradient(160deg, #06142b 0%, #0a2d5f 58%, #06142b 100%);
+  }
+
+  #home .cover-stage::after {
+    inset: 8px;
+  }
+
+  #home .poster-mast > span {
+    font-size: 0.68rem;
+    letter-spacing: 0.24em;
+  }
+
+  #home .poster-mast h2 {
+    font-size: clamp(3.1rem, 18vw, 4.7rem);
+  }
+
+  #home .poster-mast p {
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+  }
+
+  #home .poster-emblem {
+    width: 142px;
+    height: 142px;
+  }
+
+  #home .dharma-quote-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  #home .dharma-quote-card p {
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  #home .dharma-quote-card cite {
+    font-size: 0.74rem;
+  }
+
+  #home .poster-gates,
+  #home .home-route-summary {
+    grid-template-columns: 1fr;
+  }
+
+  #home .poster-gates article {
+    min-height: 238px;
+    border-radius: 14px;
+  }
+
+  #home .home-route-summary article {
+    min-height: 102px;
+  }
+
+  #home .home-route-summary button {
+    width: 100%;
+  }
+}
