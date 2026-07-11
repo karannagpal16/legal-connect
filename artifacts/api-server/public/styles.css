@@ -5450,3 +5450,741 @@ main {
     width: 100%;
   }
 }
+
+/* Bright premium theme pass: cleaner, warmer, and more legible on phones. */
+:root {
+  --ink: #101820;
+  --navy: #123047;
+  --graphite: #263546;
+  --line: rgba(28, 64, 78, 0.16);
+  --muted: #60717d;
+  --paper: #fff8e8;
+  --ivory: #fffdf6;
+  --gold: #c9911d;
+  --gold-2: #f1c75d;
+  --silver: #cbd8df;
+  --success: #16856f;
+  --danger: #c55145;
+}
+
+body {
+  color: #132231;
+  background:
+    linear-gradient(145deg, rgba(255, 250, 236, 0.98) 0%, rgba(232, 250, 246, 0.96) 28%, rgba(247, 239, 211, 0.86) 48%, rgba(18, 48, 71, 0.96) 100%);
+}
+
+body::before {
+  opacity: 0.16;
+  background:
+    linear-gradient(90deg, rgba(12, 82, 91, 0.14) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(201, 145, 29, 0.1) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+.app-shell {
+  background:
+    linear-gradient(110deg, rgba(255, 253, 246, 0.88), rgba(237, 249, 245, 0.7) 44%, rgba(15, 35, 55, 0.72));
+}
+
+.rail {
+  border-right: 1px solid rgba(28, 64, 78, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.96), rgba(237, 249, 245, 0.9));
+  box-shadow: 14px 0 44px rgba(10, 30, 45, 0.08);
+}
+
+.brand {
+  border-bottom-color: rgba(28, 64, 78, 0.12);
+}
+
+.brand-mark {
+  color: #101820;
+  background:
+    radial-gradient(circle at 36% 24%, #fff8d8 0 22%, transparent 23%),
+    linear-gradient(145deg, #ffdd7a, #d29722 58%, #8f5b0e);
+  box-shadow: 0 12px 32px rgba(201, 145, 29, 0.24);
+}
+
+.brand strong,
+.brand small,
+.nav-item {
+  color: #193044;
+}
+
+.nav-item {
+  border-color: rgba(28, 64, 78, 0.1);
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.nav-item:hover,
+.nav-item.active {
+  color: #101820;
+  border-color: rgba(201, 145, 29, 0.42);
+  background: linear-gradient(135deg, rgba(255, 239, 177, 0.92), rgba(228, 248, 243, 0.88));
+  box-shadow: 0 12px 30px rgba(35, 64, 82, 0.12);
+}
+
+.topbar {
+  border-bottom-color: rgba(28, 64, 78, 0.1);
+  background: rgba(255, 253, 246, 0.72);
+  backdrop-filter: blur(18px);
+}
+
+.topbar h1,
+.view h2,
+.view h3,
+.poster-mast h2,
+.client-head h2,
+.workspace-head h2,
+.section-head h2 {
+  color: #102033;
+  text-shadow: none;
+}
+
+.top-actions button,
+.ghost-button,
+.command-dock button,
+.home-route-summary article,
+.quick-action,
+.lawbot-chips button,
+.lawbot-feedback button {
+  border-color: rgba(28, 64, 78, 0.18);
+  color: #153047;
+  background: rgba(255, 253, 246, 0.76);
+}
+
+.top-actions button:hover,
+.ghost-button:hover,
+.command-dock button:hover,
+.home-route-summary article:hover,
+.quick-action:hover,
+.lawbot-chips button:hover {
+  border-color: rgba(201, 145, 29, 0.46);
+  background: linear-gradient(135deg, rgba(255, 246, 214, 0.96), rgba(229, 249, 244, 0.9));
+  box-shadow: 0 14px 34px rgba(18, 48, 71, 0.12);
+}
+
+.gold-button,
+.home-route-summary button,
+.client-hero-panel .gold-button,
+.booking-dock .gold-button,
+.book-now-button {
+  color: #111820;
+  border-color: rgba(138, 91, 14, 0.18);
+  background: linear-gradient(135deg, #fff1a8 0%, #f1c75d 48%, #c9911d 100%);
+  box-shadow: 0 16px 34px rgba(201, 145, 29, 0.24);
+}
+
+main {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.34), rgba(234, 249, 245, 0.2) 42%, rgba(15, 35, 55, 0.16));
+}
+
+.demo-status,
+.panel,
+.glass-panel,
+.task-card,
+.judgment-card,
+.metric-grid article,
+.command-card,
+.booking-dock,
+.client-hero-panel,
+.client-command-center,
+.service-room-panel,
+.audit-panel,
+.form-panel,
+.login-panel,
+.calendar-panel,
+.case-tracker-card,
+.client-ai-card,
+.source-library,
+.trust-map,
+.court-sync-panel,
+.resolver-panel,
+.sos-panel,
+.flow-status-panel,
+.lawbot-panel {
+  color: #142231;
+  border-color: rgba(28, 64, 78, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.95), rgba(237, 249, 245, 0.9));
+  box-shadow: 0 20px 54px rgba(10, 30, 45, 0.12);
+}
+
+.panel *,
+.glass-panel *,
+.task-card *,
+.judgment-card *,
+.metric-grid article *,
+.command-card *,
+.booking-dock *,
+.client-hero-panel *,
+.client-command-center *,
+.service-room-panel *,
+.audit-panel *,
+.form-panel *,
+.login-panel *,
+.calendar-panel *,
+.case-tracker-card *,
+.client-ai-card *,
+.source-library *,
+.trust-map *,
+.court-sync-panel *,
+.resolver-panel *,
+.sos-panel *,
+.flow-status-panel *,
+.lawbot-panel * {
+  text-shadow: none;
+}
+
+.panel h2,
+.panel h3,
+.panel h4,
+.panel strong,
+.glass-panel h2,
+.glass-panel h3,
+.glass-panel strong,
+.task-card strong,
+.judgment-card strong,
+.metric-grid article strong,
+.client-hero-panel strong,
+.client-hero-panel h3,
+.booking-dock strong,
+.source-library strong,
+.lawbot-head strong,
+.sos-panel strong,
+.flow-status-panel strong {
+  color: #0e1b28;
+}
+
+.panel p,
+.panel li,
+.panel small,
+.panel label,
+.panel span,
+.glass-panel p,
+.glass-panel small,
+.task-card p,
+.judgment-card p,
+.metric-grid article small,
+.client-hero-panel p,
+.booking-dock p,
+.source-library p,
+.lawbot-thread p,
+.sos-panel p,
+.flow-status-panel p {
+  color: #465c68;
+}
+
+.eyebrow,
+.panel .eyebrow,
+.command-dock span,
+.home-route-summary span,
+.poster-gates strong,
+.lawbot-head span,
+.sos-panel span,
+.timeline time {
+  color: #0d827a;
+}
+
+.timeline div,
+.client-flow-strip span,
+.service-timeline span,
+.escrow-flow span,
+.booking-status-pill,
+.status-pill,
+.pill {
+  color: #173047;
+  border-color: rgba(28, 64, 78, 0.16);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+input,
+select,
+textarea,
+.lawbot-input input {
+  color: #122231;
+  border-color: rgba(28, 64, 78, 0.22);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+input::placeholder,
+textarea::placeholder,
+.lawbot-input input::placeholder {
+  color: #6a7b84;
+}
+
+#home .cover-stage {
+  border-color: rgba(201, 145, 29, 0.22);
+  background:
+    linear-gradient(135deg, rgba(255, 253, 246, 0.96), rgba(231, 249, 244, 0.92) 46%, rgba(20, 59, 75, 0.9)),
+    url("images/hero-bg.png") center/cover;
+  box-shadow: 0 28px 80px rgba(10, 30, 45, 0.16);
+}
+
+#home .poster-mast span,
+#home .poster-mast p {
+  color: #25445b;
+}
+
+#home .poster-mast h2 {
+  color: #0f2235;
+  background: linear-gradient(135deg, #0f2235, #0d827a 46%, #c9911d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+#home .poster-gates article {
+  color: #132231;
+  border-color: rgba(201, 145, 29, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.95), rgba(232, 250, 246, 0.88)),
+    url("images/law-library-bg.png") center/cover;
+  background-blend-mode: screen;
+  box-shadow: 0 18px 48px rgba(10, 30, 45, 0.13);
+}
+
+#home .poster-gates article:nth-child(2) {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.93), rgba(255, 246, 214, 0.88)),
+    url("news/news-1.png") center/cover;
+  background-blend-mode: screen;
+}
+
+#home .poster-gates h3,
+#home .poster-gates p {
+  color: #172b3c;
+}
+
+.home-route-summary article {
+  background: linear-gradient(180deg, rgba(255, 253, 246, 0.92), rgba(237, 249, 245, 0.84));
+}
+
+.home-route-summary strong,
+.command-dock strong {
+  color: #102033;
+}
+
+.client-command-center,
+.client-hero-panel,
+.booking-dock {
+  background:
+    linear-gradient(135deg, rgba(255, 253, 246, 0.96), rgba(236, 250, 246, 0.92));
+}
+
+.admin-action-grid button {
+  min-width: 0;
+  color: #142231;
+  border-color: rgba(28, 64, 78, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-action-grid button:hover {
+  border-color: rgba(201, 145, 29, 0.42);
+  background: linear-gradient(135deg, rgba(255, 241, 168, 0.96), rgba(232, 250, 246, 0.9));
+}
+
+.lawbot-greeting {
+  color: #152536;
+  border-color: rgba(201, 145, 29, 0.34);
+  background:
+    linear-gradient(145deg, rgba(255, 253, 246, 0.96), rgba(232, 250, 246, 0.9));
+  box-shadow: 0 18px 44px rgba(10, 30, 45, 0.16);
+}
+
+.lawbot-greeting::after {
+  border-color: rgba(201, 145, 29, 0.34);
+  background: rgba(246, 250, 239, 0.96);
+}
+
+.lawbot-greeting strong {
+  color: #142231;
+}
+
+.lawbot-orb {
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 30% 25%, #fff8d8, transparent 26%),
+    linear-gradient(145deg, #ffe587, #f1c75d 45%, #0d827a 100%);
+  box-shadow: 0 18px 44px rgba(10, 30, 45, 0.2), 0 0 36px rgba(13, 130, 122, 0.2);
+}
+
+.lawbot-thread p {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.lawbot-thread p.user {
+  color: #102033;
+  background: linear-gradient(135deg, rgba(255, 241, 168, 0.9), rgba(240, 250, 246, 0.86));
+}
+
+.lawbot-citations article {
+  border-color: rgba(28, 64, 78, 0.14);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.floating-sos > button,
+.floating-work button,
+.floating-status > button {
+  color: #111820;
+  border-color: rgba(138, 91, 14, 0.2);
+  background: linear-gradient(135deg, #fff1a8, #f1c75d 52%, #c9911d);
+  box-shadow: 0 16px 34px rgba(201, 145, 29, 0.2);
+}
+
+.legal-footer {
+  color: #20384b;
+  border-top-color: rgba(28, 64, 78, 0.12);
+  background: rgba(255, 253, 246, 0.76);
+}
+
+@media (max-width: 760px) {
+  body {
+    background:
+      linear-gradient(180deg, #fff8e8 0%, #e8faf6 44%, #123047 100%);
+  }
+
+  main {
+    background: transparent;
+  }
+
+  .rail {
+    background: rgba(255, 253, 246, 0.96);
+    box-shadow: 0 12px 32px rgba(10, 30, 45, 0.1);
+  }
+
+  .brand strong,
+  .nav-item {
+    color: #173047;
+  }
+
+  .nav-item {
+    background: rgba(255, 255, 255, 0.68);
+  }
+
+  .topbar {
+    background: transparent;
+  }
+
+  .panel,
+  .glass-panel,
+  .task-card,
+  .judgment-card,
+  .metric-grid article,
+  .command-card,
+  .booking-dock,
+  .client-hero-panel,
+  .client-command-center,
+  .service-room-panel,
+  .audit-panel,
+  .form-panel,
+  .login-panel,
+  .calendar-panel,
+  .case-tracker-card,
+  .client-ai-card,
+  .source-library,
+  .trust-map,
+  .court-sync-panel,
+  .resolver-panel {
+    background: linear-gradient(180deg, rgba(255, 253, 246, 0.96), rgba(237, 249, 245, 0.92));
+    box-shadow: 0 14px 34px rgba(10, 30, 45, 0.11);
+  }
+
+  #home .cover-stage {
+    background: linear-gradient(180deg, rgba(255, 253, 246, 0.96), rgba(231, 249, 244, 0.92));
+  }
+
+  #home .poster-gates article {
+    min-height: 240px;
+    background:
+      linear-gradient(180deg, rgba(255, 253, 246, 0.95), rgba(232, 250, 246, 0.9)),
+      url("images/law-library-bg.png") center/cover;
+    background-blend-mode: screen;
+  }
+
+  .floating-lawbot {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .lawbot-greeting {
+    max-width: calc(100vw - 116px);
+  }
+}
+
+/* Dharma cover refinement: white shell, navy command stage, sharp gold chakra. */
+body {
+  color: #102033;
+  background:
+    linear-gradient(150deg, #fffdf7 0%, #eef5ff 34%, #f7efd7 58%, #0c2139 100%);
+}
+
+.app-shell {
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.88), rgba(239, 246, 255, 0.72) 45%, rgba(11, 30, 52, 0.8));
+}
+
+.rail,
+.topbar {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+#home .cover-stage {
+  color: #fffdf7;
+  border-color: rgba(231, 185, 72, 0.46);
+  background:
+    radial-gradient(circle at 50% 7%, rgba(231, 185, 72, 0.28), transparent 13rem),
+    radial-gradient(circle at 9% 18%, rgba(255, 255, 255, 0.14), transparent 14rem),
+    linear-gradient(142deg, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(160deg, #071426 0%, #0d2744 48%, #06111f 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 225, 0.08),
+    0 34px 92px rgba(7, 20, 38, 0.32);
+}
+
+#home .poster-mast {
+  gap: 14px;
+}
+
+#home .poster-mast > span {
+  color: #f2cf73;
+  text-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
+}
+
+#home .poster-mast h2 {
+  background: linear-gradient(135deg, #ffffff 0%, #f5d474 48%, #d69b24 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 14px 32px rgba(0, 0, 0, 0.3));
+}
+
+#home .poster-mast p {
+  color: #fff6d6;
+}
+
+#home .poster-emblem {
+  border-color: rgba(245, 212, 116, 0.92);
+  background:
+    radial-gradient(circle at center, #f8d36b 0 4%, transparent 4.5%),
+    repeating-conic-gradient(from 0deg, rgba(245, 212, 116, 0.96) 0 2deg, transparent 2deg 15deg),
+    radial-gradient(circle, transparent 0 30%, rgba(245, 212, 116, 0.22) 31% 35%, transparent 36% 58%, rgba(245, 212, 116, 0.22) 59% 62%, transparent 63%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(245, 212, 116, 0.08));
+  box-shadow:
+    0 0 0 7px rgba(255, 255, 255, 0.035),
+    0 0 52px rgba(245, 212, 116, 0.32),
+    0 22px 50px rgba(0, 0, 0, 0.24);
+  animation: dharmaChakraSpin 26s linear infinite;
+}
+
+#home .poster-emblem::before,
+#home .poster-emblem::after {
+  background: linear-gradient(90deg, transparent, rgba(245, 212, 116, 0.98), transparent);
+}
+
+#home .poster-emblem i {
+  color: #0b1e35;
+  border-color: rgba(245, 212, 116, 0.88);
+  background: radial-gradient(circle, #fff8d8, #f2c85b 62%, #a86f14);
+  box-shadow: inset 0 0 0 6px rgba(255, 255, 255, 0.28);
+  animation: dharmaChakraCounterSpin 26s linear infinite;
+}
+
+#home .poster-emblem i::before {
+  color: #0b1e35;
+  font-weight: 950;
+}
+
+.dharma-quote-card {
+  width: min(100%, 720px);
+  margin: 2px auto 0;
+  border: 1px solid rgba(245, 212, 116, 0.44);
+  border-radius: 8px;
+  padding: clamp(14px, 2.3vw, 20px);
+  color: #fffdf7;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(245, 212, 116, 0.08)),
+    rgba(255, 255, 255, 0.045);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+}
+
+.dharma-quote-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: #f5d474;
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.dharma-quote-card p {
+  margin: 0;
+  color: #fff9e8;
+  font-family: var(--serif);
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  line-height: 1.5;
+}
+
+.dharma-quote-card cite {
+  display: block;
+  margin-top: 10px;
+  color: rgba(255, 253, 247, 0.72);
+  font-style: normal;
+  font-weight: 700;
+}
+
+#home .msme-trust-badge {
+  border-color: rgba(245, 212, 116, 0.52);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+#home .msme-trust-badge span {
+  color: rgba(255, 253, 247, 0.72);
+}
+
+#home .poster-gates article {
+  color: #fffdf7;
+  border-color: rgba(245, 212, 116, 0.42);
+  background:
+    linear-gradient(180deg, rgba(8, 25, 45, 0.78), rgba(5, 14, 26, 0.88)),
+    url("images/law-library-bg.png") center/cover;
+  background-blend-mode: multiply;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 22px 58px rgba(0, 0, 0, 0.22);
+}
+
+#home .poster-gates article:nth-child(2) {
+  background:
+    linear-gradient(180deg, rgba(8, 25, 45, 0.78), rgba(5, 14, 26, 0.88)),
+    url("news/news-1.png") center/cover;
+  background-blend-mode: multiply;
+}
+
+#home .poster-gates h3 {
+  color: #f5d474;
+}
+
+#home .poster-gates strong,
+#home .poster-gates p {
+  color: #fffdf7;
+}
+
+#home .poster-gates button {
+  color: #0b1e35;
+  background: linear-gradient(135deg, #fff4bb, #f2c85b 48%, #c9911d);
+}
+
+#home .home-route-summary article,
+#home .poster-strip,
+#home .cover-ai-desk {
+  color: #102033;
+  border-color: rgba(11, 30, 52, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.88));
+  box-shadow: 0 18px 46px rgba(7, 20, 38, 0.13);
+}
+
+#home .home-route-summary span,
+#home .poster-title,
+#home .cover-ai-desk span {
+  color: #bc8615;
+}
+
+#home .poster-title span,
+#home .cover-ai-desk p {
+  color: #4a5d6b;
+}
+
+@keyframes dharmaChakraSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dharmaChakraCounterSpin {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home .poster-emblem,
+  #home .poster-emblem i {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    background:
+      linear-gradient(180deg, #fffdf7 0%, #eef5ff 45%, #0c2139 100%);
+  }
+
+  #home .cover-stage {
+    padding: 18px 12px 16px;
+    background:
+      radial-gradient(circle at 50% 8%, rgba(245, 212, 116, 0.22), transparent 9rem),
+      linear-gradient(160deg, #071426 0%, #0d2744 58%, #06111f 100%);
+  }
+
+  #home .poster-emblem {
+    width: 128px;
+    height: 128px;
+  }
+
+  #home .poster-emblem i {
+    width: 48px;
+    height: 48px;
+  }
+
+  #home .poster-emblem i::before {
+    font-size: 1.08rem;
+  }
+
+  .dharma-quote-card {
+    padding: 12px;
+  }
+
+  .dharma-quote-card p {
+    font-size: 0.9rem;
+  }
+
+  .dharma-quote-card cite {
+    font-size: 0.78rem;
+  }
+
+  .floating-status {
+    left: 10px;
+    bottom: 76px;
+  }
+
+  .floating-sos {
+    left: 10px;
+    bottom: 132px;
+  }
+
+  .floating-work {
+    right: 88px;
+    bottom: 76px;
+  }
+
+  .sos-orb,
+  .floating-status > button,
+  .floating-work button {
+    min-height: 42px;
+    width: auto;
+    height: auto;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    box-shadow: 0 10px 26px rgba(7, 20, 38, 0.22);
+  }
+
+  .sos-panel {
+    bottom: 52px;
+  }
+}
