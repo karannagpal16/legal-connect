@@ -94,8 +94,11 @@ function loadRazorpayCheckout() {
 function setDemoStatus(message) {
   if (!demoStatus || !message) return;
   demoStatus.textContent = message;
-  demoStatus.classList.add("pulse");
-  window.setTimeout(() => demoStatus.classList.remove("pulse"), 450);
+  demoStatus.classList.add("pulse", "show");
+  window.clearTimeout(window.legalConnectStatusTimer);
+  window.legalConnectStatusTimer = window.setTimeout(() => {
+    demoStatus.classList.remove("pulse", "show");
+  }, 2600);
   setFlowStatus("Latest Action", message);
 }
 
@@ -149,7 +152,7 @@ async function refreshPublicHealth() {
   try {
     publicHealth = await apiFetch("/api/health");
     const otpLabel = publicHealth.otp_fallback_enabled
-      ? "Testing OTP enabled only in demo mode."
+      ? "Testing OTP enabled for this build."
       : publicHealth.otp_mode === "email"
         ? "Email OTP is active for this environment."
         : "OTP fallback is disabled in production.";
@@ -333,7 +336,7 @@ requestLoginCode?.addEventListener("click", async () => {
       const localCode = "111111";
       localStorage.setItem("legalConnectLocalOtp", localCode);
       if (codeInput) codeInput.value = localCode;
-      if (verificationStatus) verificationStatus.textContent = "Testing OTP enabled only in demo mode. Code filled as 111111.";
+      if (verificationStatus) verificationStatus.textContent = "Testing OTP enabled for this build. Code filled as 111111.";
       return;
     }
     localStorage.removeItem("legalConnectLocalOtp");
@@ -1211,7 +1214,7 @@ function renderBetaReadiness(health = {}) {
     ["Resend ready", health.email?.provider === "resend" && health.email?.status === "ready"],
     ["Razorpay ready", health.payments === "razorpay-ready"],
     [`OTP mode: ${health.otp_mode || "unknown"}`, health.otp_mode === "email" || health.otp_fallback_enabled === true],
-    [`OTP fallback: ${health.otp_fallback_enabled ? "demo only" : "disabled"}`, health.otp_fallback_enabled !== undefined],
+    [`OTP fallback: ${health.otp_fallback_enabled ? "testing only" : "disabled"}`, health.otp_fallback_enabled !== undefined],
     ["UDYAM badge visible", document.body.textContent.includes("UDYAM-DL-11-0164811")],
     ["Domain configured", String(health.public_url || "").includes("legal-connect")],
     ["Legal pages present", Boolean(document.querySelector("#privacy-policy") && document.querySelector("#terms") && document.querySelector("#refund-policy"))],
@@ -1502,8 +1505,8 @@ notifyTestForm?.addEventListener("submit", async (event) => {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    let channel = "Demo notification queued";
-    let message = "Demo notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render.";
+    let channel = "Testing notification queued";
+    let message = "Testing notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
     if (result.mode === "resend" && result.status === "sent") {
       channel = "Resend email sent";
       message = `Email sent through Resend. Provider ID: ${result.provider_message_id || "not returned"}`;
@@ -1512,8 +1515,8 @@ notifyTestForm?.addEventListener("submit", async (event) => {
       channel = "Resend email failed";
       message = `Resend email failed: ${result.error_message || "safe error unavailable"}`;
     } else if (result.mode === "demo") {
-      channel = "Demo notification queued";
-      message = "Demo notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render.";
+      channel = "Testing notification queued";
+      message = "Testing notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
     }
     if (notifyTestStatus) notifyTestStatus.textContent = message;
     setDemoStatus(channel);

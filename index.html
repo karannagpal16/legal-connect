@@ -53,7 +53,7 @@
             <button class="gold-button" data-jump="posttask">New Court Mission</button>
           </div>
         </header>
-        <div class="demo-status" id="demo-status">System ready. Choose a portal, post a mission, or book counsel.</div>
+        <div class="demo-status" id="demo-status" aria-live="polite">Legal Connect ready.</div>
         <section class="command-dock" aria-label="Legal Connect quick actions">
           <button data-jump="home"><span>Home</span><strong>Start</strong></button>
           <button data-jump="client"><span>People</span><strong>Legal help</strong></button>
@@ -253,9 +253,9 @@
             <section class="advocate-hero">
               <div>
                 <button class="menu-dot" aria-label="Open advocate menu">Menu</button>
-                <span class="eyebrow">Legal Connect - Advocate Portal</span>
-                <h2>Litigation work. Court missions. Practice command.</h2>
-                <p>For verified advocates, RNA teams, interns, mission counsel, and court-facing legal professionals.</p>
+                <span class="eyebrow">Advocate Command</span>
+                <h2>Your cases, court missions, diary and receipts in one calm board.</h2>
+                <p>Built for advocates who need speed without chaos: post work, track proof, check eCourts, and keep client data private.</p>
                 <div class="trust-strip">
                   <span>Secure verified access</span>
                   <span>MSME: UDYAM-DL-11-0164811</span>
@@ -275,7 +275,7 @@
               <div>
                 <span class="eyebrow">My Safe Board</span>
                 <h3 data-user-name>Advocate workspace</h3>
-                <p data-user-status>Login to load your private cases, court missions, proxy queue and receipts.</p>
+                <p data-user-status>Login to open your saved case board, court mission queue, work holds and receipts.</p>
               </div>
               <div class="safe-board-grid">
                 <article><span>Cases</span><strong>2 active</strong><small>Private case cards stored under your login.</small></article>
@@ -289,36 +289,33 @@
               <article class="command-card proxy-card">
                 <span class="card-index">01</span>
                 <em>Most Used</em>
-                <h3>Court Mission Board</h3>
-                <p>Inspection, pass-over, filing, copies and urgent court work made trackable.</p>
+                <h3>Mission Desk</h3>
+                <p>Post court work, set fee, hold payment, assign counsel and approve proof from one place.</p>
                 <div class="icon-grid">
-                  <button data-jump="appearance">Pass-over</button>
-                  <button data-jump="appearance">Adjournment</button>
-                  <button data-jump="posttask">New mission</button>
-                  <button data-jump="appearance">Filing assistance</button>
-                  <button data-jump="appearance">Certified copies</button>
+                  <button data-jump="posttask">Post work</button>
+                  <button data-jump="appearance">Track mission</button>
+                  <button data-jump="diary">Check diary</button>
+                  <button data-jump="service-room">Receipts</button>
                 </div>
-                <button class="gold-button" data-jump="appearance">Open Mission Board</button>
+                <button class="gold-button" data-jump="appearance">Open Mission Desk</button>
               </article>
               <article class="command-card">
                 <span class="card-index">02</span>
-                <h3>Lawyer Services</h3>
-                <p>Daily tools for practicing advocates.</p>
+                <h3>Digital Library</h3>
+                <p>Bare acts, judgments, eCourts shortcuts and daily practice tools in a cleaner library.</p>
                 <div class="service-pairs">
-                  <button data-jump="bar">Police Administration</button>
-                  <button data-jump="bar">Court Support</button>
-                  <button data-jump="posttask">Filing Help</button>
-                  <button data-jump="bareact">Drafting Assistance</button>
-                  <button data-jump="bar">Legal Updates</button>
-                  <button data-jump="diary">Cause List Help</button>
+                  <button data-jump="bareact">Bare Acts</button>
+                  <button data-jump="judgment">Judgments</button>
+                  <button data-jump="bar">Updates</button>
+                  <button data-jump="diary">Cause List</button>
                 </div>
-                <button class="ghost-button" data-jump="bar">Explore Lawyer Services</button>
+                <button class="ghost-button" data-jump="bar">Open Digital Library</button>
               </article>
               <article class="command-card rna-login-card">
                 <span class="card-index">03</span>
-                <h3>RNA Secure Login</h3>
-                <p>Private workspace for RNA partners, associates, court clerks, accounts, and approved interns.</p>
-                <button class="gold-button" data-jump="chambers">RNA Partner / Associate Login</button>
+                <h3>Chamber Mode</h3>
+                <p>Private team workspace for RNA partners, associates, clerks, accounts and interns.</p>
+                <button class="gold-button" data-jump="chambers">Open Chamber Board</button>
                 <button class="ghost-button" data-jump="chambers">Clerk &amp; Filing Desk</button>
                 <button class="ghost-button" data-jump="intern">RNA Intern XP Login</button>
               </article>
@@ -960,20 +957,20 @@
         </section>
 
         <section class="view" id="intern">
-          <div class="workspace-head"><div><span class="eyebrow">Intern Board - Karma XP</span><h2>Make internship work feel like progress, not admin punishment.</h2></div><button class="gold-button" data-demo-action="College ID uploaded. Intern profile verified for RNA XP missions.">Upload College ID</button></div>
+          <div class="workspace-head"><div><span class="eyebrow">Intern Guild</span><h2>Learn litigation like a game, but every task is supervised and recorded.</h2></div><button class="gold-button" data-demo-action="Intern ID verified. Your supervised mission board is active.">Verify Intern ID</button></div>
           <div class="xp-hero panel">
             <div>
               <span class="eyebrow">Level 07 - Court Apprentice</span>
               <h3>4,820 XP</h3>
-              <p>Drafting, research, court observation, filing support, and punctuality convert into XP. High-performing interns unlock vouchers, certificates, recommendation letters, and PPO review.</p>
+              <p>Drafting, research, court observation, filing support and punctuality convert into XP. Every upload is reviewed by RNA before it becomes part of your record.</p>
             </div>
             <div class="xp-ring"><strong>78%</strong><span>to PPO shortlist</span></div>
           </div>
           <div class="feed-grid">
-            <article class="judgment-card"><span>+420 XP</span><h3>Draft exemption application</h3><p>Template provided. Associate review required. No private client contact.</p></article>
-            <article class="judgment-card"><span>+300 XP</span><h3>Court 18 observation quest</h3><p>Note bench, item flow, pass-over practice, and order dictation style.</p></article>
-            <article class="judgment-card"><span>+650 XP</span><h3>Research sprint: NDPS bail</h3><p>Find 5 current judgments, ratio, useful paragraphs, and practical argument points.</p></article>
-            <article class="judgment-card"><span>+150 XP</span><h3>Saket inspection support</h3><p>Shadow RNA clerk, learn inspection workflow, and upload a checklist for review.</p></article>
+            <article class="judgment-card"><span>+420 XP</span><h3>Draft exemption application</h3><p>Template provided. Associate review required. No private client contact.</p><button data-demo-action="Draft quest accepted. Deadline and upload slot opened.">Accept Quest</button></article>
+            <article class="judgment-card"><span>+300 XP</span><h3>Court 18 observation quest</h3><p>Note bench, item flow, pass-over practice, and order dictation style.</p><button data-demo-action="Court observation checklist opened. Upload note after court.">Open Checklist</button></article>
+            <article class="judgment-card"><span>+650 XP</span><h3>Research sprint: NDPS bail</h3><p>Find 5 current judgments, ratio, useful paragraphs, and practical argument points.</p><button data-demo-action="Research sprint started. RNA review will verify every source.">Start Sprint</button></article>
+            <article class="judgment-card"><span>+150 XP</span><h3>Saket inspection support</h3><p>Shadow RNA clerk, learn inspection workflow, and upload a checklist for review.</p><button data-demo-action="Inspection support task queued for RNA supervision.">Join Shadow Task</button></article>
           </div>
         </section>
 
@@ -1215,19 +1212,6 @@
         <button type="button" data-jump="posttask">Post Work</button>
       </aside>
 
-      <aside class="floating-status" id="flow-status">
-        <button class="flow-status-toggle" id="flow-status-toggle" type="button">Live Status</button>
-        <section class="flow-status-panel">
-          <span>Current Workspace</span>
-          <strong id="flow-status-title">Legal Connect ready</strong>
-          <p id="flow-status-detail">Login, book, post work, or open SOS. The latest status will stay here.</p>
-          <div class="flow-status-actions">
-            <button type="button" data-jump="client">Client</button>
-            <button type="button" data-jump="advocate">Advocate</button>
-            <button type="button" data-jump="admin">RNA</button>
-          </div>
-        </section>
-      </aside>
     </div>
 
     <script src="app.js?v=4"></script>
