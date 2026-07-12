@@ -7111,3 +7111,203 @@ main {
     font-size: 0.82rem;
   }
 }
+
+/* Final mobile clarity pass: prevent overlapping text and skinny controls. */
+html,
+body {
+  overflow-x: hidden;
+}
+
+.view,
+.panel,
+.command-card,
+.task-card,
+.judgment-card,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.payment-simulator,
+.client-command-center,
+.mission-command-center,
+.login-session-board {
+  min-width: 0;
+}
+
+button,
+input,
+select,
+textarea,
+.demo-status,
+.flow-status,
+.booking-confirmation,
+.service-status-card,
+.receipt-card,
+.source-card,
+.audit-row,
+.safe-board-grid article,
+.client-desk-grid article,
+.case-health div {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+button {
+  text-wrap: balance;
+}
+
+.demo-status {
+  pointer-events: none;
+  max-width: min(420px, calc(100vw - 24px));
+}
+
+.admin-action-grid,
+.booking-options,
+.mission-actions,
+.sos-case-grid,
+.service-actions,
+.source-actions,
+.receipt-actions {
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
+  gap: 10px;
+}
+
+.admin-action-grid button,
+.booking-options button,
+.mission-actions button,
+.sos-case-grid button,
+.service-actions button,
+.source-actions button,
+.receipt-actions button {
+  min-height: 48px;
+  border-radius: 14px;
+  padding: 12px;
+  line-height: 1.22;
+  white-space: normal;
+}
+
+.booking-options button {
+  display: grid;
+  gap: 5px;
+}
+
+.booking-options small,
+.sos-counsel-list small,
+.fine-print {
+  line-height: 1.45;
+}
+
+.sos-panel {
+  z-index: 80;
+  max-height: min(620px, 72vh);
+  overscroll-behavior: contain;
+}
+
+.sos-head {
+  position: sticky;
+  top: -14px;
+  z-index: 2;
+  align-items: center;
+  padding: 10px 0;
+  background: linear-gradient(180deg, rgba(8, 14, 24, 0.98), rgba(8, 14, 24, 0.88));
+  backdrop-filter: blur(14px);
+}
+
+#sos-close {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  font-weight: 950;
+  color: #111827;
+  background: linear-gradient(135deg, #fff9e8, #f5c76a);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+}
+
+.lawbot-panel,
+.sos-panel {
+  box-sizing: border-box;
+}
+
+@media (max-width: 760px) {
+  .admin-action-grid,
+  .booking-options,
+  .mission-actions,
+  .sos-case-grid,
+  .service-actions,
+  .source-actions,
+  .receipt-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .command-dock {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-dock button {
+    min-height: 58px;
+    padding: 10px;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  .floating-sos {
+    left: 10px;
+    right: auto;
+    bottom: 20px;
+  }
+
+  .sos-panel {
+    left: 0 !important;
+    right: auto !important;
+    width: min(360px, calc(100vw - 20px));
+  }
+
+  .floating-lawbot {
+    right: 10px;
+    bottom: 20px;
+  }
+
+  .lawbot-panel {
+    right: 0 !important;
+    left: auto !important;
+    width: min(360px, calc(100vw - 20px));
+  }
+
+  .floating-work {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .command-dock {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar h1 {
+    font-size: clamp(1.7rem, 10vw, 2.4rem);
+  }
+
+  .panel h2,
+  .panel h3,
+  .command-card h2,
+  .task-card h3,
+  .judgment-card h3,
+  .booking-dock h3 {
+    font-size: clamp(1.05rem, 7vw, 1.45rem);
+  }
+
+  .demo-status {
+    left: 10px;
+    right: 10px;
+    bottom: 96px;
+  }
+}

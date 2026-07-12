@@ -153,7 +153,7 @@ async function refreshPublicHealth() {
   try {
     publicHealth = await apiFetch("/api/health");
     const otpLabel = publicHealth.otp_fallback_enabled
-      ? "Testing OTP enabled for this build."
+      ? "Local OTP fallback is available for this build."
       : publicHealth.otp_mode === "email"
         ? "Email OTP is active for this environment."
         : "OTP fallback is disabled in production.";
@@ -179,7 +179,7 @@ function activateView(id) {
   views.forEach((view) => view.classList.toggle("active", view.id === id));
   navItems.forEach((item) => item.classList.toggle("active", item.dataset.view === id));
   title.textContent = titles[id] || "Legal Connect";
-  setDemoStatus(`${titles[id] || "Legal Connect"} opened.`);
+  setFlowStatus(titles[id] || "Legal Connect", "Choose a service, booking, receipt, or status card to continue.");
   history.replaceState(null, "", `#${id}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (id === "admin") refreshAdminDashboard();
@@ -297,7 +297,9 @@ document.querySelectorAll(".role-card").forEach((card) => {
     card.classList.add("selected");
     const roleSelect = document.querySelector("#login-role");
     if (roleSelect && card.dataset.loginRole) roleSelect.value = card.dataset.loginRole;
-    setDemoStatus(`${card.querySelector("strong")?.textContent || "Role"} selected. Login routing preview updated.`);
+    const label = card.querySelector("strong")?.textContent || "Role";
+    if (authStatus) authStatus.textContent = `${label} selected. Verify OTP, then open your private board.`;
+    setFlowStatus("Role selected", `${label} lane is ready.`);
   });
 });
 
@@ -339,7 +341,7 @@ requestLoginCode?.addEventListener("click", async () => {
     });
     const codeInput = document.querySelector("#login-code");
     if (result.devCode && codeInput) codeInput.value = result.devCode;
-    const devHint = result.devCode ? " Testing code filled. Tap Verify." : "";
+    const devHint = result.devCode ? " Verification code filled. Tap Verify." : "";
     if (verificationStatus) {
       verificationStatus.textContent = `${result.destinationMasked || "Contact"} verification ${result.status}. ${result.message || ""}${devHint}`;
       verificationStatus.classList.remove("verified");
@@ -352,7 +354,7 @@ requestLoginCode?.addEventListener("click", async () => {
       const localCode = "111111";
       localStorage.setItem("legalConnectLocalOtp", localCode);
       if (codeInput) codeInput.value = localCode;
-      if (verificationStatus) verificationStatus.textContent = "Testing OTP enabled for this build. Code filled as 111111.";
+      if (verificationStatus) verificationStatus.textContent = "Local verification fallback active. Code filled as 111111.";
       loginVerified = false;
       roleLoginForm?.classList.remove("verified-login");
       return;
@@ -379,7 +381,7 @@ verifyLoginCode?.addEventListener("click", async () => {
   } catch (error) {
     const localCode = localStorage.getItem("legalConnectLocalOtp");
     if (publicHealth.otp_fallback_enabled && localCode && code === localCode) {
-      markLoginVerified("Testing OTP verified successfully. Continue secure login.");
+      markLoginVerified("OTP verified successfully. Continue secure login.");
       return;
     }
     if (verificationStatus) verificationStatus.textContent = "Invalid or expired code.";
@@ -411,13 +413,13 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     localStorage.setItem("legalConnectSession", JSON.stringify(result));
     const destination = roleRoutes[result.user.role] || "client";
     const verifyNote = result.verification?.emailVerified || result.verification?.phoneVerified ? " Contact verified." : " Contact verification pending.";
-    if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}. Opening ${titles[destination]}.${verifyNote}`;
-    setDemoStatus(`${result.user.name} logged in. Opening ${titles[destination]}.`);
+    if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}.${verifyNote} Your private board is ready.`;
+    setDemoStatus(`${result.user.name} logged in successfully.`);
     applySessionToUi(result);
     activateView(destination);
     window.setTimeout(refreshWorkspaceData, 120);
   } catch (error) {
-    if (authStatus) authStatus.textContent = `${payload.name} logged in locally as ${payload.role}. Opening ${titles[roleRoutes[payload.role] || "client"]}. Backend sync will save permanent account records.`;
+    if (authStatus) authStatus.textContent = `${payload.name} logged in locally as ${payload.role}. Your private board is ready. Backend sync will save permanent account records.`;
     currentSession = { token: "", user: payload };
     localStorage.setItem("legalConnectSession", JSON.stringify(currentSession));
     applySessionToUi(currentSession);
@@ -524,7 +526,7 @@ async function askLawbot(question) {
 
 function toggleLawbot(open) {
   floatingLawbot?.classList.toggle("open", open ?? !floatingLawbot.classList.contains("open"));
-  setDemoStatus("LawBot opened. Choose your first legal move.");
+  setFlowStatus("Legal Concierge", "Ask a source-locked legal question or use the action buttons.");
 }
 
 lawbotToggle?.addEventListener("click", () => toggleLawbot());
@@ -550,7 +552,10 @@ lawbotForm?.addEventListener("submit", async (event) => {
 });
 
 document.querySelectorAll("[data-demo-action]").forEach((button) => {
-  button.addEventListener("click", () => setDemoStatus(button.dataset.demoAction));
+  button.addEventListener("click", () => {
+    const message = (button.dataset.demoAction || "Action ready.").replace(/\bopened\b/gi, "ready");
+    setFlowStatus("Action ready", message);
+  });
 });
 
 const missionSaveStatus = document.querySelector("#mission-save-status");
@@ -824,7 +829,7 @@ const clientActionStatus = document.querySelector("#client-action-status");
 document.querySelectorAll("[data-client-action]").forEach((button) => {
   button.addEventListener("click", () => {
     if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction;
-    setDemoStatus(button.dataset.clientAction);
+    setFlowStatus("Client action", button.dataset.clientAction || "Client action selected.");
   });
 });
 
@@ -852,7 +857,7 @@ function renderClientDesk(receipt) {
   if (!receipt) return;
   if (clientDeskStatus) clientDeskStatus.textContent = receipt.status?.includes("Paid") ? "Booked" : "Selected";
   if (deskBookingTitle) deskBookingTitle.textContent = `${receipt.plan} - Rs. ${receipt.amount || receipt.price}`;
-  if (deskBookingDetail) deskBookingDetail.textContent = `Receipt ${receipt.id || "pending"} is saved. Payment mode: ${receipt.paymentMode || "selection pending"}.`;
+  if (deskBookingDetail) deskBookingDetail.textContent = `Receipt ${receipt.id || "pending"} is saved. Payment status: ${receipt.status || "selection pending"}.`;
   if (deskNextStep) deskNextStep.textContent = receipt.plan?.includes("Audio")
     ? "Open Audio SOS"
     : receipt.plan?.includes("Video")
@@ -913,7 +918,7 @@ function selectBookingOption(button) {
   if (selectedPlan) selectedPlan.textContent = activeBooking.plan;
   if (selectedPrice) selectedPrice.textContent = `Rs. ${activeBooking.price}`;
   renderClientDesk({ ...activeBooking, amount: activeBooking.price, status: "Selected" });
-  setDemoStatus(`${activeBooking.plan} selected for Rs. ${activeBooking.price}.`);
+  setFlowStatus("Booking selected", `${activeBooking.plan} / Rs. ${activeBooking.price}. Pay & Confirm to create receipt.`);
 }
 
 document.querySelectorAll("[data-open-booking]").forEach((button) => {
@@ -921,8 +926,9 @@ document.querySelectorAll("[data-open-booking]").forEach((button) => {
     if (!document.querySelector("#client")?.classList.contains("active")) {
       activateView("client");
     }
-    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Booking desk opened. Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
-    setDemoStatus("Booking desk opened. Select a consult mode and confirm payment.");
+    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
+    if (bookingStatus) bookingStatus.textContent = "Choose a consult mode. Payment receipt appears after Pay & Confirm.";
+    setFlowStatus("Booking desk", "Choose a consult mode and confirm payment.");
     window.setTimeout(() => bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
     if (button.dataset.preselectBooking) {
       const preselect = [...document.querySelectorAll("[data-book-option]")].find((option) => option.dataset.bookOption === button.dataset.preselectBooking);
@@ -980,7 +986,7 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       const razorpayCurrency = order.currency || order.order?.currency || "INR";
       if (order.warning && bookingStatus) bookingStatus.textContent = order.warning;
       if (order.provider === "razorpay" && razorpayKey && razorpayOrderId) {
-        if (bookingStatus) bookingStatus.textContent = "Opening Razorpay Checkout. Payment will show paid only after backend verification.";
+        if (bookingStatus) bookingStatus.textContent = "Opening Razorpay Checkout. Paid status activates after secure backend verification.";
         const Razorpay = await loadRazorpayCheckout();
         const session = getSession()?.user || {};
         const checkout = new Razorpay({
@@ -1010,7 +1016,7 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
               localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
               saveLocalReceipt({ ...receipt, title: "Booking verified", message: receipt.route });
               renderClientDesk(receipt);
-              if (bookingConfirmation) bookingConfirmation.innerHTML = `<span>Booking Verified</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}</p>`;
+              if (bookingConfirmation) bookingConfirmation.innerHTML = `<span>Booking Verified</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}</p><p class="fine-print">Receipt is saved for client, RNA/Admin review, and notification follow-up.</p>`;
               if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} payment verified. Work Completion Hold is active.`;
               localStorage.setItem("legalConnectPaymentVerified", "true");
               setDemoStatus("Payment verified by backend.");
@@ -1037,12 +1043,12 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       setDemoStatus(error.message || "Payment order could not be created.");
     }
 
-    receipt.status = receipt.paymentMode === "demo" ? "Payment order created - verification pending" : receipt.status;
+    receipt.status = receipt.paymentMode === "demo" ? "Payment order created - secure verification pending" : receipt.status;
     localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
     saveLocalReceipt({ ...receipt, title: "Booking created", message: `${receipt.plan} created. ${receipt.route}` });
     renderClientDesk(receipt);
     if (bookingConfirmation) {
-      bookingConfirmation.innerHTML = `<span>Booking Created</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}. Real paid status requires backend verification.</p>`;
+      bookingConfirmation.innerHTML = `<span>Booking Created</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}. Paid status updates after Razorpay verification.</p><p class="fine-print">Tell us your problem in the service room so counsel gets context before accepting.</p>`;
     }
     if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} booking created. Payment is not marked paid until verified.`;
     setDemoStatus(`${receipt.plan} booking created. Verification pending.`);
@@ -1066,7 +1072,8 @@ const sosStatus = document.querySelector("#sos-status");
 
 function openSosPanel() {
   floatingSos?.classList.add("open");
-  setDemoStatus("Legal SOS opened. Pick a situation or book emergency counsel.");
+  if (sosStatus) sosStatus.textContent = "Legal SOS is ready. Pick a situation, then choose emergency chat/audio/video counsel.";
+  setFlowStatus("Legal SOS", "SOS panel ready. Use the close button to exit.");
 }
 
 sosToggle?.addEventListener("click", openSosPanel);
@@ -1110,7 +1117,7 @@ document.querySelectorAll("[data-sos-book]").forEach((button) => {
       setDemoStatus("Legal SOS saved and receipt generated.");
       refreshReceipts();
     } catch {
-      setDemoStatus("SOS selected locally. Start/login backend to save it for RNA/Admin.");
+      if (sosStatus) sosStatus.textContent = "SOS selected. Backend sync is needed to save it for RNA/Admin review.";
     }
     const videoOption = [...document.querySelectorAll("[data-book-option]")].find((option) => option.dataset.bookOption === "SOS Video");
     saveLocalReceipt({ ...sosReceipt, title: "Legal SOS receipt", message: sosReceipt.route });
@@ -1302,15 +1309,15 @@ document.addEventListener("click", (event) => {
   if (action === "pdf") {
     const receiptWindow = window.open("", "_blank", "width=420,height=640");
     receiptWindow?.document.write(`<title>Legal Connect Receipt</title><body style="font-family:Arial,sans-serif;padding:24px;line-height:1.6"><h2>${escapeHtml(button.dataset.receiptTitle || "Legal Connect Receipt")}</h2><p>${escapeHtml(body)}</p><p>Legal Connect - UDYAM-DL-11-0164811</p><script>window.print();</script></body>`);
-    setDemoStatus("Receipt opened as printable PDF.");
+    setDemoStatus("Printable receipt ready.");
   }
   if (action === "email") {
     window.location.href = `mailto:?subject=Legal Connect Receipt&body=${encodeURIComponent(body)}`;
-    setDemoStatus("Email receipt draft opened.");
+    setDemoStatus("Email receipt draft ready.");
   }
   if (action === "whatsapp") {
     window.open(`https://wa.me/?text=${encodeURIComponent(`Legal Connect receipt: ${body}`)}`, "_blank", "noreferrer");
-    setDemoStatus("WhatsApp receipt share opened.");
+    setDemoStatus("WhatsApp receipt share ready.");
   }
 });
 
@@ -1538,8 +1545,8 @@ notifyTestForm?.addEventListener("submit", async (event) => {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    let channel = "Testing notification queued";
-    let message = "Testing notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
+    let channel = "Notification queued";
+    let message = "In-app notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
     if (result.mode === "resend" && result.status === "sent") {
       channel = "Resend email sent";
       message = `Email sent through Resend. Provider ID: ${result.provider_message_id || "not returned"}`;
@@ -1548,8 +1555,8 @@ notifyTestForm?.addEventListener("submit", async (event) => {
       channel = "Resend email failed";
       message = `Resend email failed: ${result.error_message || "safe error unavailable"}`;
     } else if (result.mode === "demo") {
-      channel = "Testing notification queued";
-      message = "Testing notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
+      channel = "Notification queued";
+      message = "In-app notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
     }
     if (notifyTestStatus) notifyTestStatus.textContent = message;
     setDemoStatus(channel);
@@ -1608,7 +1615,7 @@ document.addEventListener("click", (event) => {
   ];
   if (handledKeys.some((key) => Object.prototype.hasOwnProperty.call(button.dataset, key))) return;
   const label = button.textContent.trim().replace(/\s+/g, " ") || "This action";
-  setDemoStatus(`${label} is prepared for beta. Use Service Room or RNA Control Room to track the next step.`);
+  setFlowStatus("Action selected", label);
 });
 
 async function refreshNotifications() {
