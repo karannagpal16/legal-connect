@@ -30,6 +30,7 @@ const title = document.querySelector("#view-title");
 const demoStatus = document.querySelector("#demo-status");
 const API_BASE = location.protocol === "file:" ? "http://127.0.0.1:3000" : "";
 let currentSession = null;
+let loginVerified = false;
 const flowStatus = document.querySelector("#flow-status");
 const flowStatusToggle = document.querySelector("#flow-status-toggle");
 const flowStatusTitle = document.querySelector("#flow-status-title");
@@ -204,7 +205,7 @@ function applySessionToUi(session) {
     node.textContent = role.toUpperCase();
   });
   const status = role === "advocate"
-    ? "Board ready: 2 cases tracked, proxy queue none, work hold receipts private."
+    ? "Board opened: saved cases load under your login, proxy queue shows None until assigned, and work-hold receipts stay private."
     : role === "client"
       ? "People Shield ready: bookings, SOS, receipts and documents stay private."
       : role === "intern"
@@ -214,6 +215,19 @@ function applySessionToUi(session) {
     node.textContent = status;
   });
   setFlowStatus(label, status);
+}
+
+function markLoginVerified(message = "OTP verified successfully. Continue secure login.") {
+  loginVerified = true;
+  if (verificationStatus) {
+    verificationStatus.textContent = message;
+    verificationStatus.classList.add("verified");
+  }
+  if (authStatus) authStatus.textContent = "Verification successful. Press Open My Board to enter your role dashboard.";
+  roleLoginForm?.classList.add("verified-login");
+  const submit = roleLoginForm?.querySelector('button[type="submit"]');
+  if (submit) submit.textContent = "Open My Board";
+  setFlowStatus("OTP Verified", "Secure lane is ready. Your role dashboard will open after login.");
 }
 
 flowStatusToggle?.addEventListener("click", () => {
@@ -330,6 +344,8 @@ requestLoginCode?.addEventListener("click", async () => {
       verificationStatus.textContent = `${result.destinationMasked || "Contact"} verification ${result.status}. ${result.message || ""}${devHint}`;
       verificationStatus.classList.remove("verified");
     }
+    loginVerified = false;
+    roleLoginForm?.classList.remove("verified-login");
   } catch (error) {
     const codeInput = document.querySelector("#login-code");
     if (publicHealth.otp_fallback_enabled) {
@@ -337,6 +353,8 @@ requestLoginCode?.addEventListener("click", async () => {
       localStorage.setItem("legalConnectLocalOtp", localCode);
       if (codeInput) codeInput.value = localCode;
       if (verificationStatus) verificationStatus.textContent = "Testing OTP enabled for this build. Code filled as 111111.";
+      loginVerified = false;
+      roleLoginForm?.classList.remove("verified-login");
       return;
     }
     localStorage.removeItem("legalConnectLocalOtp");
@@ -357,17 +375,11 @@ verifyLoginCode?.addEventListener("click", async () => {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    if (verificationStatus) {
-      verificationStatus.textContent = `${result.destinationMasked || "Contact"} OTP verified successfully. Continue secure login.`;
-      verificationStatus.classList.add("verified");
-    }
+    markLoginVerified(`${result.destinationMasked || "Contact"} OTP verified successfully. Continue secure login.`);
   } catch (error) {
     const localCode = localStorage.getItem("legalConnectLocalOtp");
     if (publicHealth.otp_fallback_enabled && localCode && code === localCode) {
-      if (verificationStatus) {
-        verificationStatus.textContent = "Testing OTP verified successfully. Continue secure login.";
-        verificationStatus.classList.add("verified");
-      }
+      markLoginVerified("Testing OTP verified successfully. Continue secure login.");
       return;
     }
     if (verificationStatus) verificationStatus.textContent = "Invalid or expired code.";
@@ -387,6 +399,9 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     if (authStatus) authStatus.textContent = "Consent is required for role-based login, receipts, notifications, and support records.";
     return;
   }
+  if (!loginVerified && (payload.email || payload.phone)) {
+    if (authStatus) authStatus.textContent = "Login continuing with verification pending. Press Verify first when OTP delivery is active.";
+  }
   try {
     const result = await apiFetch("/api/auth/login", {
       method: "POST",
@@ -396,16 +411,18 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     localStorage.setItem("legalConnectSession", JSON.stringify(result));
     const destination = roleRoutes[result.user.role] || "client";
     const verifyNote = result.verification?.emailVerified || result.verification?.phoneVerified ? " Contact verified." : " Contact verification pending.";
-    if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}. Routing to ${titles[destination]}.${verifyNote}`;
-    setDemoStatus(`Logged in as ${result.user.role}.`);
+    if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}. Opening ${titles[destination]}.${verifyNote}`;
+    setDemoStatus(`${result.user.name} logged in. Opening ${titles[destination]}.`);
     applySessionToUi(result);
     activateView(destination);
+    window.setTimeout(refreshWorkspaceData, 120);
   } catch (error) {
-    if (authStatus) authStatus.textContent = "Login saved locally for testing. Start the backend for permanent account records.";
+    if (authStatus) authStatus.textContent = `${payload.name} logged in locally as ${payload.role}. Opening ${titles[roleRoutes[payload.role] || "client"]}. Backend sync will save permanent account records.`;
     currentSession = { token: "", user: payload };
     localStorage.setItem("legalConnectSession", JSON.stringify(currentSession));
     applySessionToUi(currentSession);
     activateView(roleRoutes[payload.role] || "client");
+    window.setTimeout(refreshWorkspaceData, 120);
   }
 });
 
@@ -1486,9 +1503,25 @@ document.querySelectorAll("[data-admin-action]").forEach((button) => {
       });
       if (adminActionStatus) adminActionStatus.textContent = `Action saved: ${result.status || action}.`;
       setDemoStatus(`RNA action saved: ${action}.`);
+      saveLocalReceipt({
+        id: `RNA-${Date.now().toString().slice(-6)}`,
+        title: "RNA/Admin action",
+        status: "saved",
+        message: `${action.replaceAll("_", " ")} recorded in control room.`,
+      });
       refreshAuditLogs();
+      refreshReceipts();
     } catch {
-      if (adminActionStatus) adminActionStatus.textContent = `Testing action queued locally: ${action}.`;
+      const localAction = action.replaceAll("_", " ");
+      if (adminActionStatus) adminActionStatus.textContent = `Control action queued: ${localAction}. Backend sync required for permanent audit.`;
+      saveLocalReceipt({
+        id: `RNA-${Date.now().toString().slice(-6)}`,
+        title: "RNA/Admin local action",
+        status: "queued",
+        message: `${localAction} queued for backend sync.`,
+      });
+      refreshReceipts();
+      setDemoStatus(`RNA action queued: ${localAction}.`);
     }
   });
 });
