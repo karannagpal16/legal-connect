@@ -520,7 +520,7 @@ function appendLawbotMessage(role, message, citations = [], queryId = "") {
 
 async function askLawbot(question) {
   appendLawbotMessage("user", question);
-  appendLawbotMessage("bot", "Legal AI is coming soon for live testing. The Source Library is ready in RNA/Admin: upload official text or PDFs, approve, then index before the LawBot is enabled.");
+  appendLawbotMessage("bot", "Legal AI is coming soon for source-locked answers. The Source Library is ready in RNA/Admin: upload official text or PDFs, approve, then index before the LawBot is enabled.");
   setDemoStatus("Legal AI marked Coming Soon. Source Library remains available in RNA/Admin.");
 }
 
@@ -699,10 +699,10 @@ document.querySelectorAll("[data-sync-stream]").forEach((button) => {
       caseUpdateStream = null;
     });
     caseUpdateStream.onerror = () => {
-      if (courtSyncStatus) courtSyncStatus.textContent = "Court Sync stream is unavailable in this preview. Testing fallback loaded.";
+      if (courtSyncStatus) courtSyncStatus.textContent = "Court Sync stream is unavailable right now. Local fallback loaded.";
       handleCaseUpdate({
         caseId: "case-demo-1",
-        message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5. Testing fallback.",
+        message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5. Local fallback.",
       });
       caseUpdateStream?.close();
       caseUpdateStream = null;
@@ -752,7 +752,7 @@ document.querySelectorAll("[data-diary-tab]").forEach((button) => {
     document.querySelectorAll("[data-diary-tab]").forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
     const tab = button.dataset.diaryTab;
-    if (courtSyncStatus) courtSyncStatus.textContent = `${tab} matters loaded. Diary data is ready for DB-backed testing.`;
+    if (courtSyncStatus) courtSyncStatus.textContent = `${tab} matters loaded. Diary data is ready for DB-backed sync.`;
     setDemoStatus(`Case Diary switched to ${tab}.`);
   });
 });
@@ -846,6 +846,7 @@ const bookingStatus = document.querySelector("#booking-status");
 const selectedPlan = document.querySelector("#selected-plan");
 const selectedPrice = document.querySelector("#selected-price");
 const bookingConfirmation = document.querySelector("#booking-confirmation");
+const bookingProblem = document.querySelector("#booking-problem");
 const clientDeskStatus = document.querySelector("#client-desk-status");
 const deskBookingTitle = document.querySelector("#desk-booking-title");
 const deskBookingDetail = document.querySelector("#desk-booking-detail");
@@ -866,7 +867,9 @@ function renderClientDesk(receipt) {
         ? "Open Chat Thread"
         : receipt.plan?.includes("Doorstep")
           ? "Confirm Doorstep Slot"
-          : "Open Attorney Shield";
+          : receipt.plan?.includes("Office")
+            ? "Confirm Office Slot"
+            : "Open Attorney Shield";
   if (deskNextDetail) deskNextDetail.textContent = receipt.route || "Choose a booking option and confirm payment to unlock the next room.";
   updateServiceRoom(receipt);
 }
@@ -894,9 +897,10 @@ function updateServiceRoom(receipt = {}) {
   if (serviceRoomRoute) serviceRoomRoute.textContent = receipt.route || receipt.nextDestination || "RNA desk will assign the next step after confirmation.";
   if (serviceRoomDetail) {
     const fallbackNote = receipt.paymentMode === "local-fallback" || /local/i.test(receipt.status || "")
-      ? " Saved locally for testing. Server sync may be required."
+      ? " Saved locally until server sync completes."
       : "";
-    serviceRoomDetail.textContent = `Receipt ${receipt.id || receipt.receiptNo || "pending"} is linked to your login. Client details stay private; RNA/Admin can review status and receipts.${fallbackNote}`;
+    const problemNote = receipt.problem ? ` Problem summary: ${receipt.problem}` : "";
+    serviceRoomDetail.textContent = `Receipt ${receipt.id || receipt.receiptNo || "pending"} is linked to your login. Client details stay private; RNA/Admin can review status and receipts.${problemNote}${fallbackNote}`;
   }
   if (serviceRoomTimeline) {
     serviceRoomTimeline.innerHTML = serviceStepsFor(receipt)
@@ -918,7 +922,7 @@ function selectBookingOption(button) {
   if (selectedPlan) selectedPlan.textContent = activeBooking.plan;
   if (selectedPrice) selectedPrice.textContent = `Rs. ${activeBooking.price}`;
   renderClientDesk({ ...activeBooking, amount: activeBooking.price, status: "Selected" });
-  setFlowStatus("Booking selected", `${activeBooking.plan} / Rs. ${activeBooking.price}. Pay & Confirm to create receipt.`);
+  setFlowStatus("Booking selected", `${activeBooking.plan} / Rs. ${activeBooking.price}. Add a short problem summary, then Pay & Confirm.`);
 }
 
 document.querySelectorAll("[data-open-booking]").forEach((button) => {
@@ -926,8 +930,8 @@ document.querySelectorAll("[data-open-booking]").forEach((button) => {
     if (!document.querySelector("#client")?.classList.contains("active")) {
       activateView("client");
     }
-    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Choose Attorney Shield, Video, Audio, Chat, or Doorstep.";
-    if (bookingStatus) bookingStatus.textContent = "Choose a consult mode. Payment receipt appears after Pay & Confirm.";
+    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Choose Attorney Shield, Video, Audio, Chat, Office, or Doorstep.";
+    if (bookingStatus) bookingStatus.textContent = "Choose a consult mode, write the problem, then Pay & Confirm.";
     setFlowStatus("Booking desk", "Choose a consult mode and confirm payment.");
     window.setTimeout(() => bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
     if (button.dataset.preselectBooking) {
@@ -946,17 +950,19 @@ document.querySelectorAll("[data-book-option]").forEach((button) => {
 document.querySelectorAll("[data-pay-booking]").forEach((button) => {
   button.addEventListener("click", async () => {
     if (!activeBooking) {
-      if (bookingStatus) bookingStatus.textContent = "Please select Attorney Shield, Video, Audio, Chat, or Doorstep first.";
+      if (bookingStatus) bookingStatus.textContent = "Please select Attorney Shield, Video, Audio, Chat, Office, or Doorstep first.";
       setDemoStatus("Select a booking mode before payment.");
       return;
     }
 
+    const problemSummary = bookingProblem?.value.trim() || "No problem summary added yet.";
     const bookingId = `LC-${Date.now().toString().slice(-6)}`;
     const receipt = {
       id: bookingId,
       plan: activeBooking.plan,
       amount: activeBooking.price,
       route: activeBooking.route,
+      problem: problemSummary,
       status: "Payment pending verification"
     };
 
@@ -971,11 +977,13 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
           receiptNo: bookingId,
           nextDestination: activeBooking.route,
           workHoldStatus: "pending",
+          problemSummary,
+          payload: { problemSummary },
         }),
       });
       const order = await apiFetch("/api/payments/create-order", {
         method: "POST",
-        body: JSON.stringify({ amount: Number(activeBooking.price), serviceType: activeBooking.plan, bookingId: savedBooking.id, receiptNo: bookingId }),
+        body: JSON.stringify({ amount: Number(activeBooking.price), serviceType: activeBooking.plan, bookingId: savedBooking.id, receiptNo: bookingId, problemSummary }),
       });
       receipt.backendId = savedBooking.id;
       receipt.paymentMode = order.mode;
@@ -1014,9 +1022,9 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
               receipt.workHoldStatus = verification.work_hold_status || "pending";
               receipt.razorpayPaymentId = response.razorpay_payment_id;
               localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
-              saveLocalReceipt({ ...receipt, title: "Booking verified", message: receipt.route });
+              saveLocalReceipt({ ...receipt, title: "Booking verified", message: `${receipt.route} Problem: ${receipt.problem}` });
               renderClientDesk(receipt);
-              if (bookingConfirmation) bookingConfirmation.innerHTML = `<span>Booking Verified</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}</p><p class="fine-print">Receipt is saved for client, RNA/Admin review, and notification follow-up.</p>`;
+              if (bookingConfirmation) bookingConfirmation.innerHTML = `<span>Booking Verified</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Problem:</b> ${escapeHtml(receipt.problem)}</p><p><b>Status:</b> ${receipt.status}</p><p class="fine-print">Receipt is saved for client, RNA/Admin review, and notification follow-up.</p>`;
               if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} payment verified. Work Completion Hold is active.`;
               localStorage.setItem("legalConnectPaymentVerified", "true");
               setDemoStatus("Payment verified by backend.");
@@ -1045,10 +1053,10 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
 
     receipt.status = receipt.paymentMode === "demo" ? "Payment order created - secure verification pending" : receipt.status;
     localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
-    saveLocalReceipt({ ...receipt, title: "Booking created", message: `${receipt.plan} created. ${receipt.route}` });
+    saveLocalReceipt({ ...receipt, title: "Booking created", message: `${receipt.plan} created. ${receipt.route} Problem: ${receipt.problem}` });
     renderClientDesk(receipt);
     if (bookingConfirmation) {
-      bookingConfirmation.innerHTML = `<span>Booking Created</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> ${receipt.status}. Paid status updates after Razorpay verification.</p><p class="fine-print">Tell us your problem in the service room so counsel gets context before accepting.</p>`;
+      bookingConfirmation.innerHTML = `<span>Booking Created</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Problem:</b> ${escapeHtml(receipt.problem)}</p><p><b>Status:</b> ${receipt.status}. Paid status updates after Razorpay verification.</p><p class="fine-print">Counsel sees the problem summary before accepting the request.</p>`;
     }
     if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} booking created. Payment is not marked paid until verified.`;
     setDemoStatus(`${receipt.plan} booking created. Verification pending.`);
@@ -1062,7 +1070,8 @@ const savedClientBooking = localStorage.getItem("legalConnectClientBooking");
 if (bookingConfirmation && savedClientBooking) {
   const receipt = JSON.parse(savedClientBooking);
   renderClientDesk(receipt);
-  bookingConfirmation.innerHTML = `<span>Last Booking</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p><p><b>Status:</b> This booking is also visible at the top in My Legal Desk.</p>`;
+  bookingConfirmation.innerHTML = `<span>Last Booking</span><strong>${receipt.id} - ${receipt.plan} - Rs. ${receipt.amount}</strong><p>${receipt.route}</p>${receipt.problem ? `<p><b>Problem:</b> ${escapeHtml(receipt.problem)}</p>` : ""}<p><b>Status:</b> This booking is also visible at the top in My Legal Desk.</p>`;
+  if (bookingProblem && receipt.problem) bookingProblem.value = receipt.problem;
 }
 
 const floatingSos = document.querySelector("#floating-sos");
@@ -1101,7 +1110,7 @@ document.querySelectorAll("[data-sos-book]").forEach((button) => {
       plan: serviceType,
       amount,
       status: "Counsel selection pending",
-      route: "RNA SOS desk: emergency counsel selection, video route, timer and receipt tracking.",
+      route: "RNA SOS desk: emergency counsel selection, 15 minute video route, timer and receipt tracking.",
       paymentMode: "SOS route",
     };
     const message = `${serviceType} selected. Status: hold active, counsel selection pending.`;
@@ -1134,7 +1143,7 @@ draftForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const draftType = document.querySelector("#draft-type")?.value || "Agreement draft";
   const contact = document.querySelector("#draft-contact")?.value || "";
-  const amount = Number(document.querySelector("#draft-fee")?.value || 499);
+  const amount = Number(document.querySelector("#draft-fee")?.value || 799);
   const receiptNeeded = document.querySelector("#draft-receipt")?.checked ? "Receipt requested" : "Receipt not requested";
   const stampPaper = document.querySelector("#draft-stamp")?.checked ? "Stamp paper support requested" : "No stamp paper support";
   const details = document.querySelector("#draft-details")?.value || "Details to be filled by client.";
@@ -1238,16 +1247,16 @@ function renderBetaReadiness(health = {}) {
     ["Resend ready", health.email?.provider === "resend" && health.email?.status === "ready"],
     ["Razorpay ready", health.payments === "razorpay-ready"],
     [`OTP mode: ${health.otp_mode || "unknown"}`, health.otp_mode === "email" || health.otp_fallback_enabled === true],
-    [`OTP fallback: ${health.otp_fallback_enabled ? "testing only" : "disabled"}`, health.otp_fallback_enabled !== undefined],
+    [`OTP fallback: ${health.otp_fallback_enabled ? "local fallback" : "disabled"}`, health.otp_fallback_enabled !== undefined],
     ["UDYAM badge visible", document.body.textContent.includes("UDYAM-DL-11-0164811")],
     ["Domain configured", String(health.public_url || "").includes("legal-connect")],
     ["Legal pages present", Boolean(document.querySelector("#privacy-policy") && document.querySelector("#terms") && document.querySelector("#refund-policy"))],
-    ["Test notification sent", localStorage.getItem("legalConnectNotifyTest") === "sent"],
-    ["Test payment verified", localStorage.getItem("legalConnectPaymentVerified") === "true"],
+    ["Notification sent", localStorage.getItem("legalConnectNotifyTest") === "sent"],
+    ["Razorpay payment verified", localStorage.getItem("legalConnectPaymentVerified") === "true"],
     ["BNSS source indexed", Number(health.legal_chunks_count || 0) > 0],
     ["UI duplication fixed", document.querySelectorAll(".rail").length === 1 && document.querySelectorAll(".legal-footer").length === 1 && document.querySelectorAll("#floating-lawbot").length === 1],
   ];
-  betaReadinessList.innerHTML = checks.map(([label, ok]) => `<div><time>${ok ? "Pass" : "Warning"}</time><strong>${escapeHtml(label)}</strong><span>${ok ? "Ready for controlled beta." : "Needs live verification or configured provider."}</span></div>`).join("");
+  betaReadinessList.innerHTML = checks.map(([label, ok]) => `<div><time>${ok ? "Pass" : "Warning"}</time><strong>${escapeHtml(label)}</strong><span>${ok ? "Ready." : "Needs live verification or configured provider."}</span></div>`).join("");
 }
 
 function renderPaymentStatus(status = {}) {

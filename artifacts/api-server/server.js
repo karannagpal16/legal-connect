@@ -68,7 +68,7 @@ const demoStore = {
       id: "task-demo-1",
       title: "Saket Court inspection",
       status: "Open",
-      fee: 1000,
+      fee: 650,
       court: "Saket District Court",
     },
   ],
@@ -1097,7 +1097,7 @@ const server = http.createServer(async (req, res) => {
         status: "failed",
         destinationType,
         destinationMasked: maskPhone(phone),
-        error_message: "Phone OTP is not enabled yet. Use email verification for this controlled beta.",
+        error_message: "Phone OTP is not enabled yet. Use email verification.",
       });
       return;
     }
@@ -1170,7 +1170,7 @@ const server = http.createServer(async (req, res) => {
 
     sendJson(res, 200, {
       ok: true,
-      mode: destinationType === "phone" ? "sms-demo" : "demo",
+      mode: destinationType === "phone" ? "sms-fallback" : "local-fallback",
       status: "queued",
       otp_mode: otpStatus.otp_mode,
       otp_fallback_enabled: otpStatus.otp_fallback_enabled,
@@ -1179,7 +1179,7 @@ const server = http.createServer(async (req, res) => {
       expiresAt,
       message: destinationType === "phone"
         ? "Phone OTP provider is not configured yet. SMS delivery is ready to connect."
-        : "Demo verification queued because email provider is not configured.",
+        : "Local verification queued because email provider is not configured.",
       ...(otpStatus.otp_fallback_enabled ? { devCode: code } : {}),
     });
     return;
@@ -1478,7 +1478,7 @@ const server = http.createServer(async (req, res) => {
     const recipient = body.to || body.email || authUser?.email || null;
     const provider = emailProviderStatus();
     if (provider.provider !== "resend" || provider.status !== "ready") {
-      const demoMessage = "Demo/in-app notification queued because Resend is not configured.";
+      const demoMessage = "In-app notification queued because Resend is not configured.";
       await createNotification("notify_test", title, message, { mode: "demo", channels: ["in-app", "email-demo"] }, authUser.id || body.userId || null);
       await writeAuditLog(authUser, "notification_test_demo_queued", "notification", "notify-test", demoMessage, { recipient, provider: emailAdminStatus() });
       sendJson(res, 202, {
@@ -1993,7 +1993,7 @@ const server = http.createServer(async (req, res) => {
     const signature = body.signature || body.razorpay_signature;
     const bookingId = body.bookingId || body.booking_id;
     if (!config.razorpayKeySecret) {
-      sendJson(res, 200, { ok: true, mode: "demo", status: "queued", payment_status: "demo_pending", work_hold_status: "pending" });
+      sendJson(res, 200, { ok: true, mode: "demo", status: "queued", payment_status: "verification_pending", work_hold_status: "pending" });
       return;
     }
     const valid = verifyRazorpayPaymentSignature(orderId, paymentId, signature);

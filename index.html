@@ -6,7 +6,7 @@
     <title>Legal Connect - Professional Legal OS</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="favicon.svg" />
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
   </head>
   <body>
     <div class="app-shell">
@@ -190,13 +190,13 @@
             <section class="phase-command">
               <div>
                 <span class="eyebrow">Launch Map</span>
-                <h3>Testing phase is now a working trust layer.</h3>
+                <h3>Working trust layer for real users.</h3>
                 <p>Client booking, advocate missions, Legal SOS, receipts, source library, case tracker, and deployment path are grouped into one visible product story.</p>
               </div>
               <div class="phase-grid">
                 <article>
                   <span>Now / Phase 1</span>
-                  <strong>Testing-ready flows</strong>
+                  <strong>Ready service flows</strong>
                   <p>Client and advocate UI, booking/payment handoff, Legal SOS, case tracker, receipts, build and Render deployment.</p>
                 </article>
                 <article>
@@ -222,12 +222,12 @@
               </div>
             </div>
             <form class="panel form-panel" id="role-login-form">
-              <label>Name<input id="login-name" value="Legal Connect Beta User" /></label>
+              <label>Name<input id="login-name" value="Legal Connect User" /></label>
               <label>Email<input id="login-email" value="" placeholder="you@example.com" /></label>
               <label>Phone<input id="login-phone" value="" placeholder="+91 98XX XX4210" /></label>
               <div class="verification-box">
                 <strong>Contact Verification</strong>
-                <p>Email OTP works when Resend is configured. Phone OTP is SMS-provider ready and remains in testing fallback until an approved SMS vendor is connected.</p>
+                <p>Email OTP works when Resend is configured. Phone OTP is ready for an approved SMS provider.</p>
                 <p class="otp-mode-note" data-otp-status>Checking OTP mode...</p>
                 <div class="verification-actions">
                   <button class="ghost-button" type="button" id="request-login-code">Send Code</button>
@@ -606,7 +606,7 @@
             </div>
             <div class="client-flow-strip">
               <span class="done">1. Posted by A</span>
-              <span class="done">2. Fee locked</span>
+              <span class="done">2. Work hold set</span>
               <span class="active">3. RNA counsel accepts</span>
               <span>4. Proof uploaded</span>
               <span>5. A approves release</span>
@@ -619,8 +619,8 @@
           </section>
           <div class="task-grid">
             <article class="task-card trusted" data-jump="task"><span>In Progress - posted by Adv. A</span><h3>Saket Court inspection</h3><p>Inspect civil file, note next date, photograph inspection slip. Client identity hidden.</p><strong>Work hold: amount selected by poster</strong><small>Accepted by RNA verified counsel B</small></article>
-            <article class="task-card" data-jump="task"><span>Open Mission</span><h3>Certified copy collection</h3><p>Saket filing counter, receipt proof and order copy required before release.</p><strong>Fee locked: Rs. 650</strong><small>Status: awaiting acceptance</small></article>
-            <article class="task-card runner"><span>Legal SOS</span><h3>Urgent police station support</h3><p>Prepare first-response checklist and connect verified counsel for emergency guidance.</p><strong>Priority token: Rs. 10</strong><small>Status: route to client shield</small></article>
+            <article class="task-card" data-jump="task"><span>Open Mission</span><h3>Certified copy collection</h3><p>Saket filing counter, receipt proof and order copy required before release.</p><strong>Work hold: Rs. 650</strong><small>Status: awaiting acceptance</small></article>
+            <article class="task-card runner"><span>Legal SOS</span><h3>Urgent police station support</h3><p>Prepare first-response checklist and connect verified counsel for emergency guidance.</p><strong>SOS billed from consult menu</strong><small>Status: route to client shield</small></article>
           </div>
           <section class="panel mission-flow">
             <div class="section-head"><h3>Saket inspection mission timeline</h3><span class="status-dot">Ongoing</span></div>
@@ -647,7 +647,7 @@
               <label>Court<input id="mission-court" value="Saket District Court" /></label>
               <label>Mission Type<select id="mission-type"><option>Inspection</option><option>Pass-over / Mentioning</option><option>Certified copy</option><option>Filing assistance</option><option>Order download</option><option>Legal SOS support</option></select></label>
               <label>Instruction<input id="mission-instruction" value="Inspect file, note next date, upload inspection slip and short report" /></label>
-              <label>Fee to hold now<input id="mission-fee" type="number" min="300" step="50" value="300" /></label>
+              <label>Work hold amount (minimum Rs. 300)<input id="mission-fee" type="number" min="300" step="50" value="300" /></label>
               <label>Urgency Timer<select id="mission-urgency"><option>Normal - RNA sets 4 hour timer</option><option>Urgent - RNA sets 2 hour timer</option><option>Same day - RNA custom timer</option></select></label>
               <label>Proof Required<select id="mission-proof-required"><option>Inspection slip + photo + next date note</option><option>Receipt + timestamp</option><option>Order PDF + court status</option></select></label>
               <label>Note for proxy counsel<textarea id="mission-note" placeholder="Anything the completing counsel must know. Do not add client secrets."></textarea></label>
@@ -778,19 +778,19 @@
               <article>
                 <span>Criminal / Police SOS</span>
                 <strong>RNA Criminal SOS Desk</strong>
-                <p>Audio Rs. 200 / 2 min · Video Rs. 499 / 10 min · Attorney Shield from Rs. 1,999</p>
+                <p>Audio Rs. 299 / 5 min | Video Rs. 799 / 10 min | SOS Video Rs. 1,500 / 15 min | Shield Rs. 1,999</p>
                 <button data-open-sos data-client-action="RNA Criminal SOS Desk selected. Pick SOS video, chat, audio, or Attorney Shield.">Open SOS</button>
               </article>
               <article>
                 <span>Property / Family</span>
                 <strong>RNA Property & Family Desk</strong>
-                <p>Chat Rs. 99 · Office consult Rs. 799 · Doorstep consult from Rs. 1,499</p>
+                <p>Chat Rs. 99 / 3 min | Office consult Rs. 799 / 20 min | Doorstep from Rs. 2,499</p>
                 <button data-open-booking data-preselect-booking="Doorstep" data-client-action="RNA Property & Family Desk selected. Choose office visit, chat, or doorstep below.">Book Counsel</button>
               </article>
               <article>
                 <span>Contracts / Notices</span>
                 <strong>RNA Contracts & Notices Desk</strong>
-                <p>Notice review Rs. 299 · Agreement vetting Rs. 499 · Draft call Rs. 200 / 2 min</p>
+                <p>Notice review Rs. 499 | Agreement vetting Rs. 699 | Draft call Rs. 299 / 5 min</p>
                 <button data-open-booking data-preselect-booking="Chat 3 min" data-client-action="RNA Contracts Desk selected. Start with Chat or document review below.">Start Chat</button>
               </article>
             </div>
@@ -811,7 +811,7 @@
               <span class="eyebrow">Legal AI</span>
               <h3>Coming soon for source-locked answers.</h3>
               <div class="chat-box">
-                <p><strong>Legal AI:</strong> Coming soon. For testing, use Legal SOS, Book Chat, Documents Without Drama, or RNA Source Library.</p>
+                <p><strong>Legal AI:</strong> Coming soon. Until then, use Legal SOS, Book Chat, Documents Without Drama, or RNA Source Library.</p>
                 <p id="client-ai-answer"><strong>Status:</strong> Source library import and approval are available in RNA/Admin. Answers stay disabled until approved content is indexed.</p>
               </div>
               <div class="ai-prompt-row">
@@ -836,15 +836,19 @@
               <p id="booking-status">Pick one option. We will first prepare an AI summary, then connect you to RNA counsel.</p>
             </div>
             <div class="booking-options">
-              <button data-book-option="Attorney Shield" data-book-price="1999" data-book-route="Shield desk: matter vault, document review, action plan and lawyer call unlocked.">Attorney Shield<br><small>from Rs. 1,999</small></button>
-              <button data-book-option="SOS Video" data-book-price="1500" data-book-route="Emergency video room: counsel selection, timer and SOS receipt generated.">SOS Video<br><small>Rs. 1,500 / min</small></button>
-              <button data-book-option="Video Call" data-book-price="499" data-book-route="Video room: secure consult link and 10 minute timer generated.">Video Call<br><small>Rs. 499 / 10 min</small></button>
-              <button data-book-option="Audio Call" data-book-price="200" data-book-route="Audio SOS: verified RNA counsel joins for a focused 2 minute emergency consult.">Audio Call<br><small>Rs. 200 / 2 min</small></button>
+              <button data-book-option="Attorney Shield" data-book-price="1999" data-book-route="Shield desk: matter vault, document review, action plan and lawyer call unlocked.">Attorney Shield<br><small>Rs. 1,999</small></button>
+              <button data-book-option="SOS Video" data-book-price="1500" data-book-route="Emergency video room: RNA counsel selection, 15 minute timer and SOS receipt generated.">SOS Video<br><small>Rs. 1,500 / 15 min</small></button>
+              <button data-book-option="Video Call" data-book-price="799" data-book-route="Video room: secure consult link and 10 minute timer generated.">Video Call<br><small>Rs. 799 / 10 min</small></button>
+              <button data-book-option="Audio Call" data-book-price="299" data-book-route="Audio SOS: verified RNA counsel joins for a focused 5 minute emergency consult.">Audio Call<br><small>Rs. 299 / 5 min</small></button>
               <button data-book-option="Chat 3 min" data-book-price="99" data-book-route="Chat room: counsel joins for a 3 minute first question.">Chat 3m<br><small>Rs. 99</small></button>
               <button data-book-option="Chat 8 min" data-book-price="150" data-book-route="Chat room: counsel joins for an 8 minute guided discussion.">Chat 8m<br><small>Rs. 150</small></button>
               <button data-book-option="Chat 12 min" data-book-price="200" data-book-route="Chat room: counsel joins for a 12 minute detailed discussion.">Chat 12m<br><small>Rs. 200</small></button>
-              <button data-book-option="Doorstep" data-book-price="1499" data-book-route="Doorstep desk: location, slot and counsel availability confirmation started.">Doorstep<br><small>from Rs. 1,499</small></button>
+              <button data-book-option="Office Consult" data-book-price="799" data-book-route="Office desk: RNA Trust Office slot, counsel confirmation and receipt generated.">Office<br><small>Rs. 799 / 20 min</small></button>
+              <button data-book-option="Doorstep" data-book-price="2499" data-book-route="Doorstep desk: location, slot and counsel availability confirmation started.">Doorstep<br><small>from Rs. 2,499</small></button>
             </div>
+            <label class="booking-problem">Tell counsel your problem
+              <textarea id="booking-problem" placeholder="Write 3-4 lines: what happened, date/time, documents you have, urgency, and what help you need."></textarea>
+            </label>
             <div class="payment-simulator">
               <div>
                 <span>Selected Plan</span>
@@ -898,9 +902,9 @@
               <label>Number to contact for details<input id="draft-contact" inputmode="tel" placeholder="+91 98XX XX4210" /></label>
               <label>Fee
                 <select id="draft-fee">
-                  <option value="299">Rs. 299 - simple format</option>
-                  <option value="499" selected>Rs. 499 - lawyer review queue</option>
-                  <option value="999">Rs. 999 - urgent same-day draft</option>
+                  <option value="499">Rs. 499 - simple format</option>
+                  <option value="799" selected>Rs. 799 - lawyer review queue</option>
+                  <option value="1499">Rs. 1,499 - urgent same-day draft</option>
                 </select>
               </label>
               <button class="gold-button" type="submit">Pay Fee &amp; Create Draft Request</button>
@@ -939,7 +943,7 @@
               <span id="service-room-status">Status: waiting for booking</span>
               <strong id="service-room-route">Choose a service to unlock the next step.</strong>
               <p id="service-room-detail">After booking, this page shows whether you go to chat, audio, video, Attorney Shield, doorstep, draft desk, or RNA review.</p>
-              <p class="fine-print">This is a controlled beta. Our team may verify your request before action. If the backend is sleeping or local fallback is used, the request may show as saved locally until server sync. Support: karannagpal16@gmail.com.</p>
+              <p class="fine-print">Your request, payment status, receipt and next step stay visible here. If the server is waking up, the request may briefly show as local until sync completes. Support: karannagpal16@gmail.com.</p>
             </div>
             <div class="service-timeline" id="service-room-timeline">
               <span class="active">1. Request created</span>
@@ -984,7 +988,7 @@
           </div>
           <section class="panel audit-panel">
             <div class="section-head">
-              <div><span class="eyebrow">Beta Readiness</span><h3>Controlled beta checklist.</h3></div>
+              <div><span class="eyebrow">Launch Readiness</span><h3>Operational checklist.</h3></div>
               <button class="ghost-button" data-refresh-admin>Refresh Checks</button>
             </div>
             <div class="timeline" id="beta-readiness-list">
@@ -1000,7 +1004,7 @@
           </section>
           <section class="panel audit-panel">
             <div class="section-head">
-              <div><span class="eyebrow">Payment Debug</span><h3>Razorpay beta diagnostics.</h3></div>
+              <div><span class="eyebrow">Payment Diagnostics</span><h3>Razorpay payment status.</h3></div>
               <button class="ghost-button" data-refresh-admin>Refresh Payment Status</button>
             </div>
             <div class="timeline" id="payment-status-panel">
@@ -1029,7 +1033,7 @@
             <div>
               <span class="eyebrow">Resend Notifications</span>
               <h3>Send one live test reminder.</h3>
-              <p id="notify-test-status">Uses Resend if keys are configured; otherwise saves an in-app testing notification.</p>
+              <p id="notify-test-status">Uses Resend if keys are configured; otherwise saves an in-app notification.</p>
             </div>
             <form id="notify-test-form" class="source-form">
               <label>Recipient Email<input id="notify-test-email" type="email" placeholder="client@example.com" /></label>
@@ -1124,7 +1128,7 @@
         </section>
         <section class="view legal-view" id="contact">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Contact</h2></div></div>
-          <section class="panel"><p><strong>Legal Connect</strong><br />MSME/Udyam Registered Enterprise<br />Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong></p><p>Support email: <strong>karannagpal16@gmail.com</strong></p><p>For controlled beta support, use the RNA Control Room, Legal SOS flow, or email support.</p></section>
+          <section class="panel"><p><strong>Legal Connect</strong><br />MSME/Udyam Registered Enterprise<br />Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong></p><p>Support email: <strong>karannagpal16@gmail.com</strong></p><p>For support, use the RNA Control Room, Legal SOS flow, or email support.</p></section>
         </section>
         <footer class="legal-footer">
           <span class="footer-trust">MSME registered entity: UDYAM-DL-11-0164811. Certificate available for verification.</span>
@@ -1195,7 +1199,7 @@
             <article>
               <span>Emergency Video</span>
               <strong>RNA SOS Counsel</strong>
-              <small>From Rs. 1,500 / min</small>
+              <small>Rs. 1,500 / 15 min</small>
               <button data-sos-book="Legal SOS Video" data-sos-price="1500">Start video route</button>
             </article>
             <article>
@@ -1214,7 +1218,7 @@
 
     </div>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
   </body>
 </html>
 

@@ -5137,7 +5137,7 @@ textarea {
   }
 }
 
-/* Clean beta interface pass: app-like, readable, less chaotic. */
+/* Clean interface pass: app-like, readable, less chaotic. */
 .command-dock {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -6189,7 +6189,7 @@ body {
   }
 }
 
-/* Focused testing theme: bold cobalt, clean ivory cards, saffron action energy. */
+/* Focused theme: bold cobalt, clean ivory cards, saffron action energy. */
 :root {
   --focus-cobalt: #0b3d91;
   --focus-navy: #071a36;
@@ -6889,7 +6889,7 @@ body::before {
   }
 }
 
-/* Final beta clarity layer: phone-safe, click-first, no fake-live clutter. */
+/* Final clarity layer: phone-safe, click-first, no fake-live clutter. */
 #home .poster-updates,
 #home .poster-basics,
 #home .phase-command {
@@ -7195,6 +7195,19 @@ button {
 .booking-options small,
 .sos-counsel-list small,
 .fine-print {
+  line-height: 1.45;
+}
+
+.booking-problem {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  font-weight: 850;
+}
+
+.booking-problem textarea {
+  min-height: 112px;
+  resize: vertical;
   line-height: 1.45;
 }
 
