@@ -17,6 +17,8 @@ const titles = {
   "service-room": "Service Room",
   intern: "Intern Portal",
   admin: "Admin Panel",
+  "account-privacy": "Privacy & Data",
+  "data-deletion": "Data Deletion",
   "privacy-policy": "Privacy Policy",
   terms: "Terms",
   "refund-policy": "Refund Policy",
@@ -35,6 +37,11 @@ const flowStatus = document.querySelector("#flow-status");
 const flowStatusToggle = document.querySelector("#flow-status-toggle");
 const flowStatusTitle = document.querySelector("#flow-status-title");
 const flowStatusDetail = document.querySelector("#flow-status-detail");
+const privacySessionStatus = document.querySelector("#privacy-session-status");
+const confirmAccountDeletion = document.querySelector("#confirm-account-deletion");
+const requestAccountDeletion = document.querySelector("#request-account-deletion");
+const deletionRequestStatus = document.querySelector("#deletion-request-status");
+const deletionRequestList = document.querySelector("#deletion-request-list");
 const localTestingRuntime = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 let publicHealth = {
   otp_mode: localTestingRuntime ? "demo" : "unknown",
@@ -106,6 +113,16 @@ function setDemoStatus(message) {
 function setFlowStatus(titleText, detailText) {
   if (flowStatusTitle && titleText) flowStatusTitle.textContent = titleText;
   if (flowStatusDetail && detailText) flowStatusDetail.textContent = detailText;
+}
+
+function refreshPrivacyAccountState() {
+  if (!privacySessionStatus) return;
+  const session = getSession();
+  if (!session?.user) {
+    privacySessionStatus.textContent = "Not signed in";
+    return;
+  }
+  privacySessionStatus.textContent = `${session.user.name || "Legal Connect User"} - ${session.user.role || "user"}`;
 }
 
 function showUpdateBanner(version) {
@@ -182,6 +199,10 @@ function activateView(id) {
   setFlowStatus(titles[id] || "Legal Connect", "Choose a service, booking, receipt, or status card to continue.");
   history.replaceState(null, "", `#${id}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (id === "account-privacy") {
+    refreshPrivacyAccountState();
+    refreshOwnDeletionRequests();
+  }
   if (id === "admin") refreshAdminDashboard();
   if (id === "client" || id === "advocate" || id === "appearance" || id === "matter") refreshReceipts();
   if (id === "client" || id === "advocate" || id === "admin") refreshWorkspaceData();
@@ -215,6 +236,7 @@ function applySessionToUi(session) {
     node.textContent = status;
   });
   setFlowStatus(label, status);
+  refreshPrivacyAccountState();
 }
 
 function markLoginVerified(message = "OTP verified successfully. Continue secure login.") {
@@ -1383,6 +1405,7 @@ async function refreshAdminDashboard() {
     renderPaymentStatus(paymentStatus);
     refreshLegalSources();
     refreshAuditLogs();
+    refreshDeletionRequests();
     refreshReceipts();
   } catch {
     if (adminActionStatus) adminActionStatus.textContent = "Admin API unavailable. Login as RNA/Admin after backend deploy.";
@@ -1472,6 +1495,59 @@ async function refreshAuditLogs() {
   }
 }
 
+async function refreshOwnDeletionRequests() {
+  refreshPrivacyAccountState();
+  if (!deletionRequestStatus) return;
+  if (!getSession()?.token) {
+    deletionRequestStatus.textContent = "Login is required before requesting deletion.";
+    return;
+  }
+  try {
+    const requests = await apiFetch("/api/account/deletion-request");
+    deletionRequestStatus.textContent = requests.length
+      ? `Latest request: ${requests[0].status || "received"} on ${new Date(requests[0].requestedAt || requests[0].createdAt).toLocaleString()}.`
+      : "No deletion request found for this account.";
+  } catch (error) {
+    deletionRequestStatus.textContent = error.message || "Could not load deletion request status.";
+  }
+}
+
+async function refreshDeletionRequests() {
+  if (!deletionRequestList) return;
+  try {
+    const requests = await apiFetch("/api/admin/deletion-requests");
+    deletionRequestList.innerHTML = requests.length
+      ? requests.map((item) => `<div><time>${new Date(item.requestedAt || item.createdAt).toLocaleString()}</time><strong>${escapeHtml(item.status || "received")} - ${escapeHtml(item.userName || "User")}</strong><span>${escapeHtml(item.userRole || "role pending")} / ${escapeHtml(item.emailMasked || "email not available")} / ${escapeHtml(item.phoneMasked || "phone not available")}</span></div>`).join("")
+      : `<div><time>Clear</time><strong>No deletion requests</strong><span>Requests submitted from Privacy & Data will appear here.</span></div>`;
+  } catch {
+    deletionRequestList.innerHTML = `<div><time>Locked</time><strong>RNA/Admin login required</strong><span>Deletion request governance is protected.</span></div>`;
+  }
+}
+
+requestAccountDeletion?.addEventListener("click", async () => {
+  if (!getSession()?.token) {
+    if (deletionRequestStatus) deletionRequestStatus.textContent = "Please login first, then return to Privacy & Data.";
+    activateView("login");
+    return;
+  }
+  if (!confirmAccountDeletion?.checked) {
+    if (deletionRequestStatus) deletionRequestStatus.textContent = "Tick the confirmation checkbox before submitting a deletion request.";
+    return;
+  }
+  try {
+    const result = await apiFetch("/api/account/deletion-request", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
+    });
+    if (deletionRequestStatus) deletionRequestStatus.textContent = result.message || "Your account deletion request has been received.";
+    setDemoStatus("Account deletion request received.");
+    confirmAccountDeletion.checked = false;
+    await refreshOwnDeletionRequests();
+  } catch (error) {
+    if (deletionRequestStatus) deletionRequestStatus.textContent = error.message || "Deletion request could not be submitted.";
+  }
+});
+
 document.querySelectorAll("[data-refresh-admin]").forEach((button) => {
   button.addEventListener("click", refreshAdminDashboard);
 });
@@ -1482,6 +1558,10 @@ document.querySelectorAll("[data-refresh-sources]").forEach((button) => {
 
 document.querySelectorAll("[data-refresh-audit]").forEach((button) => {
   button.addEventListener("click", refreshAuditLogs);
+});
+
+document.querySelectorAll("[data-refresh-deletions]").forEach((button) => {
+  button.addEventListener("click", refreshDeletionRequests);
 });
 
 document.querySelectorAll("[data-refresh-receipts]").forEach((button) => {

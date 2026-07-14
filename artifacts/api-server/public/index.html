@@ -6,7 +6,7 @@
     <title>Legal Connect - Professional Legal OS</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="favicon.svg" />
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,6 +22,7 @@
         <nav class="nav-group">
           <button class="nav-item active" data-view="home">Home</button>
           <button class="nav-item" data-view="login">Login</button>
+          <button class="nav-item" data-view="account-privacy">Privacy & Data</button>
           <button class="nav-item" data-view="advocate">Advocate OS</button>
           <button class="nav-item" data-view="chambers">Chambers</button>
           <button class="nav-item" data-view="matter">Matter Vault</button>
@@ -59,6 +60,7 @@
           <button data-jump="client"><span>People</span><strong>Legal help</strong></button>
           <button data-jump="advocate"><span>Lawyers</span><strong>Practice OS</strong></button>
           <button data-jump="login"><span>Secure</span><strong>Login</strong></button>
+          <button data-jump="account-privacy"><span>Account</span><strong>Privacy</strong></button>
           <button data-jump="service-room"><span>Status</span><strong>My request</strong></button>
         </section>
 
@@ -241,7 +243,8 @@
               <label>Practice Areas<input value="Criminal, Commercial, Arbitration" /></label>
               <label>Court Preferences<input value="DHC, Tis Hazari, Saket, Dwarka" /></label>
               <label>Detected Lane<select id="login-role"><option value="rna">RNA Counsel - Trust Command</option><option value="advocate">Independent Advocate</option><option value="client">Client</option><option value="intern">Intern Board</option><option value="admin">Admin</option></select></label>
-              <label class="consent-line"><input id="privacy-consent" type="checkbox" checked /> I consent to Legal Connect processing my login, booking, case, notification, receipt, and support data for role-based legal workflow access.</label>
+              <label class="consent-line"><input id="privacy-consent" type="checkbox" /> I agree to the Terms and acknowledge the Privacy Policy. I understand that Legal Connect may process my information to authenticate my account, manage service requests, coordinate legal support, process payments, issue receipts, and maintain safety and audit records.</label>
+              <p class="inline-legal-links"><button type="button" class="text-link" data-jump="privacy-policy">Read Privacy Policy</button><button type="button" class="text-link" data-jump="terms">Read Terms</button></p>
               <button class="gold-button" type="submit">Verify and Route Securely</button>
               <p class="auth-status" id="auth-status">Login creates a confidential Phase 1 session. Receipts are private to you and RNA/Admin governance.</p>
             </form>
@@ -283,6 +286,7 @@
                 <article><span>Work Hold</span><strong>Safe</strong><small>Payments release only after proof approval.</small></article>
                 <article><span>Access</span><strong data-user-role>LOGIN</strong><small>Role-based privacy shield active.</small></article>
               </div>
+              <button class="ghost-button" type="button" data-jump="account-privacy">Profile / Account - Privacy &amp; Data</button>
             </section>
 
             <section class="advocate-top-grid">
@@ -1087,6 +1091,15 @@
           </section>
           <section class="panel audit-panel">
             <div class="section-head">
+              <div><span class="eyebrow">Privacy Governance</span><h3>Account deletion requests.</h3></div>
+              <button class="ghost-button" data-refresh-deletions>Refresh Deletion Requests</button>
+            </div>
+            <div class="timeline" id="deletion-request-list">
+              <div><time>Protected</time><strong>No deletion requests loaded</strong><span>RNA/Admin can review request status and masked account identifiers here.</span></div>
+            </div>
+          </section>
+          <section class="panel audit-panel">
+            <div class="section-head">
               <div><span class="eyebrow">Transparency Receipts</span><h3>Receipts across client, advocate, RNA and admin workflows.</h3></div>
               <button class="ghost-button" type="button" data-refresh-receipts>Refresh Receipts</button>
             </div>
@@ -1110,9 +1123,74 @@
           </section>
         </section>
 
+        <section class="view legal-view" id="account-privacy">
+          <div class="workspace-head"><div><span class="eyebrow">Profile / Account</span><h2>Privacy &amp; Data</h2></div></div>
+          <section class="panel">
+            <h3>Your account data controls</h3>
+            <p>Use this page after login to request account deletion. The request is recorded for governance review; payment, receipt, fraud prevention, dispute, legal, audit, tax, accounting, and compliance records may be retained where required.</p>
+            <div class="brief-grid">
+              <article><span>Session</span><strong id="privacy-session-status">Not signed in</strong><p>Login is required before a deletion request can be submitted.</p></article>
+              <article><span>Public deletion URL</span><strong>/data-deletion</strong><p>Use this as the Google Play account deletion web resource.</p></article>
+            </div>
+            <label class="consent-line confirm-delete-line"><input id="confirm-account-deletion" type="checkbox" /> I confirm that I want to request deletion of my Legal Connect account and associated personal data, subject to records that may need to be retained for legal, payment, fraud prevention, dispute resolution, audit, tax, accounting, or compliance purposes.</label>
+            <button class="gold-button" type="button" id="request-account-deletion">Request Account Deletion</button>
+            <p class="auth-status" id="deletion-request-status">No deletion request submitted from this device.</p>
+          </section>
+          <section class="panel">
+            <h3>Need help?</h3>
+            <p>Email <strong>karannagpal16@gmail.com</strong> from your registered email address. Do not email passwords or OTPs. Legal Connect may ask for verification before acting on a deletion request.</p>
+          </section>
+        </section>
+
+        <section class="view legal-view" id="data-deletion">
+          <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Data Deletion</h2></div></div>
+          <section class="panel">
+            <p>Users may request account and associated personal data deletion in-app through <strong>Profile / Account - Privacy &amp; Data - Request Account Deletion</strong>, or by emailing <strong>karannagpal16@gmail.com</strong>.</p>
+            <p>Include your registered name, registered email or masked phone number, and a clear deletion request. Do not email passwords or OTPs. Additional verification may be required.</p>
+            <p>Some records may be retained where required for legal, payment, fraud prevention, dispute resolution, audit, tax, accounting, or compliance purposes.</p>
+          </section>
+        </section>
+
         <section class="view legal-view" id="privacy-policy">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Privacy Policy</h2></div></div>
-          <section class="panel"><p><strong>Legal Connect</strong> is an MSME/Udyam Registered Enterprise. Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong>. Support: <strong>karannagpal16@gmail.com</strong>.</p><p>We may process account details, phone/email, uploaded legal documents, booking references, payment references, legal-source-library uploads, LawBot questions, notifications/email logs, and audit logs. Access is role-based for client, advocate, RNA, intern, and admin workflows.</p><p>LawBot responses are source-based and informational. They are not a substitute for legal advice from an advocate.</p></section>
+          <section class="panel privacy-policy-copy">
+            <p><strong>Effective date:</strong> 13 July 2026. <strong>Last updated:</strong> 13 July 2026.</p>
+            <p><strong>Legal Connect</strong> is a legal-tech and legal-support coordination platform operating in India. Live URL: <strong>https://www.legal-connect.in</strong>. Android package: <strong>in.legalconnect.app</strong>. Support and privacy requests: <strong>karannagpal16@gmail.com</strong>. Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong>.</p>
+            <h3>1. Scope</h3>
+            <p>This Privacy Policy applies to Legal Connect's web app, Android WebView app, backend APIs, account login, bookings, Legal SOS, Court Mission, Documents, receipts, notifications, RNA/Admin tools, legal source uploads, and source-locked LawBot rollout.</p>
+            <h3>2. Personal data we currently collect</h3>
+            <p>The codebase currently supports collection of name, email, phone, selected user role, login verification records, consent timestamp, case/support details, booking/service details, Legal SOS details, draft request details, Court Mission/task details, receipt/payment references, uploaded legal-source text/PDF-derived text, LawBot questions and feedback, notifications, and audit log events.</p>
+            <h3>3. Account and verification data</h3>
+            <p>Users may provide name, email, phone and role. Email OTP verification is sent through Resend when configured. Phone OTP is not enabled in production until an approved SMS provider is configured. Verification records include email or phone, hashed code, purpose, expiry, consumed timestamp, and creation timestamp.</p>
+            <h3>4. Legal-support and service-request data</h3>
+            <p>Bookings, Legal SOS, draft requests, cases, case updates, and Court Mission tasks may include service type, court, case number/CNR where entered, next date, status, notes, amount, work-hold status, counsel/task status, proof URL, problem summary, uploaded facts, and related payload details entered by the user.</p>
+            <h3>5. Documents and uploaded content</h3>
+            <p>The frontend contains forms for draft-related file selection and the admin source library supports official PDF/text ingestion. Current backend source-library storage stores source text, extracted text, chunks, metadata, citation/source URL, source status and uploader ID. Users should not upload unauthorised, confidential, or licensed third-party content without permission.</p>
+            <h3>6. Payments, receipts and transactions</h3>
+            <p>Razorpay order and payment references may be stored when payment is configured, including order ID, payment ID, amount, payment status, work-hold status, failure reason and verification timestamp. Legal Connect does not store card numbers, UPI PINs, CVV or full payment instrument credentials in this codebase. Receipts are stored for login, bookings, SOS, LawBot, missions, case updates and admin actions.</p>
+            <h3>7. Technical/app data</h3>
+            <p>The frontend uses localStorage for session token, local OTP fallback in non-production/local builds, local receipts, selected mission/case/booking state, notification/payment check flags and app web-version refresh tracking. The server may receive normal HTTP metadata through Render/hosting infrastructure, but this codebase does not create a dedicated IP/device fingerprint table.</p>
+            <h3>8. How data is used</h3>
+            <p>Legal Connect uses personal data to authenticate accounts, route users by role, manage service requests, coordinate legal support, process payments and work holds, issue receipts, send notifications, maintain safety/audit records, operate RNA/Admin governance, and provide source-locked legal information where approved sources exist.</p>
+            <h3>9. LawBot and legal information</h3>
+            <p>LawBot is designed to answer only from approved indexed legal sources stored in the Legal Connect source library. Questions, answers, citations, feedback and related receipts may be stored. LawBot output is legal information, not legal advice. Consult a verified advocate before taking action.</p>
+            <h3>10. Third-party service providers</h3>
+            <p>Legal Connect may use Render for hosting/database infrastructure, Razorpay for payments, and Resend for email/OTP/notification delivery where configured. These providers process data needed to provide their services. Legal Connect does not claim that all provider processing occurs only in India unless confirmed separately with the provider.</p>
+            <h3>11. Data sharing and authorised access</h3>
+            <p>Normal users see their own private receipts and records. RNA/Admin roles can access governance dashboards, receipts, audit logs, SOS/task/bookings summaries and legal source workflows. Advocate/intern access is role-based. Legal Connect does not sell personal data in the current codebase.</p>
+            <h3>12. Retention</h3>
+            <p>Automatic retention or deletion jobs are not implemented in the current codebase. Records may remain until reviewed or manually handled. Some records may need to be retained for legal, payment, fraud prevention, dispute resolution, audit, tax, accounting, or compliance purposes. See the Data Retention Plan for proposed categories that require counsel/business approval before launch automation.</p>
+            <h3>13. Account deletion and user rights</h3>
+            <p>Logged-in users can request account deletion from <strong>Profile / Account - Privacy &amp; Data</strong>. Public instructions are available at <strong>/data-deletion</strong>. A Data Principal may contact Legal Connect to request access, correction, withdrawal of consent, or erasure/deletion where applicable. Additional verification may be required before action is taken.</p>
+            <h3>14. Consent and withdrawal</h3>
+            <p>Login requires users to acknowledge the Terms and Privacy Policy for service operation. Optional marketing consent is not combined with this required acknowledgement in the current interface. Withdrawal requests can be sent to the support email, subject to records that must be retained or processed for service, legal, payment, dispute, audit or compliance reasons.</p>
+            <h3>15. Security practices</h3>
+            <p>The current app uses role-based access checks for protected admin/source routes, private receipt filtering for normal users, signed session tokens, hashed OTP codes, and environment variables for provider keys. These are app-level safeguards and are not a claim of certification, encryption-at-rest, anonymisation, or independent security audit.</p>
+            <h3>16. Children's data</h3>
+            <p>Legal Connect is intended for adults and legal-service users. Minors should not independently create accounts or submit legal documents without parent/guardian involvement and appropriate legal supervision.</p>
+            <h3>17. Changes and contact</h3>
+            <p>This policy may be updated as Legal Connect adds production features, provider integrations, retention tooling or legal source workflows. Contact: <strong>karannagpal16@gmail.com</strong>.</p>
+          </section>
         </section>
         <section class="view legal-view" id="terms">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Terms</h2></div></div>
@@ -1133,6 +1211,8 @@
         <footer class="legal-footer">
           <span class="footer-trust">MSME registered entity: UDYAM-DL-11-0164811. Certificate available for verification.</span>
           <button data-jump="privacy-policy">Privacy Policy</button>
+          <button data-jump="account-privacy">Privacy &amp; Data</button>
+          <button data-jump="data-deletion">Data Deletion</button>
           <button data-jump="terms">Terms</button>
           <button data-jump="refund-policy">Refund Policy</button>
           <button data-jump="disclaimer">Disclaimer</button>
@@ -1218,7 +1298,7 @@
 
     </div>
 
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>
 

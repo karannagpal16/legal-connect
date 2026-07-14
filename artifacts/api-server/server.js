@@ -9,6 +9,7 @@ const db = require("./db");
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
 const SERVER_STARTED_AT = new Date().toISOString();
+const SESSION_SECRET = process.env.SESSION_SECRET || config.razorpayWebhookSecret || crypto.randomBytes(32).toString("hex");
 
 function appVersionPayload() {
   const candidates = ["app.js", "styles.css", "index.html"]
@@ -80,6 +81,7 @@ const demoStore = {
   auditLogs: [],
   receipts: [],
   verifications: [],
+  deletionRequests: [],
 };
 
 const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
@@ -91,14 +93,27 @@ function encodeSession(user) {
     role: user.role,
     iat: Date.now(),
   };
-  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
+  return `${encoded}.${signature}`;
 }
 
 function decodeSession(token) {
   if (!token) return null;
   try {
     const clean = token.replace(/^Bearer\s+/i, "");
-    const parsed = JSON.parse(Buffer.from(clean, "base64url").toString("utf8"));
+    const [encoded, signature] = clean.split(".");
+    if (!encoded || !signature) {
+      if (config.nodeEnv === "production") return null;
+      const legacyParsed = JSON.parse(Buffer.from(clean, "base64url").toString("utf8"));
+      if (!legacyParsed.id || !roles.has(legacyParsed.role)) return null;
+      return legacyParsed;
+    }
+    const expected = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
+    const actual = Buffer.from(String(signature));
+    const expectedBuffer = Buffer.from(expected);
+    if (actual.length !== expectedBuffer.length || !crypto.timingSafeEqual(actual, expectedBuffer)) return null;
+    const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
     if (!parsed.id || !roles.has(parsed.role)) return null;
     return parsed;
   } catch {
@@ -116,7 +131,7 @@ function canSeeAll(user) {
 }
 
 function userIdForWrite(body, user) {
-  return user?.id || body.userId || body.user_id || null;
+  return user?.id || null;
 }
 
 function userRole(user) {
@@ -527,6 +542,22 @@ function mapLegalSource(row) {
     uploadedBy: row.uploaded_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapDeletionRequest(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    status: row.status,
+    requestedAt: row.requested_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    payload: row.payload || {},
+    userName: row.user_name,
+    userRole: row.user_role,
+    emailMasked: maskEmail(row.user_email),
+    phoneMasked: maskPhone(row.user_phone),
   };
 }
 
@@ -972,6 +1003,55 @@ function contentType(filePath) {
   return types[ext] || "application/octet-stream";
 }
 
+function dataDeletionPageHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Legal Connect Data Deletion</title>
+  <style>
+    :root { color-scheme: light; --navy:#081B33; --gold:#C99A2E; --paper:#F8FAFC; --ink:#172033; }
+    body { margin:0; font-family: Arial, sans-serif; background: linear-gradient(180deg, #F7FAFF, #EEF4FF); color: var(--ink); line-height:1.6; }
+    main { max-width: 880px; margin: 0 auto; padding: 32px 18px 56px; }
+    .card { background: white; border: 1px solid #DCE5F2; border-radius: 18px; padding: 24px; box-shadow: 0 18px 40px rgba(8, 27, 51, .08); }
+    h1 { color: var(--navy); font-size: clamp(2rem, 6vw, 3.4rem); line-height:1.05; margin: 0 0 12px; }
+    h2 { color: var(--navy); margin-top: 28px; }
+    a { color: #0B5AA9; font-weight: 700; }
+    .badge { display:inline-flex; gap:8px; align-items:center; color: var(--navy); border:1px solid rgba(201,154,46,.4); background:#FFF8E8; border-radius:999px; padding:8px 12px; font-weight:700; }
+    li { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <span class="badge">Legal Connect - Data Deletion</span>
+      <h1>Request account and personal data deletion</h1>
+      <p>This page explains how users of Legal Connect (${escapeHtml(config.publicAppUrl)}) can request deletion of their account and associated personal data. Android package: <strong>in.legalconnect.app</strong>.</p>
+      <h2>In-app request path</h2>
+      <p>Open Legal Connect, log in, then go to <strong>Profile / Account - Privacy & Data - Request Account Deletion</strong>. Submit the confirmation shown in the app.</p>
+      <h2>Email request path</h2>
+      <p>You may email <a href="mailto:karannagpal16@gmail.com">karannagpal16@gmail.com</a> from your registered email address. Include your registered name, masked phone number or registered email, and a short statement that you want account deletion. Do not email passwords or OTPs.</p>
+      <h2>Verification</h2>
+      <p>Legal Connect may ask for additional verification before acting on a deletion request to protect users from unauthorised deletion.</p>
+      <h2>Data normally considered for deletion</h2>
+      <ul>
+        <li>Account profile details, where deletion is permitted.</li>
+        <li>Service-request details no longer needed to deliver support.</li>
+        <li>Local app/session data controlled by the user.</li>
+        <li>LawBot questions or feedback where deletion is permitted and identifiable.</li>
+      </ul>
+      <h2>Records that may be retained</h2>
+      <p>Some records may need to be retained where required for legal, payment, fraud prevention, dispute resolution, audit, tax, accounting, or compliance purposes. This may include payment references, receipts, audit logs, dispute records, and legally relevant service records.</p>
+      <h2>Support and grievance contact</h2>
+      <p>Support email: <a href="mailto:karannagpal16@gmail.com">karannagpal16@gmail.com</a>. MSME/Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong>.</p>
+      <p><small>Effective date: 13 July 2026. Last updated: 13 July 2026.</small></p>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
 function serveStatic(req, res) {
   const requestPath = decodeURIComponent(new URL(req.url, `http://${req.headers.host}`).pathname);
   const safePath = path.normalize(requestPath).replace(/^(\.\.[/\\])+/, "");
@@ -1007,6 +1087,12 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/app-version") {
     sendJson(res, 200, appVersionPayload());
+    return;
+  }
+
+  if (url.pathname === "/data-deletion" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(dataDeletionPageHtml());
     return;
   }
 
@@ -1359,10 +1445,74 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/account/deletion-request" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required to request account deletion." });
+      return;
+    }
+    const body = await readBody(req);
+    const confirmed = body.confirm === true || body.confirm === "true";
+    if (!confirmed) {
+      sendJson(res, 400, { ok: false, error: "Explicit confirmation is required before creating a deletion request." });
+      return;
+    }
+    const message = "Your account deletion request has been received. Certain records may be retained where required for legal, payment, fraud prevention, dispute resolution, audit, or compliance purposes.";
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `INSERT INTO account_deletion_requests (user_id, status, payload)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [authUser.id, "received", JSON.stringify({ requestedByRole: authUser.role, channel: "in-app" })],
+      );
+      const deletionRequest = mapDeletionRequest(result.rows[0]);
+      await writeAuditLog(authUser, "account_deletion_requested", "account_deletion_request", deletionRequest.id, "Account deletion request received.", { requestId: deletionRequest.id });
+      sendJson(res, 201, { ok: true, request: deletionRequest, message });
+      return;
+    }
+    const deletionRequest = {
+      id: `deletion-${Date.now()}`,
+      userId: authUser.id,
+      status: "received",
+      requestedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      payload: { requestedByRole: authUser.role, channel: "in-app" },
+    };
+    demoStore.deletionRequests.unshift(deletionRequest);
+    await writeAuditLog(authUser, "account_deletion_requested", "account_deletion_request", deletionRequest.id, "Account deletion request received.", { requestId: deletionRequest.id });
+    sendJson(res, 201, { ok: true, request: deletionRequest, message });
+    return;
+  }
+
+  if (url.pathname === "/api/account/deletion-request" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `SELECT * FROM account_deletion_requests
+         WHERE user_id = $1
+         ORDER BY requested_at DESC
+         LIMIT 5`,
+        [authUser.id],
+      );
+      sendJson(res, 200, result.rows.map(mapDeletionRequest));
+      return;
+    }
+    sendJson(res, 200, demoStore.deletionRequests.filter((request) => request.userId === authUser.id).slice(0, 5));
+    return;
+  }
+
   if (url.pathname === "/api/cases" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (db.dbAvailable) {
-      const result = canSeeAll(authUser) || !authUser
+      if (!authUser) {
+        sendJson(res, 200, []);
+        return;
+      }
+      const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM cases ORDER BY created_at DESC")
         : await db.query("SELECT * FROM cases WHERE user_id = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC", [authUser.id]);
       sendJson(res, 200, result.rows.map(mapCase));
@@ -1432,7 +1582,11 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const mapped = mapCase(result.rows[0]);
-      if (authUser && !canSeeAll(authUser) && mapped.userId !== authUser.id) {
+      if (!authUser) {
+        sendJson(res, 401, { error: "Login is required." });
+        return;
+      }
+      if (!canSeeAll(authUser) && mapped.userId !== authUser.id) {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
@@ -1479,7 +1633,7 @@ const server = http.createServer(async (req, res) => {
     const provider = emailProviderStatus();
     if (provider.provider !== "resend" || provider.status !== "ready") {
       const demoMessage = "In-app notification queued because Resend is not configured.";
-      await createNotification("notify_test", title, message, { mode: "demo", channels: ["in-app", "email-demo"] }, authUser.id || body.userId || null);
+      await createNotification("notify_test", title, message, { mode: "demo", channels: ["in-app", "email-demo"] }, authUser.id || null);
       await writeAuditLog(authUser, "notification_test_demo_queued", "notification", "notify-test", demoMessage, { recipient, provider: emailAdminStatus() });
       sendJson(res, 202, {
         ok: true,
@@ -1496,7 +1650,7 @@ const server = http.createServer(async (req, res) => {
       html: `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2 style="color:#0f2a25">Legal Connect</h2><p>${escapeHtml(message)}</p><p><a href="${escapeHtml(config.publicAppUrl)}" style="color:#b8872b">Open Legal Connect dashboard</a></p><p style="color:#64748b;font-size:12px">This is a Legal Connect notification test.</p></div>`,
     });
     if (emailResult.sent) {
-      await createNotification("notify_test", title, message, { mode: "resend", status: "sent", providerMessageId: emailResult.id }, authUser.id || body.userId || null);
+      await createNotification("notify_test", title, message, { mode: "resend", status: "sent", providerMessageId: emailResult.id }, authUser.id || null);
       await writeAuditLog(authUser, "notification_test_resend_sent", "notification", emailResult.id || "resend-email", "Notification test sent through Resend.", { recipient, providerMessageId: emailResult.id || null });
       sendJson(res, 202, {
         ok: true,
@@ -1507,7 +1661,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const errorMessage = safeEmailError(emailResult);
-    await createNotification("notify_test_failed", title, `Resend email failed: ${errorMessage}`, { mode: "resend", status: "failed" }, authUser.id || body.userId || null);
+    await createNotification("notify_test_failed", title, `Resend email failed: ${errorMessage}`, { mode: "resend", status: "failed" }, authUser.id || null);
     await writeAuditLog(authUser, "notification_test_resend_failed", "notification", "resend-email", `Resend email failed: ${errorMessage}`, { recipient, status: emailResult.status || null });
     sendJson(res, 200, {
       ok: false,
@@ -1521,22 +1675,33 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/notifications" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (db.dbAvailable) {
-      const result = canSeeAll(authUser) || !authUser
+      const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50")
-        : await db.query("SELECT * FROM notifications WHERE user_id = $1 OR user_id IS NULL ORDER BY created_at DESC LIMIT 50", [authUser.id]);
+        : authUser
+          ? await db.query("SELECT * FROM notifications WHERE user_id = $1 OR user_id IS NULL ORDER BY created_at DESC LIMIT 50", [authUser.id])
+          : await db.query("SELECT * FROM notifications WHERE user_id IS NULL ORDER BY created_at DESC LIMIT 50");
       sendJson(res, 200, result.rows.map(mapNotification));
       return;
     }
-    sendJson(res, 200, demoStore.notifications);
+    sendJson(res, 200, authUser ? demoStore.notifications.filter((item) => !item.userId || item.userId === authUser.id) : demoStore.notifications.filter((item) => !item.userId));
     return;
   }
 
   if (url.pathname === "/api/notifications/mark-read" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
     const body = await readBody(req);
     if (db.dbAvailable) {
-      await db.query("UPDATE notifications SET read_at = now() WHERE id = $1", [body.id]);
+      if (canSeeAll(authUser)) {
+        await db.query("UPDATE notifications SET read_at = now() WHERE id = $1", [body.id]);
+      } else {
+        await db.query("UPDATE notifications SET read_at = now() WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)", [body.id, authUser.id]);
+      }
     } else {
-      const item = demoStore.notifications.find((notification) => notification.id === body.id);
+      const item = demoStore.notifications.find((notification) => notification.id === body.id && (canSeeAll(authUser) || !notification.userId || notification.userId === authUser.id));
       if (item) item.readAt = new Date().toISOString();
     }
     sendJson(res, 200, { ok: true });
@@ -1579,11 +1744,11 @@ const server = http.createServer(async (req, res) => {
         `INSERT INTO case_updates (case_id, update_type, message, payload)
          VALUES ($1, $2, $3, $4)
          RETURNING *`,
-        [body.caseId || body.case_id || null, body.updateType || body.update_type || "calendar_decision", message, JSON.stringify({ ...body, user_id: authUser?.id || body.userId || body.user_id || null })],
+        [body.caseId || body.case_id || null, body.updateType || body.update_type || "calendar_decision", message, JSON.stringify({ ...body, user_id: authUser?.id || null })],
       );
-      await createNotification("clash_warning", "Calendar decision saved", message, { caseUpdateId: result.rows[0].id }, authUser?.id || body.userId || body.user_id || null);
+      await createNotification("clash_warning", "Calendar decision saved", message, { caseUpdateId: result.rows[0].id }, authUser?.id || null);
       await createReceipt({
-        userId: authUser?.id || body.userId || body.user_id || null,
+        userId: authUser?.id || null,
         actor: authUser || { role: "system" },
         receiptType: "case_update",
         title: "Case calendar receipt",
@@ -1600,9 +1765,9 @@ const server = http.createServer(async (req, res) => {
     const update = { id: `case-update-${Date.now()}`, message, createdAt: new Date().toISOString(), ...body };
     demoStore.caseUpdates = demoStore.caseUpdates || [];
     demoStore.caseUpdates.unshift(update);
-    await createNotification("clash_warning", "Calendar decision saved", message, update, authUser?.id || body.userId || body.user_id || null);
+    await createNotification("clash_warning", "Calendar decision saved", message, update, authUser?.id || null);
     await createReceipt({
-      userId: authUser?.id || body.userId || body.user_id || null,
+      userId: authUser?.id || null,
       actor: authUser || { role: "system" },
       receiptType: "case_update",
       title: "Case calendar receipt",
@@ -1619,7 +1784,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/admin/summary" && req.method === "GET") {
     const authUser = getAuthUser(req);
-    if (authUser && !canSeeAll(authUser)) {
+    if (!authUser || !canSeeAll(authUser)) {
       sendJson(res, 403, { error: "RNA/Admin access required" });
       return;
     }
@@ -1661,11 +1826,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/admin/task-action" && req.method === "POST") {
-    const authUser = getAuthUser(req);
-    if (authUser && !canSeeAll(authUser)) {
-      sendJson(res, 403, { error: "RNA/Admin access required" });
-      return;
-    }
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
     const body = await readBody(req);
     const statusMap = {
       approve_task: "Approved",
@@ -1725,6 +1887,34 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     sendJson(res, 200, demoStore.auditLogs.slice(0, 80));
+    return;
+  }
+
+  if (url.pathname === "/api/admin/deletion-requests" && req.method === "GET") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `SELECT adr.*, users.name AS user_name, users.role AS user_role, users.email AS user_email, users.phone AS user_phone
+         FROM account_deletion_requests adr
+         LEFT JOIN users ON users.id = adr.user_id
+         ORDER BY adr.requested_at DESC
+         LIMIT 80`,
+      );
+      sendJson(res, 200, result.rows.map(mapDeletionRequest));
+      return;
+    }
+    const usersById = new Map(demoStore.users.map((user) => [user.id, user]));
+    sendJson(res, 200, demoStore.deletionRequests.slice(0, 80).map((request) => {
+      const user = usersById.get(request.userId) || {};
+      return {
+        ...request,
+        userName: user.name,
+        userRole: user.role,
+        emailMasked: maskEmail(user.email),
+        phoneMasked: maskPhone(user.phone),
+      };
+    }));
     return;
   }
 
@@ -1954,7 +2144,7 @@ const server = http.createServer(async (req, res) => {
       }
       await writeAuditLog(authUser || { role: "system" }, "payment_order_created", "payment", orderResult.order.id, "Razorpay order created.", { amount, bookingId: body.bookingId || body.booking_id || null });
       await createReceipt({
-        userId: authUser?.id || body.userId || body.user_id || null,
+        userId: authUser?.id || null,
         actor: authUser || { role: "system" },
         receiptType: "payment_order",
         title: "Payment order receipt",
@@ -2012,9 +2202,9 @@ const server = http.createServer(async (req, res) => {
         if (booking) Object.assign(booking, { paymentStatus: "paid", workHoldStatus: "active", razorpayOrderId: orderId, razorpayPaymentId: paymentId, verifiedAt: new Date().toISOString() });
       }
       await writeAuditLog(authUser || { role: "system" }, "payment_verified", "booking", bookingId || orderId, "Payment verified. Work Completion Hold activated.", { orderId, paymentId });
-      await createNotification("payment_verified", "Payment verified", "Payment verified. Work Completion Hold is active.", { bookingId, orderId, paymentId }, authUser?.id || body.userId || null);
+      await createNotification("payment_verified", "Payment verified", "Payment verified. Work Completion Hold is active.", { bookingId, orderId, paymentId }, authUser?.id || null);
       await createReceipt({
-        userId: authUser?.id || body.userId || body.user_id || null,
+        userId: authUser?.id || null,
         actor: authUser || { role: "system" },
         receiptType: "payment_verified",
         title: "Verified payment receipt",
@@ -2039,7 +2229,7 @@ const server = http.createServer(async (req, res) => {
     }
     await writeAuditLog(authUser || { role: "system" }, "payment_verification_failed", "booking", bookingId || orderId, "Payment verification failed.", { orderId, paymentId });
     await createReceipt({
-      userId: authUser?.id || body.userId || body.user_id || null,
+      userId: authUser?.id || null,
       actor: authUser || { role: "system" },
       receiptType: "payment_failed",
       title: "Payment verification failed receipt",
@@ -2099,12 +2289,24 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname.startsWith("/api/cases/") && url.pathname.endsWith("/complete") && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
     const id = url.pathname.split("/")[3];
     if (db.dbAvailable) {
-      const result = await db.query(
-        "UPDATE cases SET status = $2, updated_at = now() WHERE id = $1 RETURNING *",
-        [id, "Completed"],
-      );
+      const existing = await db.query("SELECT * FROM cases WHERE id = $1", [id]);
+      if (existing.rows.length === 0) {
+        sendJson(res, 404, { error: "Case not found" });
+        return;
+      }
+      const currentCase = mapCase(existing.rows[0]);
+      if (!canSeeAll(authUser) && currentCase.userId !== authUser.id) {
+        sendJson(res, 403, { error: "Forbidden" });
+        return;
+      }
+      const result = await db.query("UPDATE cases SET status = $2, updated_at = now() WHERE id = $1 RETURNING *", [id, "Completed"]);
       if (result.rows.length === 0) {
         sendJson(res, 404, { error: "Case not found" });
         return;
@@ -2114,6 +2316,10 @@ const server = http.createServer(async (req, res) => {
         case: mapCase(result.rows[0]),
         message: "Diary entry completed after proof approval and escrow release.",
       });
+      return;
+    }
+    if (!canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Forbidden" });
       return;
     }
     const trackedCase = demoStore.cases.find((item) => item.id === id);
@@ -2134,7 +2340,11 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/tasks" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (db.dbAvailable) {
-      const result = canSeeAll(authUser) || !authUser
+      if (!authUser) {
+        sendJson(res, 200, []);
+        return;
+      }
+      const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM tasks ORDER BY created_at DESC")
         : authUser.role === "intern"
           ? await db.query("SELECT * FROM tasks WHERE accepted_by = $1 OR payload->>'assignedIntern' = $1 ORDER BY created_at DESC", [authUser.id])
@@ -2149,7 +2359,11 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/bookings" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (db.dbAvailable) {
-      const result = canSeeAll(authUser) || !authUser
+      if (!authUser) {
+        sendJson(res, 200, []);
+        return;
+      }
+      const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM bookings ORDER BY created_at DESC")
         : await db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [authUser.id]);
       sendJson(res, 200, result.rows.map(mapBooking));

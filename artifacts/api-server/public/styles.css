@@ -7211,6 +7211,48 @@ button {
   line-height: 1.45;
 }
 
+.inline-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+
+.text-link {
+  border: 0;
+  background: transparent;
+  color: var(--blue-700);
+  font-weight: 850;
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  box-shadow: none;
+}
+
+.confirm-delete-line {
+  align-items: flex-start;
+  line-height: 1.45;
+}
+
+.privacy-policy-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.privacy-policy-copy h3 {
+  margin: 10px 0 0;
+  font-size: clamp(1.05rem, 3.8vw, 1.28rem);
+  line-height: 1.2;
+}
+
+.privacy-policy-copy p {
+  max-width: 78ch;
+}
+
+.legal-view .brief-grid article {
+  min-width: 0;
+}
+
 .sos-panel {
   z-index: 80;
   max-height: min(620px, 72vh);
