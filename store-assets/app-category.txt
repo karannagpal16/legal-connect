@@ -4,4 +4,4 @@ Category: Business / Productivity
 App type: Legal-tech and legal-support coordination platform
 Target release: Google Play Internal Testing
 Website: https://www.legal-connect.in
-Support email: karannagpal16@gmail.com
+Support email: legalconnect0s@gmail.com

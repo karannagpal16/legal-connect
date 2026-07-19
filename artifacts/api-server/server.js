@@ -84,6 +84,13 @@ const demoStore = {
   deletionRequests: [],
 };
 
+const REVIEW_ROLES = ["client", "advocate", "intern"];
+const reviewAttempts = new Map();
+const reviewVerifiedContacts = new Map();
+const REVIEW_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const REVIEW_LOGIN_MAX_ATTEMPTS = 8;
+const REVIEW_VERIFICATION_TTL_MS = 20 * 60 * 1000;
+
 const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
 
 function encodeSession(user) {
@@ -91,6 +98,8 @@ function encodeSession(user) {
     id: user.id,
     name: user.name,
     role: user.role,
+    isReviewAccount: Boolean(user.isReviewAccount),
+    reviewRoles: Array.isArray(user.reviewRoles) ? user.reviewRoles.filter((role) => REVIEW_ROLES.includes(role)) : undefined,
     iat: Date.now(),
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -169,6 +178,212 @@ function normalizePhone(phone) {
   return String(phone || "").replace(/[^\d+]/g, "");
 }
 
+function playReviewConfigured() {
+  return Boolean(config.playReviewEnabled && config.playReviewEmail && config.playReviewCode);
+}
+
+function isPlayReviewEmail(email) {
+  return playReviewConfigured() && String(email || "").trim() === String(config.playReviewEmail || "").trim();
+}
+
+function reviewAttemptKey(email, req) {
+  const ip = req.socket?.remoteAddress || req.headers["x-forwarded-for"] || "unknown";
+  return `${normalizeEmail(email)}:${String(ip).split(",")[0].trim()}`;
+}
+
+function reviewRateLimit(email, req) {
+  const key = reviewAttemptKey(email, req);
+  const now = Date.now();
+  const current = reviewAttempts.get(key) || { count: 0, resetAt: now + REVIEW_LOGIN_WINDOW_MS };
+  if (current.resetAt <= now) {
+    current.count = 0;
+    current.resetAt = now + REVIEW_LOGIN_WINDOW_MS;
+  }
+  current.count += 1;
+  reviewAttempts.set(key, current);
+  return {
+    allowed: current.count <= REVIEW_LOGIN_MAX_ATTEMPTS,
+    retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
+  };
+}
+
+function markReviewVerified(email) {
+  reviewVerifiedContacts.set(normalizeEmail(email), Date.now() + REVIEW_VERIFICATION_TTL_MS);
+}
+
+function reviewContactVerified(email) {
+  const key = normalizeEmail(email);
+  const expiresAt = reviewVerifiedContacts.get(key);
+  if (!expiresAt) return false;
+  if (expiresAt <= Date.now()) {
+    reviewVerifiedContacts.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function reviewAccessPayload(activeRole = "client") {
+  return {
+    enabled: true,
+    activeRole: REVIEW_ROLES.includes(activeRole) ? activeRole : "client",
+    roles: REVIEW_ROLES,
+    dataMode: "synthetic",
+    message: "Google Play review account uses isolated synthetic data only.",
+  };
+}
+
+function decorateReviewUser(user, activeRole = "client") {
+  const safeRole = REVIEW_ROLES.includes(activeRole) ? activeRole : "client";
+  return {
+    ...user,
+    id: user?.id || "google-play-review-user",
+    name: user?.name || "Google Play Reviewer",
+    role: safeRole,
+    isReviewAccount: true,
+    reviewRoles: REVIEW_ROLES,
+    emailVerifiedAt: user?.emailVerifiedAt || user?.email_verified_at || new Date().toISOString(),
+    consentAt: user?.consentAt || user?.consent_at || new Date().toISOString(),
+    createdAt: user?.createdAt || user?.created_at || new Date().toISOString(),
+  };
+}
+
+function isReviewUser(user) {
+  return Boolean(user?.isReviewAccount);
+}
+
+function reviewSeedData(user = {}) {
+  const reviewUserId = user.id || "google-play-review-user";
+  const now = new Date().toISOString();
+  const booking = {
+    id: "review-booking-1",
+    userId: reviewUserId,
+    serviceType: "Attorney Shield",
+    service_type: "Attorney Shield",
+    amount: 1999,
+    paymentStatus: "review-inspection",
+    payment_status: "review-inspection",
+    workHoldStatus: "not-applicable-review",
+    work_hold_status: "not-applicable-review",
+    receiptNo: "LC-REVIEW-0001",
+    receipt_no: "LC-REVIEW-0001",
+    nextDestination: "Service Room: synthetic receipt and matter intake preview.",
+    next_destination: "Service Room: synthetic receipt and matter intake preview.",
+    createdAt: now,
+    created_at: now,
+    payload: {
+      reviewOnly: true,
+      problemSummary: "Review sample: tenant deposit dispute and document review request.",
+      route: "Reviewer can inspect receipt and service room without Razorpay charge.",
+    },
+  };
+  const task = {
+    id: "review-mission-1",
+    title: "Saket District Court inspection",
+    court: "Saket District Court",
+    taskType: "Inspection",
+    task_type: "Inspection",
+    amount: 750,
+    fee: 750,
+    escrowStatus: "Work completion hold - review sample",
+    escrow_status: "Work completion hold - review sample",
+    status: "Assigned",
+    postedBy: reviewUserId,
+    posted_by: reviewUserId,
+    acceptedBy: "review-counsel-synthetic",
+    accepted_by: "review-counsel-synthetic",
+    createdAt: now,
+    created_at: now,
+    payload: {
+      reviewOnly: true,
+      urgency: "normal",
+      note: "Synthetic court mission for Play review. No payment release authority is available.",
+      timeLimit: "4 hours",
+    },
+  };
+  const trackedCase = {
+    id: "review-case-1",
+    userId: reviewUserId,
+    title: "Review Case - Consumer Refund",
+    status: "Active",
+    nextDate: "2026-08-05",
+    next_date: "2026-08-05",
+    court: "Consumer Commission, Delhi",
+    courtType: "consumer",
+    stateCode: "DL",
+    caseNo: "REVIEW/CC/2026/01",
+    case_number: "REVIEW/CC/2026/01",
+    reminder: "24h before",
+    stage: "Notice issued",
+    createdAt: now,
+    created_at: now,
+    payload: {
+      reviewOnly: true,
+      summary: "Synthetic case card to prove private case board and calendar display.",
+    },
+  };
+  const receipt = {
+    id: "review-receipt-1",
+    receiptNo: "LC-REVIEW-0001",
+    receipt_no: "LC-REVIEW-0001",
+    userId: reviewUserId,
+    actorId: reviewUserId,
+    receiptType: "booking",
+    receipt_type: "booking",
+    title: "Google Play review booking receipt",
+    message: "Attorney Shield booking is pre-seeded for review inspection. No Razorpay charge is required.",
+    status: "review-only",
+    amount: 1999,
+    targetType: "booking",
+    target_type: "booking",
+    targetId: booking.id,
+    target_id: booking.id,
+    visibility: "private",
+    createdAt: now,
+    created_at: now,
+    payload: { reviewOnly: true, bookingId: booking.id },
+  };
+  const sosRequest = {
+    id: "review-sos-1",
+    userId: reviewUserId,
+    serviceType: "Legal SOS Video",
+    service_type: "Legal SOS Video",
+    urgency: "high",
+    status: "review-queued",
+    createdAt: now,
+    created_at: now,
+    payload: {
+      reviewOnly: true,
+      counsel: "Review Counsel Desk",
+      fee: 1500,
+      channel: "Video request preview",
+      note: "Synthetic SOS request. No real call is placed.",
+    },
+  };
+  const notification = {
+    id: "review-notification-1",
+    userId: reviewUserId,
+    type: "review_update",
+    title: "Review workspace ready",
+    message: "Synthetic Client, Advocate and Intern workspaces are available. Admin/RNA access is intentionally blocked.",
+    readAt: null,
+    createdAt: now,
+    created_at: now,
+    payload: { reviewOnly: true },
+  };
+  return {
+    mode: "google-play-review",
+    reviewOnly: true,
+    workspaces: REVIEW_ROLES,
+    cases: [trackedCase],
+    bookings: [booking],
+    tasks: [task],
+    receipts: [receipt],
+    sosRequests: [sosRequest],
+    notifications: [notification],
+    paymentNote: "Review account can inspect receipts and Service Room without charging Razorpay.",
+  };
+}
+
 function verificationHash(destination, code) {
   const salt = process.env.SESSION_SECRET || config.razorpayWebhookSecret || "legal-connect-phase1-verification";
   return crypto.createHash("sha256").update(`${destination}:${code}:${salt}`).digest("hex");
@@ -190,12 +405,18 @@ function publicUser(user) {
     phoneVerified: Boolean(user.phoneVerifiedAt || user.phone_verified_at),
     consentRecorded: Boolean(user.consentAt || user.consent_at),
     createdAt: user.createdAt || user.created_at,
+    isReviewAccount: Boolean(user.isReviewAccount),
+    reviewRoles: user.isReviewAccount ? REVIEW_ROLES : undefined,
   };
 }
 
 async function verifiedContactFlags(email, phone) {
   const flags = { emailVerified: false, phoneVerified: false };
   if (!email && !phone) return flags;
+  if (email && isPlayReviewEmail(email)) {
+    flags.emailVerified = reviewContactVerified(email);
+    return flags;
+  }
   if (db.dbAvailable) {
     const result = await db.query(
       `SELECT
@@ -270,6 +491,101 @@ function emailAdminStatus() {
     support_email_configured: Boolean(config.supportEmail),
     status: status.status,
     warning: testingSender ? "Resend testing sender may only send to the account email. Verify legal-connect.in in Resend to send from no-reply@legal-connect.in." : "",
+  };
+}
+
+function publicSupportRouting() {
+  const supportEmail = config.supportEmail || "legalconnect0s@gmail.com";
+  const supportPhone = config.supportPhone || "";
+  const sosPhone = config.sosPhone || supportPhone || "";
+  const whatsappNumber = config.whatsappNumber || "";
+  const phoneFallback = "Number shared after verified booking and RNA assignment";
+  const whatsappFallback = "WhatsApp routing available after support number is configured";
+  const routes = [
+    {
+      service: "Chat 3 min",
+      desk: "RNA Chat Desk",
+      channel: "In-app chat request queue",
+      destination: "RNA Chat Coordinator",
+      phone: "",
+      phone_label: "No advocate private number is shown for chat.",
+      next_step: "After payment verification, the query and receipt go to RNA Chat Desk for counsel allocation.",
+    },
+    {
+      service: "Chat 8 min",
+      desk: "RNA Chat Desk",
+      channel: "In-app chat request queue",
+      destination: "RNA Chat Coordinator",
+      phone: "",
+      phone_label: "No advocate private number is shown for chat.",
+      next_step: "After payment verification, the longer chat request is queued with the problem summary.",
+    },
+    {
+      service: "Chat 12 min",
+      desk: "RNA Chat Desk",
+      channel: "In-app chat request queue",
+      destination: "RNA Chat Coordinator",
+      phone: "",
+      phone_label: "No advocate private number is shown for chat.",
+      next_step: "After payment verification, RNA allocates the verified counsel window.",
+    },
+    {
+      service: "SOS Video",
+      desk: "RNA Legal SOS Desk",
+      channel: sosPhone ? "Phone/video coordination desk" : "SOS coordination queue",
+      destination: "RNA SOS Coordinator",
+      phone: sosPhone,
+      phone_label: sosPhone || phoneFallback,
+      next_step: "After payment verification, SOS details go to RNA SOS Desk. Call/video link is shared only when provider or counsel assignment is confirmed.",
+    },
+    {
+      service: "Legal SOS Video",
+      desk: "RNA Legal SOS Desk",
+      channel: sosPhone ? "Phone/video coordination desk" : "SOS coordination queue",
+      destination: "RNA SOS Coordinator",
+      phone: sosPhone,
+      phone_label: sosPhone || phoneFallback,
+      next_step: "SOS receipt is created first. RNA/Admin sees the request and coordinates the next available support channel.",
+    },
+    {
+      service: "Attorney Shield",
+      desk: "RNA Attorney Shield Desk",
+      channel: "Matter-vault review and counsel allocation",
+      destination: "RNA Shield Coordinator",
+      phone: supportPhone,
+      phone_label: supportPhone || phoneFallback,
+      next_step: "After payment verification, the matter summary moves to the Shield Desk for document review and action planning.",
+    },
+    {
+      service: "Office Consult",
+      desk: "RNA Office Scheduling Desk",
+      channel: "Office slot coordination",
+      destination: "RNA Office Coordinator",
+      phone: supportPhone,
+      phone_label: supportPhone || phoneFallback,
+      next_step: "After payment verification, the office slot request is sent to RNA scheduling. Location and counsel details are shared after confirmation.",
+    },
+    {
+      service: "Doorstep",
+      desk: "RNA Doorstep Coordination Desk",
+      channel: "Field visit scheduling",
+      destination: "RNA Field Coordinator",
+      phone: supportPhone,
+      phone_label: supportPhone || phoneFallback,
+      next_step: "After payment verification, RNA checks location, counsel availability and visit timing before sharing any direct contact.",
+    },
+  ];
+  return {
+    ok: true,
+    support_email: supportEmail,
+    support_phone: supportPhone,
+    sos_phone: sosPhone,
+    whatsapp_number: whatsappNumber,
+    support_phone_label: supportPhone || phoneFallback,
+    sos_phone_label: sosPhone || phoneFallback,
+    whatsapp_label: whatsappNumber || whatsappFallback,
+    privacy_note: "Client phone/email and advocate private numbers stay hidden from the opposite side until verified assignment. Use central RNA coordination first.",
+    routes,
   };
 }
 
@@ -1031,7 +1347,7 @@ function dataDeletionPageHtml() {
       <h2>In-app request path</h2>
       <p>Open Legal Connect, log in, then go to <strong>Profile / Account - Privacy & Data - Request Account Deletion</strong>. Submit the confirmation shown in the app.</p>
       <h2>Email request path</h2>
-      <p>You may email <a href="mailto:karannagpal16@gmail.com">karannagpal16@gmail.com</a> from your registered email address. Include your registered name, masked phone number or registered email, and a short statement that you want account deletion. Do not email passwords or OTPs.</p>
+      <p>You may email <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a> from your registered email address. Include your registered name, masked phone number or registered email, and a short statement that you want account deletion. Do not email passwords or OTPs.</p>
       <h2>Verification</h2>
       <p>Legal Connect may ask for additional verification before acting on a deletion request to protect users from unauthorised deletion.</p>
       <h2>Data normally considered for deletion</h2>
@@ -1044,7 +1360,7 @@ function dataDeletionPageHtml() {
       <h2>Records that may be retained</h2>
       <p>Some records may need to be retained where required for legal, payment, fraud prevention, dispute resolution, audit, tax, accounting, or compliance purposes. This may include payment references, receipts, audit logs, dispute records, and legally relevant service records.</p>
       <h2>Support and grievance contact</h2>
-      <p>Support email: <a href="mailto:karannagpal16@gmail.com">karannagpal16@gmail.com</a>. MSME/Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong>.</p>
+      <p>Support email: <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a>. MSME/Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong>.</p>
       <p><small>Effective date: 13 July 2026. Last updated: 13 July 2026.</small></p>
     </div>
   </main>
@@ -1090,6 +1406,11 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/support-routing" && req.method === "GET") {
+    sendJson(res, 200, publicSupportRouting());
+    return;
+  }
+
   if (url.pathname === "/data-deletion" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(dataDeletionPageHtml());
@@ -1115,12 +1436,55 @@ const server = http.createServer(async (req, res) => {
       legal_chunks_count: lawbotCounts.legal_chunks_count,
       pdf_ingestion: "enabled",
       audit_logs: "enabled",
-      payments: config.razorpayKeyId && config.razorpayKeySecret ? "razorpay-ready" : "demo",
+      payments: config.razorpayKeyId && config.razorpayKeySecret ? "razorpay-ready" : "not-configured",
       email: emailProviderStatus(),
       otp_mode: otpStatus.otp_mode,
       otp_fallback_enabled: otpStatus.otp_fallback_enabled,
+      google_play_review_access: playReviewConfigured() ? "enabled" : "disabled",
       public_url: config.publicAppUrl,
       allowed_origins_count: (config.allowedOrigins || []).filter((origin) => origin !== "*").length,
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/review/workspace" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!isReviewUser(authUser)) {
+      sendJson(res, 403, { ok: false, error: "Google Play review workspace is not available for this account." });
+      return;
+    }
+    sendJson(res, 200, {
+      ok: true,
+      reviewAccess: reviewAccessPayload(authUser.role),
+      workspace: reviewSeedData(authUser),
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/review/switch-role" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!isReviewUser(authUser)) {
+      sendJson(res, 403, { ok: false, error: "Google Play review role switching is not available for this account." });
+      return;
+    }
+    const body = await readBody(req);
+    const nextRole = REVIEW_ROLES.includes(body.role) ? body.role : null;
+    if (!nextRole) {
+      sendJson(res, 400, { ok: false, error: "Review role is not allowed." });
+      return;
+    }
+    const switchedUser = decorateReviewUser(authUser, nextRole);
+    const token = encodeSession(switchedUser);
+    await writeAuditLog(switchedUser, "google_play_review_role_switched", "user", switchedUser.id, `Google Play review workspace switched to ${nextRole}.`, {
+      activeRole: nextRole,
+      allowedRoles: REVIEW_ROLES,
+    });
+    sendJson(res, 200, {
+      ok: true,
+      token,
+      user: publicUser(switchedUser),
+      reviewAccess: reviewAccessPayload(nextRole),
+      seededWorkspace: reviewSeedData(switchedUser),
     });
     return;
   }
@@ -1174,6 +1538,17 @@ const server = http.createServer(async (req, res) => {
     const otpStatus = otpRuntimeStatus();
     if (!destination) {
       sendJson(res, 400, { ok: false, error: "Email or phone is required for verification." });
+      return;
+    }
+    if (email && isPlayReviewEmail(email)) {
+      sendJson(res, 200, {
+        ok: true,
+        mode: "google-play-review",
+        status: "review-code-required",
+        destinationType,
+        destinationMasked: maskEmail(email),
+        message: "Enter the Google Play review access code supplied in Play Console.",
+      });
       return;
     }
     if (config.nodeEnv === "production" && destinationType === "phone") {
@@ -1276,11 +1651,49 @@ const server = http.createServer(async (req, res) => {
     const email = normalizeEmail(body.email);
     const phone = normalizePhone(body.phone);
     const destination = email || phone;
-    const code = String(body.code || "").trim();
+    const rawCode = body.code === undefined || body.code === null ? "" : String(body.code);
+    const code = rawCode.trim();
     if (!destination || !code) {
       sendJson(res, 400, { ok: false, error: "Destination and code are required." });
       return;
     }
+
+    if (email && isPlayReviewEmail(email)) {
+      const limit = reviewRateLimit(email, req);
+      if (!limit.allowed) {
+        sendJson(res, 429, {
+          ok: false,
+          mode: "google-play-review",
+          status: "rate_limited",
+          error: "Too many review login attempts. Try again later.",
+          retryAfterSeconds: limit.retryAfterSeconds,
+        });
+        return;
+      }
+      if (rawCode !== config.playReviewCode) {
+        sendJson(res, 400, {
+          ok: false,
+          mode: "google-play-review",
+          status: "failed",
+          message: "Review access code is invalid.",
+        });
+        return;
+      }
+      markReviewVerified(email);
+      await writeAuditLog(null, "google_play_review_code_verified", "verification", "google-play-review", "Google Play review code verified.", {
+        emailMasked: maskEmail(email),
+      });
+      sendJson(res, 200, {
+        ok: true,
+        mode: "google-play-review",
+        status: "verified",
+        destinationMasked: maskEmail(email),
+        destinationType: "email",
+        reviewAccess: reviewAccessPayload("client"),
+      });
+      return;
+    }
+
     const expectedHash = verificationHash(destination, code);
     let verified = false;
     let verificationId = null;
@@ -1344,11 +1757,21 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
-    const role = roles.has(body.role) ? body.role : "client";
+    const requestedRole = roles.has(body.role) ? body.role : "client";
     const name = body.name || body.email || body.phone || "Legal Connect User";
     const email = normalizeEmail(body.email) || null;
     const phone = normalizePhone(body.phone) || null;
     const privacyConsent = body.privacyConsent === true || body.privacyConsent === "true";
+    const isReviewLogin = Boolean(email && isPlayReviewEmail(email));
+    if (isReviewLogin && !reviewContactVerified(email)) {
+      sendJson(res, 401, {
+        ok: false,
+        mode: "google-play-review",
+        error: "Verify the Google Play review code before opening the review workspace.",
+      });
+      return;
+    }
+    const role = isReviewLogin && REVIEW_ROLES.includes(requestedRole) ? requestedRole : isReviewLogin ? "client" : requestedRole;
     const verifiedFlags = await verifiedContactFlags(email, phone);
     let user;
 
@@ -1417,6 +1840,15 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (isReviewLogin) {
+      user = decorateReviewUser(user, role);
+      await writeAuditLog(user, "google_play_review_login", "user", user.id, "Google Play review account opened.", {
+        activeRole: role,
+        allowedRoles: REVIEW_ROLES,
+        dataMode: "synthetic",
+      });
+    }
+
     const token = encodeSession(user);
     await createReceipt({
       userId: user.id,
@@ -1430,7 +1862,13 @@ const server = http.createServer(async (req, res) => {
       visibility: "private",
       payload: { role: user.role, emailMasked: maskEmail(user.email), phoneMasked: maskPhone(user.phone), consentRecorded: privacyConsent },
     });
-    sendJson(res, 200, { ok: true, token, user: publicUser(user), verification: { emailVerified: Boolean(user.emailVerifiedAt), phoneVerified: Boolean(user.phoneVerifiedAt), consentRecorded: Boolean(user.consentAt) } });
+    sendJson(res, 200, {
+      ok: true,
+      token,
+      user: publicUser(user),
+      verification: { emailVerified: Boolean(user.emailVerifiedAt), phoneVerified: Boolean(user.phoneVerifiedAt), consentRecorded: Boolean(user.consentAt) },
+      ...(isReviewLogin ? { reviewAccess: reviewAccessPayload(user.role), seededWorkspace: reviewSeedData(user) } : {}),
+    });
     return;
   }
 
@@ -1507,6 +1945,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/cases" && req.method === "GET") {
     const authUser = getAuthUser(req);
+    if (isReviewUser(authUser)) {
+      sendJson(res, 200, reviewSeedData(authUser).cases);
+      return;
+    }
     if (db.dbAvailable) {
       if (!authUser) {
         sendJson(res, 200, []);
@@ -1525,6 +1967,15 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/cases" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
+    if (isReviewUser(authUser)) {
+      const seed = reviewSeedData(authUser).cases[0];
+      sendJson(res, 201, {
+        ...seed,
+        status: "Review saved",
+        message: "Synthetic review case preview saved without touching production data.",
+      });
+      return;
+    }
     const caseNumber = body.caseNo || body.case_number;
     const missing = [];
     if (!body.court) missing.push("court");
@@ -1608,7 +2059,7 @@ const server = http.createServer(async (req, res) => {
       message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.",
       caseId: "case-demo-1",
       nextDate: "2026-07-04",
-      source: "Official eCourts Services data - demo stream",
+      source: "Court update sample stream - connect permitted official court sync before production use",
     };
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -1632,8 +2083,8 @@ const server = http.createServer(async (req, res) => {
     const recipient = body.to || body.email || authUser?.email || null;
     const provider = emailProviderStatus();
     if (provider.provider !== "resend" || provider.status !== "ready") {
-      const demoMessage = "In-app notification queued because Resend is not configured.";
-      await createNotification("notify_test", title, message, { mode: "demo", channels: ["in-app", "email-demo"] }, authUser.id || null);
+      const demoMessage = "In-app fallback notification queued because Resend is not configured.";
+      await createNotification("notify_test", title, message, { mode: "demo", channels: ["in-app"] }, authUser.id || null);
       await writeAuditLog(authUser, "notification_test_demo_queued", "notification", "notify-test", demoMessage, { recipient, provider: emailAdminStatus() });
       sendJson(res, 202, {
         ok: true,
@@ -1674,6 +2125,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/notifications" && req.method === "GET") {
     const authUser = getAuthUser(req);
+    if (isReviewUser(authUser)) {
+      sendJson(res, 200, reviewSeedData(authUser).notifications);
+      return;
+    }
     if (db.dbAvailable) {
       const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50")
@@ -1713,6 +2168,10 @@ const server = http.createServer(async (req, res) => {
     const limit = Math.min(Number(url.searchParams.get("limit") || 60), 100);
     if (!authUser) {
       sendJson(res, 200, []);
+      return;
+    }
+    if (isReviewUser(authUser)) {
+      sendJson(res, 200, reviewSeedData(authUser).receipts.slice(0, limit));
       return;
     }
     if (db.dbAvailable) {
@@ -2109,6 +2568,26 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 400, { ok: false, error: "Valid amount is required." });
       return;
     }
+    if (isReviewUser(authUser)) {
+      await writeAuditLog(authUser, "google_play_review_payment_inspected", "payment", body.bookingId || "review-payment", "Google Play reviewer inspected payment flow without charge.", {
+        amount,
+        dataMode: "synthetic",
+      });
+      sendJson(res, 200, {
+        ok: true,
+        success: true,
+        mode: "google-play-review",
+        provider: "review",
+        status: "review_only",
+        payment_status: "review-inspection",
+        work_hold_status: "not-applicable-review",
+        amount: amount * 100,
+        currency: "INR",
+        receipt: body.receiptNo || body.receipt_no || "LC-REVIEW-0001",
+        message: "Google Play review account can inspect this receipt without a Razorpay charge.",
+      });
+      return;
+    }
     if (!hasRazorpay) {
       sendJson(res, 503, {
         ok: false,
@@ -2182,6 +2661,10 @@ const server = http.createServer(async (req, res) => {
     const paymentId = body.payment_id || body.razorpay_payment_id;
     const signature = body.signature || body.razorpay_signature;
     const bookingId = body.bookingId || body.booking_id;
+    if (isReviewUser(authUser)) {
+      sendJson(res, 200, { ok: true, mode: "google-play-review", status: "review_only", payment_status: "review-inspection", work_hold_status: "not-applicable-review" });
+      return;
+    }
     if (!config.razorpayKeySecret) {
       sendJson(res, 200, { ok: true, mode: "demo", status: "queued", payment_status: "verification_pending", work_hold_status: "pending" });
       return;
@@ -2314,7 +2797,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         ok: true,
         case: mapCase(result.rows[0]),
-        message: "Diary entry completed after proof approval and escrow release.",
+        message: "Diary entry completed after proof approval and Work Completion Hold release.",
       });
       return;
     }
@@ -2332,13 +2815,17 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 200, {
       ok: true,
       case: trackedCase,
-      message: "Diary entry completed after proof approval and escrow release.",
+      message: "Diary entry completed after proof approval and Work Completion Hold release.",
     });
     return;
   }
 
   if (url.pathname === "/api/tasks" && req.method === "GET") {
     const authUser = getAuthUser(req);
+    if (isReviewUser(authUser)) {
+      sendJson(res, 200, reviewSeedData(authUser).tasks);
+      return;
+    }
     if (db.dbAvailable) {
       if (!authUser) {
         sendJson(res, 200, []);
@@ -2358,6 +2845,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/bookings" && req.method === "GET") {
     const authUser = getAuthUser(req);
+    if (isReviewUser(authUser)) {
+      sendJson(res, 200, reviewSeedData(authUser).bookings);
+      return;
+    }
     if (db.dbAvailable) {
       if (!authUser) {
         sendJson(res, 200, []);
@@ -2376,6 +2867,17 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/bookings" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
+    if (isReviewUser(authUser)) {
+      const seed = reviewSeedData(authUser);
+      sendJson(res, 201, {
+        ...seed.bookings[0],
+        serviceType: body.serviceType || body.service_type || body.plan || seed.bookings[0].serviceType,
+        amount: Number(body.amount || body.price || seed.bookings[0].amount),
+        transparencyReceipt: seed.receipts[0],
+        message: "Google Play review booking is synthetic and does not charge Razorpay.",
+      });
+      return;
+    }
     const bookingUserId = userIdForWrite(body, authUser);
     const booking = { id: `booking-${Date.now()}`, userId: bookingUserId, status: "Pending", createdAt: new Date().toISOString(), ...body };
     if (db.dbAvailable) {
@@ -2437,6 +2939,17 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/tasks" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
+    if (isReviewUser(authUser)) {
+      const seed = reviewSeedData(authUser);
+      sendJson(res, 201, {
+        ...seed.tasks[0],
+        title: body.title || seed.tasks[0].title,
+        amount: Number(body.amount || body.fee || seed.tasks[0].amount),
+        transparencyReceipt: seed.receipts[0],
+        message: "Google Play review court mission is synthetic and cannot release funds.",
+      });
+      return;
+    }
     const actorId = userIdForWrite(body, authUser);
     const task = { id: `task-${Date.now()}`, postedBy: actorId, status: "Open", createdAt: new Date().toISOString(), ...body };
     if (db.dbAvailable) {
@@ -2553,6 +3066,17 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/sos" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
+    if (isReviewUser(authUser)) {
+      const seed = reviewSeedData(authUser);
+      sendJson(res, 201, {
+        ...seed.sosRequests[0],
+        serviceType: body.serviceType || body.service_type || seed.sosRequests[0].serviceType,
+        urgency: body.urgency || seed.sosRequests[0].urgency,
+        transparencyReceipt: seed.receipts[0],
+        message: "Google Play review SOS request is synthetic. No real call or video link is placed.",
+      });
+      return;
+    }
     const sosUserId = userIdForWrite(body, authUser);
     const sosRequest = {
       id: `sos-${Date.now()}`,
@@ -2622,7 +3146,8 @@ async function startServer() {
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on ${PORT}`);
     console.log(`Database mode: ${db.dbAvailable ? "connected" : "fallback"}`);
-    console.log(`Email provider: ${emailProviderStatus().provider === "resend" && emailProviderStatus().status === "ready" ? "resend configured" : "demo fallback"}`);
+    console.log(`Email provider: ${emailProviderStatus().provider === "resend" && emailProviderStatus().status === "ready" ? "resend configured" : "in-app fallback"}`);
+    console.log(`Google Play review access: ${playReviewConfigured() ? "configured" : "disabled"}`);
   });
 }
 

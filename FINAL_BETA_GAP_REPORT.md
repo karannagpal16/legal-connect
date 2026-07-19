@@ -30,7 +30,7 @@ Scope: controlled beta and limited paid pilot readiness for the Legal Connect we
 | Terms | Ready for Beta | Present. Formal legal review recommended before public launch. |
 | Refund Policy | Must Fix Before Public Launch | Present as beta policy. Needs final counsel/payment-gateway-approved wording. |
 | Disclaimer | Ready for Beta | Avoids outcome guarantees and clarifies informational nature. |
-| Contact/support email | Ready | `karannagpal16@gmail.com` is visible. |
+| Contact/support email | Ready | `legalconnect0s@gmail.com` is visible. |
 | Play Store Internal Testing readiness | Ready | Internal testing is active; tester emails must be managed in Play Console. |
 | Store Data Safety notes | Must Fix Before Public Launch | Must be completed manually in Play Console with actual data-use declarations. |
 | LawBot/source library status | Partially Ready | Source Library is ready. Public LawBot answers should remain controlled until approved sources are indexed. |

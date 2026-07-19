@@ -1,10 +1,10 @@
 # Legal Connect Privacy and Personal Data Audit
 
-Audit date: 13 July 2026  
-Platform: Legal Connect  
-Live URL: https://www.legal-connect.in  
-Android package: in.legalconnect.app  
-Support email: karannagpal16@gmail.com  
+Audit date: 13 July 2026
+Platform: Legal Connect
+Live URL: https://www.legal-connect.in
+Android package: in.legalconnect.app
+Support email: legalconnect0s@gmail.com
 UDYAM: UDYAM-DL-11-0164811
 
 This audit is based on the current codebase, especially `artifacts/api-server/server.js`, `artifacts/api-server/db.js`, `index.html`, `app.js`, and the synced files under `artifacts/api-server/public/`. It does not certify legal compliance. It records what the app currently collects, stores, shares with configured processors, exposes to roles, retains, and deletes.

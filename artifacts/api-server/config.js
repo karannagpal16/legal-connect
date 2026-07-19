@@ -81,7 +81,13 @@ const config = {
   sendgridApiKey: optionalString("SENDGRID_API_KEY") || optionalString("SENDGRID_KEY"),
   resendApiKey: optionalString("RESEND_API_KEY"),
   fromEmail: optionalString("FROM_EMAIL"),
-  supportEmail: optionalString("SUPPORT_EMAIL"),
+  supportEmail: optionalString("SUPPORT_EMAIL", "legalconnect0s@gmail.com"),
+  supportPhone: optionalString("SUPPORT_PHONE") || optionalString("PUBLIC_SUPPORT_PHONE"),
+  sosPhone: optionalString("SOS_PHONE") || optionalString("LEGAL_SOS_PHONE"),
+  whatsappNumber: optionalString("WHATSAPP_SUPPORT_NUMBER") || optionalString("SUPPORT_WHATSAPP_NUMBER"),
+  playReviewEnabled: optionalString("PLAY_REVIEW_ENABLED", "false").toLowerCase() === "true",
+  playReviewEmail: optionalString("PLAY_REVIEW_EMAIL"),
+  playReviewCode: optionalString("PLAY_REVIEW_CODE"),
 };
 
 if (config.nodeEnv === "production") {

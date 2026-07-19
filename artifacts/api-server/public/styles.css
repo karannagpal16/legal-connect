@@ -16,6 +16,63 @@
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.review-switcher {
+  display: grid;
+  gap: 14px;
+  border-color: rgba(212, 175, 55, 0.42);
+  background:
+    linear-gradient(135deg, rgba(255, 248, 225, 0.96), rgba(239, 246, 255, 0.94)),
+    var(--lc-card);
+}
+
+.review-switcher[hidden] {
+  display: none;
+}
+
+.review-role-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.review-role-pill {
+  min-height: 52px;
+  border: 1px solid rgba(20, 43, 74, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #142b4a;
+  font-weight: 900;
+  letter-spacing: 0;
+  white-space: normal;
+}
+
+.review-role-pill.selected {
+  background: linear-gradient(135deg, #142b4a, #264e7d);
+  color: #fff8df;
+  border-color: rgba(212, 175, 55, 0.8);
+  box-shadow: 0 14px 30px rgba(20, 43, 74, 0.18);
+}
+
+.review-seed-status {
+  border: 1px dashed rgba(212, 175, 55, 0.55);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #35506d;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .review-role-options {
+    grid-template-columns: 1fr;
+  }
+
+  .review-role-pill {
+    min-height: 46px;
+  }
+}
+
 .phase-command {
   display: grid;
   gap: 18px;
@@ -7364,5 +7421,481 @@ button {
     left: 10px;
     right: 10px;
     bottom: 96px;
+  }
+}
+
+/* Product perfection sprint: one premium, high-contrast, phone-safe system. */
+:root {
+  --lc-bg: #050814;
+  --lc-bg-2: #0b0f19;
+  --lc-surface: #121a27;
+  --lc-surface-2: #172232;
+  --lc-forest: #0e2a25;
+  --lc-border: rgba(214, 165, 70, 0.22);
+  --lc-border-strong: rgba(242, 201, 109, 0.46);
+  --lc-gold: #d6a546;
+  --lc-gold-2: #f2c96d;
+  --lc-text: #f8fafc;
+  --lc-text-2: #cbd5e1;
+  --lc-muted: #94a3b8;
+  --lc-success: #38c172;
+  --lc-warning: #f59e0b;
+  --lc-danger: #ef4444;
+  --lc-radius: 18px;
+  --lc-radius-sm: 12px;
+  --lc-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+  --lc-focus: 0 0 0 3px rgba(242, 201, 109, 0.35);
+  color-scheme: dark;
+}
+
+html {
+  background: var(--lc-bg);
+}
+
+body {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(214, 165, 70, 0.12), transparent 28rem),
+    radial-gradient(circle at 90% 15%, rgba(24, 83, 78, 0.28), transparent 32rem),
+    linear-gradient(180deg, #050814 0%, #07101d 42%, #050814 100%);
+  color: var(--lc-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3,
+.poster-mast h2 {
+  color: var(--lc-text);
+  letter-spacing: 0;
+}
+
+p,
+li,
+small,
+label,
+.fine-print {
+  color: var(--lc-text-2);
+  line-height: 1.55;
+}
+
+a,
+.text-link {
+  color: var(--lc-gold-2);
+}
+
+.app-shell,
+main {
+  background: transparent;
+}
+
+.rail,
+.topbar,
+.command-dock,
+.panel,
+.command-card,
+.task-card,
+.judgment-card,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.client-command-center,
+.mission-command-center,
+.login-session-board,
+.floating-lawbot,
+.sos-panel {
+  background:
+    linear-gradient(180deg, rgba(23, 34, 50, 0.94), rgba(11, 15, 25, 0.94));
+  border: 1px solid var(--lc-border);
+  box-shadow: var(--lc-shadow);
+  color: var(--lc-text);
+}
+
+.rail {
+  border-right-color: var(--lc-border);
+}
+
+.brand,
+.nav-item,
+.command-dock button,
+.ghost-button,
+.gold-button,
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.nav-item {
+  min-height: 44px;
+  color: var(--lc-text-2);
+  border: 1px solid transparent;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  color: var(--lc-text);
+  background: rgba(214, 165, 70, 0.12);
+  border-color: var(--lc-border);
+}
+
+.rail-card {
+  background: rgba(14, 42, 37, 0.62);
+  border-color: var(--lc-border);
+}
+
+.topbar {
+  border-radius: 0 0 var(--lc-radius) var(--lc-radius);
+}
+
+.topbar h1 {
+  color: var(--lc-text);
+  text-wrap: balance;
+}
+
+.eyebrow,
+.status-dot,
+.section-head span,
+.poster-mast span,
+.poster-gates span {
+  color: var(--lc-gold-2);
+}
+
+.gold-button,
+button.gold-button,
+[data-pay-booking],
+#request-account-deletion,
+.sos-orb {
+  color: #101827 !important;
+  background: linear-gradient(135deg, #fff0bd, var(--lc-gold-2) 42%, var(--lc-gold));
+  border: 0;
+  box-shadow: 0 14px 30px rgba(214, 165, 70, 0.24);
+}
+
+.ghost-button,
+.panel button:not(.gold-button):not(.text-link):not(#sos-close),
+.command-dock button,
+.booking-options button,
+.admin-action-grid button,
+.service-actions button,
+.source-actions button,
+.receipt-actions button,
+.mission-actions button,
+.sos-case-grid button,
+.sos-counsel-list button {
+  color: var(--lc-text);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(203, 213, 225, 0.2);
+}
+
+.ghost-button:hover,
+.panel button:not(.gold-button):not(.text-link):not(#sos-close):hover,
+.booking-options button:hover,
+.admin-action-grid button:hover {
+  border-color: var(--lc-border-strong);
+  background: rgba(214, 165, 70, 0.12);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 0;
+  box-shadow: var(--lc-focus);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 48px;
+  color: var(--lc-text);
+  background: rgba(4, 8, 20, 0.78);
+  border: 1px solid rgba(203, 213, 225, 0.22);
+  border-radius: 14px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(203, 213, 225, 0.62);
+}
+
+select option {
+  background: #0b0f19;
+  color: var(--lc-text);
+}
+
+.demo-status {
+  color: var(--lc-text);
+  background: rgba(7, 16, 29, 0.94);
+  border: 1px solid var(--lc-border);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+}
+
+.auth-status.verified,
+#verification-status.verified {
+  color: #d9fff0;
+  background: rgba(18, 78, 55, 0.82);
+  border-color: rgba(56, 193, 114, 0.48);
+}
+
+.cover-stage,
+.cover-poster,
+#home .poster-gates article,
+#home .home-route-summary article {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(214, 165, 70, 0.16), transparent 22rem),
+    linear-gradient(180deg, rgba(11, 15, 25, 0.94), rgba(5, 8, 20, 0.96));
+  border-color: var(--lc-border);
+}
+
+#home .poster-mast h2 {
+  text-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+}
+
+#home .poster-mast p {
+  color: var(--lc-gold-2);
+}
+
+#home .dharma-quote-card {
+  background: rgba(8, 14, 24, 0.82);
+  border-color: var(--lc-border);
+}
+
+#home .dharma-quote-card p,
+#home .dharma-quote-card cite {
+  color: var(--lc-text-2);
+}
+
+.booking-options button.selected,
+.client-timeline .active,
+.service-timeline .active,
+.escrow-flow .active {
+  color: #101827;
+  background: linear-gradient(135deg, #fff0bd, var(--lc-gold-2));
+  border-color: transparent;
+}
+
+.booking-confirmation,
+.service-status-card,
+.payment-simulator,
+.auth-status,
+.case-health div,
+.safe-board-grid article,
+.client-desk-grid article,
+.source-card,
+.receipt-card {
+  background: rgba(4, 8, 20, 0.58);
+  border: 1px solid rgba(203, 213, 225, 0.16);
+  color: var(--lc-text);
+}
+
+.booking-confirmation strong,
+.service-status-card strong,
+.payment-simulator strong,
+.case-health strong,
+.safe-board-grid strong,
+.client-desk-grid strong,
+.receipt-card strong {
+  color: var(--lc-text);
+}
+
+.booking-confirmation span,
+.service-status-card span,
+.payment-simulator span,
+.case-health span,
+.receipt-card time {
+  color: var(--lc-gold-2);
+}
+
+.sos-panel {
+  right: 14px;
+  bottom: 86px;
+}
+
+.lawbot-panel {
+  bottom: 86px;
+}
+
+.floating-work {
+  display: none;
+}
+
+.legal-footer {
+  color: var(--lc-text-2);
+  background: rgba(7, 16, 29, 0.78);
+  border-top: 1px solid var(--lc-border);
+}
+
+.legal-footer button {
+  color: var(--lc-gold-2);
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    display: block;
+  }
+
+  .rail {
+    position: static;
+    width: auto;
+    min-height: auto;
+    margin: 10px;
+    border-radius: var(--lc-radius);
+  }
+
+  .nav-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .nav-item {
+    justify-content: center;
+    text-align: center;
+    padding: 10px 8px;
+  }
+
+  .rail-card {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  body {
+    font-size: 15.5px;
+  }
+
+  main {
+    padding: 10px 10px 132px;
+  }
+
+  .panel,
+  .command-card,
+  .task-card,
+  .judgment-card,
+  .booking-dock,
+  .source-library,
+  .audit-panel,
+  .service-room-panel,
+  .client-command-center,
+  .mission-command-center,
+  .login-session-board {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .workspace-head,
+  .section-head,
+  .topbar,
+  .payment-simulator,
+  .source-library-head,
+  .sos-head {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .workspace-head button,
+  .section-head button,
+  .topbar button,
+  .payment-simulator button {
+    width: 100%;
+  }
+
+  .nav-group,
+  .command-dock,
+  .metric-grid,
+  .brief-grid,
+  .feed-grid,
+  .counsel-grid,
+  .client-flow-strip,
+  .client-timeline,
+  .service-timeline,
+  .escrow-flow,
+  .case-health,
+  .version-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .client-flow-strip,
+  .client-timeline,
+  .service-timeline,
+  .escrow-flow,
+  .version-strip {
+    display: grid;
+  }
+
+  .client-flow-strip span,
+  .client-timeline span,
+  .service-timeline span,
+  .escrow-flow span,
+  .version-strip span {
+    min-height: 42px;
+    width: 100%;
+    padding: 10px 12px;
+    text-align: left;
+    border-radius: 12px;
+  }
+
+  .admin-action-grid,
+  .booking-options,
+  .mission-actions,
+  .sos-case-grid,
+  .service-actions,
+  .source-actions,
+  .receipt-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-action-grid button,
+  .booking-options button,
+  .mission-actions button,
+  .sos-case-grid button,
+  .service-actions button,
+  .source-actions button,
+  .receipt-actions button {
+    min-height: 50px;
+    text-align: left;
+  }
+
+  .source-form,
+  .role-grid,
+  .verification-actions {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .floating-sos,
+  .floating-lawbot {
+    bottom: 16px;
+  }
+
+  .sos-panel,
+  .lawbot-panel {
+    position: fixed;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 86px !important;
+    width: auto !important;
+    max-height: min(72vh, 620px);
+    overflow-y: auto;
+  }
+
+  .lawbot-greeting {
+    display: none;
   }
 }

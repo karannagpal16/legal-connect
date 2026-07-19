@@ -6,7 +6,7 @@
     <title>Legal Connect - Professional Legal OS</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="favicon.svg" />
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=10" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,25 +22,21 @@
         <nav class="nav-group">
           <button class="nav-item active" data-view="home">Home</button>
           <button class="nav-item" data-view="login">Login</button>
-          <button class="nav-item" data-view="account-privacy">Privacy & Data</button>
-          <button class="nav-item" data-view="advocate">Advocate OS</button>
-          <button class="nav-item" data-view="chambers">Chambers</button>
-          <button class="nav-item" data-view="matter">Matter Vault</button>
-          <button class="nav-item" data-view="diary">Case Diary</button>
-          <button class="nav-item" data-view="bar">Digital Library</button>
-          <button class="nav-item" data-view="appearance">Court Mission Board</button>
-          <button class="nav-item" data-view="posttask">Post Mission</button>
-          <button class="nav-item" data-view="task">Task Detail</button>
-          <button class="nav-item" data-view="escrow">Work Hold</button>
           <button class="nav-item" data-view="client">Client Portal</button>
+          <button class="nav-item" data-view="advocate">Advocate Portal</button>
+          <button class="nav-item" data-open-sos>Legal SOS</button>
+          <button class="nav-item" data-view="service-room">Service Room</button>
+          <button class="nav-item" data-view="posttask">Court Mission</button>
           <button class="nav-item" data-view="documents">Documents</button>
           <button class="nav-item" data-view="intern">Intern Portal</button>
-          <button class="nav-item" data-view="admin">Admin</button>
+          <button class="nav-item" data-view="bar">Digital Library</button>
+          <button class="nav-item" data-view="admin">RNA Control</button>
+          <button class="nav-item" data-view="account-privacy">Privacy & Data</button>
         </nav>
 
         <section class="rail-card">
           <span class="eyebrow">Access Doctrine</span>
-          <p>Client Shield, Matter Shield, Legal SOS, expiring task rooms, and audit logs are treated as product primitives.</p>
+          <p>Login once, choose your role, and keep bookings, SOS, missions, receipts and privacy requests in one protected workspace.</p>
         </section>
       </aside>
 
@@ -51,7 +47,7 @@
             <h1 id="view-title">Legal Connect</h1>
           </div>
           <div class="top-actions">
-            <button class="gold-button" data-jump="posttask">New Court Mission</button>
+            <button class="gold-button" data-jump="posttask">Post Court Mission</button>
           </div>
         </header>
         <div class="demo-status" id="demo-status" aria-live="polite">Legal Connect ready.</div>
@@ -78,7 +74,7 @@
               <span>Duty. Precision. Integrity.</span>
               <div class="poster-emblem" aria-hidden="true"><i></i></div>
               <h2>Legal<br />Connect</h2>
-              <p>Your Law. Your Right. Our Mission.</p>
+              <p>Your Case. Our Mission.</p>
               <div class="msme-trust-badge" aria-label="MSME registration trust badge">
                 <strong>MSME Registered</strong>
                 <span>UDYAM-DL-11-0164811</span>
@@ -287,6 +283,16 @@
                 <article><span>Access</span><strong data-user-role>LOGIN</strong><small>Role-based privacy shield active.</small></article>
               </div>
               <button class="ghost-button" type="button" data-jump="account-privacy">Profile / Account - Privacy &amp; Data</button>
+            </section>
+
+            <section class="panel review-switcher" id="review-switcher" hidden>
+              <div>
+                <span class="eyebrow">Google Play Review Access</span>
+                <h3>Safe review workspaces</h3>
+                <p>Isolated synthetic data only. Admin, RNA Control Room, source deletion and payment-release powers are blocked.</p>
+              </div>
+              <div class="review-role-options" id="review-role-options" aria-label="Review workspace switcher"></div>
+              <div class="review-seed-status" id="review-seed-status">Sign in with the Play review account to inspect Client, Advocate and Intern flows.</div>
             </section>
 
             <section class="advocate-top-grid">
@@ -721,7 +727,7 @@
               <article>
                 <span>Last Booking</span>
                 <strong id="desk-booking-title">No booking yet</strong>
-                <p id="desk-booking-detail">Tap Book Now, choose Chat / Audio / Video / Shield / Doorstep, then Pay & Confirm.</p>
+                <p id="desk-booking-detail">Tap Book Now, choose Chat / SOS Video / Shield / Office / Doorstep, then Pay & Confirm.</p>
                 <button class="ghost-button" data-open-booking>Book counsel</button>
               </article>
               <article>
@@ -759,9 +765,9 @@
           <section class="client-hero-panel panel">
             <div>
               <span class="eyebrow">Legal SOS</span>
-              <h3>Talk to a real lawyer when it matters.</h3>
-              <p>For urgent confusion, the app routes you to a verified RNA counsel with transparent fees and receipts.</p>
-              <p id="client-action-status">Ready: tell us what happened, or choose a counsel below.</p>
+              <h3>Request urgent legal support with a clear receipt.</h3>
+              <p>Choose the situation, write what happened, and Legal Connect records the request for RNA counsel coordination. Call or video status appears only after provider confirmation.</p>
+              <p id="client-action-status">Ready: tell us what happened, choose a plan, and track the next step in Service Room.</p>
             </div>
             <div class="sos-grid">
               <button data-client-action="Police station SOS selected. AI checklist prepared, RNA criminal counsel next.">Police station issue</button>
@@ -782,19 +788,19 @@
               <article>
                 <span>Criminal / Police SOS</span>
                 <strong>RNA Criminal SOS Desk</strong>
-                <p>Audio Rs. 299 / 5 min | Video Rs. 799 / 10 min | SOS Video Rs. 1,500 / 15 min | Shield Rs. 1,999</p>
-                <button data-open-sos data-client-action="RNA Criminal SOS Desk selected. Pick SOS video, chat, audio, or Attorney Shield.">Open SOS</button>
+                <p>Legal SOS Video Rs. 1,500 / 15 min | Attorney Shield Rs. 1,999 | Chat from Rs. 99</p>
+                <button data-open-sos data-client-action="RNA Criminal SOS Desk selected. Create an SOS request or choose a verified chat plan.">Open SOS</button>
               </article>
               <article>
                 <span>Property / Family</span>
                 <strong>RNA Property & Family Desk</strong>
-                <p>Chat Rs. 99 / 3 min | Office consult Rs. 799 / 20 min | Doorstep from Rs. 2,499</p>
+                <p>Chat Rs. 99 / 3 min | Office Rs. 799 / 20 min | Doorstep from Rs. 2,499</p>
                 <button data-open-booking data-preselect-booking="Doorstep" data-client-action="RNA Property & Family Desk selected. Choose office visit, chat, or doorstep below.">Book Counsel</button>
               </article>
               <article>
                 <span>Contracts / Notices</span>
                 <strong>RNA Contracts & Notices Desk</strong>
-                <p>Notice review Rs. 499 | Agreement vetting Rs. 699 | Draft call Rs. 299 / 5 min</p>
+                <p>Drafts Rs. 499 / Rs. 799 / Rs. 1,499 | Chat Rs. 99 / 3 min</p>
                 <button data-open-booking data-preselect-booking="Chat 3 min" data-client-action="RNA Contracts Desk selected. Start with Chat or document review below.">Start Chat</button>
               </article>
             </div>
@@ -837,13 +843,11 @@
             <div>
               <span class="eyebrow">Choose Your Legal Connect Mode</span>
               <h3>How do you want to meet counsel?</h3>
-              <p id="booking-status">Pick one option. We will first prepare an AI summary, then connect you to RNA counsel.</p>
+              <p id="booking-status">Pick one option. Add your problem summary, pay through the gateway, and track verification plus the next service room.</p>
             </div>
             <div class="booking-options">
               <button data-book-option="Attorney Shield" data-book-price="1999" data-book-route="Shield desk: matter vault, document review, action plan and lawyer call unlocked.">Attorney Shield<br><small>Rs. 1,999</small></button>
-              <button data-book-option="SOS Video" data-book-price="1500" data-book-route="Emergency video room: RNA counsel selection, 15 minute timer and SOS receipt generated.">SOS Video<br><small>Rs. 1,500 / 15 min</small></button>
-              <button data-book-option="Video Call" data-book-price="799" data-book-route="Video room: secure consult link and 10 minute timer generated.">Video Call<br><small>Rs. 799 / 10 min</small></button>
-              <button data-book-option="Audio Call" data-book-price="299" data-book-route="Audio SOS: verified RNA counsel joins for a focused 5 minute emergency consult.">Audio Call<br><small>Rs. 299 / 5 min</small></button>
+              <button data-book-option="SOS Video" data-book-price="1500" data-book-route="SOS video request: RNA counsel coordination starts after payment verification; call provider link is shared only when available.">SOS Video<br><small>Rs. 1,500 / 15 min</small></button>
               <button data-book-option="Chat 3 min" data-book-price="99" data-book-route="Chat room: counsel joins for a 3 minute first question.">Chat 3m<br><small>Rs. 99</small></button>
               <button data-book-option="Chat 8 min" data-book-price="150" data-book-route="Chat room: counsel joins for an 8 minute guided discussion.">Chat 8m<br><small>Rs. 150</small></button>
               <button data-book-option="Chat 12 min" data-book-price="200" data-book-route="Chat room: counsel joins for a 12 minute detailed discussion.">Chat 12m<br><small>Rs. 200</small></button>
@@ -871,7 +875,7 @@
             </div>
             <div class="booking-next-map">
               <article><span>Chat</span><strong>Thread opens</strong><p>AI summary goes first, counsel joins after token.</p></article>
-              <article><span>Audio / Video</span><strong>Call room opens</strong><p>Timer, fee, receipt and counsel name stay visible.</p></article>
+              <article><span>SOS / Office</span><strong>Request room opens</strong><p>Timer, fee, receipt and counsel coordination status stay visible.</p></article>
               <article><span>Shield / Doorstep</span><strong>Desk opens</strong><p>Documents, location, slot and action plan are tracked.</p></article>
             </div>
           </section>
@@ -947,7 +951,7 @@
               <span id="service-room-status">Status: waiting for booking</span>
               <strong id="service-room-route">Choose a service to unlock the next step.</strong>
               <p id="service-room-detail">After booking, this page shows whether you go to chat, audio, video, Attorney Shield, doorstep, draft desk, or RNA review.</p>
-              <p class="fine-print">Your request, payment status, receipt and next step stay visible here. If the server is waking up, the request may briefly show as local until sync completes. Support: karannagpal16@gmail.com.</p>
+              <p class="fine-print">Your request, payment status, receipt and next step stay visible here. If the server is waking up, the request may briefly show as local until sync completes. Support: <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a>.</p>
             </div>
             <div class="service-timeline" id="service-room-timeline">
               <span class="active">1. Request created</span>
@@ -1037,7 +1041,7 @@
             <div>
               <span class="eyebrow">Resend Notifications</span>
               <h3>Send one live test reminder.</h3>
-              <p id="notify-test-status">Uses Resend if keys are configured; otherwise saves an in-app notification.</p>
+              <p id="notify-test-status">Uses Resend when configured; otherwise records an in-app notification without pretending an email was sent.</p>
             </div>
             <form id="notify-test-form" class="source-form">
               <label>Recipient Email<input id="notify-test-email" type="email" placeholder="client@example.com" /></label>
@@ -1086,7 +1090,7 @@
               <button class="ghost-button" data-refresh-audit>Refresh Audit</button>
             </div>
             <div class="timeline" id="audit-log-list">
-              <div><time>Live</time><strong>No audit logs loaded</strong><span>Task actions, source approval/rejection/chunking, refunds and role changes appear here.</span></div>
+              <div><time>Ready</time><strong>No audit logs loaded</strong><span>Task actions, source approval/rejection/chunking, refunds and role changes appear here.</span></div>
             </div>
           </section>
           <section class="panel audit-panel">
@@ -1104,7 +1108,7 @@
               <button class="ghost-button" type="button" data-refresh-receipts>Refresh Receipts</button>
             </div>
             <div class="timeline" id="admin-receipt-list">
-              <div><time>Live</time><strong>No receipts loaded</strong><span>Login, booking, payment, SOS, LawBot, mission and admin action receipts appear here.</span></div>
+              <div><time>Ready</time><strong>No receipts loaded</strong><span>Login, booking, payment, SOS, LawBot, mission and admin action receipts appear here.</span></div>
             </div>
           </section>
           <section class="panel trust-map">
@@ -1118,7 +1122,7 @@
           <section class="panel" id="admin-feed">
             <h3>Recent Operating Feed</h3>
             <div class="timeline" id="admin-feed-list">
-              <div><time>Live</time><strong>Waiting for data</strong><span>Refresh the control room after login as RNA/Admin.</span></div>
+              <div><time>Ready</time><strong>Waiting for data</strong><span>Refresh the control room after login as RNA/Admin.</span></div>
             </div>
           </section>
         </section>
@@ -1138,14 +1142,14 @@
           </section>
           <section class="panel">
             <h3>Need help?</h3>
-            <p>Email <strong>karannagpal16@gmail.com</strong> from your registered email address. Do not email passwords or OTPs. Legal Connect may ask for verification before acting on a deletion request.</p>
+            <p>Email <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a> from your registered email address. Do not email passwords or OTPs. Legal Connect may ask for verification before acting on a deletion request.</p>
           </section>
         </section>
 
         <section class="view legal-view" id="data-deletion">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Data Deletion</h2></div></div>
           <section class="panel">
-            <p>Users may request account and associated personal data deletion in-app through <strong>Profile / Account - Privacy &amp; Data - Request Account Deletion</strong>, or by emailing <strong>karannagpal16@gmail.com</strong>.</p>
+            <p>Users may request account and associated personal data deletion in-app through <strong>Profile / Account - Privacy &amp; Data - Request Account Deletion</strong>, or by emailing <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a>.</p>
             <p>Include your registered name, registered email or masked phone number, and a clear deletion request. Do not email passwords or OTPs. Additional verification may be required.</p>
             <p>Some records may be retained where required for legal, payment, fraud prevention, dispute resolution, audit, tax, accounting, or compliance purposes.</p>
           </section>
@@ -1155,7 +1159,7 @@
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Privacy Policy</h2></div></div>
           <section class="panel privacy-policy-copy">
             <p><strong>Effective date:</strong> 13 July 2026. <strong>Last updated:</strong> 13 July 2026.</p>
-            <p><strong>Legal Connect</strong> is a legal-tech and legal-support coordination platform operating in India. Live URL: <strong>https://www.legal-connect.in</strong>. Android package: <strong>in.legalconnect.app</strong>. Support and privacy requests: <strong>karannagpal16@gmail.com</strong>. Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong>.</p>
+            <p><strong>Legal Connect</strong> is a legal-tech and legal-support coordination platform operating in India. Public URL: <strong>https://www.legal-connect.in</strong>. Android package: <strong>in.legalconnect.app</strong>. Support and privacy requests: <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a>. Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong>.</p>
             <h3>1. Scope</h3>
             <p>This Privacy Policy applies to Legal Connect's web app, Android WebView app, backend APIs, account login, bookings, Legal SOS, Court Mission, Documents, receipts, notifications, RNA/Admin tools, legal source uploads, and source-locked LawBot rollout.</p>
             <h3>2. Personal data we currently collect</h3>
@@ -1189,7 +1193,7 @@
             <h3>16. Children's data</h3>
             <p>Legal Connect is intended for adults and legal-service users. Minors should not independently create accounts or submit legal documents without parent/guardian involvement and appropriate legal supervision.</p>
             <h3>17. Changes and contact</h3>
-            <p>This policy may be updated as Legal Connect adds production features, provider integrations, retention tooling or legal source workflows. Contact: <strong>karannagpal16@gmail.com</strong>.</p>
+            <p>This policy may be updated as Legal Connect adds production features, provider integrations, retention tooling or legal source workflows. Contact: <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a>.</p>
           </section>
         </section>
         <section class="view legal-view" id="terms">
@@ -1198,7 +1202,7 @@
         </section>
         <section class="view legal-view" id="refund-policy">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Refund Policy</h2></div></div>
-          <section class="panel"><p>Payments may be held under <strong>Work Completion Hold</strong> until a task, booking, or legal-support action reaches the required status. Refunds depend on task status, booking status, proof uploaded, counsel assignment, and actual work completed.</p><p>Failed or incomplete tasks may be reviewed by RNA/Admin. If verification fails, Work Completion Hold is not activated. Refund or release decisions should follow the final policy and applicable payment gateway rules.</p><p>Support: <strong>karannagpal16@gmail.com</strong>.</p></section>
+          <section class="panel"><p>Payments may be held under <strong>Work Completion Hold</strong> until a task, booking, or legal-support action reaches the required status. Refunds depend on task status, booking status, proof uploaded, counsel assignment, and actual work completed.</p><p>Failed or incomplete tasks may be reviewed by RNA/Admin. If verification fails, Work Completion Hold is not activated. Refund or release decisions should follow the final policy and applicable payment gateway rules.</p><p>Support: <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a>.</p></section>
         </section>
         <section class="view legal-view" id="disclaimer">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Disclaimer</h2></div></div>
@@ -1206,7 +1210,7 @@
         </section>
         <section class="view legal-view" id="contact">
           <div class="workspace-head"><div><span class="eyebrow">Legal</span><h2>Contact</h2></div></div>
-          <section class="panel"><p><strong>Legal Connect</strong><br />MSME/Udyam Registered Enterprise<br />Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong></p><p>Support email: <strong>karannagpal16@gmail.com</strong></p><p>For support, use the RNA Control Room, Legal SOS flow, or email support.</p></section>
+          <section class="panel"><p><strong>Legal Connect</strong><br />MSME/Udyam Registered Enterprise<br />Udyam Registration No.: <strong>UDYAM-DL-11-0164811</strong></p><p>Support email: <a href="mailto:legalconnect0s@gmail.com">legalconnect0s@gmail.com</a></p><p>For support, use the RNA Control Room, Legal SOS flow, or email support.</p></section>
         </section>
         <footer class="legal-footer">
           <span class="footer-trust">MSME registered entity: UDYAM-DL-11-0164811. Certificate available for verification.</span>
@@ -1268,7 +1272,7 @@
             </div>
             <button id="sos-close" type="button" aria-label="Close Legal SOS">x</button>
           </div>
-          <p id="sos-status">Choose a situation. We save a receipt and route it to RNA/Admin tracking.</p>
+            <p id="sos-status">Choose a situation. We save a receipt and route it to RNA/Admin tracking for the next available support channel.</p>
           <div class="sos-case-grid">
             <button data-sos-case="Police station / arrest risk">Police station</button>
             <button data-sos-case="Court notice / summon">Court notice</button>
@@ -1280,7 +1284,7 @@
               <span>Emergency Video</span>
               <strong>RNA SOS Counsel</strong>
               <small>Rs. 1,500 / 15 min</small>
-              <button data-sos-book="Legal SOS Video" data-sos-price="1500">Start video route</button>
+              <button data-sos-book="Legal SOS Video" data-sos-price="1500">Request SOS video</button>
             </article>
             <article>
               <span>Quick Chat</span>
@@ -1298,7 +1302,7 @@
 
     </div>
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>
 

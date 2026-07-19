@@ -58,6 +58,10 @@ function getSession() {
   return currentSession;
 }
 
+function isReviewSession(session = getSession()) {
+  return Boolean(session?.user?.isReviewAccount || session?.reviewAccess?.enabled);
+}
+
 function authHeaders() {
   const session = getSession();
   return session?.token ? { Authorization: `Bearer ${session.token}` } : {};
@@ -226,7 +230,7 @@ function applySessionToUi(session) {
     node.textContent = role.toUpperCase();
   });
   const status = role === "advocate"
-    ? "Board opened: saved cases load under your login, proxy queue shows None until assigned, and work-hold receipts stay private."
+    ? "Advocate board ready: saved cases load under your login, proxy queue shows None until assigned, and work-hold receipts stay private."
     : role === "client"
       ? "People Shield ready: bookings, SOS, receipts and documents stay private."
       : role === "intern"
@@ -235,8 +239,71 @@ function applySessionToUi(session) {
   document.querySelectorAll("[data-user-status]").forEach((node) => {
     node.textContent = status;
   });
+  renderReviewSwitcher(session);
   setFlowStatus(label, status);
   refreshPrivacyAccountState();
+}
+
+function renderReviewSwitcher(session = getSession(), workspace) {
+  const panel = document.querySelector("#review-switcher");
+  const roleOptions = document.querySelector("#review-role-options");
+  const seedStatus = document.querySelector("#review-seed-status");
+  if (!panel || !roleOptions || !seedStatus) return;
+  if (!isReviewSession(session)) {
+    panel.hidden = true;
+    roleOptions.innerHTML = "";
+    return;
+  }
+  const activeRole = session?.reviewAccess?.activeRole || session?.user?.role || "client";
+  const roles = session?.reviewAccess?.roles || session?.user?.reviewRoles || ["client", "advocate", "intern"];
+  panel.hidden = false;
+  roleOptions.innerHTML = roles.map((role) => {
+    const selected = role === activeRole ? " selected" : "";
+    const label = role === "client" ? "Client Portal" : role === "advocate" ? "Advocate Portal" : "Intern Board";
+    return `<button type="button" class="review-role-pill${selected}" data-review-role="${escapeHtml(role)}">${escapeHtml(label)}</button>`;
+  }).join("");
+  const data = workspace || session?.seededWorkspace;
+  if (data?.reviewOnly) {
+    seedStatus.textContent = `Review mode: ${data.bookings?.length || 0} booking, ${data.receipts?.length || 0} receipt, ${data.sosRequests?.length || 0} SOS request, ${data.tasks?.length || 0} court mission and ${data.notifications?.length || 0} notification are synthetic.`;
+  } else {
+    seedStatus.textContent = "Review mode is active. Synthetic workspace data loads after login.";
+  }
+}
+
+async function refreshReviewWorkspace() {
+  const session = getSession();
+  if (!isReviewSession(session)) return null;
+  try {
+    const result = await apiFetch("/api/review/workspace");
+    currentSession = { ...session, reviewAccess: result.reviewAccess, seededWorkspace: result.workspace };
+    localStorage.setItem("legalConnectSession", JSON.stringify(currentSession));
+    renderReviewSwitcher(currentSession, result.workspace);
+    const seed = result.workspace || {};
+    updateSafeBoard({ cases: seed.cases || [], tasks: seed.tasks || [], bookings: seed.bookings || [] });
+    if (seed.bookings?.[0]) {
+      const booking = seed.bookings[0];
+      const receipt = {
+        id: booking.receiptNo || booking.receipt_no || booking.id,
+        plan: booking.serviceType || booking.service_type || "Review booking",
+        amount: booking.amount,
+        status: "Review receipt ready - no charge",
+        route: booking.nextDestination || booking.next_destination || booking.payload?.route,
+        problem: booking.payload?.problemSummary || "",
+        paymentMode: "google-play-review",
+      };
+      localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
+      renderClientDesk(receipt);
+      if (bookingConfirmation) {
+        bookingConfirmation.innerHTML = `<span>Review Booking</span><strong>${escapeHtml(receipt.id)} - ${escapeHtml(receipt.plan)} - Rs. ${escapeHtml(String(receipt.amount))}</strong><p>${escapeHtml(receipt.route || "Service Room ready.")}</p><p><b>Status:</b> ${escapeHtml(receipt.status)}</p><p class="fine-print">Google Play review data is synthetic. No Razorpay charge is created.</p>`;
+      }
+    }
+    return result;
+  } catch (error) {
+    renderReviewSwitcher(session);
+    const seedStatus = document.querySelector("#review-seed-status");
+    if (seedStatus) seedStatus.textContent = error.message || "Review workspace could not load.";
+    return null;
+  }
 }
 
 function markLoginVerified(message = "OTP verified successfully. Continue secure login.") {
@@ -297,10 +364,35 @@ async function refreshWorkspaceData() {
         paymentMode: "backend",
       });
     }
+    if (isReviewSession()) await refreshReviewWorkspace();
   } catch {
     updateSafeBoard();
   }
 }
+
+document.addEventListener("click", async (event) => {
+  const roleButton = event.target.closest("[data-review-role]");
+  if (!roleButton) return;
+  event.preventDefault();
+  const nextRole = roleButton.dataset.reviewRole;
+  const seedStatus = document.querySelector("#review-seed-status");
+  try {
+    if (seedStatus) seedStatus.textContent = `Switching review workspace to ${nextRole}...`;
+    const result = await apiFetch("/api/review/switch-role", {
+      method: "POST",
+      body: JSON.stringify({ role: nextRole }),
+    });
+    currentSession = result;
+    localStorage.setItem("legalConnectSession", JSON.stringify(result));
+    applySessionToUi(result);
+    renderReviewSwitcher(result, result.seededWorkspace);
+    setDemoStatus(`Review workspace switched to ${nextRole}.`);
+    activateView(roleRoutes[result.user.role] || "client");
+    await refreshReviewWorkspace();
+  } catch (error) {
+    if (seedStatus) seedStatus.textContent = error.message || "Review workspace switch failed.";
+  }
+});
 
 document.addEventListener("click", (event) => {
   const navTarget = event.target.closest("[data-view], [data-jump]");
@@ -419,12 +511,17 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     role: document.querySelector("#login-role")?.value || "client",
     privacyConsent: Boolean(document.querySelector("#privacy-consent")?.checked),
   };
+  if (!payload.email && !payload.phone) {
+    if (authStatus) authStatus.textContent = "Enter an email or phone number before requesting your role board.";
+    return;
+  }
   if (!payload.privacyConsent) {
     if (authStatus) authStatus.textContent = "Consent is required for role-based login, receipts, notifications, and support records.";
     return;
   }
   if (!loginVerified && (payload.email || payload.phone)) {
-    if (authStatus) authStatus.textContent = "Login continuing with verification pending. Press Verify first when OTP delivery is active.";
+    if (authStatus) authStatus.textContent = "Verify the OTP first. Your private board opens only after verification.";
+    return;
   }
   try {
     const result = await apiFetch("/api/auth/login", {
@@ -441,7 +538,11 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     activateView(destination);
     window.setTimeout(refreshWorkspaceData, 120);
   } catch (error) {
-    if (authStatus) authStatus.textContent = `${payload.name} logged in locally as ${payload.role}. Your private board is ready. Backend sync will save permanent account records.`;
+    if (!localTestingRuntime) {
+      if (authStatus) authStatus.textContent = error.message || "Login could not be completed. Please try again after the server is available.";
+      return;
+    }
+    if (authStatus) authStatus.textContent = `${payload.name} opened local testing as ${payload.role}. Permanent account records need the backend.`;
     currentSession = { token: "", user: payload };
     localStorage.setItem("legalConnectSession", JSON.stringify(currentSession));
     applySessionToUi(currentSession);
@@ -952,7 +1053,7 @@ document.querySelectorAll("[data-open-booking]").forEach((button) => {
     if (!document.querySelector("#client")?.classList.contains("active")) {
       activateView("client");
     }
-    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Choose Attorney Shield, Video, Audio, Chat, Office, or Doorstep.";
+    if (clientActionStatus) clientActionStatus.textContent = button.dataset.clientAction || "Choose Attorney Shield, SOS Video, Chat, Office, or Doorstep.";
     if (bookingStatus) bookingStatus.textContent = "Choose a consult mode, write the problem, then Pay & Confirm.";
     setFlowStatus("Booking desk", "Choose a consult mode and confirm payment.");
     window.setTimeout(() => bookingDock?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
@@ -972,12 +1073,18 @@ document.querySelectorAll("[data-book-option]").forEach((button) => {
 document.querySelectorAll("[data-pay-booking]").forEach((button) => {
   button.addEventListener("click", async () => {
     if (!activeBooking) {
-      if (bookingStatus) bookingStatus.textContent = "Please select Attorney Shield, Video, Audio, Chat, Office, or Doorstep first.";
+      if (bookingStatus) bookingStatus.textContent = "Please select Attorney Shield, SOS Video, Chat, Office, or Doorstep first.";
       setDemoStatus("Select a booking mode before payment.");
       return;
     }
 
-    const problemSummary = bookingProblem?.value.trim() || "No problem summary added yet.";
+    const problemSummary = bookingProblem?.value.trim() || "";
+    if (!problemSummary) {
+      if (bookingStatus) bookingStatus.textContent = "Write a short problem summary before payment so counsel knows what to review.";
+      bookingProblem?.focus();
+      setDemoStatus("Add your problem summary before booking.");
+      return;
+    }
     const bookingId = `LC-${Date.now().toString().slice(-6)}`;
     const receipt = {
       id: bookingId,
@@ -1014,6 +1121,22 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
       const razorpayOrderId = order.order_id || order.order?.id;
       const razorpayAmount = order.amount || order.order?.amount;
       const razorpayCurrency = order.currency || order.order?.currency || "INR";
+      if (order.mode === "google-play-review") {
+        receipt.status = "Review receipt ready - no charge";
+        receipt.workHoldStatus = "Review inspection only";
+        localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
+        saveLocalReceipt({ ...receipt, title: "Review booking receipt", message: `${receipt.route} Problem: ${receipt.problem}` });
+        renderClientDesk(receipt);
+        if (bookingConfirmation) {
+          bookingConfirmation.innerHTML = `<span>Review Booking</span><strong>${escapeHtml(receipt.id)} - ${escapeHtml(receipt.plan)} - Rs. ${escapeHtml(String(receipt.amount))}</strong><p>${escapeHtml(receipt.route)}</p><p><b>Problem:</b> ${escapeHtml(receipt.problem)}</p><p><b>Status:</b> ${escapeHtml(receipt.status)}</p><p class="fine-print">Google Play review account can inspect this Service Room without a Razorpay charge.</p>`;
+        }
+        if (bookingStatus) bookingStatus.textContent = "Review receipt created. Razorpay charge skipped for Google Play review account.";
+        if (clientActionStatus) clientActionStatus.textContent = `${receipt.plan} review booking is ready. No payment was charged.`;
+        updateServiceRoom(receipt);
+        await refreshReviewWorkspace();
+        activateView("service-room");
+        return;
+      }
       if (order.warning && bookingStatus) bookingStatus.textContent = order.warning;
       if (order.provider === "razorpay" && razorpayKey && razorpayOrderId) {
         if (bookingStatus) bookingStatus.textContent = "Opening Razorpay Checkout. Paid status activates after secure backend verification.";
@@ -1103,7 +1226,7 @@ const sosStatus = document.querySelector("#sos-status");
 
 function openSosPanel() {
   floatingSos?.classList.add("open");
-  if (sosStatus) sosStatus.textContent = "Legal SOS is ready. Pick a situation, then choose emergency chat/audio/video counsel.";
+  if (sosStatus) sosStatus.textContent = "Legal SOS is ready. Pick a situation, then choose a support request. Team coordination starts after the request is saved.";
   setFlowStatus("Legal SOS", "SOS panel ready. Use the close button to exit.");
 }
 
@@ -1131,17 +1254,17 @@ document.querySelectorAll("[data-sos-book]").forEach((button) => {
       id: `SOS-${Date.now().toString().slice(-6)}`,
       plan: serviceType,
       amount,
-      status: "Counsel selection pending",
-      route: "RNA SOS desk: emergency counsel selection, 15 minute video route, timer and receipt tracking.",
+      status: "Support coordination pending",
+      route: "RNA SOS desk: request received. Team will coordinate the next available support channel and keep the receipt visible.",
       paymentMode: "SOS route",
     };
-    const message = `${serviceType} selected. Status: hold active, counsel selection pending.`;
+    const message = `${serviceType} selected. Your request is received; team coordination is pending.`;
     if (sosStatus) sosStatus.textContent = message;
     if (clientActionStatus) clientActionStatus.textContent = message;
     try {
       const saved = await apiFetch("/api/sos", {
         method: "POST",
-        body: JSON.stringify({ serviceType, urgency: "High", status: "Counsel selection pending", amount }),
+        body: JSON.stringify({ serviceType, urgency: "High", status: "Support coordination pending", amount }),
       });
       sosReceipt.id = saved.transparencyReceipt?.receiptNo || saved.transparencyReceipt?.receipt_no || saved.id || sosReceipt.id;
       if (sosStatus) sosStatus.textContent = `${serviceType} saved. RNA/Admin can see SOS tracker. Receipt: ${sosReceipt.id}.`;
@@ -1635,7 +1758,7 @@ notifyTestForm?.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload),
     });
     let channel = "Notification queued";
-    let message = "In-app notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
+    let message = "In-app fallback notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for email sending.";
     if (result.mode === "resend" && result.status === "sent") {
       channel = "Resend email sent";
       message = `Email sent through Resend. Provider ID: ${result.provider_message_id || "not returned"}`;
@@ -1645,7 +1768,7 @@ notifyTestForm?.addEventListener("submit", async (event) => {
       message = `Resend email failed: ${result.error_message || "safe error unavailable"}`;
     } else if (result.mode === "demo") {
       channel = "Notification queued";
-      message = "In-app notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for live email.";
+      message = "In-app fallback notification queued. Add EMAIL_PROVIDER=resend and RESEND_API_KEY in Render for email sending.";
     }
     if (notifyTestStatus) notifyTestStatus.textContent = message;
     setDemoStatus(channel);
