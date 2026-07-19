@@ -7900,6 +7900,220 @@ select option {
   }
 }
 
+/* Readability lock v13: clear text contrast on every major surface. */
+:root {
+  --lc-text-strong: #071c3f;
+  --lc-text: #13223a;
+  --lc-text-soft: #40506a;
+  --lc-dark-text: #fff8df;
+  --lc-dark-soft: rgba(255, 248, 223, 0.78);
+}
+
+main,
+main .view,
+main .panel,
+main .command-card,
+main .task-card,
+main .judgment-card,
+main .booking-dock,
+main .source-library,
+main .audit-panel,
+main .service-room-panel,
+main .client-command-center,
+main .mission-command-center,
+main .login-session-board,
+main .workspace-head,
+main .section-head,
+main .client-hero-panel,
+main .payment-simulator,
+main .receipt-card,
+main .service-status-card,
+main .booking-confirmation,
+main .case-health div,
+main .safe-board-grid article,
+main .client-desk-grid article,
+main .source-card,
+main .vault-grid article,
+main .matter-card,
+main .notification-card {
+  color: var(--lc-text) !important;
+}
+
+main :where(.panel, .command-card, .task-card, .judgment-card, .booking-dock, .source-library, .audit-panel, .service-room-panel, .client-command-center, .mission-command-center, .login-session-board, .workspace-head, .section-head, .client-hero-panel, .payment-simulator, .receipt-card, .service-status-card, .booking-confirmation, .safe-board-grid article, .client-desk-grid article, .source-card, .vault-grid article, .matter-card, .notification-card) :where(h1, h2, h3, h4, strong, label, legend) {
+  color: var(--lc-text-strong) !important;
+}
+
+main :where(.panel, .command-card, .task-card, .judgment-card, .booking-dock, .source-library, .audit-panel, .service-room-panel, .client-command-center, .mission-command-center, .login-session-board, .workspace-head, .section-head, .client-hero-panel, .payment-simulator, .receipt-card, .service-status-card, .booking-confirmation, .safe-board-grid article, .client-desk-grid article, .source-card, .vault-grid article, .matter-card, .notification-card) :where(p, li, span, small, time, cite, em, div) {
+  color: var(--lc-text-soft) !important;
+}
+
+main :where(.panel, .command-card, .task-card, .judgment-card, .booking-dock, .source-library, .audit-panel, .service-room-panel, .client-command-center, .mission-command-center, .login-session-board, .workspace-head, .section-head, .client-hero-panel, .payment-simulator, .receipt-card, .service-status-card, .booking-confirmation, .safe-board-grid article, .client-desk-grid article, .source-card, .vault-grid article, .matter-card, .notification-card) :where(a, button) {
+  color: inherit;
+}
+
+main .eyebrow,
+main .panel .eyebrow,
+main .command-card .eyebrow,
+main .section-head .eyebrow,
+main .workspace-head .eyebrow,
+main #home .home-route-summary span,
+main #home .poster-gates strong,
+main .command-dock span {
+  color: var(--lc-gold) !important;
+}
+
+main .gold-button,
+main button.gold-button,
+main .primary-action,
+main button.primary-action,
+main #home .poster-gates button,
+main #home .home-route-summary button,
+main .command-dock button,
+main .booking-options button,
+main .mission-actions button,
+main .service-actions button,
+main .receipt-actions button,
+main .source-actions button,
+main .sos-case-grid button,
+main .admin-action-grid button {
+  color: var(--lc-navy) !important;
+}
+
+main .ghost-button,
+main button.ghost-button,
+main .text-link,
+main .dark-button,
+main button.dark-button {
+  color: var(--lc-navy) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(8, 34, 77, 0.2) !important;
+}
+
+main input,
+main select,
+main textarea,
+.sos-panel input,
+.sos-panel select,
+.sos-panel textarea,
+.lawbot-panel input,
+.lawbot-panel select,
+.lawbot-panel textarea {
+  color: var(--lc-text) !important;
+  background: #ffffff !important;
+  border-color: rgba(8, 34, 77, 0.22) !important;
+}
+
+main input::placeholder,
+main textarea::placeholder,
+.sos-panel input::placeholder,
+.lawbot-panel input::placeholder {
+  color: #6f7f95 !important;
+  opacity: 1 !important;
+}
+
+.rail,
+.rail .rail-card,
+.rail .brand,
+.rail .nav-item {
+  color: var(--lc-dark-text) !important;
+}
+
+.rail .rail-card p,
+.rail .rail-card span,
+.rail .brand small {
+  color: var(--lc-dark-soft) !important;
+}
+
+.rail .eyebrow,
+.rail .rail-card .eyebrow {
+  color: var(--lc-gold-2) !important;
+}
+
+.rail .nav-item.active,
+.rail .nav-item:hover {
+  color: var(--lc-navy) !important;
+}
+
+main :where(.advocate-hero, .xp-hero, .phase-command, .court-pulse-hero, .library-hero, .admin-hero, .sos-hero) {
+  color: var(--lc-dark-text) !important;
+  background:
+    radial-gradient(circle at top left, rgba(255, 232, 164, 0.18), transparent 20rem),
+    linear-gradient(135deg, var(--lc-navy), var(--lc-navy-2)) !important;
+}
+
+main :where(.advocate-hero, .xp-hero, .phase-command, .court-pulse-hero, .library-hero, .admin-hero, .sos-hero) :where(h1, h2, h3, h4, strong, label) {
+  color: var(--lc-dark-text) !important;
+}
+
+main :where(.advocate-hero, .xp-hero, .phase-command, .court-pulse-hero, .library-hero, .admin-hero, .sos-hero) :where(p, li, span, small, time, cite, em, div) {
+  color: var(--lc-dark-soft) !important;
+}
+
+main :where(.advocate-hero, .xp-hero, .phase-command, .court-pulse-hero, .library-hero, .admin-hero, .sos-hero) .eyebrow {
+  color: var(--lc-gold-2) !important;
+}
+
+.sos-panel,
+.lawbot-panel {
+  color: var(--lc-text) !important;
+}
+
+.sos-panel :where(h1, h2, h3, h4, strong, label),
+.lawbot-panel :where(h1, h2, h3, h4, strong, label) {
+  color: var(--lc-text-strong) !important;
+}
+
+.sos-panel :where(p, li, span, small, time, cite, em, div),
+.lawbot-panel :where(p, li, span, small, time, cite, em, div) {
+  color: var(--lc-text-soft) !important;
+}
+
+.sos-panel button,
+.lawbot-panel button {
+  color: var(--lc-navy) !important;
+}
+
+.lawbot-thread p,
+.lawbot-thread p.user {
+  color: var(--lc-text) !important;
+  background: #ffffff !important;
+  border-color: rgba(8, 34, 77, 0.14) !important;
+}
+
+#home .poster-mast :where(h2, strong) {
+  color: var(--lc-navy) !important;
+}
+
+#home .poster-mast :where(p, cite) {
+  color: var(--lc-text-soft) !important;
+}
+
+#home .poster-mast > span,
+#home .dharma-quote-card span {
+  color: var(--lc-gold) !important;
+}
+
+#home .poster-mast .msme-trust-badge :where(strong, span) {
+  color: var(--lc-navy) !important;
+}
+
+#home .portal-scene span {
+  color: transparent !important;
+}
+
+.demo-status,
+#flow-status,
+.auth-status,
+.otp-mode-note {
+  color: var(--lc-text) !important;
+}
+
+@media (max-width: 720px) {
+  main :where(.panel, .command-card, .task-card, .judgment-card, .booking-dock, .source-library, .audit-panel, .service-room-panel, .client-command-center, .mission-command-center, .login-session-board) :where(p, li, span, small, time, cite, em, div) {
+    line-height: 1.42 !important;
+  }
+}
+
 /* Final visual pass: Legal Connect Dharma OS v12. Keep this as the last theme layer. */
 :root {
   --lc-canvas: #f7f1e6;
