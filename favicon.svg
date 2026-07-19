@@ -1,21 +1,25 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(58 38) rotate(51) scale(150)">
-      <stop stop-color="#17342F"/>
-      <stop offset="0.45" stop-color="#09151D"/>
-      <stop offset="1" stop-color="#05070C"/>
-    </radialGradient>
-    <linearGradient id="gold" x1="45" y1="24" x2="142" y2="160" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF0A8"/>
-      <stop offset="0.42" stop-color="#D4AF37"/>
-      <stop offset="1" stop-color="#9E6819"/>
+    <linearGradient id="navy" x1="28" y1="18" x2="152" y2="164" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08244F"/>
+      <stop offset="0.56" stop-color="#0D3D78"/>
+      <stop offset="1" stop-color="#04142F"/>
     </linearGradient>
+    <linearGradient id="gold" x1="45" y1="22" x2="138" y2="154" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF1B8"/>
+      <stop offset="0.42" stop-color="#D6A12B"/>
+      <stop offset="1" stop-color="#9F6A18"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#04142F" flood-opacity="0.35"/>
+    </filter>
   </defs>
-  <rect x="8" y="8" width="164" height="164" rx="38" fill="url(#bg)" stroke="url(#gold)" stroke-width="5"/>
-  <circle cx="90" cy="76" r="42" stroke="url(#gold)" stroke-width="5"/>
-  <circle cx="90" cy="76" r="7" fill="url(#gold)"/>
-  <path d="M90 34V118M48 76H132M60 46L120 106M120 46L60 106" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M65 93H115" stroke="#FFF0A8" stroke-width="4" stroke-linecap="round"/>
-  <path d="M76 93L66 113H86L76 93ZM104 93L94 113H114L104 93Z" fill="#D4AF37"/>
-  <text x="90" y="145" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="url(#gold)" letter-spacing="-2">LC</text>
+  <rect x="8" y="8" width="164" height="164" rx="42" fill="url(#navy)" stroke="url(#gold)" stroke-width="5"/>
+  <circle cx="90" cy="75" r="46" stroke="url(#gold)" stroke-width="5" filter="url(#soft)"/>
+  <circle cx="90" cy="75" r="9" fill="url(#gold)"/>
+  <circle cx="90" cy="75" r="31" stroke="#FFF3C4" stroke-opacity="0.65" stroke-width="2"/>
+  <path d="M90 29V121M44 75H136M57 42L123 108M123 42L57 108M70 34L110 116M110 34L70 116M49 56L131 94M49 94L131 56" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M61 104H119" stroke="#FFF3C4" stroke-width="4" stroke-linecap="round"/>
+  <path d="M77 104L66 126H88L77 104ZM103 104L92 126H114L103 104Z" fill="url(#gold)"/>
+  <text x="90" y="153" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="39" font-weight="700" fill="#FFF3C4" letter-spacing="-1.5">LC</text>
 </svg>

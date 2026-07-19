@@ -7899,3 +7899,851 @@ select option {
     display: none;
   }
 }
+
+/* Final visual pass: Legal Connect Dharma OS v12. Keep this as the last theme layer. */
+:root {
+  --lc-canvas: #f7f1e6;
+  --lc-paper: #fffdf8;
+  --lc-navy: #08224d;
+  --lc-navy-2: #0f376f;
+  --lc-gold: #d7a22f;
+  --lc-gold-2: #fff0b8;
+  --lc-ink: #13223a;
+  --lc-muted: #66758b;
+  --lc-border: rgba(8, 34, 77, 0.14);
+  --lc-glow: 0 24px 70px rgba(8, 34, 77, 0.16);
+  --lc-card-shadow: 0 12px 34px rgba(8, 34, 77, 0.1);
+}
+
+html,
+body {
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  background:
+    radial-gradient(circle at 9% 2%, rgba(215, 162, 47, 0.2), transparent 27rem),
+    radial-gradient(circle at 96% 8%, rgba(35, 94, 159, 0.16), transparent 26rem),
+    linear-gradient(180deg, #fff9ec 0%, var(--lc-canvas) 48%, #eef5fb 100%) !important;
+  color: var(--lc-ink) !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0 !important;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  letter-spacing: 0 !important;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
+.app-shell {
+  width: min(1480px, calc(100% - 28px)) !important;
+  margin: 14px auto 26px !important;
+  display: grid !important;
+  grid-template-columns: 276px minmax(0, 1fr) !important;
+  gap: 18px !important;
+}
+
+.rail {
+  position: sticky !important;
+  top: 14px !important;
+  align-self: start !important;
+  max-height: calc(100vh - 28px) !important;
+  overflow-y: auto !important;
+  padding: 16px !important;
+  border: 1px solid rgba(215, 162, 47, 0.28) !important;
+  border-radius: 24px !important;
+  background:
+    linear-gradient(180deg, rgba(8, 34, 77, 0.98), rgba(7, 27, 58, 0.94)),
+    radial-gradient(circle at 50% 0%, rgba(215, 162, 47, 0.25), transparent 18rem) !important;
+  color: #fffaf0 !important;
+  box-shadow: var(--lc-glow) !important;
+}
+
+.brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 72px !important;
+  padding: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #fffaf0 !important;
+  text-decoration: none !important;
+}
+
+.brand strong {
+  display: block !important;
+  color: #fffaf0 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 1.18rem !important;
+  line-height: 1.05 !important;
+}
+
+.brand small {
+  display: block !important;
+  margin-top: 4px !important;
+  color: rgba(255, 250, 240, 0.7) !important;
+  font-size: 0.76rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+
+.brand-mark.dharma-brand-mark,
+.brand-mark {
+  position: relative !important;
+  width: 54px !important;
+  height: 54px !important;
+  flex: 0 0 54px !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 229, 154, 0.78) !important;
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle, #ffffff 0 24%, #fff0b8 25% 29%, transparent 30%),
+    radial-gradient(circle, #0c2b5b 0 58%, #061a38 59% 100%) !important;
+  color: #fffaf0 !important;
+  box-shadow: inset 0 0 0 5px rgba(215, 162, 47, 0.14), 0 8px 24px rgba(0, 0, 0, 0.24) !important;
+}
+
+.brand-mark.dharma-brand-mark::before,
+.brand-mark.dharma-brand-mark::after,
+.brand-mark::before,
+.brand-mark::after {
+  content: none !important;
+}
+
+.brand-mark .chakra-wheel {
+  position: absolute !important;
+  inset: 7px !important;
+  display: block !important;
+  border: 2px solid var(--lc-gold) !important;
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle, var(--lc-gold-2) 0 7%, var(--lc-gold) 8% 12%, transparent 13%),
+    repeating-conic-gradient(from 0deg, rgba(215, 162, 47, 0.98) 0deg 4deg, transparent 4deg 16deg),
+    radial-gradient(circle, transparent 0 50%, rgba(215, 162, 47, 0.22) 51% 62%, transparent 63%) !important;
+  animation: lcDharmaRotate 14s linear infinite !important;
+}
+
+.brand-mark .chakra-wheel::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 8px !important;
+  border: 1px solid rgba(255, 240, 184, 0.78) !important;
+  border-radius: 50% !important;
+}
+
+.brand-mark .chakra-wheel i {
+  display: none !important;
+}
+
+.brand-mark b {
+  position: relative !important;
+  z-index: 2 !important;
+  color: #fffaf0 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 0.9rem !important;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55) !important;
+}
+
+.nav-group {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+  margin-top: 14px !important;
+}
+
+.nav-item {
+  width: 100% !important;
+  min-height: 46px !important;
+  padding: 11px 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 250, 240, 0.88) !important;
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+  text-align: left !important;
+  white-space: normal !important;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  background: linear-gradient(135deg, #ffe8a4, #d7a22f) !important;
+  color: var(--lc-navy) !important;
+  border-color: transparent !important;
+}
+
+main,
+.view {
+  min-width: 0 !important;
+}
+
+.topbar,
+.demo-status,
+.command-dock,
+.panel,
+.command-card,
+.task-card,
+.judgment-card,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.client-command-center,
+.mission-command-center,
+.login-session-board,
+.workspace-head,
+.section-head {
+  border-color: var(--lc-border) !important;
+  box-shadow: var(--lc-card-shadow) !important;
+}
+
+.topbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  min-height: 88px !important;
+  padding: 18px 20px !important;
+  border: 1px solid var(--lc-border) !important;
+  border-radius: 24px !important;
+  background: rgba(255, 253, 248, 0.88) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.topbar h1,
+#view-title {
+  margin: 4px 0 0 !important;
+  color: var(--lc-navy) !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 2.1rem !important;
+  line-height: 1.02 !important;
+}
+
+.eyebrow {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: var(--lc-gold) !important;
+  font-size: 0.76rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+.gold-button,
+.topbar button,
+#home .poster-gates button,
+#home .home-route-summary button,
+button.primary-action,
+.primary-action {
+  min-height: 46px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #ffe9a9, #d7a22f 62%, #b77b16) !important;
+  color: var(--lc-navy) !important;
+  font-weight: 900 !important;
+  line-height: 1.1 !important;
+  box-shadow: 0 12px 24px rgba(183, 123, 22, 0.22) !important;
+}
+
+.demo-status {
+  margin: 12px 0 !important;
+  padding: 10px 14px !important;
+  border: 1px solid var(--lc-border) !important;
+  border-radius: 16px !important;
+  background: rgba(255, 253, 248, 0.78) !important;
+  color: var(--lc-muted) !important;
+  font-size: 0.88rem !important;
+}
+
+.command-dock {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin: 12px 0 18px !important;
+  padding: 10px !important;
+  border: 1px solid var(--lc-border) !important;
+  border-radius: 22px !important;
+  background: rgba(255, 253, 248, 0.78) !important;
+}
+
+.command-dock button {
+  display: grid !important;
+  gap: 3px !important;
+  min-height: 64px !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(8, 34, 77, 0.1) !important;
+  border-radius: 16px !important;
+  background: var(--lc-paper) !important;
+  color: var(--lc-navy) !important;
+  box-shadow: none !important;
+  text-align: left !important;
+}
+
+.command-dock span,
+#home .home-route-summary span {
+  color: var(--lc-gold) !important;
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+.command-dock strong,
+#home .home-route-summary strong {
+  color: var(--lc-navy) !important;
+  font-size: 0.92rem !important;
+  line-height: 1.15 !important;
+}
+
+#home .cover-stage {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: auto !important;
+  padding: 26px !important;
+  border: 1px solid rgba(8, 34, 77, 0.14) !important;
+  border-radius: 32px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 253, 248, 0.94), rgba(245, 249, 255, 0.94)),
+    radial-gradient(circle at 50% 10%, rgba(215, 162, 47, 0.24), transparent 26rem) !important;
+  color: var(--lc-ink) !important;
+  box-shadow: var(--lc-glow) !important;
+}
+
+#home .cover-stage::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(90deg, transparent 0 48%, rgba(215, 162, 47, 0.18) 49% 51%, transparent 52%),
+    radial-gradient(circle at 50% 0%, rgba(8, 34, 77, 0.08), transparent 34rem) !important;
+}
+
+.intro-loader {
+  display: none !important;
+}
+
+#home .poster-mast {
+  position: relative !important;
+  z-index: 1 !important;
+  display: grid !important;
+  place-items: center !important;
+  gap: 12px !important;
+  min-height: 470px !important;
+  padding: 34px 18px 26px !important;
+  border: 1px solid rgba(215, 162, 47, 0.28) !important;
+  border-radius: 28px !important;
+  background:
+    radial-gradient(circle at 50% 33%, rgba(255, 232, 164, 0.4), transparent 12rem),
+    linear-gradient(180deg, #fffdf8, #f8f1e4) !important;
+  text-align: center !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72), var(--lc-card-shadow) !important;
+}
+
+#home .poster-mast > span {
+  color: var(--lc-gold) !important;
+  font-size: 0.82rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+#home .poster-emblem {
+  position: relative !important;
+  width: 132px !important;
+  height: 132px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 3px solid var(--lc-gold) !important;
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle, #fffdf8 0 18%, transparent 19%),
+    repeating-conic-gradient(from 0deg, var(--lc-gold) 0deg 4deg, transparent 4deg 15deg),
+    radial-gradient(circle, rgba(215, 162, 47, 0.24), transparent 64%) !important;
+  animation: lcDharmaRotate 22s linear infinite !important;
+  box-shadow: 0 0 0 12px rgba(215, 162, 47, 0.08), 0 18px 42px rgba(8, 34, 77, 0.14) !important;
+}
+
+#home .poster-emblem::before {
+  content: "LC" !important;
+  position: absolute !important;
+  z-index: 2 !important;
+  width: 46px !important;
+  height: 46px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 50% !important;
+  background: var(--lc-navy) !important;
+  color: #fffaf0 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 1.08rem !important;
+  font-weight: 900 !important;
+  animation: lcDharmaCounterRotate 22s linear infinite !important;
+}
+
+#home .poster-emblem::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 18px !important;
+  border: 1px solid rgba(8, 34, 77, 0.2) !important;
+  border-radius: 50% !important;
+}
+
+#home .poster-mast h2 {
+  max-width: 840px !important;
+  margin: 6px 0 0 !important;
+  color: var(--lc-navy) !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 5.2rem !important;
+  font-weight: 900 !important;
+  line-height: 0.86 !important;
+  text-shadow: 0 12px 28px rgba(8, 34, 77, 0.08) !important;
+}
+
+#home .poster-mast p {
+  max-width: 620px !important;
+  margin: 0 auto !important;
+  color: var(--lc-muted) !important;
+  font-size: 1.06rem !important;
+  line-height: 1.55 !important;
+}
+
+.msme-trust-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  max-width: 100% !important;
+  padding: 9px 13px !important;
+  border: 1px solid rgba(8, 34, 77, 0.12) !important;
+  border-radius: 999px !important;
+  background: rgba(8, 34, 77, 0.06) !important;
+  color: var(--lc-navy) !important;
+}
+
+.msme-trust-badge strong,
+.msme-trust-badge span {
+  font-size: 0.78rem !important;
+  line-height: 1.2 !important;
+}
+
+.dharma-quote-card {
+  width: min(760px, 100%) !important;
+  margin: 10px auto 0 !important;
+  padding: 18px !important;
+  border: 1px solid rgba(8, 34, 77, 0.1) !important;
+  border-radius: 22px !important;
+  background: #ffffff !important;
+  text-align: left !important;
+  box-shadow: 0 18px 40px rgba(8, 34, 77, 0.1) !important;
+}
+
+.dharma-quote-card p {
+  margin: 8px 0 !important;
+  color: var(--lc-navy) !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 1rem !important;
+  line-height: 1.55 !important;
+}
+
+.dharma-quote-card span {
+  color: var(--lc-gold) !important;
+  font-size: 0.7rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+.dharma-quote-card cite {
+  color: var(--lc-muted) !important;
+  font-size: 0.82rem !important;
+  font-style: normal !important;
+}
+
+#home .poster-gates {
+  position: relative !important;
+  z-index: 1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  margin-top: 18px !important;
+}
+
+#home .poster-gates article {
+  min-width: 0 !important;
+  min-height: 390px !important;
+  display: grid !important;
+  grid-template-rows: 168px auto auto auto auto !important;
+  align-content: start !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+  padding: 16px !important;
+  border: 1px solid rgba(8, 34, 77, 0.13) !important;
+  border-radius: 26px !important;
+  background: linear-gradient(180deg, #fffdf8, #f4f8ff) !important;
+  color: var(--lc-ink) !important;
+  box-shadow: var(--lc-card-shadow) !important;
+  cursor: pointer !important;
+}
+
+.portal-scene {
+  position: relative !important;
+  min-height: 168px !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+  background: var(--lc-navy) !important;
+}
+
+.portal-scene img {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 168px !important;
+  display: block !important;
+  object-fit: cover !important;
+  filter: saturate(1.06) contrast(1.04) !important;
+}
+
+.portal-scene span {
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(180deg, transparent 10%, rgba(8, 34, 77, 0.55)) !important;
+}
+
+#home .poster-gates h3 {
+  margin: 2px 0 0 !important;
+  color: var(--lc-navy) !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 2.1rem !important;
+  line-height: 1 !important;
+}
+
+#home .poster-gates strong {
+  color: var(--lc-gold) !important;
+  font-size: 0.86rem !important;
+  text-transform: uppercase !important;
+}
+
+#home .poster-gates p {
+  margin: 0 !important;
+  color: var(--lc-muted) !important;
+  font-size: 0.95rem !important;
+  line-height: 1.4 !important;
+}
+
+#home .poster-gates button {
+  justify-self: start !important;
+  margin-top: 6px !important;
+  padding: 0 22px !important;
+}
+
+#home .home-route-summary {
+  position: relative !important;
+  z-index: 1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  margin-top: 18px !important;
+}
+
+#home .home-route-summary article {
+  min-width: 0 !important;
+  min-height: 142px !important;
+  padding: 16px !important;
+  border: 1px solid rgba(8, 34, 77, 0.12) !important;
+  border-radius: 20px !important;
+  background: var(--lc-paper) !important;
+  box-shadow: 0 10px 24px rgba(8, 34, 77, 0.08) !important;
+}
+
+#home .home-route-summary button {
+  width: 100% !important;
+  margin-top: 12px !important;
+}
+
+.panel,
+.command-card,
+.task-card,
+.judgment-card,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.client-command-center,
+.mission-command-center,
+.login-session-board,
+.workspace-head,
+.section-head {
+  border: 1px solid var(--lc-border) !important;
+  border-radius: 22px !important;
+  background: rgba(255, 253, 248, 0.9) !important;
+  color: var(--lc-ink) !important;
+}
+
+.panel h2,
+.panel h3,
+.command-card h2,
+.command-card h3,
+.task-card h2,
+.task-card h3,
+.workspace-head h2,
+.workspace-head h3,
+.section-head h2,
+.section-head h3 {
+  color: var(--lc-navy) !important;
+  line-height: 1.08 !important;
+}
+
+.panel p,
+.command-card p,
+.task-card p,
+.workspace-head p,
+.section-head p {
+  color: var(--lc-muted) !important;
+  line-height: 1.45 !important;
+}
+
+input,
+select,
+textarea {
+  width: 100% !important;
+  min-height: 46px !important;
+  padding: 11px 12px !important;
+  border: 1px solid rgba(8, 34, 77, 0.16) !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  color: var(--lc-ink) !important;
+  font-size: 0.95rem !important;
+  line-height: 1.3 !important;
+}
+
+textarea {
+  min-height: 112px !important;
+}
+
+.floating-lawbot,
+.floating-sos {
+  z-index: 80 !important;
+}
+
+.floating-sos > button,
+.floating-lawbot > button {
+  border: 1px solid rgba(8, 34, 77, 0.12) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 16px 40px rgba(8, 34, 77, 0.2) !important;
+}
+
+.sos-panel,
+.lawbot-panel {
+  border: 1px solid rgba(8, 34, 77, 0.14) !important;
+  border-radius: 22px !important;
+  background: var(--lc-paper) !important;
+  color: var(--lc-ink) !important;
+  box-shadow: 0 24px 70px rgba(8, 34, 77, 0.22) !important;
+}
+
+.sos-panel *,
+.lawbot-panel * {
+  max-width: 100%;
+}
+
+@keyframes lcDharmaRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lcDharmaCounterRotate {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@media (max-width: 1080px) {
+  .app-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  .rail {
+    position: relative !important;
+    top: 0 !important;
+    max-height: none !important;
+  }
+
+  .nav-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .command-dock,
+  #home .home-route-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 15px !important;
+  }
+
+  .app-shell {
+    width: min(100%, calc(100% - 14px)) !important;
+    margin: 7px auto 18px !important;
+    gap: 10px !important;
+  }
+
+  .rail {
+    padding: 10px !important;
+    border-radius: 18px !important;
+  }
+
+  .brand {
+    min-height: 60px !important;
+    padding: 8px !important;
+  }
+
+  .brand-mark.dharma-brand-mark,
+  .brand-mark {
+    width: 46px !important;
+    height: 46px !important;
+    flex-basis: 46px !important;
+  }
+
+  .brand strong {
+    font-size: 1.02rem !important;
+  }
+
+  .brand small {
+    font-size: 0.66rem !important;
+  }
+
+  .nav-group,
+  .command-dock,
+  #home .poster-gates,
+  #home .home-route-summary {
+    grid-template-columns: 1fr !important;
+  }
+
+  .nav-item {
+    min-height: 42px !important;
+    font-size: 0.84rem !important;
+  }
+
+  .topbar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    min-height: 0 !important;
+    padding: 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .topbar h1,
+  #view-title {
+    font-size: 1.7rem !important;
+  }
+
+  .command-dock {
+    padding: 8px !important;
+    border-radius: 18px !important;
+  }
+
+  .command-dock button {
+    min-height: 52px !important;
+  }
+
+  #home .cover-stage {
+    padding: 10px !important;
+    border-radius: 20px !important;
+  }
+
+  #home .poster-mast {
+    min-height: 0 !important;
+    padding: 24px 12px 16px !important;
+    border-radius: 20px !important;
+  }
+
+  #home .poster-mast > span {
+    font-size: 0.68rem !important;
+  }
+
+  #home .poster-emblem {
+    width: 96px !important;
+    height: 96px !important;
+  }
+
+  #home .poster-emblem::before {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 0.92rem !important;
+  }
+
+  #home .poster-mast h2 {
+    font-size: 3.1rem !important;
+    line-height: 0.9 !important;
+  }
+
+  #home .poster-mast p,
+  .dharma-quote-card p {
+    font-size: 0.95rem !important;
+  }
+
+  .dharma-quote-card {
+    padding: 14px !important;
+    border-radius: 18px !important;
+  }
+
+  #home .poster-gates article {
+    min-height: 0 !important;
+    grid-template-rows: 150px auto auto auto auto !important;
+    border-radius: 20px !important;
+  }
+
+  .portal-scene,
+  .portal-scene img {
+    min-height: 150px !important;
+  }
+
+  #home .poster-gates h3 {
+    font-size: 1.72rem !important;
+  }
+
+  #home .home-route-summary article {
+    min-height: 0 !important;
+  }
+
+  .panel,
+  .command-card,
+  .task-card,
+  .judgment-card,
+  .booking-dock,
+  .source-library,
+  .audit-panel,
+  .service-room-panel,
+  .client-command-center,
+  .mission-command-center,
+  .login-session-board {
+    padding: 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .sos-panel,
+  .lawbot-panel {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 82px !important;
+    width: auto !important;
+    max-height: 72vh !important;
+    overflow-y: auto !important;
+  }
+}
