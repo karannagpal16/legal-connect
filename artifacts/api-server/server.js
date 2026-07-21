@@ -35,54 +35,72 @@ function appVersionPayload() {
   };
 }
 
-const demoStore = {
-  users: [],
-  bookings: [],
-  cases: [
-    {
-      id: "case-demo-1",
-      title: "Tenancy Dispute - Rohini Property",
-      status: "Active",
-      nextDate: "2026-07-04",
-      court: "District Court, Rohini",
-      courtType: "district",
-      stateCode: "DL",
-      caseNo: "2023/CRL-1234",
-      reminder: "24h before",
-      stage: "Reply awaited",
-    },
-    {
-      id: "case-demo-2",
-      title: "Consumer Complaint - Electronics Refund",
-      status: "Active",
-      nextDate: "2026-07-12",
-      court: "Consumer Commission, Delhi",
-      courtType: "consumer",
-      stateCode: "DL",
-      caseNo: "2024/CC-2201",
-      reminder: "Same morning",
-      stage: "Evidence",
-    },
-  ],
-  tasks: [
-    {
-      id: "task-demo-1",
-      title: "Saket Court inspection",
-      status: "Open",
-      fee: 650,
-      court: "Saket District Court",
-    },
-  ],
-  notifications: [],
-  legalSources: [],
-  legalChunks: [],
-  lawbotQueries: [],
-  lawbotFeedback: [],
-  auditLogs: [],
-  receipts: [],
-  verifications: [],
-  deletionRequests: [],
-};
+function createLocalDemoStore() {
+  return {
+    users: [],
+    bookings: [],
+    cases: [
+      {
+        id: "case-demo-1",
+        title: "Tenancy Dispute - Rohini Property",
+        status: "Active",
+        nextDate: "2026-07-04",
+        court: "District Court, Rohini",
+        courtType: "district",
+        stateCode: "DL",
+        caseNo: "2023/CRL-1234",
+        reminder: "24h before",
+        stage: "Reply awaited",
+      },
+      {
+        id: "case-demo-2",
+        title: "Consumer Complaint - Electronics Refund",
+        status: "Active",
+        nextDate: "2026-07-12",
+        court: "Consumer Commission, Delhi",
+        courtType: "consumer",
+        stateCode: "DL",
+        caseNo: "2024/CC-2201",
+        reminder: "Same morning",
+        stage: "Evidence",
+      },
+    ],
+    tasks: [
+      {
+        id: "task-demo-1",
+        title: "Saket Court inspection",
+        status: "Open",
+        fee: 650,
+        court: "Saket District Court",
+      },
+    ],
+    notifications: [],
+    legalSources: [],
+    legalChunks: [],
+    lawbotQueries: [],
+    lawbotFeedback: [],
+    auditLogs: [],
+    receipts: [],
+    verifications: [],
+    deletionRequests: [],
+  };
+}
+
+const demoStore = new Proxy(createLocalDemoStore(), {
+  get(target, property) {
+    if (config.nodeEnv === "production") {
+      throw new Error("Local demo storage is disabled in production.");
+    }
+    return target[property];
+  },
+  set(target, property, value) {
+    if (config.nodeEnv === "production") {
+      throw new Error("Local demo storage is disabled in production.");
+    }
+    target[property] = value;
+    return true;
+  },
+});
 
 const REVIEW_ROLES = ["client", "advocate", "intern"];
 const reviewAttempts = new Map();
@@ -119,6 +137,26 @@ function encodeSession(user) {
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
   return `${encoded}.${signature}`;
+}
+
+function sessionTokenHash(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+async function saveSessionToken(user, token) {
+  if (!db.dbAvailable || !user?.id || !token) return;
+  await db.query(
+    `INSERT INTO sessions (user_id, token_hash, expires_at, payload)
+     VALUES ($1, $2, now() + interval '30 days', $3)`,
+    [
+      user.id,
+      sessionTokenHash(token),
+      JSON.stringify({
+        role: user.role,
+        isReviewAccount: Boolean(user.isReviewAccount),
+      }),
+    ],
+  );
 }
 
 function decodeSession(token) {
@@ -467,6 +505,18 @@ function sendJson(res, status, data) {
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
   });
   res.end(JSON.stringify(data));
+}
+
+function productionDbUnavailable() {
+  return config.nodeEnv === "production" && !db.dbAvailable;
+}
+
+function sendProductionDbUnavailable(res) {
+  sendJson(res, 503, {
+    ok: false,
+    error: "PostgreSQL is required for production and is not connected.",
+    db: "disconnected",
+  });
 }
 
 function sendSse(res, data) {
@@ -1008,6 +1058,43 @@ async function createReceipt({
   return receipt;
 }
 
+async function recordPaymentEvent({
+  userId = null,
+  bookingId = null,
+  taskId = null,
+  amount = null,
+  currency = "INR",
+  provider = "razorpay",
+  providerOrderId = null,
+  providerPaymentId = null,
+  status = "recorded",
+  workHoldStatus = null,
+  failureReason = null,
+  payload = {},
+} = {}) {
+  if (!db.dbAvailable) return null;
+  const result = await db.query(
+    `INSERT INTO payments (user_id, booking_id, task_id, amount, currency, provider, provider_order_id, provider_payment_id, status, work_hold_status, failure_reason, payload)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     RETURNING id`,
+    [
+      userId,
+      bookingId,
+      taskId,
+      amount === null || amount === undefined ? null : Number(amount),
+      currency,
+      provider,
+      providerOrderId,
+      providerPaymentId,
+      status,
+      workHoldStatus,
+      failureReason,
+      JSON.stringify(payload),
+    ],
+  );
+  return result.rows[0]?.id || null;
+}
+
 function sourceAdminUser(req, res) {
   const authUser = getAuthUser(req);
   if (!authUser || !canSeeAll(authUser)) {
@@ -1432,18 +1519,24 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/health" || url.pathname === "/api/health") {
-    const lawbotCounts = await lawbotHealthCounts();
+    const dbHealth = await db.healthCheck();
+    const lawbotCounts = dbHealth.connected || config.nodeEnv !== "production"
+      ? await lawbotHealthCounts()
+      : { approved_sources_count: 0, legal_chunks_count: 0 };
     const version = appVersionPayload();
     const otpStatus = otpRuntimeStatus();
-    sendJson(res, 200, {
-      ok: true,
+    sendJson(res, dbHealth.connected || config.nodeEnv !== "production" ? 200 : 503, {
+      ok: dbHealth.connected || config.nodeEnv !== "production",
       app: "Legal Connect",
       mode: "Phase 1 running backend",
       web_version: version.web_version,
       build_time: version.build_time,
       minimum_android_version: version.minimum_android_version,
       android_wrapper_version: version.android_wrapper_version,
-      db: db.dbAvailable ? "connected" : "fallback",
+      db: dbHealth.db,
+      latency_ms: dbHealth.latency_ms,
+      pool: dbHealth.pool,
+      migrations: dbHealth.migrations,
       auth: "enabled",
       lawbot: "source-locked",
       approved_sources_count: lawbotCounts.approved_sources_count,
@@ -1458,6 +1551,11 @@ const server = http.createServer(async (req, res) => {
       public_url: config.publicAppUrl,
       allowed_origins_count: (config.allowedOrigins || []).filter((origin) => origin !== "*").length,
     });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/") && productionDbUnavailable()) {
+    sendProductionDbUnavailable(res);
     return;
   }
 
@@ -1607,6 +1705,11 @@ const server = http.createServer(async (req, res) => {
          VALUES ($1, $2, $3, $4, $5)`,
         [record.email, record.phone, record.codeHash, record.purpose, record.expiresAt],
       );
+      await db.query(
+        `INSERT INTO otp_codes (email, phone, code_hash, purpose, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [record.email, record.phone, record.codeHash, record.purpose, record.expiresAt],
+      );
     } else {
       demoStore.verifications.unshift(record);
     }
@@ -1728,6 +1831,15 @@ const server = http.createServer(async (req, res) => {
       if (verified) {
         verificationId = item.id;
         await db.query("UPDATE login_verifications SET consumed_at = now() WHERE id = $1", [item.id]);
+        await db.query(
+          `UPDATE otp_codes
+           SET consumed_at = now()
+           WHERE (($1::text IS NOT NULL AND email = $1) OR ($2::text IS NOT NULL AND phone = $2))
+             AND code_hash = $3
+             AND purpose = 'login'
+             AND consumed_at IS NULL`,
+          [email || null, phone || null, expectedHash],
+        );
         if (email) {
           await db.query("UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE email = $1", [email]);
         }
@@ -1874,6 +1986,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     const token = encodeSession(user);
+    await saveSessionToken(user, token);
     await createReceipt({
       userId: user.id,
       actor: user,
@@ -2649,6 +2762,16 @@ const server = http.createServer(async (req, res) => {
           [body.bookingId || body.booking_id, orderResult.order.id, JSON.stringify({ razorpay_order_id: orderResult.order.id })],
         );
       }
+      await recordPaymentEvent({
+        userId: authUser?.id || null,
+        bookingId: body.bookingId || body.booking_id || null,
+        amount,
+        currency: orderResult.order.currency || "INR",
+        providerOrderId: orderResult.order.id,
+        status: "order_created",
+        workHoldStatus: "pending",
+        payload: { receipt: orderResult.order.receipt || null, serviceType: body.serviceType || body.service_type || null },
+      });
       await writeAuditLog(authUser || { role: "system" }, "payment_order_created", "payment", orderResult.order.id, "Razorpay order created.", { amount, bookingId: body.bookingId || body.booking_id || null });
       await createReceipt({
         userId: authUser?.id || null,
@@ -2713,6 +2836,15 @@ const server = http.createServer(async (req, res) => {
         if (booking) Object.assign(booking, { paymentStatus: "paid", workHoldStatus: "active", razorpayOrderId: orderId, razorpayPaymentId: paymentId, verifiedAt: new Date().toISOString() });
       }
       await writeAuditLog(authUser || { role: "system" }, "payment_verified", "booking", bookingId || orderId, "Payment verified. Work Completion Hold activated.", { orderId, paymentId });
+      await recordPaymentEvent({
+        userId: authUser?.id || null,
+        bookingId: bookingId || null,
+        providerOrderId: orderId,
+        providerPaymentId: paymentId,
+        status: "paid",
+        workHoldStatus: "active",
+        payload: { verifiedAt: new Date().toISOString() },
+      });
       await createNotification("payment_verified", "Payment verified", "Payment verified. Work Completion Hold is active.", { bookingId, orderId, paymentId }, authUser?.id || null);
       await createReceipt({
         userId: authUser?.id || null,
@@ -2739,6 +2871,16 @@ const server = http.createServer(async (req, res) => {
       );
     }
     await writeAuditLog(authUser || { role: "system" }, "payment_verification_failed", "booking", bookingId || orderId, "Payment verification failed.", { orderId, paymentId });
+    await recordPaymentEvent({
+      userId: authUser?.id || null,
+      bookingId: bookingId || null,
+      providerOrderId: orderId,
+      providerPaymentId: paymentId,
+      status: "verification_failed",
+      workHoldStatus: "pending",
+      failureReason: "Invalid Razorpay signature",
+      payload: { verificationFailedAt: new Date().toISOString() },
+    });
     await createReceipt({
       userId: authUser?.id || null,
       actor: authUser || { role: "system" },
@@ -2784,6 +2926,15 @@ const server = http.createServer(async (req, res) => {
          WHERE razorpay_order_id = $1 AND COALESCE(payment_status, '') <> 'paid'`,
         [orderId, paymentId, JSON.stringify({ webhook_event: event, razorpay_payment_id: paymentId })],
       );
+      await recordPaymentEvent({
+        providerOrderId: orderId,
+        providerPaymentId: paymentId,
+        amount: payment.amount ? Number(payment.amount) / 100 : null,
+        currency: payment.currency || "INR",
+        status: "paid",
+        workHoldStatus: "active",
+        payload: { webhookEvent: event },
+      });
     }
     if (db.dbAvailable && orderId && event === "payment.failed") {
       await db.query(
@@ -2793,6 +2944,16 @@ const server = http.createServer(async (req, res) => {
          WHERE razorpay_order_id = $1 AND COALESCE(payment_status, '') <> 'paid'`,
         [orderId, payment.error_description || "Payment failed", JSON.stringify({ webhook_event: event })],
       );
+      await recordPaymentEvent({
+        providerOrderId: orderId,
+        providerPaymentId: paymentId,
+        amount: payment.amount ? Number(payment.amount) / 100 : null,
+        currency: payment.currency || "INR",
+        status: "failed",
+        workHoldStatus: "pending",
+        failureReason: payment.error_description || "Payment failed",
+        payload: { webhookEvent: event },
+      });
     }
     await writeAuditLog({ role: "system" }, "payment_webhook_received", "payment", orderId || "razorpay-webhook", `Razorpay webhook received: ${event}`, { event, paymentId });
     sendJson(res, 200, { ok: true, received: true, mode: config.razorpayWebhookSecret ? "razorpay" : "demo", event });
@@ -3170,16 +3331,20 @@ const server = http.createServer(async (req, res) => {
 });
 
 async function startServer() {
-  await db.initDb();
+  const initialized = await db.initDb();
+  if (config.nodeEnv === "production" && !initialized) {
+    throw new Error("Production startup blocked: PostgreSQL migrations did not complete.");
+  }
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on ${PORT}`);
-    console.log(`Database mode: ${db.dbAvailable ? "connected" : "fallback"}`);
+    console.log(`Database mode: ${db.dbAvailable ? "connected" : config.nodeEnv === "production" ? "disconnected" : "local fallback"}`);
+    console.log(`Migration status: ${db.migrationStatus}`);
     console.log(`Email provider: ${emailProviderStatus().provider === "resend" && emailProviderStatus().status === "ready" ? "resend configured" : "in-app fallback"}`);
     console.log(`Google Play review access: ${playReviewConfigured() ? "configured" : "disabled"}`);
   });
 }
 
 startServer().catch((error) => {
-  console.error("Server failed to start", error);
+  console.error(`Server failed to start: ${error.message}`);
   process.exit(1);
 });

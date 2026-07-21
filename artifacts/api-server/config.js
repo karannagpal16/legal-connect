@@ -69,7 +69,7 @@ const config = {
   allowedOrigins: parseAllowedOrigins(optionalString("ALLOWED_ORIGINS"), optionalString("ALLOWED_ORIGIN", "*")),
   appUrl: validateUrl("APP_URL", optionalString("APP_URL") || configuredPublicUrl),
   publicAppUrl: configuredPublicUrl,
-  dbUrl: optionalString("DB_URL") || optionalString("DATABASE_URL"),
+  dbUrl: optionalString("DATABASE_URL") || optionalString("DB_URL"),
   redisUrl: optionalString("REDIS_URL"),
   sendgridKey: optionalString("SENDGRID_KEY"),
   webPushPublicKey: optionalString("WEB_PUSH_PUBLIC_KEY"),
@@ -92,10 +92,10 @@ const config = {
 
 if (config.nodeEnv === "production") {
   const warnings = [];
-  if (!config.dbUrl) warnings.push("DB_URL");
+  if (!config.dbUrl) warnings.push("DATABASE_URL or DB_URL");
   if (!config.allowedOrigins.length || config.allowedOrigins.includes("*")) warnings.push("ALLOWED_ORIGINS");
   if (warnings.length) {
-    console.warn(`Production config warning: ${warnings.join(", ")} not configured. Running demo-safe mode.`);
+    console.warn(`Production config warning: ${warnings.join(", ")} not configured. Production startup will fail until required settings are added.`);
   }
 }
 
