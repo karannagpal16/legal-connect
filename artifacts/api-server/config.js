@@ -69,7 +69,7 @@ const config = {
   allowedOrigins: parseAllowedOrigins(optionalString("ALLOWED_ORIGINS"), optionalString("ALLOWED_ORIGIN", "*")),
   appUrl: validateUrl("APP_URL", optionalString("APP_URL") || configuredPublicUrl),
   publicAppUrl: configuredPublicUrl,
-  dbUrl: optionalString("DB_URL"),
+  dbUrl: optionalString("DB_URL") || optionalString("DATABASE_URL"),
   redisUrl: optionalString("REDIS_URL"),
   sendgridKey: optionalString("SENDGRID_KEY"),
   webPushPublicKey: optionalString("WEB_PUSH_PUBLIC_KEY"),

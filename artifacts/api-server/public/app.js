@@ -1830,6 +1830,197 @@ document.addEventListener("click", (event) => {
   setFlowStatus("Action selected", label);
 });
 
+const compactPortalConfig = {
+  home: {
+    label: "Choose a lane",
+    note: "Start with People or Lawyers. Legal tools stay one tap away instead of one long scroll.",
+    rootSelector: ".cover-stage",
+    preserve: 4,
+    actions: [
+      { label: "For People", view: "client" },
+      { label: "For Lawyers", view: "advocate" },
+      { label: "SOS", action: "sos" },
+      { label: "Status", view: "service-room" },
+    ],
+  },
+  client: {
+    label: "People desk",
+    note: "Book counsel, raise SOS, or track a receipt from the first screen.",
+    preserve: 4,
+    actions: [
+      { label: "Book Counsel", selector: "#booking-dock" },
+      { label: "Legal SOS", action: "sos" },
+      { label: "Documents", view: "documents" },
+      { label: "My Status", view: "service-room" },
+    ],
+  },
+  advocate: {
+    label: "Practice command",
+    note: "Mission Desk, Safe Board and Chamber tools first. Library and pulse cards open when needed.",
+    rootSelector: ".advocate-command",
+    preserve: 4,
+    actions: [
+      { label: "Mission Desk", view: "appearance" },
+      { label: "Post Work", view: "posttask" },
+      { label: "Diary", view: "diary" },
+      { label: "Library", view: "bar" },
+    ],
+  },
+  intern: {
+    label: "Intern XP",
+    note: "Quests are short cards; deeper history can stay folded while testing.",
+    preserve: 3,
+    actions: [
+      { label: "XP Board", selector: ".xp-hero" },
+      { label: "Quests", selector: ".feed-grid" },
+      { label: "Library", view: "bar" },
+    ],
+  },
+  admin: {
+    label: "RNA control",
+    note: "Readiness, sources and core controls stay visible; diagnostics and audit trails are expandable.",
+    preserve: 5,
+    actions: [
+      { label: "Sources", selector: ".source-library" },
+      { label: "Audit", selector: "#audit-log-list" },
+      { label: "Receipts", selector: "#admin-receipt-list" },
+      { label: "Refresh", action: "refreshAdmin" },
+    ],
+  },
+  posttask: {
+    label: "Court mission",
+    note: "Post the work, set fee and note first. Extra rules stay folded.",
+    preserve: 3,
+    actions: [
+      { label: "Mission Form", selector: "form" },
+      { label: "Work Hold", view: "escrow" },
+      { label: "Status", view: "appearance" },
+    ],
+  },
+  documents: {
+    label: "Draft desk",
+    note: "Pick a document, upload files, pay and track the receipt.",
+    preserve: 2,
+    actions: [
+      { label: "Draft Form", selector: "#draft-form" },
+      { label: "Client Desk", view: "client" },
+      { label: "Status", view: "service-room" },
+    ],
+  },
+  bar: {
+    label: "Digital library",
+    note: "Bare Acts, judgments and updates are grouped so research does not feel scattered.",
+    preserve: 4,
+    actions: [
+      { label: "Bare Acts", view: "bareact" },
+      { label: "Judgments", view: "judgment" },
+      { label: "Advocate", view: "advocate" },
+    ],
+  },
+  "service-room": {
+    label: "Service room",
+    note: "Everything the user booked or posted should resolve here as a clear status card.",
+    preserve: 3,
+    actions: [
+      { label: "Book", view: "client" },
+      { label: "Receipts", selector: "#service-room-timeline" },
+      { label: "Home", view: "home" },
+    ],
+  },
+};
+
+function getCompactRoot(view, config) {
+  if (config.rootSelector) return view.querySelector(config.rootSelector) || view;
+  const elementChildren = [...view.children].filter((child) => child instanceof HTMLElement && !child.classList.contains("page-focus-strip"));
+  if (elementChildren.length === 1 && !elementChildren[0].matches("form")) return elementChildren[0];
+  return view;
+}
+
+function createFocusButton(item, view, root) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = item.label;
+  button.addEventListener("click", async () => {
+    if (item.view) {
+      activateView(item.view);
+      return;
+    }
+    if (item.action === "sos") {
+      openSosPanel();
+      return;
+    }
+    if (item.action === "refreshAdmin") {
+      await refreshAdminDashboard();
+      setDemoStatus("RNA Control Room refreshed.");
+      return;
+    }
+    const target = item.selector ? view.querySelector(item.selector) || document.querySelector(item.selector) : null;
+    if (target) {
+      view.classList.add("show-all");
+      root.classList.add("show-all");
+      target.classList.remove("secondary-panel");
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      setFlowStatus(item.label, "Section opened inside this workspace.");
+    }
+  });
+  return button;
+}
+
+function initProductReadyMode() {
+  Object.entries(compactPortalConfig).forEach(([viewId, config]) => {
+    const view = document.getElementById(viewId);
+    if (!view || view.dataset.compactReady === "true") return;
+    const root = getCompactRoot(view, config);
+    const children = [...root.children].filter((child) => {
+      if (!(child instanceof HTMLElement)) return false;
+      return !child.classList.contains("page-focus-strip") && !child.classList.contains("intro-loader");
+    });
+    if (!children.length) return;
+
+    view.dataset.compactReady = "true";
+    root.classList.add("compact-root");
+    root.classList.toggle("compact-home-root", viewId === "home");
+
+    const focusStrip = document.createElement("section");
+    focusStrip.className = "page-focus-strip";
+    focusStrip.innerHTML = `
+      <div class="page-focus-copy">
+        <span>${escapeHtml(config.label)}</span>
+        <strong>${escapeHtml(titles[viewId] || "Legal Connect")}</strong>
+        <p>${escapeHtml(config.note)}</p>
+      </div>
+      <div class="page-focus-actions"></div>
+    `;
+    const actionHost = focusStrip.querySelector(".page-focus-actions");
+    config.actions.forEach((item) => actionHost.appendChild(createFocusButton(item, view, root)));
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "show-all-toggle";
+    toggle.textContent = "Show full page";
+    toggle.addEventListener("click", () => {
+      const expanded = root.classList.toggle("show-all");
+      view.classList.toggle("show-all", expanded);
+      toggle.textContent = expanded ? "Short view" : "Show full page";
+      setFlowStatus(expanded ? "Full page opened" : "Short view active", expanded ? "All tools are visible." : "Only priority tools are visible.");
+    });
+
+    const insertAfter = children[0];
+    insertAfter.insertAdjacentElement("afterend", focusStrip);
+
+    let visibleSeen = 0;
+    children.forEach((child) => {
+      if (child === focusStrip || child.hidden) return;
+      visibleSeen += 1;
+      if (visibleSeen > config.preserve) child.classList.add("secondary-panel");
+    });
+
+    if (root.querySelector(".secondary-panel")) {
+      actionHost.appendChild(toggle);
+    }
+  });
+}
+
 async function refreshNotifications() {
   try {
     const notifications = await apiFetch("/api/notifications");
@@ -1844,6 +2035,7 @@ async function refreshNotifications() {
 refreshNotifications();
 checkAppVersion();
 refreshPublicHealth();
+initProductReadyMode();
 
 const pathView = location.pathname.replace("/", "");
 const initialView = location.hash.replace("#", "") || (document.getElementById(pathView) ? pathView : "");

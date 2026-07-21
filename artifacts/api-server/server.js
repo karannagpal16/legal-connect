@@ -92,6 +92,20 @@ const REVIEW_LOGIN_MAX_ATTEMPTS = 8;
 const REVIEW_VERIFICATION_TTL_MS = 20 * 60 * 1000;
 
 const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
+const publicSignupRoles = new Set(["client", "advocate", "intern"]);
+
+function resolveLoginRole(requestedRole, existingRole, isReviewLogin) {
+  if (isReviewLogin) {
+    return REVIEW_ROLES.includes(requestedRole) ? requestedRole : "client";
+  }
+  if (existingRole && roles.has(existingRole)) {
+    return existingRole;
+  }
+  if (config.nodeEnv !== "production" && !db.dbAvailable && roles.has(requestedRole)) {
+    return requestedRole;
+  }
+  return publicSignupRoles.has(requestedRole) ? requestedRole : "client";
+}
 
 function encodeSession(user) {
   const payload = {
@@ -1771,8 +1785,15 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    const role = isReviewLogin && REVIEW_ROLES.includes(requestedRole) ? requestedRole : isReviewLogin ? "client" : requestedRole;
     const verifiedFlags = await verifiedContactFlags(email, phone);
+    if (config.nodeEnv === "production" && !isReviewLogin && !verifiedFlags.emailVerified && !verifiedFlags.phoneVerified) {
+      sendJson(res, 401, {
+        ok: false,
+        error: "Verify your email OTP before opening your workspace.",
+      });
+      return;
+    }
+    let role = resolveLoginRole(requestedRole, null, isReviewLogin);
     let user;
 
     if (db.dbAvailable) {
@@ -1784,6 +1805,7 @@ const server = http.createServer(async (req, res) => {
 
       if (existing.rows.length) {
         const previousRole = existing.rows[0].role;
+        role = resolveLoginRole(requestedRole, previousRole, isReviewLogin);
         const updated = await db.query(
           `UPDATE users
            SET name = $2,
@@ -1812,6 +1834,7 @@ const server = http.createServer(async (req, res) => {
     } else {
       user = demoStore.users.find((item) => (email && item.email === email) || (phone && item.phone === phone));
       if (!user) {
+        role = resolveLoginRole(requestedRole, null, isReviewLogin);
         user = {
           id: `user-${Date.now()}`,
           name,
@@ -1826,6 +1849,7 @@ const server = http.createServer(async (req, res) => {
         demoStore.users.push(user);
       } else {
         const previousRole = user.role;
+        role = resolveLoginRole(requestedRole, previousRole, isReviewLogin);
         Object.assign(user, {
           name,
           phone,
@@ -1874,7 +1898,11 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/auth/me" && req.method === "GET") {
     const user = getAuthUser(req);
-    sendJson(res, 200, { ok: true, user: user || { id: "demo-user", name: "Demo User", role: "demo" } });
+    if (!user) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    sendJson(res, 200, { ok: true, user });
     return;
   }
 
