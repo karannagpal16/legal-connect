@@ -73,6 +73,1548 @@
   }
 }
 
+/* LC final visual authority: keep this block last. */
+body {
+  background:
+    radial-gradient(circle at 10% 8%, rgba(216, 166, 64, 0.16), transparent 26%),
+    radial-gradient(circle at 92% 0%, rgba(15, 118, 110, 0.12), transparent 24%),
+    linear-gradient(180deg, #ffffff 0%, #f5f8fc 46%, #edf3f8 100%) !important;
+  color: #101827 !important;
+  letter-spacing: 0 !important;
+}
+
+body * {
+  letter-spacing: 0 !important;
+  min-width: 0;
+}
+
+p,
+span,
+strong,
+small,
+button,
+a,
+label,
+input,
+textarea,
+select,
+h1,
+h2,
+h3,
+h4 {
+  overflow-wrap: anywhere;
+}
+
+.app-shell {
+  width: min(1440px, calc(100% - 28px)) !important;
+  grid-template-columns: 252px minmax(0, 1fr) !important;
+  gap: 16px !important;
+}
+
+.rail,
+.topbar,
+.demo-status,
+.command-dock,
+.panel,
+.workspace-head,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.login-session-board,
+.client-command-center,
+.mission-command-center {
+  border-radius: 8px !important;
+  box-shadow: 0 18px 50px rgba(7, 17, 31, 0.12) !important;
+}
+
+.rail,
+.panel,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.login-session-board,
+.client-command-center,
+.mission-command-center,
+.poster-strip,
+.poster-updates,
+.poster-basics,
+.phase-command,
+.cover-ai-desk {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #101827 !important;
+  border-color: rgba(16, 24, 39, 0.12) !important;
+}
+
+.topbar,
+.advocate-hero,
+.workspace-head,
+#home .poster-mast {
+  background:
+    linear-gradient(135deg, rgba(7, 17, 31, 0.96), rgba(16, 36, 59, 0.92)),
+    radial-gradient(circle at 80% 0%, rgba(216, 166, 64, 0.18), transparent 34%) !important;
+  color: #fff8df !important;
+  border-color: rgba(216, 166, 64, 0.25) !important;
+}
+
+.topbar h1,
+#view-title,
+.advocate-hero h2,
+.workspace-head h2,
+#home .poster-mast h2 {
+  color: #fff8df !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+}
+
+.topbar .eyebrow,
+.advocate-hero .eyebrow,
+.workspace-head .eyebrow,
+#home .poster-mast > span {
+  color: #f7d985 !important;
+}
+
+.advocate-hero p,
+.workspace-head p,
+#home .poster-mast > p {
+  color: #f8ebc7 !important;
+}
+
+.demo-status {
+  background: linear-gradient(90deg, #fff7d6, #ffffff) !important;
+  color: #5b3c08 !important;
+  font-weight: 800 !important;
+}
+
+.command-dock,
+.page-focus-strip {
+  display: grid !important;
+  gap: 8px !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(16, 24, 39, 0.1) !important;
+}
+
+.command-dock {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+}
+
+.command-dock button,
+.page-focus-strip button,
+.ghost-button,
+.gold-button,
+.booking-options button,
+.sos-case-grid button,
+.sos-actions button,
+.service-tile-grid button,
+.service-tile-grid a,
+.admin-action-grid button,
+.ai-prompt-row button,
+.icon-grid button,
+.service-pairs button {
+  border-radius: 8px !important;
+  min-height: 44px !important;
+  line-height: 1.18 !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+}
+
+.gold-button,
+.poster-gates button,
+.payment-simulator .gold-button {
+  background: linear-gradient(135deg, #f6c95b, #d8a640) !important;
+  color: #161006 !important;
+  border: 1px solid rgba(111, 74, 10, 0.24) !important;
+}
+
+.ghost-button,
+.page-focus-strip button,
+.service-tile-grid button,
+.service-tile-grid a,
+.icon-grid button,
+.service-pairs button,
+.sos-case-grid button,
+.sos-actions button,
+.ai-prompt-row button,
+.command-dock button {
+  background: #ffffff !important;
+  color: #0b1728 !important;
+  border: 1px solid rgba(16, 24, 39, 0.14) !important;
+  font-weight: 800 !important;
+}
+
+.nav-item {
+  background: rgba(7, 17, 31, 0.04) !important;
+  color: #172033 !important;
+  border: 1px solid rgba(16, 24, 39, 0.08) !important;
+  border-radius: 8px !important;
+  white-space: normal !important;
+}
+
+.nav-item.active,
+.nav-item:hover {
+  background: linear-gradient(135deg, #07111f, #10243b) !important;
+  color: #fff7da !important;
+  border-color: rgba(216, 166, 64, 0.45) !important;
+}
+
+#home .cover-stage {
+  gap: 14px !important;
+  padding: 14px !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(242, 247, 252, 0.94)),
+    url("images/hero-bg.png") center/cover no-repeat !important;
+}
+
+#home .poster-mast {
+  min-height: 440px !important;
+  border-radius: 8px !important;
+  text-align: center !important;
+}
+
+#home .poster-mast h2 {
+  font-size: clamp(4.4rem, 10vw, 9.6rem) !important;
+  line-height: 0.78 !important;
+}
+
+.dharma-quote-card {
+  max-width: 860px !important;
+  margin-inline: auto !important;
+  padding: 16px 18px !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #101827 !important;
+  border: 1px solid rgba(216, 166, 64, 0.36) !important;
+  border-radius: 8px !important;
+}
+
+.dharma-quote-card p {
+  color: #1f2937 !important;
+  line-height: 1.5 !important;
+}
+
+#home .poster-gates,
+#home .home-route-summary,
+.client-desk-grid,
+.safe-board-grid,
+.counsel-grid,
+.service-tile-grid,
+.advocate-top-grid,
+.client-modules,
+.admin-action-grid,
+.booking-options,
+.icon-grid,
+.service-pairs {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+#home .poster-gates {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+#home .poster-gates article,
+#home .home-route-summary article,
+.safe-board-grid article,
+.client-desk-grid article,
+.counsel-grid article,
+.client-modules .panel {
+  background: #ffffff !important;
+  color: #101827 !important;
+  border: 1px solid rgba(16, 24, 39, 0.12) !important;
+  border-radius: 8px !important;
+}
+
+#home .poster-gates h3 {
+  color: #07111f !important;
+  font-size: clamp(2rem, 4vw, 3.7rem) !important;
+  line-height: 0.95 !important;
+}
+
+.portal-scene,
+.portal-scene img {
+  min-height: 210px !important;
+  border-radius: 8px !important;
+  object-fit: cover !important;
+}
+
+.page-focus-strip {
+  grid-template-columns: minmax(0, 1.15fr) repeat(5, minmax(96px, auto)) !important;
+  padding: 10px !important;
+  margin-bottom: 14px !important;
+  border-radius: 8px !important;
+}
+
+.compact-root > .secondary-panel {
+  display: none !important;
+}
+
+.compact-root.show-all > .secondary-panel {
+  display: block !important;
+}
+
+.booking-options {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)) !important;
+}
+
+.booking-options button {
+  min-height: 86px !important;
+  padding: 14px !important;
+  background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
+  color: #07111f !important;
+  border-color: rgba(216, 166, 64, 0.34) !important;
+}
+
+input,
+textarea,
+select {
+  width: 100% !important;
+  color: #101827 !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(16, 24, 39, 0.18) !important;
+  border-radius: 8px !important;
+}
+
+.sos-panel,
+.lawbot-panel {
+  width: min(430px, calc(100vw - 24px)) !important;
+  max-height: 76vh !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+  color: #101827 !important;
+  border: 1px solid rgba(216, 166, 64, 0.32) !important;
+  border-radius: 8px !important;
+}
+
+.sos-head {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+  background: #ffffff !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+#sos-close,
+#lawbot-close {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 999px !important;
+  background: #fff7df !important;
+  color: #07111f !important;
+}
+
+.lawbot-greeting {
+  max-width: min(280px, calc(100vw - 110px)) !important;
+  background: rgba(7, 17, 31, 0.94) !important;
+  color: #fff8df !important;
+  border-radius: 8px !important;
+}
+
+@media (max-width: 1080px) {
+  .app-shell {
+    grid-template-columns: 1fr !important;
+    width: min(100%, calc(100% - 18px)) !important;
+  }
+
+  .rail {
+    position: relative !important;
+    top: auto !important;
+    max-height: none !important;
+  }
+
+  .nav-group,
+  .command-dock {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .page-focus-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .page-focus-strip .focus-copy {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    width: min(100%, calc(100% - 12px)) !important;
+    margin: 6px auto 18px !important;
+    gap: 10px !important;
+  }
+
+  .rail,
+  .topbar,
+  .demo-status,
+  .command-dock,
+  .panel,
+  .workspace-head,
+  .booking-dock,
+  .source-library,
+  .audit-panel,
+  .service-room-panel,
+  .login-session-board,
+  .client-command-center,
+  .mission-command-center {
+    border-radius: 8px !important;
+  }
+
+  .nav-group,
+  .command-dock,
+  .page-focus-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .nav-item,
+  .command-dock button,
+  .page-focus-strip button {
+    min-height: 42px !important;
+    padding: 8px !important;
+    font-size: 0.82rem !important;
+    text-align: center !important;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr !important;
+    padding: 12px !important;
+  }
+
+  .topbar h1,
+  #view-title {
+    font-size: 1.9rem !important;
+    line-height: 1 !important;
+  }
+
+  #home .poster-mast {
+    min-height: 500px !important;
+    padding: 18px 10px !important;
+  }
+
+  #home .poster-mast h2 {
+    font-size: clamp(3.2rem, 17vw, 4.5rem) !important;
+    line-height: 0.84 !important;
+  }
+
+  .dharma-quote-card p {
+    font-size: 0.85rem !important;
+    line-height: 1.42 !important;
+  }
+
+  #home .poster-gates,
+  #home .home-route-summary,
+  .client-desk-grid,
+  .safe-board-grid,
+  .counsel-grid,
+  .advocate-top-grid,
+  .client-modules,
+  .admin-action-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .service-tile-grid,
+  .booking-options,
+  .sos-case-grid,
+  .sos-actions,
+  .icon-grid,
+  .service-pairs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .portal-scene,
+  .portal-scene img {
+    min-height: 150px !important;
+  }
+
+  #home .poster-gates h3,
+  .workspace-head h2,
+  .advocate-hero h2 {
+    font-size: clamp(1.85rem, 9vw, 2.65rem) !important;
+    line-height: 1.02 !important;
+  }
+
+  .workspace-head,
+  .advocate-hero,
+  .mission-command-center .section-head,
+  .client-command-center .section-head,
+  .source-library .section-head,
+  .audit-panel .section-head,
+  .booking-dock > div:first-child,
+  .payment-simulator,
+  .cover-ai-desk {
+    grid-template-columns: 1fr !important;
+  }
+
+  .panel,
+  .command-card,
+  .task-card,
+  .judgment-card,
+  .booking-dock,
+  .source-library,
+  .audit-panel,
+  .service-room-panel,
+  .client-command-center,
+  .mission-command-center,
+  .login-session-board {
+    padding: 12px !important;
+  }
+
+  .booking-options button {
+    min-height: 78px !important;
+    font-size: 0.88rem !important;
+    padding: 10px !important;
+  }
+
+  .sos-panel,
+  .lawbot-panel {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 78px !important;
+    width: auto !important;
+    max-height: 72vh !important;
+  }
+
+  .floating-sos {
+    left: 10px !important;
+    right: auto !important;
+    bottom: 12px !important;
+  }
+
+  .floating-lawbot {
+    right: 10px !important;
+    bottom: 12px !important;
+  }
+
+  .lawbot-greeting,
+  .ai-avatar {
+    display: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav-group,
+  .command-dock,
+  .service-tile-grid,
+  .booking-options,
+  .sos-case-grid,
+  .sos-actions,
+  .icon-grid,
+  .service-pairs,
+  .page-focus-strip {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Final command redesign pass: clear, premium, and mobile-safe. */
+:root {
+  --lc-navy-950: #07111f;
+  --lc-navy-900: #0b1728;
+  --lc-navy-800: #10243b;
+  --lc-blue: #1d4ed8;
+  --lc-gold: #d8a640;
+  --lc-gold-soft: #fff2c2;
+  --lc-cream: #fffaf0;
+  --lc-paper: #ffffff;
+  --lc-ink: #101827;
+  --lc-muted: #5f6b7a;
+  --lc-line: rgba(16, 24, 39, 0.12);
+  --lc-teal: #0f766e;
+  --lc-shadow: 0 18px 50px rgba(7, 17, 31, 0.14);
+  --lc-radius: 8px;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(216, 166, 64, 0.18), transparent 28%),
+    radial-gradient(circle at 92% 2%, rgba(15, 118, 110, 0.14), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, #f5f8fc 38%, #edf3f8 100%) !important;
+  color: var(--lc-ink) !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  letter-spacing: 0 !important;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+main,
+.view,
+.panel,
+.command-card,
+.task-card,
+.judgment-card,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.client-command-center,
+.mission-command-center,
+.login-session-board,
+.workspace-head,
+.section-head,
+.safe-board-grid > *,
+.client-desk-grid > *,
+.counsel-grid > *,
+.service-tile-grid > *,
+.booking-options > *,
+.admin-action-grid > * {
+  min-width: 0;
+}
+
+p,
+span,
+strong,
+small,
+button,
+a,
+label,
+input,
+textarea,
+select,
+h1,
+h2,
+h3,
+h4 {
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  letter-spacing: 0 !important;
+}
+
+.app-shell {
+  width: min(1440px, calc(100% - 28px)) !important;
+  grid-template-columns: 252px minmax(0, 1fr) !important;
+  gap: 16px !important;
+  margin: 14px auto 28px !important;
+}
+
+.rail {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(16, 24, 39, 0.12) !important;
+  box-shadow: 0 18px 44px rgba(7, 17, 31, 0.12) !important;
+  color: var(--lc-ink) !important;
+  backdrop-filter: blur(20px);
+}
+
+.brand {
+  color: var(--lc-ink) !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+.brand strong,
+.topbar h1,
+#view-title,
+.poster-mast h2,
+.workspace-head h2,
+.advocate-hero h2,
+.panel h3,
+.command-card h3 {
+  font-family: Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0 !important;
+}
+
+.brand small,
+.eyebrow,
+.poster-title,
+.status-dot,
+.card-index {
+  letter-spacing: 0.08em !important;
+}
+
+.brand-mark.dharma-brand-mark,
+.poster-emblem,
+.advocate-seal,
+.sos-orb,
+.lawbot-orb {
+  background:
+    radial-gradient(circle at 50% 50%, #fff8dc 0 10%, transparent 11%),
+    conic-gradient(from 0deg, #8f5f12, #f5cf68, #9b6814, #f5cf68, #8f5f12) !important;
+  border: 1px solid rgba(151, 99, 18, 0.32) !important;
+  box-shadow: 0 12px 30px rgba(151, 99, 18, 0.24) !important;
+}
+
+.brand-mark .chakra-wheel,
+.poster-emblem i,
+.advocate-seal span {
+  animation: dharmaChakraSpin 14s linear infinite;
+}
+
+.nav-group {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+}
+
+.nav-item {
+  justify-content: flex-start !important;
+  min-height: 42px !important;
+  padding: 10px 12px !important;
+  border-radius: var(--lc-radius) !important;
+  background: rgba(7, 17, 31, 0.04) !important;
+  color: #172033 !important;
+  border: 1px solid rgba(16, 24, 39, 0.08) !important;
+  white-space: normal !important;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  background: linear-gradient(135deg, var(--lc-navy-900), var(--lc-navy-800)) !important;
+  color: #fff7da !important;
+  border-color: rgba(216, 166, 64, 0.45) !important;
+}
+
+.rail-card {
+  background: linear-gradient(135deg, #fff8e6, #ffffff) !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid rgba(216, 166, 64, 0.32) !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+main {
+  gap: 14px !important;
+}
+
+.topbar,
+.demo-status,
+.command-dock,
+.panel,
+.workspace-head,
+.booking-dock,
+.source-library,
+.audit-panel,
+.service-room-panel,
+.login-session-board,
+.client-command-center,
+.mission-command-center {
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid var(--lc-line) !important;
+  border-radius: var(--lc-radius) !important;
+  box-shadow: var(--lc-shadow) !important;
+}
+
+.topbar {
+  min-height: 88px !important;
+  padding: 18px 20px !important;
+  align-items: center !important;
+}
+
+.topbar h1,
+#view-title {
+  color: var(--lc-navy-950) !important;
+  font-size: clamp(2rem, 4vw, 4.4rem) !important;
+  line-height: 0.95 !important;
+}
+
+.demo-status {
+  padding: 10px 14px !important;
+  background: linear-gradient(90deg, #fff7d6, #ffffff) !important;
+  color: #61420d !important;
+  font-weight: 800 !important;
+  font-size: 0.92rem !important;
+}
+
+.command-dock {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  padding: 8px !important;
+  position: sticky !important;
+  top: 8px !important;
+  z-index: 20 !important;
+}
+
+.command-dock button,
+.page-focus-strip button,
+.ghost-button,
+.gold-button,
+.booking-options button,
+.sos-case-grid button,
+.sos-actions button,
+.service-tile-grid button,
+.service-tile-grid a,
+.admin-action-grid button,
+.ai-prompt-row button,
+.icon-grid button,
+.service-pairs button {
+  border-radius: var(--lc-radius) !important;
+  min-height: 44px !important;
+  white-space: normal !important;
+  line-height: 1.18 !important;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+}
+
+.command-dock button {
+  background: #f7fafc !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid rgba(16, 24, 39, 0.1) !important;
+  padding: 10px !important;
+}
+
+.command-dock button strong {
+  color: var(--lc-navy-900) !important;
+  font-size: 0.95rem !important;
+}
+
+.command-dock button span {
+  color: var(--lc-muted) !important;
+}
+
+.gold-button,
+.poster-gates button,
+.booking-card .gold-button,
+.payment-simulator .gold-button {
+  background: linear-gradient(135deg, #f6c95b, var(--lc-gold)) !important;
+  color: #161006 !important;
+  border: 1px solid rgba(111, 74, 10, 0.24) !important;
+  box-shadow: 0 12px 26px rgba(216, 166, 64, 0.24) !important;
+  font-weight: 900 !important;
+}
+
+.ghost-button,
+.page-focus-strip button,
+.service-tile-grid button,
+.service-tile-grid a,
+.icon-grid button,
+.service-pairs button,
+.sos-case-grid button,
+.sos-actions button,
+.ai-prompt-row button {
+  background: #ffffff !important;
+  color: var(--lc-navy-900) !important;
+  border: 1px solid rgba(16, 24, 39, 0.16) !important;
+  font-weight: 800 !important;
+}
+
+.view {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+
+#home.view {
+  max-width: 1280px;
+}
+
+#home .cover-stage {
+  gap: 14px !important;
+  padding: 14px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(242, 247, 252, 0.94)),
+    url("images/hero-bg.png") center/cover no-repeat !important;
+  border: 1px solid rgba(216, 166, 64, 0.26) !important;
+  border-radius: var(--lc-radius) !important;
+  box-shadow: 0 24px 70px rgba(7, 17, 31, 0.18) !important;
+  color: var(--lc-ink) !important;
+}
+
+#home .poster-mast {
+  min-height: 440px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  background:
+    linear-gradient(180deg, rgba(7, 17, 31, 0.92), rgba(16, 36, 59, 0.9)),
+    radial-gradient(circle at 50% 12%, rgba(216, 166, 64, 0.2), transparent 34%) !important;
+  color: #fff8df !important;
+  border-radius: var(--lc-radius) !important;
+  overflow: hidden !important;
+}
+
+#home .poster-mast h2 {
+  color: #fff7dd !important;
+  font-size: clamp(4.4rem, 10vw, 9.6rem) !important;
+  line-height: 0.78 !important;
+  text-shadow: 0 12px 30px rgba(0, 0, 0, 0.28) !important;
+}
+
+#home .poster-mast > p {
+  color: #f9e7b2 !important;
+  max-width: 760px !important;
+  font-size: clamp(1rem, 1.8vw, 1.35rem) !important;
+}
+
+.msme-trust-badge {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(216, 166, 64, 0.42) !important;
+  color: #fff6d7 !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+.dharma-quote-card {
+  max-width: 860px !important;
+  margin-inline: auto !important;
+  padding: 16px 18px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid rgba(216, 166, 64, 0.36) !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+.dharma-quote-card p {
+  color: #1f2937 !important;
+  font-size: clamp(0.92rem, 1.4vw, 1.06rem) !important;
+  line-height: 1.5 !important;
+}
+
+#home .poster-gates {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+#home .poster-gates article {
+  min-height: 420px !important;
+  padding: 16px !important;
+  border-radius: var(--lc-radius) !important;
+  background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
+  border: 1px solid rgba(16, 24, 39, 0.12) !important;
+  box-shadow: var(--lc-shadow) !important;
+  color: var(--lc-ink) !important;
+  transform: translateZ(0);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+#home .poster-gates article:hover {
+  transform: translateY(-4px);
+  border-color: rgba(216, 166, 64, 0.55) !important;
+  box-shadow: 0 24px 60px rgba(7, 17, 31, 0.18) !important;
+}
+
+.portal-scene {
+  min-height: 210px !important;
+  border-radius: var(--lc-radius) !important;
+  overflow: hidden !important;
+}
+
+.portal-scene img {
+  min-height: 210px !important;
+  object-fit: cover !important;
+  filter: saturate(1.08) contrast(1.02) !important;
+}
+
+#home .poster-gates h3 {
+  color: var(--lc-navy-950) !important;
+  font-size: clamp(2rem, 4vw, 3.7rem) !important;
+  line-height: 0.95 !important;
+}
+
+#home .poster-gates strong {
+  color: #9d681a !important;
+}
+
+#home .poster-gates p,
+.panel p,
+.command-card p,
+.workspace-head p,
+.advocate-hero p {
+  color: #374151 !important;
+  line-height: 1.48 !important;
+}
+
+#home .home-route-summary,
+.client-desk-grid,
+.safe-board-grid,
+.counsel-grid,
+.service-tile-grid,
+.advocate-top-grid,
+.client-modules,
+.admin-action-grid,
+.booking-options,
+.icon-grid,
+.service-pairs {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+#home .home-route-summary article,
+.safe-board-grid article,
+.client-desk-grid article,
+.counsel-grid article,
+.service-tile-grid button,
+.service-tile-grid a,
+.client-modules .panel {
+  background: #ffffff !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid rgba(16, 24, 39, 0.12) !important;
+  border-radius: var(--lc-radius) !important;
+  box-shadow: 0 10px 26px rgba(7, 17, 31, 0.08) !important;
+}
+
+.page-focus-strip {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.15fr) repeat(5, minmax(96px, auto)) !important;
+  gap: 8px !important;
+  align-items: center !important;
+  padding: 10px !important;
+  margin-bottom: 14px !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(16, 24, 39, 0.1) !important;
+  border-radius: var(--lc-radius) !important;
+  box-shadow: 0 12px 34px rgba(7, 17, 31, 0.1) !important;
+}
+
+.page-focus-strip .focus-copy strong {
+  color: var(--lc-navy-950) !important;
+  font-size: 1rem !important;
+}
+
+.page-focus-strip .focus-copy span {
+  color: var(--lc-muted) !important;
+  font-size: 0.84rem !important;
+}
+
+.compact-root > .secondary-panel {
+  display: none !important;
+}
+
+.compact-root.show-all > .secondary-panel {
+  display: block !important;
+}
+
+.advocate-hero,
+.workspace-head {
+  background:
+    linear-gradient(135deg, rgba(7, 17, 31, 0.96), rgba(16, 36, 59, 0.92)),
+    radial-gradient(circle at 80% 0%, rgba(216, 166, 64, 0.18), transparent 34%) !important;
+  color: #fff7dd !important;
+  border: 1px solid rgba(216, 166, 64, 0.25) !important;
+  border-radius: var(--lc-radius) !important;
+  box-shadow: 0 24px 60px rgba(7, 17, 31, 0.2) !important;
+}
+
+.advocate-hero h2,
+.workspace-head h2,
+.advocate-hero p,
+.workspace-head p {
+  color: #fff8df !important;
+}
+
+.trust-strip,
+.client-flow-strip,
+.advocate-shields {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.trust-strip span,
+.client-flow-strip span,
+.advocate-shields span {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(216, 166, 64, 0.24) !important;
+  color: #fff8df !important;
+  border-radius: var(--lc-radius) !important;
+  padding: 8px 10px !important;
+  font-size: 0.82rem !important;
+}
+
+.client-flow-strip span {
+  color: var(--lc-ink) !important;
+  background: #f8fafc !important;
+  border-color: rgba(16, 24, 39, 0.1) !important;
+}
+
+.client-flow-strip .active,
+.client-flow-strip .done,
+.status-dot {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border-color: rgba(15, 118, 110, 0.22) !important;
+}
+
+.booking-options {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)) !important;
+}
+
+.booking-options button {
+  min-height: 86px !important;
+  padding: 14px !important;
+  background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
+  border: 1px solid rgba(216, 166, 64, 0.34) !important;
+  color: var(--lc-navy-950) !important;
+  font-size: 0.98rem !important;
+}
+
+.booking-options button small {
+  color: #8a5b13 !important;
+  display: block !important;
+  margin-top: 4px !important;
+  font-weight: 900 !important;
+}
+
+input,
+textarea,
+select {
+  width: 100% !important;
+  color: var(--lc-ink) !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(16, 24, 39, 0.18) !important;
+  border-radius: var(--lc-radius) !important;
+  padding: 11px 12px !important;
+}
+
+textarea {
+  min-height: 106px !important;
+  resize: vertical !important;
+}
+
+.sos-panel,
+.lawbot-panel {
+  background: #ffffff !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid rgba(216, 166, 64, 0.32) !important;
+  border-radius: var(--lc-radius) !important;
+  box-shadow: 0 24px 70px rgba(7, 17, 31, 0.22) !important;
+}
+
+.sos-panel {
+  width: min(420px, calc(100vw - 24px)) !important;
+  max-height: min(76vh, 720px) !important;
+  overflow-y: auto !important;
+  padding: 16px !important;
+}
+
+.sos-head {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+  background: #ffffff !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  align-items: center !important;
+  padding-bottom: 10px !important;
+}
+
+#sos-close,
+#lawbot-close {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(16, 24, 39, 0.16) !important;
+  background: #fff7df !important;
+  color: var(--lc-navy-950) !important;
+  font-weight: 900 !important;
+}
+
+.sos-case-grid,
+.sos-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.floating-lawbot {
+  right: 16px !important;
+  bottom: 16px !important;
+}
+
+.lawbot-panel {
+  width: min(430px, calc(100vw - 24px)) !important;
+  max-height: 76vh !important;
+  overflow-y: auto !important;
+}
+
+.lawbot-greeting {
+  max-width: min(280px, calc(100vw - 110px)) !important;
+  background: rgba(7, 17, 31, 0.94) !important;
+  color: #fff8df !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+.admin-action-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
+}
+
+.admin-action-grid button {
+  padding: 12px !important;
+  min-height: 56px !important;
+  font-size: 0.9rem !important;
+}
+
+.mission-command-center .section-head,
+.client-command-center .section-head,
+.source-library .section-head,
+.audit-panel .section-head,
+.booking-dock > div:first-child,
+.payment-simulator {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+.timeline > div,
+.receipt-card,
+.chat-box,
+.case-health > div,
+.xp-hero,
+.feed-card,
+.task-detail-card {
+  background: #f8fafc !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid rgba(16, 24, 39, 0.1) !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+.poster-strip,
+.poster-updates,
+.poster-basics,
+.phase-command,
+.cover-ai-desk {
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: var(--lc-ink) !important;
+  border: 1px solid rgba(16, 24, 39, 0.1) !important;
+  border-radius: var(--lc-radius) !important;
+  box-shadow: 0 12px 32px rgba(7, 17, 31, 0.1) !important;
+}
+
+.cover-ai-desk {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) minmax(180px, auto) !important;
+  gap: 12px !important;
+  align-items: center !important;
+  padding: 14px !important;
+}
+
+.ai-actions {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+}
+
+.ai-actions button {
+  min-height: 42px !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+.source-card,
+.poster-mini-grid button {
+  color: var(--lc-ink) !important;
+  border-radius: var(--lc-radius) !important;
+}
+
+@media (max-width: 1080px) {
+  .app-shell {
+    grid-template-columns: 1fr !important;
+    width: min(100%, calc(100% - 18px)) !important;
+  }
+
+  .rail {
+    position: relative !important;
+    top: auto !important;
+    max-height: none !important;
+  }
+
+  .nav-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .command-dock {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    position: relative !important;
+    top: auto !important;
+  }
+
+  .page-focus-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .page-focus-strip .focus-copy {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 15px !important;
+  }
+
+  .app-shell {
+    width: min(100%, calc(100% - 12px)) !important;
+    margin: 6px auto 18px !important;
+    gap: 10px !important;
+  }
+
+  main {
+    gap: 10px !important;
+  }
+
+  .rail,
+  .topbar,
+  .demo-status,
+  .command-dock,
+  .panel,
+  .workspace-head,
+  .booking-dock,
+  .source-library,
+  .audit-panel,
+  .service-room-panel,
+  .login-session-board,
+  .client-command-center,
+  .mission-command-center {
+    border-radius: var(--lc-radius) !important;
+  }
+
+  .brand {
+    min-height: 56px !important;
+    padding: 8px !important;
+  }
+
+  .brand strong {
+    font-size: 1rem !important;
+  }
+
+  .brand small {
+    font-size: 0.68rem !important;
+  }
+
+  .nav-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+
+  .nav-item {
+    min-height: 40px !important;
+    padding: 8px 9px !important;
+    font-size: 0.8rem !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr !important;
+    padding: 12px !important;
+  }
+
+  .topbar h1,
+  #view-title {
+    font-size: 1.9rem !important;
+    line-height: 1 !important;
+  }
+
+  .top-actions,
+  .top-actions .gold-button {
+    width: 100% !important;
+  }
+
+  .command-dock {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 7px !important;
+  }
+
+  .command-dock button {
+    min-height: 48px !important;
+    padding: 8px !important;
+  }
+
+  .command-dock button strong {
+    font-size: 0.86rem !important;
+  }
+
+  #home .cover-stage {
+    padding: 8px !important;
+    gap: 10px !important;
+  }
+
+  #home .poster-mast {
+    min-height: 520px !important;
+    padding: 18px 10px !important;
+  }
+
+  #home .poster-emblem {
+    width: 92px !important;
+    height: 92px !important;
+  }
+
+  #home .poster-mast h2 {
+    font-size: clamp(3.2rem, 17vw, 4.5rem) !important;
+    line-height: 0.84 !important;
+  }
+
+  #home .poster-mast > p {
+    font-size: 0.96rem !important;
+  }
+
+  .dharma-quote-card {
+    padding: 12px !important;
+  }
+
+  .dharma-quote-card p {
+    font-size: 0.85rem !important;
+    line-height: 1.42 !important;
+  }
+
+  #home .poster-gates,
+  #home .home-route-summary,
+  .client-desk-grid,
+  .safe-board-grid,
+  .counsel-grid,
+  .advocate-top-grid,
+  .client-modules,
+  .admin-action-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .service-tile-grid,
+  .booking-options,
+  .sos-case-grid,
+  .sos-actions,
+  .icon-grid,
+  .service-pairs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #home .poster-gates article {
+    min-height: 0 !important;
+    padding: 12px !important;
+  }
+
+  .portal-scene,
+  .portal-scene img {
+    min-height: 150px !important;
+  }
+
+  #home .poster-gates h3 {
+    font-size: 2rem !important;
+  }
+
+  .page-focus-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 8px !important;
+  }
+
+  .page-focus-strip .focus-copy {
+    grid-column: 1 / -1;
+  }
+
+  .page-focus-strip button {
+    min-height: 42px !important;
+    padding: 8px !important;
+    font-size: 0.82rem !important;
+  }
+
+  .workspace-head,
+  .advocate-hero,
+  .mission-command-center .section-head,
+  .client-command-center .section-head,
+  .source-library .section-head,
+  .audit-panel .section-head,
+  .booking-dock > div:first-child,
+  .payment-simulator {
+    grid-template-columns: 1fr !important;
+  }
+
+  .workspace-head h2,
+  .advocate-hero h2 {
+    font-size: clamp(1.9rem, 9vw, 2.7rem) !important;
+    line-height: 1.02 !important;
+  }
+
+  .panel,
+  .command-card,
+  .task-card,
+  .judgment-card,
+  .booking-dock,
+  .source-library,
+  .audit-panel,
+  .service-room-panel,
+  .client-command-center,
+  .mission-command-center,
+  .login-session-board {
+    padding: 12px !important;
+  }
+
+  .booking-options button {
+    min-height: 78px !important;
+    font-size: 0.88rem !important;
+    padding: 10px !important;
+  }
+
+  .sos-panel,
+  .lawbot-panel {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 78px !important;
+    width: auto !important;
+    max-height: 72vh !important;
+  }
+
+  .floating-sos {
+    left: 10px !important;
+    right: auto !important;
+    bottom: 12px !important;
+  }
+
+  .floating-lawbot {
+    right: 10px !important;
+    bottom: 12px !important;
+  }
+
+  .lawbot-greeting {
+    display: none !important;
+  }
+
+  .cover-ai-desk {
+    grid-template-columns: 1fr !important;
+    text-align: left !important;
+  }
+
+  .ai-avatar {
+    display: none !important;
+  }
+
+  .client-flow-strip,
+  .trust-strip,
+  .advocate-shields {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav-group,
+  .command-dock,
+  .service-tile-grid,
+  .booking-options,
+  .sos-case-grid,
+  .sos-actions,
+  .icon-grid,
+  .service-pairs,
+  .page-focus-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .brand-mark.dharma-brand-mark,
+  .brand-mark {
+    width: 44px !important;
+    height: 44px !important;
+    flex-basis: 44px !important;
+  }
+
+  .demo-status {
+    font-size: 0.82rem !important;
+  }
+}
+
 /* Product readiness pass: short-first pages, no text overlap, expandable depth */
 .compact-root {
   display: grid;

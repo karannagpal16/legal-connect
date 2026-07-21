@@ -1,25 +1,22 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Legal Connect">
   <defs>
-    <linearGradient id="navy" x1="28" y1="18" x2="152" y2="164" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#08244F"/>
-      <stop offset="0.56" stop-color="#0D3D78"/>
-      <stop offset="1" stop-color="#04142F"/>
+    <radialGradient id="g" cx="50%" cy="36%" r="70%">
+      <stop offset="0%" stop-color="#1d4ed8"/>
+      <stop offset="46%" stop-color="#0b1728"/>
+      <stop offset="100%" stop-color="#07111f"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="20%" x2="84%" y1="12%" y2="90%">
+      <stop offset="0%" stop-color="#fff3b0"/>
+      <stop offset="45%" stop-color="#d8a640"/>
+      <stop offset="100%" stop-color="#8a5b13"/>
     </linearGradient>
-    <linearGradient id="gold" x1="45" y1="22" x2="138" y2="154" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF1B8"/>
-      <stop offset="0.42" stop-color="#D6A12B"/>
-      <stop offset="1" stop-color="#9F6A18"/>
-    </linearGradient>
-    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#04142F" flood-opacity="0.35"/>
-    </filter>
   </defs>
-  <rect x="8" y="8" width="164" height="164" rx="42" fill="url(#navy)" stroke="url(#gold)" stroke-width="5"/>
-  <circle cx="90" cy="75" r="46" stroke="url(#gold)" stroke-width="5" filter="url(#soft)"/>
-  <circle cx="90" cy="75" r="9" fill="url(#gold)"/>
-  <circle cx="90" cy="75" r="31" stroke="#FFF3C4" stroke-opacity="0.65" stroke-width="2"/>
-  <path d="M90 29V121M44 75H136M57 42L123 108M123 42L57 108M70 34L110 116M110 34L70 116M49 56L131 94M49 94L131 56" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M61 104H119" stroke="#FFF3C4" stroke-width="4" stroke-linecap="round"/>
-  <path d="M77 104L66 126H88L77 104ZM103 104L92 126H114L103 104Z" fill="url(#gold)"/>
-  <text x="90" y="153" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="39" font-weight="700" fill="#FFF3C4" letter-spacing="-1.5">LC</text>
+  <rect width="128" height="128" rx="28" fill="url(#g)"/>
+  <circle cx="64" cy="49" r="31" fill="none" stroke="url(#gold)" stroke-width="7"/>
+  <circle cx="64" cy="49" r="7" fill="url(#gold)"/>
+  <g stroke="url(#gold)" stroke-width="4" stroke-linecap="round">
+    <path d="M64 18v62M33 49h62M42 27l44 44M86 27 42 71"/>
+  </g>
+  <path d="M40 92h48" stroke="url(#gold)" stroke-width="5" stroke-linecap="round"/>
+  <text x="64" y="108" text-anchor="middle" font-family="Georgia, serif" font-size="25" font-weight="700" fill="#fff6d7">LC</text>
 </svg>

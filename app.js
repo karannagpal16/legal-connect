@@ -1,22 +1,22 @@
 const titles = {
   home: "Legal Connect",
   login: "Secure Login",
-  advocate: "Advocate Operating System",
-  chambers: "Chambers",
+  advocate: "Advocate Command",
+  chambers: "Chamber Command",
   matter: "Matter Vault",
   diary: "Case Diary",
   bar: "Digital Library",
   bareact: "Digital Library - Bare Acts",
   judgment: "Digital Library - Judgments",
-  appearance: "Court Mission Board",
+  appearance: "Mission Board",
   posttask: "Post Court Mission",
   task: "Task Detail",
   escrow: "Work Completion Hold",
-  client: "Client Portal",
+  client: "People Shield",
   documents: "Documents Without Drama",
   "service-room": "Service Room",
-  intern: "Intern Portal",
-  admin: "Admin Panel",
+  intern: "Intern XP Board",
+  admin: "RNA Control Room",
   "account-privacy": "Privacy & Data",
   "data-deletion": "Data Deletion",
   "privacy-policy": "Privacy Policy",
@@ -1832,44 +1832,44 @@ document.addEventListener("click", (event) => {
 
 const compactPortalConfig = {
   home: {
-    label: "Choose a lane",
-    note: "Start with People or Lawyers. Legal tools stay one tap away instead of one long scroll.",
+    label: "Choose your path",
+    note: "Two doors first. Everything else opens only when you ask for it.",
     rootSelector: ".cover-stage",
-    preserve: 4,
+    preserve: 5,
     actions: [
-      { label: "For People", view: "client" },
-      { label: "For Lawyers", view: "advocate" },
+      { label: "People Shield", view: "client" },
+      { label: "Advocate Command", view: "advocate" },
       { label: "SOS", action: "sos" },
       { label: "Status", view: "service-room" },
     ],
   },
   client: {
-    label: "People desk",
-    note: "Book counsel, raise SOS, or track a receipt from the first screen.",
-    preserve: 4,
+    label: "People Shield",
+    note: "Book, SOS, receipts and next steps stay visible without a long scroll.",
+    preserve: 3,
     actions: [
-      { label: "Book Counsel", selector: "#booking-dock" },
+      { label: "Book Now", selector: "#booking-dock" },
       { label: "Legal SOS", action: "sos" },
       { label: "Documents", view: "documents" },
-      { label: "My Status", view: "service-room" },
+      { label: "Status", view: "service-room" },
     ],
   },
   advocate: {
-    label: "Practice command",
-    note: "Mission Desk, Safe Board and Chamber tools first. Library and pulse cards open when needed.",
+    label: "Advocate Command",
+    note: "Your safe board, missions and chamber controls first. Deep tools stay folded.",
     rootSelector: ".advocate-command",
     preserve: 4,
     actions: [
-      { label: "Mission Desk", view: "appearance" },
+      { label: "Missions", view: "appearance" },
       { label: "Post Work", view: "posttask" },
       { label: "Diary", view: "diary" },
       { label: "Library", view: "bar" },
     ],
   },
   intern: {
-    label: "Intern XP",
-    note: "Quests are short cards; deeper history can stay folded while testing.",
-    preserve: 3,
+    label: "Intern XP Board",
+    note: "Short quests, visible XP and one clean next action.",
+    preserve: 2,
     actions: [
       { label: "XP Board", selector: ".xp-hero" },
       { label: "Quests", selector: ".feed-grid" },
@@ -1877,9 +1877,9 @@ const compactPortalConfig = {
     ],
   },
   admin: {
-    label: "RNA control",
-    note: "Readiness, sources and core controls stay visible; diagnostics and audit trails are expandable.",
-    preserve: 5,
+    label: "RNA Control",
+    note: "Core controls first. Sources, receipts and audit logs open as separate panels.",
+    preserve: 3,
     actions: [
       { label: "Sources", selector: ".source-library" },
       { label: "Audit", selector: "#audit-log-list" },
@@ -1960,7 +1960,7 @@ function createFocusButton(item, view, root) {
       root.classList.add("show-all");
       target.classList.remove("secondary-panel");
       target.scrollIntoView({ behavior: "smooth", block: "start" });
-      setFlowStatus(item.label, "Section opened inside this workspace.");
+      setFlowStatus(item.label, "Section ready inside this workspace.");
     }
   });
   return button;
@@ -2002,7 +2002,7 @@ function initProductReadyMode() {
       const expanded = root.classList.toggle("show-all");
       view.classList.toggle("show-all", expanded);
       toggle.textContent = expanded ? "Short view" : "Show full page";
-      setFlowStatus(expanded ? "Full page opened" : "Short view active", expanded ? "All tools are visible." : "Only priority tools are visible.");
+      setFlowStatus(expanded ? "Full page ready" : "Short view active", expanded ? "All tools are visible." : "Only priority tools are visible.");
     });
 
     const insertAfter = children[0];
