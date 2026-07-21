@@ -1,22 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Legal Connect">
   <defs>
-    <radialGradient id="g" cx="50%" cy="36%" r="70%">
-      <stop offset="0%" stop-color="#1d4ed8"/>
-      <stop offset="46%" stop-color="#0b1728"/>
-      <stop offset="100%" stop-color="#07111f"/>
+    <radialGradient id="bg" cx="50%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#123c73"/>
+      <stop offset=".62" stop-color="#08214a"/>
+      <stop offset="1" stop-color="#041126"/>
     </radialGradient>
-    <linearGradient id="gold" x1="20%" x2="84%" y1="12%" y2="90%">
-      <stop offset="0%" stop-color="#fff3b0"/>
-      <stop offset="45%" stop-color="#d8a640"/>
-      <stop offset="100%" stop-color="#8a5b13"/>
+    <linearGradient id="gold" x1="20" y1="12" x2="106" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff3b0"/>
+      <stop offset=".5" stop-color="#f4c857"/>
+      <stop offset="1" stop-color="#b87810"/>
     </linearGradient>
   </defs>
-  <rect width="128" height="128" rx="28" fill="url(#g)"/>
-  <circle cx="64" cy="49" r="31" fill="none" stroke="url(#gold)" stroke-width="7"/>
-  <circle cx="64" cy="49" r="7" fill="url(#gold)"/>
-  <g stroke="url(#gold)" stroke-width="4" stroke-linecap="round">
-    <path d="M64 18v62M33 49h62M42 27l44 44M86 27 42 71"/>
+  <rect width="128" height="128" rx="30" fill="url(#bg)"/>
+  <circle cx="64" cy="56" r="40" fill="none" stroke="url(#gold)" stroke-width="5"/>
+  <circle cx="64" cy="56" r="9" fill="url(#gold)"/>
+  <g stroke="url(#gold)" stroke-width="3.2" stroke-linecap="round">
+    <path d="M64 16v80M24 56h80M36 28l56 56M92 28 36 84M48 20l32 72M80 20 48 92M28 40l72 32M28 72l72-32"/>
   </g>
-  <path d="M40 92h48" stroke="url(#gold)" stroke-width="5" stroke-linecap="round"/>
-  <text x="64" y="108" text-anchor="middle" font-family="Georgia, serif" font-size="25" font-weight="700" fill="#fff6d7">LC</text>
+  <circle cx="64" cy="56" r="23" fill="#08214a" stroke="#fff2c7" stroke-width="2"/>
+  <text x="64" y="64" text-anchor="middle" font-family="Georgia,serif" font-size="25" font-weight="700" fill="#fff2c7">LC</text>
+  <path d="M38 106h52" stroke="url(#gold)" stroke-width="5" stroke-linecap="round"/>
 </svg>
