@@ -1528,7 +1528,7 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, dbHealth.connected || config.nodeEnv !== "production" ? 200 : 503, {
       ok: dbHealth.connected || config.nodeEnv !== "production",
       app: "Legal Connect",
-      mode: "Phase 1 running backend",
+      mode: "Phase 2 production foundation",
       web_version: version.web_version,
       build_time: version.build_time,
       minimum_android_version: version.minimum_android_version,

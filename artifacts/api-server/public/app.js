@@ -729,10 +729,10 @@ document.querySelectorAll("[data-save-mission]").forEach((button) => {
       saveLocalReceipt({
         title: `Court mission: ${type}`,
         amount,
-        status: "Local mission saved",
-        message: `${court}. Backend login required for permanent receipt.`,
+        status: "Mission sync pending",
+        message: `${court}. Permanent receipt requires backend sync.`,
       });
-      setDemoStatus("Mission saved locally. Start/login backend to persist it for RNA/Admin.");
+      setDemoStatus("Mission sync pending. Login and retry so RNA/Admin receives a permanent receipt.");
     }
     activateView("appearance");
   });
@@ -1020,7 +1020,7 @@ function updateServiceRoom(receipt = {}) {
   if (serviceRoomRoute) serviceRoomRoute.textContent = receipt.route || receipt.nextDestination || "RNA desk will assign the next step after confirmation.";
   if (serviceRoomDetail) {
     const fallbackNote = receipt.paymentMode === "local-fallback" || /local/i.test(receipt.status || "")
-      ? " Saved locally until server sync completes."
+      ? " Server sync is pending; permanent receipt appears after retry."
       : "";
     const problemNote = receipt.problem ? ` Problem summary: ${receipt.problem}` : "";
     serviceRoomDetail.textContent = `Receipt ${receipt.id || receipt.receiptNo || "pending"} is linked to your login. Client details stay private; RNA/Admin can review status and receipts.${problemNote}${fallbackNote}`;
@@ -1191,12 +1191,14 @@ document.querySelectorAll("[data-pay-booking]").forEach((button) => {
         return;
       }
     } catch (error) {
+      const paymentErrorMessage = error.message || "Payment order could not be created. Please retry after server sync is available.";
+      if (bookingStatus) bookingStatus.textContent = paymentErrorMessage;
+      setDemoStatus(paymentErrorMessage);
+      if (!localTestingRuntime) return;
       receipt.paymentMode = "local-fallback";
-      if (bookingStatus) bookingStatus.textContent = error.message || "Razorpay checkout could not load. Please try again.";
-      setDemoStatus(error.message || "Payment order could not be created.");
     }
 
-    receipt.status = receipt.paymentMode === "demo" ? "Payment order created - secure verification pending" : receipt.status;
+    receipt.status = receipt.paymentMode === "demo" ? "Payment order created - Razorpay verification pending" : receipt.status;
     localStorage.setItem("legalConnectClientBooking", JSON.stringify(receipt));
     saveLocalReceipt({ ...receipt, title: "Booking created", message: `${receipt.plan} created. ${receipt.route} Problem: ${receipt.problem}` });
     renderClientDesk(receipt);
@@ -1328,22 +1330,22 @@ draftForm?.addEventListener("submit", async (event) => {
     refreshReceipts();
     activateView("service-room");
   } catch {
-    if (draftStatus) draftStatus.textContent = "Draft request saved locally. Backend login required for permanent receipts.";
+    if (draftStatus) draftStatus.textContent = "Draft request could not sync. Login and retry for a permanent receipt.";
     updateServiceRoom({
       id: `LCD-${Date.now().toString().slice(-6)}`,
       plan: `Draft: ${draftType}`,
       amount,
-      status: "Local draft queue",
-      route: "Draft desk preview saved locally. Start backend/login for permanent receipt.",
+      status: "Draft sync pending",
+      route: "Draft desk requires backend sync for permanent receipt.",
       paymentMode: "local fallback",
     });
     saveLocalReceipt({
       title: `Draft: ${draftType}`,
       amount,
-      status: "Local draft queue",
-      message: "Draft request saved locally.",
+      status: "Draft sync pending",
+      message: "Draft sync pending. Login and retry for permanent receipt.",
     });
-    setDemoStatus("Draft request saved locally.");
+    setDemoStatus("Draft sync pending. Login and retry for permanent receipt.");
     activateView("service-room");
   }
 });
@@ -1531,7 +1533,7 @@ async function refreshAdminDashboard() {
     refreshDeletionRequests();
     refreshReceipts();
   } catch {
-    if (adminActionStatus) adminActionStatus.textContent = "Admin API unavailable. Login as RNA/Admin after backend deploy.";
+    if (adminActionStatus) adminActionStatus.textContent = "RNA/Admin access required. Login with an authorised RNA/Admin account, then refresh the Control Room.";
   }
 }
 
