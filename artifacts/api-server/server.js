@@ -126,13 +126,15 @@ function resolveLoginRole(requestedRole, existingRole, isReviewLogin) {
 }
 
 function encodeSession(user) {
+  const issuedAt = Date.now();
   const payload = {
     id: user.id,
     name: user.name,
     role: user.role,
     isReviewAccount: Boolean(user.isReviewAccount),
     reviewRoles: Array.isArray(user.reviewRoles) ? user.reviewRoles.filter((role) => REVIEW_ROLES.includes(role)) : undefined,
-    iat: Date.now(),
+    iat: issuedAt,
+    exp: issuedAt + 1000 * 60 * 60 * 24 * 30,
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
@@ -176,6 +178,7 @@ function decodeSession(token) {
     if (actual.length !== expectedBuffer.length || !crypto.timingSafeEqual(actual, expectedBuffer)) return null;
     const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
     if (!parsed.id || !roles.has(parsed.role)) return null;
+    if (!parsed.exp || Date.now() > parsed.exp) return null;
     return parsed;
   } catch {
     return null;
