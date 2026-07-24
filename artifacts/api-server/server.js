@@ -3351,3 +3351,219 @@ startServer().catch((error) => {
   console.error(`Server failed to start: ${error.message}`);
   process.exit(1);
 });
+
+// STRICT PHASE 2 JWT AUTH AND ROLE ISOLATION SUPPORT
+function strictJwtSecret() {
+  return process.env.JWT_SECRET || process.env.SESSION_SECRET || config.razorpayWebhookSecret || 'legal-connect-local-jwt-secret-change-me';
+}
+
+function strictBase64Url(input) {
+  return Buffer.from(input).toString('base64url');
+}
+
+function strictSignJwt(user) {
+  const payload = {
+    userId: user.id,
+    id: user.id,
+    role: user.role,
+    name: user.name || user.email || 'Legal Connect User',
+    email: user.email || null,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+  };
+  const header = strictBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = strictBase64Url(JSON.stringify(payload));
+  const signature = crypto.createHmac('sha256', strictJwtSecret()).update(header + '.' + body).digest('base64url');
+  return header + '.' + body + '.' + signature;
+}
+
+function decodeStrictJwt(token) {
+  try {
+    const clean = String(token || '').replace(/^Bearer\s+/i, '').trim();
+    const parts = clean.split('.');
+    if (parts.length !== 3) return null;
+    const expected = crypto.createHmac('sha256', strictJwtSecret()).update(parts[0] + '.' + parts[1]).digest('base64url');
+    const actual = Buffer.from(parts[2]);
+    const expectedBuffer = Buffer.from(expected);
+    if (actual.length !== expectedBuffer.length || !crypto.timingSafeEqual(actual, expectedBuffer)) return null;
+    const parsed = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (!parsed.userId || !roles.has(parsed.role)) return null;
+    if (parsed.exp && Math.floor(Date.now() / 1000) > parsed.exp) return null;
+    return { id: parsed.userId, userId: parsed.userId, role: parsed.role, name: parsed.name, email: parsed.email, jwt: true };
+  } catch {
+    return null;
+  }
+}
+
+const strictLegacyGetAuthUser = getAuthUser;
+getAuthUser = function strictGetAuthUser(req) {
+  const token = req.headers.authorization || req.headers['x-legal-connect-token'];
+  return decodeStrictJwt(token) || strictLegacyGetAuthUser(req);
+};
+
+function strictHashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return 'scrypt:' + salt + ':' + hash;
+}
+
+function strictVerifyPassword(password, storedHash) {
+  try {
+    const parts = String(storedHash || '').split(':');
+    if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+    const derived = crypto.scryptSync(String(password), parts[1], 64);
+    const stored = Buffer.from(parts[2], 'hex');
+    return derived.length === stored.length && crypto.timingSafeEqual(derived, stored);
+  } catch {
+    return false;
+  }
+}
+
+async function ensureStrictAuthSchema() {
+  if (!db.dbAvailable) return false;
+  await db.query('CREATE TABLE IF NOT EXISTS roles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text UNIQUE NOT NULL, created_at timestamptz DEFAULT now())');
+  for (const roleName of ['admin', 'advocate', 'client', 'intern']) {
+    await db.query('INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [roleName]);
+  }
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text');
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id uuid');
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at timestamptz');
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at timestamptz');
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz');
+  await db.query('CREATE INDEX IF NOT EXISTS users_role_id_idx ON users (role_id)');
+  await db.query('CREATE INDEX IF NOT EXISTS users_email_lookup_idx ON users (lower(email)) WHERE email IS NOT NULL');
+  for (const roleName of ['admin', 'advocate', 'client', 'intern']) {
+    await db.query('UPDATE users SET role_id = (SELECT id FROM roles WHERE name = $1) WHERE role_id IS NULL AND role = $1', [roleName]);
+  }
+  await db.query('UPDATE users SET role = $1, role_id = (SELECT id FROM roles WHERE name = $1) WHERE role_id IS NULL AND (role IS NULL OR role = $2)', ['client', '']);
+  await db.query('CREATE TABLE IF NOT EXISTS profile_clients (user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, display_name text, matter_summary text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())');
+  await db.query('CREATE TABLE IF NOT EXISTS profile_advocates (user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, display_name text, bar_council_id text, practice_areas text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())');
+  await db.query('CREATE TABLE IF NOT EXISTS profile_interns (user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, display_name text, level text, xp integer DEFAULT 120, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())');
+  await db.query('CREATE TABLE IF NOT EXISTS profile_admins (user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, display_name text, access_scope text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())');
+  return true;
+}
+
+function strictPublicUser(row) {
+  return {
+    id: row.id,
+    name: row.name || row.email || 'Legal Connect User',
+    emailMasked: maskEmail(row.email),
+    phoneMasked: maskPhone(row.phone),
+    role: row.role || 'client',
+    createdAt: row.created_at || row.createdAt,
+  };
+}
+
+async function strictUserByEmail(email) {
+  if (!db.dbAvailable) return null;
+  const result = await db.query('SELECT users.id, users.name, users.email, users.phone, users.password_hash, COALESCE(roles.name, users.role) AS role, users.created_at FROM users LEFT JOIN roles ON roles.id = users.role_id WHERE lower(users.email) = lower($1) LIMIT 1', [email]);
+  const user = result.rows[0] || null;
+  if (user && !user.role) user.role = 'client';
+  return user;
+}
+
+async function strictCreateProfile(userId, role, body) {
+  const displayName = body.name || body.displayName || body.email || 'Legal Connect User';
+  if (role === 'advocate') {
+    await db.query('INSERT INTO profile_advocates (user_id, display_name, bar_council_id, practice_areas) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, bar_council_id = COALESCE(EXCLUDED.bar_council_id, profile_advocates.bar_council_id), practice_areas = COALESCE(EXCLUDED.practice_areas, profile_advocates.practice_areas), updated_at = now()', [userId, displayName, body.barCouncilId || null, body.practiceAreas || null]);
+  } else if (role === 'intern') {
+    await db.query('INSERT INTO profile_interns (user_id, display_name, level, xp) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = now()', [userId, displayName, 'Level 1 - Observer', 120]);
+  } else if (role === 'admin') {
+    await db.query('INSERT INTO profile_admins (user_id, display_name, access_scope) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = now()', [userId, displayName, 'platform']);
+  } else {
+    await db.query('INSERT INTO profile_clients (user_id, display_name, matter_summary) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, matter_summary = COALESCE(EXCLUDED.matter_summary, profile_clients.matter_summary), updated_at = now()', [userId, displayName, body.matterSummary || null]);
+  }
+}
+
+async function handleStrictJwtAuthRoute(req, res, url) {
+  const strictAuthPath = url.pathname === '/api/auth/login' || url.pathname === '/api/auth/register' || url.pathname === '/api/auth/me' || url.pathname.startsWith('/api/auth/strict');
+  if (!strictAuthPath) return false;
+  if (!db.dbAvailable) {
+    sendJson(res, 503, { ok: false, error: 'Database is required for secure authentication.' });
+    return true;
+  }
+  await ensureStrictAuthSchema();
+
+  if ((url.pathname === '/api/auth/register' || url.pathname === '/api/auth/strict/register') && req.method === 'POST') {
+    const body = await readBody(req);
+    const email = normalizeEmail(body.email);
+    const password = String(body.password || '');
+    const role = ['client', 'advocate', 'intern', 'admin'].includes(body.role) ? body.role : 'client';
+    const name = String(body.name || body.email || 'Legal Connect User').trim();
+    if (!email || !email.includes('@')) {
+      sendJson(res, 400, { ok: false, error: 'A valid email is required.' });
+      return true;
+    }
+    if (password.length < 8) {
+      sendJson(res, 400, { ok: false, error: 'Password must be at least 8 characters.' });
+      return true;
+    }
+    const roleResult = await db.query('SELECT id FROM roles WHERE name = $1', [role]);
+    const roleId = roleResult.rows[0] && roleResult.rows[0].id;
+    let user = await strictUserByEmail(email);
+    if (user) {
+      const updated = await db.query('UPDATE users SET name = $1, phone = COALESCE($2, phone), role = $3, role_id = $4, password_hash = $5, consent_at = COALESCE(consent_at, now()), email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $6 RETURNING id, name, email, phone, role, created_at', [name, normalizePhone(body.phone) || null, role, roleId, strictHashPassword(password), user.id]);
+      user = updated.rows[0];
+    } else {
+      const created = await db.query('INSERT INTO users (name, email, phone, role, role_id, password_hash, consent_at, email_verified_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now()) RETURNING id, name, email, phone, role, created_at', [name, email, normalizePhone(body.phone) || null, role, roleId, strictHashPassword(password)]);
+      user = created.rows[0];
+    }
+    await strictCreateProfile(user.id, role, body);
+    const token = strictSignJwt(user);
+    await saveSessionToken(user, token);
+    await writeAuditLog(user, 'jwt_register', 'user', user.id, 'Strict JWT registration completed.', { role, emailMasked: maskEmail(email) });
+    sendJson(res, 201, { ok: true, token, user: strictPublicUser(user) });
+    return true;
+  }
+
+  if ((url.pathname === '/api/auth/login' || url.pathname === '/api/auth/strict/login') && req.method === 'POST') {
+    const body = await readBody(req);
+    const email = normalizeEmail(body.email);
+    const password = String(body.password || '');
+    if (!email || !password) {
+      sendJson(res, 400, { ok: false, error: 'Email and password are required.' });
+      return true;
+    }
+    const user = await strictUserByEmail(email);
+    if (!user || !strictVerifyPassword(password, user.password_hash)) {
+      sendJson(res, 401, { ok: false, error: 'Invalid email or password.' });
+      return true;
+    }
+    const token = strictSignJwt(user);
+    await saveSessionToken(user, token);
+    await writeAuditLog(user, 'jwt_login', 'user', user.id, 'Strict JWT login completed.', { role: user.role, emailMasked: maskEmail(user.email) });
+    sendJson(res, 200, { ok: true, token, user: strictPublicUser(user) });
+    return true;
+  }
+
+  if ((url.pathname === '/api/auth/me' || url.pathname === '/api/auth/strict/me') && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: 'Authentication required.' });
+      return true;
+    }
+    sendJson(res, 200, { ok: true, user: strictPublicUser(authUser) });
+    return true;
+  }
+
+  return false;
+}
+
+const strictOriginalRequestListeners = server.listeners('request').slice();
+server.removeAllListeners('request');
+server.on('request', async function strictRoleIsolatedRequest(req, res) {
+  try {
+    const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
+    if (await handleStrictJwtAuthRoute(req, res, url)) return;
+  } catch (error) {
+    if (!res.headersSent && req.url && req.url.startsWith('/api/auth')) {
+      sendJson(res, 500, { ok: false, error: 'Authentication service failed.' });
+      return;
+    }
+  }
+  for (const listener of strictOriginalRequestListeners) {
+    if (res.writableEnded) return;
+    const result = listener.call(server, req, res);
+    if (result && typeof result.then === 'function') await result;
+  }
+});
