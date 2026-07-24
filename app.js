@@ -2051,3 +2051,224 @@ window.addEventListener("hashchange", () => {
     activateView(nextView);
   }
 });
+
+// Phase 2 UI: role-based dashboards and navigation firewall
+(function () {
+  const privateViews = new Set(["client", "advocate", "intern", "admin", "matter", "diary", "chambers", "appearance", "posttask", "task", "escrow", "service-room", "documents", "bar", "bareact", "judgment"]);
+  const roleHome = { client: "client", advocate: "advocate", intern: "intern", admin: "admin", rna: "admin" };
+  const roleNav = {
+    client: [
+      ["client", "Home"],
+      ["service-room", "My Matters"],
+      ["documents", "Legal Help"],
+      ["account-privacy", "Profile"]
+    ],
+    advocate: [
+      ["advocate", "Today"],
+      ["diary", "Matters"],
+      ["bar", "Court Desk"],
+      ["chambers", "Chamber"],
+      ["account-privacy", "Profile"]
+    ],
+    intern: [
+      ["intern", "Quests"],
+      ["task", "My Tasks"],
+      ["bar", "Learn"],
+      ["account-privacy", "Profile"]
+    ],
+    admin: [
+      ["admin", "Overview"],
+      ["login", "Users"],
+      ["bar", "Verification"],
+      ["escrow", "Payments"],
+      ["account-privacy", "Settings"]
+    ],
+    rna: [
+      ["admin", "Overview"],
+      ["login", "Users"],
+      ["bar", "Verification"],
+      ["escrow", "Payments"],
+      ["account-privacy", "Settings"]
+    ]
+  };
+  const allowed = {
+    client: new Set(["home", "login", "client", "service-room", "documents", "account-privacy", "privacy-policy", "terms", "refund-policy", "disclaimer", "contact", "data-deletion"]),
+    advocate: new Set(["home", "login", "advocate", "diary", "bar", "bareact", "judgment", "chambers", "appearance", "posttask", "task", "service-room", "account-privacy", "privacy-policy", "terms", "refund-policy", "disclaimer", "contact", "data-deletion"]),
+    intern: new Set(["home", "login", "intern", "task", "bar", "bareact", "judgment", "account-privacy", "privacy-policy", "terms", "refund-policy", "disclaimer", "contact", "data-deletion"]),
+    admin: new Set(["home", "login", "admin", "matter", "bar", "bareact", "judgment", "escrow", "service-room", "account-privacy", "privacy-policy", "terms", "refund-policy", "disclaimer", "contact", "data-deletion"]),
+    rna: new Set(["home", "login", "admin", "matter", "bar", "bareact", "judgment", "escrow", "service-room", "account-privacy", "privacy-policy", "terms", "refund-policy", "disclaimer", "contact", "data-deletion"])
+  };
+
+  function session() {
+    try { return JSON.parse(localStorage.getItem("legalConnectSession") || "null"); } catch { return null; }
+  }
+
+  function roleOf() {
+    const value = session()?.user?.role || session()?.role || "guest";
+    return value === "rna" ? "rna" : value;
+  }
+
+  function displayName() {
+    return session()?.user?.name || "Legal Connect User";
+  }
+
+  function navItemsFor(role) {
+    return roleNav[role] || [["home", "Home"], ["login", "Login"]];
+  }
+
+  function setBodyRole(role) {
+    document.body.classList.remove("lc-role-client", "lc-role-advocate", "lc-role-intern", "lc-role-admin", "lc-role-rna", "lc-role-guest");
+    document.body.classList.add(`lc-role-${role || "guest"}`);
+  }
+
+  function ensureRoleNav(activeId) {
+    const role = roleOf();
+    setBodyRole(role);
+    let nav = document.querySelector("#lc-role-nav");
+    if (!nav) {
+      nav = document.createElement("nav");
+      nav.id = "lc-role-nav";
+      nav.className = "lc-role-nav";
+      nav.setAttribute("aria-label", "Role navigation");
+      document.querySelector(".topbar")?.insertAdjacentElement("afterend", nav);
+    }
+    nav.innerHTML = navItemsFor(role).map(([view, label]) => `<button type="button" data-role-route="${view}" class="${view === activeId ? "active" : ""}">${label}</button>`).join("");
+    nav.style.display = role === "guest" && activeId === "home" ? "none" : "flex";
+  }
+
+  function clientDashboard() {
+    return `
+      <div class="lc-role-shell" data-role-dashboard="client">
+        <section class="role-dash-hero">
+          <span class="role-dash-kicker">Client Command Center</span>
+          <h2 class="role-dash-title">Hello ${displayName()}, your matter is being tracked.</h2>
+          <span class="role-dash-badge">Your attendance is not required</span>
+          <p>Plain-English status: Waiting for opponent's reply. Next update will be sent with a receipt.</p>
+          <div class="lc-role-metrics">
+            <div class="lc-role-metric"><span>Next Hearing</span><strong>05 Aug</strong></div>
+            <div class="lc-role-metric"><span>Status</span><strong>Active</strong></div>
+            <div class="lc-role-metric"><span>Receipt</span><strong>Ready</strong></div>
+          </div>
+        </section>
+        <section class="role-dash-timeline">
+          <h3>Case timeline</h3>
+          <ol>
+            <li><strong>Case Filed</strong><p>Documents received and saved in your private matter room.</p></li>
+            <li><strong>Opponent Notified</strong><p>Notice stage started. You will be updated when a reply is filed.</p></li>
+            <li><strong>Next Date Scheduled</strong><p>Attendance not required unless your counsel informs you.</p></li>
+          </ol>
+        </section>
+        <div class="lc-role-grid">
+          <article class="role-dash-card"><h3>Legal Help</h3><p>Book chat, video, office visit, doorstep support, or SOS from one clean flow.</p><button data-open-booking>Book counsel</button></article>
+          <article class="role-dash-card"><h3>Documents</h3><p>Choose a draft, upload files, add your problem note, pay, and receive a receipt.</p><button data-jump="documents">Open documents</button></article>
+        </div>
+      </div>`;
+  }
+
+  function advocateDashboard() {
+    return `
+      <div class="lc-role-shell" data-role-dashboard="advocate">
+        <section class="role-dash-hero">
+          <span class="role-dash-kicker">Advocate Workspace</span>
+          <h2 class="role-dash-title">Adv. ${displayName()}, today's court cockpit is ready.</h2>
+          <div class="lc-role-metrics">
+            <div class="lc-role-metric"><span>Hearings Today</span><strong>2</strong></div>
+            <div class="lc-role-metric"><span>Filings Due</span><strong>3</strong></div>
+            <div class="lc-role-metric"><span>Proxy Queue</span><strong>None</strong></div>
+          </div>
+        </section>
+        <section class="role-dash-card">
+          <h3>Today's Cause List</h3>
+          <table class="role-dash-table"><thead><tr><th>Matter</th><th>Court Hall</th><th>Item</th><th>Next Action</th></tr></thead><tbody><tr><td>ABC v XYZ</td><td>Delhi HC Court 5</td><td>14</td><td>Arguments</td></tr><tr><td>State v Client</td><td>Saket Court 203</td><td>22</td><td>Pass-over watch</td></tr></tbody></table>
+        </section>
+        <div class="lc-role-grid">
+          <article class="role-dash-card"><h3>Post Court Mission</h3><p>Create a court task with fee, urgency, timer, and work completion hold.</p><button data-jump="posttask">Post mission</button></article>
+          <article class="role-dash-card"><h3>Upload Draft</h3><p>Attach a draft inside matter context so the chamber can review it cleanly.</p><button data-jump="diary">Open matters</button></article>
+        </div>
+      </div>`;
+  }
+
+  function internDashboard() {
+    return `
+      <div class="lc-role-shell" data-role-dashboard="intern">
+        <section class="role-dash-hero">
+          <span class="role-dash-kicker">Intern Learn-and-Earn</span>
+          <h2 class="role-dash-title">Level 2 - Researcher</h2>
+          <p>Assigned work only. No leaderboard by default, so case confidentiality stays protected.</p>
+          <div class="xp-bar" aria-label="XP progress"><span style="width:62%"></span></div>
+        </section>
+        <div class="lc-role-grid">
+          <article class="role-dash-card"><h3>Research Quest</h3><p>Prepare a two-page note on bail principles from approved sources.</p><button data-jump="task">Open task</button></article>
+          <article class="role-dash-card"><h3>Chamber Assist</h3><p>Index documents for tomorrow's Delhi HC matter.</p><button data-jump="task">Start quest</button></article>
+          <article class="role-dash-card"><h3>Learn</h3><p>Read bare act, judgment, and procedure notes before accepting court-facing work.</p><button data-jump="bar">Open learning</button></article>
+        </div>
+      </div>`;
+  }
+
+  function adminDashboard() {
+    return `
+      <div class="lc-role-shell" data-role-dashboard="admin">
+        <section class="role-dash-hero">
+          <span class="role-dash-kicker">Admin Control Room</span>
+          <h2 class="role-dash-title">Platform supervision, separated from user workspaces.</h2>
+          <div class="lc-role-metrics">
+            <div class="lc-role-metric"><span>Users</span><strong>Active</strong></div>
+            <div class="lc-role-metric"><span>Verifications</span><strong>Pending</strong></div>
+            <div class="lc-role-metric"><span>Payments</span><strong>Hold</strong></div>
+          </div>
+        </section>
+        <section class="role-dash-card">
+          <h3>Operations table</h3>
+          <table class="role-dash-table"><thead><tr><th>Queue</th><th>Status</th><th>Owner</th><th>Action</th></tr></thead><tbody><tr><td>User verification</td><td>Review</td><td>RNA Desk</td><td>Check profile</td></tr><tr><td>Work completion hold</td><td>Awaiting proof</td><td>Payments</td><td>Verify</td></tr><tr><td>Source library</td><td>Pending approval</td><td>Legal AI Admin</td><td>Review</td></tr></tbody></table>
+        </section>
+      </div>`;
+  }
+
+  function renderRoleDashboards() {
+    const map = { client: clientDashboard, advocate: advocateDashboard, intern: internDashboard, admin: adminDashboard };
+    Object.entries(map).forEach(([id, renderer]) => {
+      const node = document.getElementById(id);
+      if (node && !node.dataset.phase2Dashboard) {
+        node.innerHTML = renderer();
+        node.dataset.phase2Dashboard = "true";
+      }
+    });
+  }
+
+  function canOpen(viewId, role) {
+    if (!privateViews.has(viewId)) return true;
+    if (!session()?.user) return false;
+    return Boolean((allowed[role] || allowed.client).has(viewId));
+  }
+
+  const previousActivateView = typeof activateView === "function" ? activateView : null;
+  activateView = function phase2ActivateView(viewId) {
+    const role = roleOf();
+    renderRoleDashboards();
+    let next = viewId || "home";
+    if (!canOpen(next, role)) {
+      next = session()?.user ? (roleHome[role] || "client") : "login";
+    }
+    ensureRoleNav(next);
+    if (previousActivateView) previousActivateView(next);
+    document.querySelectorAll("#lc-role-nav [data-role-route]").forEach((button) => button.classList.toggle("active", button.dataset.roleRoute === next));
+  };
+
+  const previousApplySessionToUi = typeof applySessionToUi === "function" ? applySessionToUi : null;
+  applySessionToUi = function phase2ApplySessionToUi(nextSession) {
+    if (previousApplySessionToUi) previousApplySessionToUi(nextSession);
+    renderRoleDashboards();
+    ensureRoleNav(location.hash.replace("#", "") || "home");
+  };
+
+  document.addEventListener("click", (event) => {
+    const routeButton = event.target.closest("[data-role-route]");
+    if (!routeButton) return;
+    event.preventDefault();
+    activateView(routeButton.dataset.roleRoute);
+  });
+
+  renderRoleDashboards();
+  ensureRoleNav(location.hash.replace("#", "") || "home");
+  if (privateViews.has(location.hash.replace("#", ""))) activateView(location.hash.replace("#", ""));
+})();
