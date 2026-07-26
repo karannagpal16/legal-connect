@@ -41,18 +41,18 @@ const dharmaQuotes = [
 
 /* ──────────────── THEME ──────────────── */
 const T = {
-  bg: "#FFFFFF",
-  bgLight: "#F8FAFC",
-  card: "#FFFFFF",
-  cardHover: "#F1F5F9",
-  gold: "#D97706",
-  goldLight: "#F59E0B",
-  amber: "#B45309",
-  navy: "#1E3A5F",
-  navyLight: "#2A5C8F",
-  text: "#1E293B",
-  textMuted: "#64748B",
-  border: "#E2E8F0",
+  bg: "#08111F",
+  bgLight: "#0F1D31",
+  card: "rgba(16, 27, 45, 0.88)",
+  cardHover: "rgba(23, 39, 63, 0.92)",
+  gold: "#CDA45E",
+  goldLight: "#E2C27B",
+  amber: "#A9783E",
+  navy: "#F3EAD7",
+  navyLight: "#C9BEA8",
+  text: "#F3EAD7",
+  textMuted: "#C9BEA8",
+  border: "rgba(205, 164, 94, 0.24)",
 };
 
 function DharmaChakra({ size = 80 }: { size?: number }) {
@@ -61,29 +61,23 @@ function DharmaChakra({ size = 80 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <defs>
-        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={T.gold} stopOpacity="0.4" />
-          <stop offset="60%" stopColor={T.gold} stopOpacity="0.1" />
-          <stop offset="100%" stopColor="transparent" stopOpacity="0" />
-        </radialGradient>
         <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor={T.goldLight} />
           <stop offset="50%" stopColor={T.gold} />
           <stop offset="100%" stopColor={T.amber} />
         </linearGradient>
       </defs>
-      <circle cx={cx} cy={cy} r={r} fill="url(#glow)" />
-      <circle cx={cx} cy={cy} r={r * 0.9} fill="none" stroke="url(#gold)" strokeWidth="2.5" />
-      <circle cx={cx} cy={cy} r={r * 0.78} fill="none" stroke="url(#gold)" strokeWidth="1" opacity="0.4" />
+      <circle cx={cx} cy={cy} r={r * 0.9} fill="none" stroke="url(#gold)" strokeWidth="2.4" />
+      <circle cx={cx} cy={cy} r={r * 0.72} fill="none" stroke="url(#gold)" strokeWidth="1.2" opacity="0.72" />
       <circle cx={cx} cy={cy} r={r * 0.15} fill="url(#gold)" />
-      <circle cx={cx} cy={cy} r={r * 0.08} fill="#FFFFFF" />
+      <circle cx={cx} cy={cy} r={r * 0.08} fill={T.bg} />
       {Array.from({ length: 24 }).map((_, i) => {
         const a = (i * 360 / 24) * Math.PI / 180;
         const s = r * 0.17, e = r * 0.76;
         return (
           <line key={i} x1={cx + s * Math.cos(a)} y1={cy + s * Math.sin(a)}
                 x2={cx + e * Math.cos(a)} y2={cy + e * Math.sin(a)}
-                stroke="url(#gold)" strokeWidth={i % 3 === 0 ? 1.5 : 0.7} opacity={i % 3 === 0 ? 0.9 : 0.4} />
+                stroke="url(#gold)" strokeWidth={i % 3 === 0 ? 1.35 : 0.8} opacity={i % 3 === 0 ? 0.96 : 0.66} />
         );
       })}
       {Array.from({ length: 8 }).map((_, i) => {
@@ -111,11 +105,11 @@ function PortalCard({ portal, icon: Icon, label, subLabel, idx, accent, bg, glow
         className="group relative cursor-pointer"
       >
         {/* Hover glow */}
-        <div className="absolute -inset-2 rounded-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-700 blur-xl"
+        <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-70 transition-opacity duration-500 blur-md"
              style={{ background: glow }} />
 
         <div className="relative rounded-xl p-6 text-center overflow-hidden transition-all duration-500"
-             style={{ background: bg, border: `1px solid ${accent}40`, boxShadow: `0 4px 20px ${accent}15, inset 0 1px 0 rgba(255,255,255,0.8)` }}>
+             style={{ background: bg, border: `1px solid ${accent}55`, boxShadow: `0 18px 52px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)` }}>
 
           {/* Top line */}
           <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
@@ -128,9 +122,9 @@ function PortalCard({ portal, icon: Icon, label, subLabel, idx, accent, bg, glow
           {/* Icon */}
           <div className="relative w-16 h-16 mx-auto mb-4">
             <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 scale-90 group-hover:scale-110"
-                 style={{ background: `${accent}15`, border: `1px solid ${accent}30` }} />
+                 style={{ background: `${accent}18`, border: `1px solid ${accent}38` }} />
             <div className="w-16 h-16 rounded-xl flex items-center justify-center relative z-10 group-hover:scale-105 transition-transform duration-300"
-                 style={{ background: `${accent}18`, border: `1px solid ${accent}40` }}>
+                 style={{ background: `linear-gradient(145deg, ${accent}24, rgba(255,255,255,0.04))`, border: `1px solid ${accent}48` }}>
               <Icon className="w-7 h-7" style={{ color: accent }} strokeWidth={1.5} />
             </div>
           </div>
@@ -264,19 +258,17 @@ function Marquee() {
 export function Home() {
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden relative" style={{ background: T.bg }}>
-      {/* Background decorations */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full blur-[120px] opacity-20" style={{ background: T.gold }} />
-        <div className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[100px] opacity-10" style={{ background: T.amber }} />
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] rounded-full blur-[80px] opacity-10" style={{ background: T.gold }} />
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: `radial-gradient(circle, ${T.gold} 1px, transparent 1px)`, backgroundSize: "60px 60px" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(145deg, #08111F 0%, #0E2136 48%, #07101D 100%)" }} />
+        <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: `linear-gradient(${T.gold} 1px, transparent 1px), linear-gradient(90deg, ${T.gold} 1px, transparent 1px)`, backgroundSize: "56px 56px" }} />
+        <div className="absolute inset-x-0 top-0 h-32" style={{ background: `linear-gradient(180deg, rgba(205,164,94,0.16), transparent)` }} />
       </div>
 
       {/* Header */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }}
                   className="relative z-10 flex flex-col items-center pt-10 pb-6">
-        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1, rotate: 360 }}
-                    transition={{ scale: { duration: 0.8, ease: "easeOut" }, opacity: { duration: 0.8 }, rotate: { duration: 45, repeat: Infinity, ease: "linear" } }}>
+        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    transition={{ scale: { duration: 0.6, ease: "easeOut" }, opacity: { duration: 0.6 } }}>
           <DharmaChakra size={80} />
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.7 }}
@@ -290,7 +282,7 @@ export function Home() {
           </div>
           <div className="flex items-center gap-3 justify-center mt-1">
             <div className="h-px w-12" style={{ background: `linear-gradient(90deg, transparent, ${T.gold})` }} />
-            <p className="text-[10px] sm:text-xs tracking-[0.3em] uppercase font-semibold" style={{ color: T.gold }}>Advocates & Legal Consultants</p>
+            <p className="text-[10px] sm:text-xs tracking-[0.18em] uppercase font-semibold" style={{ color: T.gold }}>Advocates, Clients & Legal Workspaces</p>
             <div className="h-px w-12" style={{ background: `linear-gradient(270deg, transparent, ${T.gold})` }} />
           </div>
         </motion.div>
@@ -306,13 +298,13 @@ export function Home() {
           {/* Portal Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto w-full">
             <PortalCard portal="advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0}
-                        accent="#2563EB" bg="#EFF6FF" glow="#2563EB20" />
+                        accent="#CDA45E" bg="rgba(16,27,45,0.92)" glow="#CDA45E33" />
             <PortalCard portal="client" icon={Scale} label="Client" subLabel="Portal" idx={1}
-                        accent="#DC2626" bg="#FEF2F2" glow="#DC262620" />
-            <PortalCard portal="intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2}
-                        accent="#D97706" bg="#FFFBEB" glow="#D9770620" />
+                        accent="#7FB69B" bg="rgba(14,31,44,0.92)" glow="#7FB69B28" />
+            <PortalCard portal="intern" icon={BookOpen} label="Intern" subLabel="Verse" idx={2}
+                        accent="#E2C27B" bg="rgba(28,25,39,0.92)" glow="#E2C27B2B" />
             <PortalCard portal="client" icon={Landmark} label="eCourt" subLabel="Services" idx={3}
-                        accent="#059669" bg="#ECFDF5" glow="#05966920" />
+                        accent="#9FB7D5" bg="rgba(13,30,49,0.92)" glow="#9FB7D528" />
           </div>
 
           {/* Quick links */}

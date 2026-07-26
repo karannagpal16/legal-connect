@@ -21,18 +21,18 @@ const navigation = [
   { name: "Legal Library", href: "/client/library", icon: Library, section: "Resources" },
 ];
 
-const E = "#1A2332";
-const EL = "#2A3A52";
-const G = "#D4A050";
-const M = "#5A6A7A";
-const T = "#1A2332";
+const E = "#E2C27B";
+const EL = "#7FB69B";
+const G = "#CDA45E";
+const M = "#C9BEA8";
+const T = "#F3EAD7";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [location] = useLocation();
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: "linear-gradient(180deg, #F7F2EC 0%, #EDE4D8 100%)" }}>
+    <div className="min-h-screen flex flex-col md:flex-row lc-dashboard-shell">
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -47,14 +47,13 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
       <motion.div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
+          "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col lc-sidebar-panel",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
-        style={{ background: "linear-gradient(180deg, #F8F6F3 0%, #EDE8E0 100%)", borderRight: "1px solid rgba(30,41,55,0.1)" }}
       >
-        <div className="flex items-center justify-between h-20 px-6" style={{ borderBottom: "1px solid rgba(30,41,55,0.1)", background: "rgba(30,41,55,0.02)" }}>
+        <div className="flex items-center justify-between h-20 px-6" style={{ borderBottom: "1px solid rgba(205,164,94,0.22)", background: "rgba(255,255,255,0.03)" }}>
           <Link href="/client" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(30,41,55,0.06)", border: "1px solid rgba(30,41,55,0.15)" }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(205,164,94,0.12)", border: "1px solid rgba(205,164,94,0.35)" }}>
               <Scale className="w-5 h-5" style={{ color: E }} />
             </div>
             <div className="flex flex-col">
@@ -74,8 +73,8 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
             return (
               <>
                 {homeItem && (
-                  <Link key={homeItem.name} href={homeItem.href} onClick={() => setSidebarOpen(false)} className={cn("flex items-center gap-3 px-3 py-3 rounded-xl font-medium transition-all duration-200 group relative mb-2", location === homeItem.href ? "bg-[#1A2332]/10" : "hover:bg-[#1A2332]/4")} style={location === homeItem.href ? { color: E, border: "1px solid rgba(30,41,55,0.15)" } : { color: M }}>
-                    {location === homeItem.href && <motion.div layoutId="clientActiveTab" className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full" style={{ background: E }} />}
+                  <Link key={homeItem.name} href={homeItem.href} onClick={() => setSidebarOpen(false)} className={cn("flex items-center gap-3 px-3 py-3 rounded-xl font-medium transition-all duration-200 group relative mb-2", location === homeItem.href ? "bg-[#CDA45E]/15" : "hover:bg-white/5")} style={location === homeItem.href ? { color: T, border: "1px solid rgba(205,164,94,0.32)" } : { color: M }}>
+                    {location === homeItem.href && <motion.div layoutId="clientActiveTab" className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full" style={{ background: G }} />}
                     <homeItem.icon className={cn("w-5 h-5", location === homeItem.href ? "" : "opacity-50 group-hover:opacity-70")} style={location === homeItem.href ? { color: E } : {}} />
                     {homeItem.name}
                   </Link>
@@ -88,8 +87,8 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
                       {items.map(item => {
                         const isActive = location === item.href;
                         return (
-                          <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all duration-200 group relative", isActive ? "bg-[#1A2332]/10" : "hover:bg-[#1A2332]/4")} style={isActive ? { color: E, border: "1px solid rgba(30,41,55,0.15)" } : { color: M }}>
-                            {isActive && <motion.div layoutId="clientActiveTab" className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full" style={{ background: E }} />}
+                          <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all duration-200 group relative", isActive ? "bg-[#CDA45E]/15" : "hover:bg-white/5")} style={isActive ? { color: T, border: "1px solid rgba(205,164,94,0.32)" } : { color: M }}>
+                            {isActive && <motion.div layoutId="clientActiveTab" className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full" style={{ background: G }} />}
                             <item.icon className={cn("w-4 h-4", isActive ? "" : "opacity-50 group-hover:opacity-70")} style={isActive ? { color: E } : {}} />
                             <span className="text-sm">{item.name}</span>
                           </Link>
@@ -103,9 +102,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
           })()}
         </nav>
 
-        <div className="p-6" style={{ borderTop: "1px solid rgba(30,41,55,0.1)" }}>
-          <div className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: "rgba(30,41,55,0.04)", border: "1px solid rgba(30,41,55,0.08)" }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(30,41,55,0.08)" }}>
+        <div className="p-6" style={{ borderTop: "1px solid rgba(205,164,94,0.22)" }}>
+          <div className="flex items-center gap-3 px-3 py-3 rounded-xl lc-sidebar-card">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(205,164,94,0.14)" }}>
               <User className="w-4 h-4" style={{ color: E }} />
             </div>
             <div className="flex flex-col">
@@ -120,7 +119,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       </motion.div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 flex items-center justify-between px-4 bg-white/80 backdrop-blur-md md:hidden sticky top-0 z-30" style={{ borderBottom: "1px solid rgba(30,41,55,0.1)" }}>
+        <header className="h-16 flex items-center justify-between px-4 bg-[#08111F]/90 backdrop-blur-md md:hidden sticky top-0 z-30" style={{ borderBottom: "1px solid rgba(205,164,94,0.22)" }}>
           <div className="flex items-center gap-2">
             <Scale className="w-6 h-6" style={{ color: E }} />
             <span className="font-serif font-bold text-lg" style={{ color: T }}>Client Portal</span>

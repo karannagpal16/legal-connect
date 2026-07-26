@@ -4,12 +4,12 @@ import { ArrowLeft, BadgeCheck, CheckCircle2, FileText, Lock, Mail, Phone, Shiel
 import { createDemoUser, getPortalForRole, getPostLoginRoute, getStoredSession, isRoleAllowedForPortal, normaliseApiUser, portalCopy, setStoredSession } from "@/lib/authFlow";
 import type { Portal } from "@/lib/authFlow";
 
-const pageBg = "min-h-screen bg-[#f8fafc] text-[#1e293b]";
+const pageBg = "min-h-screen bg-[#08111F] text-[#F3EAD7]";
 const shell = "mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4 py-8";
-const panel = "w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm";
-const input = "h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100";
-const button = "inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#1e3a5f] px-4 text-sm font-semibold text-white transition hover:bg-[#2a5c8f]";
-const ghostButton = "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50";
+const panel = "w-full max-w-md rounded-xl border border-[#CDA45E3D] bg-[#101B2DEB] p-6 shadow-2xl";
+const input = "h-11 w-full rounded-lg border border-[#CDA45E33] bg-[#08111F] px-3 text-sm text-[#F3EAD7] outline-none transition placeholder:text-[#C9BEA8]/55 focus:border-[#E2C27B] focus:ring-2 focus:ring-[#CDA45E33]";
+const button = "inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#CDA45E] px-4 text-sm font-bold text-[#08111F] transition hover:bg-[#E2C27B]";
+const ghostButton = "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#CDA45E33] bg-[#0F1D31] px-4 text-sm font-semibold text-[#F3EAD7] transition hover:border-[#E2C27B] hover:bg-[#142338]";
 
 function AuthFrame({ children }: { children: React.ReactNode }) {
   return (
@@ -107,25 +107,25 @@ export function PortalLogin({ portal }: { portal: Portal }) {
     <AuthFrame>
       <section className={panel}>
         <Link href="/">
-          <button className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900">
+          <button className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#C9BEA8] hover:text-[#F3EAD7]">
             <ArrowLeft className="h-4 w-4" /> Return to Homepage
           </button>
         </Link>
 
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-[#CDA45E4D] bg-[#CDA45E1F] text-[#E2C27B]">
             <ShieldCheck className="h-7 w-7" />
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-700">Legal Connect</p>
-          <h1 className="mt-2 text-2xl font-black text-slate-900">{copy.loginHeading}</h1>
-          <p className="mt-2 text-sm text-slate-500">{copy.label} portal authentication</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#CDA45E]">Legal Connect</p>
+          <h1 className="mt-2 text-2xl font-black text-[#F3EAD7]">{copy.loginHeading}</h1>
+          <p className="mt-2 text-sm text-[#C9BEA8]">{copy.label} portal authentication</p>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
-          <button type="button" onClick={() => setMode("otp")} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === "otp" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-[#CDA45E24] bg-[#08111F] p-1">
+          <button type="button" onClick={() => setMode("otp")} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === "otp" ? "bg-[#CDA45E] text-[#08111F] shadow-sm" : "text-[#C9BEA8]"}`}>
             Mobile OTP
           </button>
-          <button type="button" onClick={() => setMode("password")} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === "password" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+          <button type="button" onClick={() => setMode("password")} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === "password" ? "bg-[#CDA45E] text-[#08111F] shadow-sm" : "text-[#C9BEA8]"}`}>
             Email Password
           </button>
         </div>
@@ -133,21 +133,21 @@ export function PortalLogin({ portal }: { portal: Portal }) {
         <form onSubmit={submit} className="space-y-3">
           {mode === "otp" && (
             <label className="block">
-              <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#C9BEA8]">
                 <UserRound className="h-3.5 w-3.5" /> Full Name
               </span>
               <input className={input} value={name} onChange={(event) => setName(event.target.value)} />
             </label>
           )}
           <label className="block">
-            <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#C9BEA8]">
               {mode === "otp" ? <Phone className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
               {mode === "otp" ? "Mobile Number" : "Email Address"}
             </span>
             <input className={input} value={mode === "otp" ? mobile : email} onChange={(event) => mode === "otp" ? setMobile(event.target.value) : setEmail(event.target.value)} placeholder={mode === "otp" ? "+91 98765 43210" : "you@example.com"} />
           </label>
           <label className="block">
-            <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#C9BEA8]">
               <Lock className="h-3.5 w-3.5" /> {mode === "otp" ? "OTP" : "Password"}
             </span>
             <input className={input} value={mode === "otp" ? otp : password} onChange={(event) => mode === "otp" ? setOtp(event.target.value) : setPassword(event.target.value)} type={mode === "otp" ? "text" : "password"} placeholder={mode === "otp" ? "Enter 6 digit OTP" : "Enter password"} />
@@ -162,15 +162,15 @@ export function PortalLogin({ portal }: { portal: Portal }) {
         </form>
 
         <div className="mt-5 flex items-center justify-between text-sm">
-          <button type="button" className="font-semibold text-slate-500 hover:text-slate-900">Forgot Password</button>
+          <button type="button" className="font-semibold text-[#C9BEA8] hover:text-[#F3EAD7]">Forgot Password</button>
           {portal !== "admin" && (
             <Link href={`/${portal}/register`}>
-              <button className="font-semibold text-amber-700 hover:text-amber-800">Create New Account</button>
+              <button className="font-semibold text-[#E2C27B] hover:text-[#F3EAD7]">Create New Account</button>
             </Link>
           )}
         </div>
 
-        <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">{status}</p>
+        <p className="mt-5 rounded-lg border border-[#CDA45E24] bg-[#08111F] px-3 py-2 text-xs font-medium text-[#C9BEA8]">{status}</p>
       </section>
     </AuthFrame>
   );
@@ -191,21 +191,21 @@ export function PortalRegister({ portal }: { portal: Exclude<Portal, "admin"> })
     <AuthFrame>
       <section className={panel}>
         <div className="mb-6">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-700">Portal Confirmation</p>
-          <h1 className="mt-2 text-2xl font-black text-slate-900">{copy.createHeading}</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#CDA45E]">Portal Confirmation</p>
+          <h1 className="mt-2 text-2xl font-black text-[#F3EAD7]">{copy.createHeading}</h1>
           <Link href="/">
-            <button className="mt-3 text-sm font-semibold text-slate-500 hover:text-slate-900">Change account type</button>
+            <button className="mt-3 text-sm font-semibold text-[#C9BEA8] hover:text-[#F3EAD7]">Change account type</button>
           </Link>
         </div>
 
         <form onSubmit={submit} className="space-y-3">
           {["Full Name", "Mobile Number", "Email Address", "Password", "Confirm Password"].map((field) => (
             <label key={field} className="block">
-              <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{field}</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#C9BEA8]">{field}</span>
               <input className={input} type={field.includes("Password") ? "password" : "text"} />
             </label>
           ))}
-          <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs font-medium text-slate-600">
+          <label className="flex items-start gap-2 rounded-lg border border-[#CDA45E24] bg-[#08111F] p-3 text-xs font-medium text-[#C9BEA8]">
             <input type="checkbox" className="mt-0.5" required />
             I accept the Terms and Privacy Policy.
           </label>
@@ -240,12 +240,12 @@ export function OnboardingPage({ portal }: { portal: Exclude<Portal, "admin"> })
 
   return (
     <AuthFrame>
-      <section className="w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="w-full max-w-3xl rounded-xl border border-[#CDA45E3D] bg-[#101B2DEB] p-6 shadow-2xl">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-700">{portalCopy[portal].label} Onboarding</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-900">Complete your profile</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-500">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#CDA45E]">{portalCopy[portal].label} Onboarding</p>
+            <h1 className="mt-2 text-2xl font-black text-[#F3EAD7]">Complete your profile</h1>
+            <p className="mt-2 max-w-2xl text-sm text-[#C9BEA8]">
               {portal === "client" ? "Client setup stays light so legal help is not delayed." : "Verification keeps bookings, missions, and sensitive legal work protected."}
             </p>
           </div>
@@ -257,17 +257,17 @@ export function OnboardingPage({ portal }: { portal: Exclude<Portal, "admin"> })
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           {onboardingFields[portal].map((field) => (
             <label key={field} className="block">
-              <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{field}</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#C9BEA8]">{field}</span>
               <input className={input} />
             </label>
           ))}
           {needsDocuments && (
-            <div className="sm:col-span-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-4">
+            <div className="sm:col-span-2 rounded-lg border border-dashed border-[#CDA45E66] bg-[#08111F] p-4">
               <div className="flex items-start gap-3">
-                <FileText className="mt-1 h-5 w-5 text-amber-700" />
+                <FileText className="mt-1 h-5 w-5 text-[#E2C27B]" />
                 <div>
-                  <p className="font-bold text-slate-900">Verification documents</p>
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="font-bold text-[#F3EAD7]">Verification documents</p>
+                  <p className="mt-1 text-sm text-[#C9BEA8]">
                     Upload controls are represented here for Bar ID, identity proof, student ID, bonafide certificate, or enrolment letter.
                   </p>
                 </div>
@@ -287,9 +287,9 @@ export function VerificationPending({ portal }: { portal: "advocate" | "intern" 
   return (
     <AuthFrame>
       <section className={panel}>
-        <BadgeCheck className="mb-4 h-10 w-10 text-amber-700" />
-        <h1 className="text-2xl font-black text-slate-900">Your professional verification is under review.</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
+        <BadgeCheck className="mb-4 h-10 w-10 text-[#E2C27B]" />
+        <h1 className="text-2xl font-black text-[#F3EAD7]">Your professional verification is under review.</h1>
+        <p className="mt-3 text-sm leading-6 text-[#C9BEA8]">
           You can complete your profile and explore limited platform features. Client bookings, paid court assignments,
           real supervised missions, verified XP, certificates, and rewards become available after verification.
         </p>
@@ -313,9 +313,9 @@ export function PortalMismatch() {
   return (
     <AuthFrame>
       <section className={panel}>
-        <UserRound className="mb-4 h-10 w-10 text-red-600" />
-        <h1 className="text-2xl font-black text-slate-900">This account is registered as a {currentPortal}.</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">The selected portal requires a different authorised account. The platform will not convert an existing account automatically.</p>
+        <UserRound className="mb-4 h-10 w-10 text-[#D16666]" />
+        <h1 className="text-2xl font-black text-[#F3EAD7]">This account is registered as a {currentPortal}.</h1>
+        <p className="mt-3 text-sm leading-6 text-[#C9BEA8]">The selected portal requires a different authorised account. The platform will not convert an existing account automatically.</p>
         <div className="mt-5 flex flex-col gap-2">
           {current && (
             <Link href={getPostLoginRoute(current)}>
@@ -345,9 +345,9 @@ export function StatusPage({ type }: { type: "restricted" | "denied" | "admin" }
   return (
     <AuthFrame>
       <section className={panel}>
-        <ShieldCheck className="mb-4 h-10 w-10 text-amber-700" />
-        <h1 className="text-2xl font-black text-slate-900">{content[0]}</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">{content[1]}</p>
+        <ShieldCheck className="mb-4 h-10 w-10 text-[#E2C27B]" />
+        <h1 className="text-2xl font-black text-[#F3EAD7]">{content[0]}</h1>
+        <p className="mt-3 text-sm leading-6 text-[#C9BEA8]">{content[1]}</p>
         <Link href="/">
           <button className={`${ghostButton} mt-5`}>Return to Homepage</button>
         </Link>
