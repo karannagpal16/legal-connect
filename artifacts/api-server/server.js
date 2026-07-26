@@ -5,7 +5,11 @@ const path = require("path");
 const crypto = require("crypto");
 const config = require("./config");
 const db = require("./db");
+<<<<<<< Updated upstream
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal } = require("./portal-auth");
+=======
+const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
+>>>>>>> Stashed changes
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
