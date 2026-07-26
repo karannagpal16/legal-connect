@@ -1,0 +1,837 @@
+/* Legal Connect — Premium landing & signup (dark gateway) */
+
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap");
+
+body.lc-landing-mode {
+  background: #0a0a0a !important;
+  color: #f7f3e8 !important;
+}
+
+body.lc-landing-mode .app-shell {
+  width: 100% !important;
+  max-width: none !important;
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+  margin: 0 !important;
+}
+
+body.lc-landing-mode .rail,
+body.lc-landing-mode .topbar,
+body.lc-landing-mode .demo-status,
+body.lc-landing-mode .command-dock,
+body.lc-landing-mode .floating-work {
+  display: none !important;
+}
+
+body.lc-landing-mode main {
+  padding: 0 !important;
+  min-height: 100vh;
+}
+
+body.lc-landing-mode .view {
+  padding: 0 !important;
+}
+
+body.lc-landing-mode .view:not(.active) {
+  display: none !important;
+}
+
+.lc-page {
+  --lc-gold: #c5a059;
+  --lc-muted: #9da5b4;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.lc-serif {
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+/* Header */
+.lc-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: rgba(10, 10, 10, 0.88);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(197, 160, 89, 0.12);
+}
+
+.lc-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.lc-brand-mark {
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--lc-gold);
+  border-radius: 50%;
+  position: relative;
+}
+
+.lc-brand-mark::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--lc-gold);
+  opacity: 0.85;
+}
+
+.lc-brand strong {
+  display: block;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+}
+
+.lc-brand small {
+  font-size: 0.65rem;
+  font-style: italic;
+  color: var(--lc-muted);
+}
+
+.lc-header-nav {
+  display: none;
+  gap: 1.75rem;
+}
+
+@media (min-width: 1024px) {
+  .lc-header-nav {
+    display: flex;
+  }
+}
+
+.lc-header-nav button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.lc-header-nav button:hover {
+  color: var(--lc-gold);
+}
+
+.lc-btn-outline {
+  border: 1px solid rgba(197, 160, 89, 0.55);
+  background: transparent;
+  color: #fff;
+  padding: 0.5rem 1.25rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.lc-btn-outline:hover {
+  border-color: var(--lc-gold);
+  background: rgba(197, 160, 89, 0.1);
+}
+
+.lc-btn-gold {
+  background: linear-gradient(180deg, #d4b06a, #c5a059, #a8864a);
+  color: #0a0a0a;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: box-shadow 0.25s, filter 0.25s;
+}
+
+.lc-btn-gold:hover {
+  box-shadow: 0 0 24px rgba(197, 160, 89, 0.45);
+  filter: brightness(1.05);
+}
+
+.lc-btn-white {
+  background: #fff;
+  color: #0a0a0a;
+  border: none;
+  padding: 0.65rem 1.35rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* Hero */
+.lc-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 6rem 1.5rem 3rem;
+}
+
+.lc-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.05);
+}
+
+.lc-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 5, 5, 0.96) 0%,
+    rgba(5, 5, 5, 0.85) 40%,
+    rgba(5, 5, 5, 0.5) 100%
+  );
+}
+
+.lc-hero-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .lc-hero-inner {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+}
+
+.lc-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--lc-gold);
+  text-transform: uppercase;
+}
+
+.lc-hero h1 {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1.12;
+  font-weight: 400;
+  margin: 0.75rem 0;
+  color: #fff;
+}
+
+.lc-hero-desc {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  max-width: 28rem;
+}
+
+.lc-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  align-items: center;
+}
+
+.lc-play-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.lc-play-icon {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.lc-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+@media (min-width: 640px) {
+  .lc-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.lc-stat strong {
+  display: block;
+  font-family: "Playfair Display", serif;
+  font-size: 1.35rem;
+  color: var(--lc-gold);
+}
+
+.lc-stat span {
+  font-size: 0.65rem;
+  color: var(--lc-muted);
+}
+
+/* Chakra */
+.lc-chakra-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lc-chakra {
+  width: min(240px, 55vw);
+  height: min(240px, 55vw);
+  animation: lc-spin 40s linear infinite;
+  filter: drop-shadow(0 0 30px rgba(197, 160, 89, 0.45));
+}
+
+@keyframes lc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lc-pedestal {
+  width: 140px;
+  height: 48px;
+  margin-top: -8px;
+  background: linear-gradient(180deg, #3a3a3a, #111);
+  clip-path: polygon(8% 0%, 92% 0%, 100% 100%, 0% 100%);
+}
+
+.lc-quote-box {
+  margin-top: 1.5rem;
+  max-width: 22rem;
+  padding: 1.5rem 2rem;
+  text-align: center;
+  background: rgba(12, 12, 12, 0.82);
+  border: 1px solid rgba(197, 160, 89, 0.22);
+  border-radius: 8px;
+  backdrop-filter: blur(12px);
+}
+
+.lc-quote-box .lc-serif {
+  color: var(--lc-gold);
+  font-size: 1.1rem;
+}
+
+.lc-quote-box p {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0.5rem 0;
+}
+
+.lc-quote-box cite {
+  font-size: 0.7rem;
+  color: var(--lc-muted);
+  font-style: normal;
+}
+
+/* Trust bar */
+.lc-trust {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0a0a0a;
+}
+
+.lc-trust p {
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  color: var(--lc-gold);
+  font-weight: 700;
+}
+
+.lc-trust-logos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem 2.5rem;
+  margin-top: 1.5rem;
+}
+
+.lc-trust-logos span {
+  font-family: "Playfair Display", serif;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 0.9rem;
+}
+
+/* Portal cards */
+.lc-portals {
+  padding: 4rem 1.5rem;
+  background: #0a0a0a;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.lc-section-head {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.lc-section-head h2 {
+  font-family: "Playfair Display", serif;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  color: #fff;
+  font-weight: 400;
+  margin: 0.5rem 0;
+}
+
+.lc-section-head p {
+  color: var(--lc-muted);
+  font-size: 0.9rem;
+}
+
+.lc-portal-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .lc-portal-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.lc-portal-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  background: #111;
+  border: 1px solid rgba(197, 160, 89, 0.15);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+}
+
+@media (min-width: 768px) {
+  .lc-portal-card {
+    grid-template-columns: 2fr 3fr;
+  }
+}
+
+.lc-portal-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(197, 160, 89, 0.4);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.lc-portal-img {
+  min-height: 200px;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.6s;
+}
+
+.lc-portal-card:hover .lc-portal-img {
+  transform: scale(1.05);
+}
+
+.lc-portal-body {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.lc-portal-body h3 {
+  font-family: "Playfair Display", serif;
+  font-size: 1.5rem;
+  color: #fff;
+  line-height: 1.3;
+  margin: 0.5rem 0;
+  font-weight: 400;
+}
+
+.lc-portal-body p {
+  color: var(--lc-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.lc-portal-body button {
+  margin-top: 1.25rem;
+  align-self: flex-start;
+}
+
+.lc-intern-strip {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: #111;
+  border: 1px solid rgba(197, 160, 89, 0.15);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .lc-intern-strip {
+    grid-template-columns: 200px 1fr auto;
+    align-items: center;
+  }
+}
+
+.lc-intern-img {
+  min-height: 120px;
+  background-size: cover;
+  background-position: center;
+}
+
+.lc-intern-copy {
+  padding: 1.5rem;
+}
+
+.lc-intern-copy h3 {
+  font-family: "Playfair Display", serif;
+  color: #fff;
+  font-weight: 400;
+  margin: 0.25rem 0;
+}
+
+.lc-intern-strip .lc-btn-outline {
+  margin: 1rem 1.5rem;
+  align-self: center;
+}
+
+/* Features */
+.lc-features {
+  padding: 4rem 1.5rem;
+  background: #080808;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lc-feature-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.lc-feature {
+  text-align: center;
+}
+
+.lc-feature-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  border: 1px solid rgba(197, 160, 89, 0.25);
+  display: grid;
+  place-items: center;
+  color: var(--lc-gold);
+  font-size: 1.25rem;
+}
+
+.lc-feature h4 {
+  font-size: 0.875rem;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.lc-feature p {
+  font-size: 0.75rem;
+  color: var(--lc-muted);
+  line-height: 1.5;
+}
+
+/* Footer */
+.lc-footer {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  background: #0a0a0a;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lc-footer p {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.lc-footer .lc-tagline {
+  font-family: "Playfair Display", serif;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Signup page */
+.lc-signup {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: #0a0a0a;
+}
+
+@media (min-width: 1024px) {
+  .lc-signup {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.lc-signup-visual {
+  position: relative;
+  min-height: 280px;
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .lc-signup-visual {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2.5rem;
+  }
+}
+
+.lc-signup-visual-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.lc-signup-visual-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.65));
+}
+
+.lc-signup-visual-content {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+}
+
+.lc-signup-visual h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 2.25rem;
+  font-weight: 400;
+  margin: 0.75rem 0;
+}
+
+.lc-signup-perks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.lc-signup-perks span {
+  font-size: 0.7rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  color: var(--lc-gold);
+  background: rgba(197, 160, 89, 0.08);
+}
+
+.lc-signup-quote {
+  position: relative;
+  z-index: 2;
+  margin-top: auto;
+  padding: 1.5rem;
+  background: rgba(12, 12, 12, 0.85);
+  border: 1px solid rgba(197, 160, 89, 0.2);
+  border-radius: 8px;
+}
+
+.lc-signup-quote blockquote {
+  font-family: "Playfair Display", serif;
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.lc-signup-quote footer {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: var(--lc-gold);
+}
+
+.lc-signup-form-wrap {
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 28rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.lc-signup-form-wrap h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 1.75rem;
+  color: #fff;
+  font-weight: 400;
+}
+
+.lc-signup-form-wrap > p {
+  color: var(--lc-muted);
+  font-size: 0.875rem;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.lc-signup-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.lc-signup-tabs button {
+  flex: 1;
+  padding: 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.lc-signup-tabs button.active {
+  background: var(--lc-gold);
+  color: #0a0a0a;
+  font-weight: 700;
+}
+
+.lc-signup .form-panel {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.lc-signup label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--lc-muted);
+  margin-bottom: 1rem;
+}
+
+.lc-signup input,
+.lc-signup select {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+  font-size: 0.875rem !important;
+}
+
+.lc-signup input:focus {
+  border-color: rgba(197, 160, 89, 0.55) !important;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.12);
+}
+
+.lc-signup .verification-box {
+  background: rgba(197, 160, 89, 0.06) !important;
+  border: 1px solid rgba(197, 160, 89, 0.2) !important;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.lc-signup .gold-button {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.875rem !important;
+  background: linear-gradient(180deg, #d4b06a, #c5a059) !important;
+  color: #0a0a0a !important;
+  font-weight: 700 !important;
+  border: none !important;
+  border-radius: 6px !important;
+}
+
+.lc-signup .auth-status {
+  font-size: 0.75rem !important;
+  color: var(--lc-muted) !important;
+}
+
+.lc-signup .consent-line {
+  font-size: 0.7rem !important;
+  color: var(--lc-muted) !important;
+  line-height: 1.5;
+}
+
+.lc-signup .split {
+  display: contents;
+}
+
+.lc-signup .login-panel {
+  display: none !important;
+}
+
+.lc-back-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--lc-muted);
+  font-size: 0.875rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 1.5rem;
+  padding: 0;
+}
+
+.lc-back-home:hover {
+  color: var(--lc-gold);
+}
+
+.lc-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.lc-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lc-signup-mobile-back {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .lc-signup-mobile-back {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .lc-signup-form-wrap {
+    padding-top: 5rem;
+  }
+}

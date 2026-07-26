@@ -7,6 +7,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css?v=21" />
+    <link rel="stylesheet" href="landing.css?v=1" />
   </head>
   <body>
     <div class="app-shell">
@@ -64,189 +65,200 @@
         </section>
 
         <section class="view active" id="home">
-          <div class="cover-stage os-home command-interface cover-poster">
-            <div class="intro-loader" aria-hidden="true">
-              <div class="loader-chakra"><span></span></div>
-              <strong>Legal Connect</strong>
-              <small>India's Legal Operating System</small>
-            </div>
-            <div class="cover-bg-orbit" aria-hidden="true"></div>
-            <div class="cover-gridline" aria-hidden="true"></div>
+          <div class="lc-page">
+            <header class="lc-header">
+              <a class="lc-brand" href="#home" data-back-home>
+                <span class="lc-brand-mark" aria-hidden="true"></span>
+                <span>
+                  <strong>LEGAL CONNECT</strong>
+                  <small>Serve Dharma. Deliver Justice.</small>
+                </span>
+              </a>
+              <nav class="lc-header-nav" aria-label="Homepage">
+                <button type="button" data-scroll="lc-portals">For Professionals</button>
+                <button type="button" data-scroll="lc-portals">For People</button>
+                <button type="button" data-scroll="lc-features">Features</button>
+                <button type="button" data-scroll="lc-features">Security</button>
+              </nav>
+              <button type="button" class="lc-btn-outline" data-signup="client">Get Started</button>
+            </header>
 
-            <section class="poster-mast">
-              <span>Dharma. Duty. Due Process.</span>
-              <div class="poster-emblem" aria-hidden="true"><i></i></div>
-              <h2>Legal<br />Connect</h2>
-              <p>For people who need clarity. For lawyers who need command.</p>
-              <div class="msme-trust-badge" aria-label="MSME registration trust badge">
-                <strong>MSME Registered</strong>
-                <span>UDYAM-DL-11-0164811</span>
-              </div>
-              <blockquote class="dharma-quote-card">
-                <span>Today's Dharma</span>
-                <p>"Yada yada hi dharmasya glanir bhavati Bharata; abhyutthanam adharmasya tadatmanam srijamyaham. Paritranaya sadhunam vinashaya cha dushkritam; dharma-samsthapanarthaya sambhavami yuge yuge."</p>
-                <cite>Bhagavad Gita 4.7-4.8 - When duty weakens, order must rise.</cite>
-              </blockquote>
-            </section>
-
-            <section class="poster-gates" aria-label="Choose Legal Connect gateway">
-              <article data-jump="client">
-                <div class="portal-scene people-scene" aria-hidden="true">
-                  <img src="news/news-1.png" alt="" />
-                  <span></span>
+            <section class="lc-hero">
+              <div class="lc-hero-bg" style="background-image: url('images/law-library-bg.png')"></div>
+              <div class="lc-hero-overlay"></div>
+              <div class="lc-hero-inner">
+                <div class="lc-reveal">
+                  <p class="lc-eyebrow">INDIA'S LITIGATION OPERATING SYSTEM</p>
+                  <h1 class="lc-serif">Law. Simplified.<br />Justice. Empowered.</h1>
+                  <p class="lc-hero-desc">One secure platform for advocates and clients — manage cases, connect with counsel, and navigate India's legal system with clarity.</p>
+                  <div class="lc-hero-actions">
+                    <button type="button" class="lc-btn-gold" data-scroll="lc-portals">Choose Your Portal →</button>
+                    <button type="button" class="lc-play-btn" data-scroll="lc-features">
+                      <span class="lc-play-icon">▶</span>
+                      See How It Works
+                    </button>
+                  </div>
+                  <div class="lc-stats">
+                    <div class="lc-stat"><strong>10K+</strong><span>Cases Managed</span></div>
+                    <div class="lc-stat"><strong>500+</strong><span>Verified Advocates</span></div>
+                    <div class="lc-stat"><strong>24/7</strong><span>Legal SOS</span></div>
+                    <div class="lc-stat"><strong>100%</strong><span>Source-Verified</span></div>
+                  </div>
                 </div>
-                <div class="poster-icon people-icon" aria-hidden="true"></div>
-                <h3>For People</h3>
-                <strong>People Shield</strong>
-                <p>SOS, advocate booking, documents, receipts and case status without panic.</p>
-                <button data-jump="client">Explore</button>
-              </article>
-              <article data-jump="advocate">
-                <div class="portal-scene lawyer-scene" aria-hidden="true">
-                  <img src="images/law-library-bg.png" alt="" />
-                  <span></span>
+                <div class="lc-chakra-wrap lc-reveal">
+                  <svg class="lc-chakra" viewBox="0 0 220 220" fill="none" aria-label="Dharma Chakra">
+                    <defs>
+                      <linearGradient id="lcGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#E8D5A8" />
+                        <stop offset="50%" stop-color="#C5A059" />
+                        <stop offset="100%" stop-color="#8B6914" />
+                      </linearGradient>
+                    </defs>
+                    <circle cx="110" cy="110" r="100" stroke="url(#lcGold)" stroke-width="2" opacity="0.5" />
+                    <g stroke="url(#lcGold)" stroke-width="3.5" stroke-linecap="round">
+                      <line x1="110" y1="55" x2="110" y2="20" /><line x1="132" y1="58" x2="152" y2="28" />
+                      <line x1="148" y1="72" x2="178" y2="52" /><line x1="162" y1="92" x2="198" y2="82" />
+                      <line x1="165" y1="110" x2="200" y2="110" /><line x1="162" y1="128" x2="198" y2="138" />
+                      <line x1="148" y1="148" x2="178" y2="168" /><line x1="132" y1="162" x2="152" y2="192" />
+                      <line x1="110" y1="165" x2="110" y2="200" /><line x1="88" y1="162" x2="68" y2="192" />
+                      <line x1="72" y1="148" x2="42" y2="168" /><line x1="58" y1="128" x2="22" y2="138" />
+                      <line x1="55" y1="110" x2="20" y2="110" /><line x1="58" y1="92" x2="22" y2="82" />
+                      <line x1="72" y1="72" x2="42" y2="52" /><line x1="88" y1="58" x2="68" y2="28" />
+                    </g>
+                    <circle cx="110" cy="110" r="18" fill="url(#lcGold)" />
+                    <circle cx="110" cy="110" r="9" fill="#0a0a0a" />
+                  </svg>
+                  <div class="lc-pedestal"></div>
+                  <div class="lc-quote-box">
+                    <span class="lc-serif" style="font-size:2rem;color:#c5a059">"</span>
+                    <p class="lc-serif" style="color:#c5a059;font-size:1.1rem">यतो धर्मस्ततो जयः</p>
+                    <p>Where there is Dharma, there is Victory.</p>
+                    <cite>— Mahabharata</cite>
+                  </div>
                 </div>
-                <div class="poster-icon lawyer-icon" aria-hidden="true"></div>
-                <h3>For Lawyers</h3>
-                <strong>Advocate Command</strong>
-                <p>Cases, court missions, chamber work, diary and digital library in one board.</p>
-                <button data-jump="advocate">Explore</button>
-              </article>
-            </section>
-
-            <section class="home-route-summary" aria-label="What can I do in Legal Connect">
-              <article>
-                <span>Legal SOS</span>
-                <strong>Urgent support, clear receipt</strong>
-                <button data-open-sos>Open SOS</button>
-              </article>
-              <article>
-                <span>Book Counsel</span>
-                <strong>Chat, video, office, doorstep</strong>
-                <button data-open-booking>Book now</button>
-              </article>
-              <article>
-                <span>Court Mission</span>
-                <strong>Post work with completion hold</strong>
-                <button data-jump="posttask">Post work</button>
-              </article>
-              <article>
-                <span>Track</span>
-                <strong>Receipts and next step</strong>
-                <button data-jump="service-room">Open status</button>
-              </article>
-            </section>
-
-            <section class="poster-strip">
-              <div class="poster-title">Did You Know? <span>Law in simple words.</span></div>
-              <div class="poster-mini-grid">
-                <button data-jump="bar">What is Regular Bail?</button>
-                <button data-jump="bareact">Murder under BNS: what changes?</button>
-                <button data-jump="bar">FIR vs Complaint</button>
-                <button data-jump="client">What to do after an arrest?</button>
               </div>
             </section>
 
-            <section class="cover-ai-desk" aria-label="Legal Connect AI Desk">
-              <div class="ai-avatar" aria-hidden="true"><span></span></div>
-              <div class="ai-copy">
-                <span>Legal Connect AI Desk</span>
-                <h3 id="daily-greeting">Good morning. Your legal desk is ready.</h3>
-                <p id="daily-quote">"Yato dharmastato jayah." Where duty stands, justice follows.</p>
-              </div>
-              <div class="ai-actions">
-                <button data-ai-reply="I can help you understand the issue, prepare documents, check court tools, or route you to the right portal.">What do I need today?</button>
-                <button data-jump="client">I need legal help</button>
-                <button data-jump="advocate">I am a lawyer</button>
-              </div>
-              <p class="ai-response" id="ai-response">Choose a path or ask for the next safe step.</p>
-            </section>
-
-            <section class="poster-updates">
-              <div class="poster-title">Recent Legal Updates <span>Verified sources, quick reading.</span></div>
-              <div class="poster-update-grid rotating-source-grid">
-                <a class="source-card source-bnb" href="https://www.barandbench.com/" target="_blank" rel="noreferrer">
-                  <span>Bar &amp; Bench</span><strong>Supreme Court on Privacy Rights</strong><p>What changes for citizens</p>
-                </a>
-                <a class="source-card source-scc" href="https://www.scconline.com/blog/" target="_blank" rel="noreferrer">
-                  <span>SCC Online Blog</span><strong>New Criminal Law Update</strong><p>Key takeaways in 60 seconds</p>
-                </a>
-                <a class="source-card source-casewatch" href="https://www.barandbench.com/" target="_blank" rel="noreferrer">
-                  <span>Case Watch</span><strong>Arbitration Ruling</strong><p>Fresh debate among practitioners</p>
-                </a>
+            <section class="lc-trust lc-reveal">
+              <p>TRUSTED BY LEGAL PROFESSIONALS ACROSS INDIA</p>
+              <div class="lc-trust-logos">
+                <span>Khurana &amp; Khurana</span>
+                <span>Lex Shield</span>
+                <span>Singh &amp; Associates</span>
+                <span>Veritas Legal</span>
+                <span>Juris Chambers</span>
               </div>
             </section>
 
-            <section class="poster-basics">
-              <div class="poster-title">Legal Basics <span>Essentials every citizen should know.</span></div>
-              <div class="poster-mini-grid basics-grid">
-                <button data-jump="client">Your Rights at a Glance</button>
-                <button data-jump="client">Important Documents</button>
-                <button data-jump="bar">Common Legal Terms</button>
-                <button data-jump="login">Ask a Legal Question</button>
+            <section class="lc-portals lc-reveal" id="lc-portals">
+              <div class="lc-section-head">
+                <p class="lc-eyebrow">CHOOSE YOUR PATH</p>
+                <h2 class="lc-serif">One Platform. Two Portals.</h2>
+                <p>Select your role — sign up in seconds and land directly on your personal dashboard.</p>
               </div>
-              <footer>Legal protection for people. Litigation command for lawyers.</footer>
-            </section>
-
-            <section class="phase-command">
-              <div>
-                <span class="eyebrow">Launch Map</span>
-                <h3>Working trust layer for real users.</h3>
-                <p>Client booking, advocate missions, Legal SOS, receipts, source library, case tracker, and deployment path are grouped into one visible product story.</p>
-              </div>
-              <div class="phase-grid">
-                <article>
-                  <span>Now / Phase 1</span>
-                  <strong>Ready service flows</strong>
-                  <p>Client and advocate UI, booking/payment handoff, Legal SOS, case tracker, receipts, build and Render deployment.</p>
+              <div class="lc-portal-grid">
+                <article class="lc-portal-card">
+                  <div class="lc-portal-img" style="background-image:url('news/news-1.png')"></div>
+                  <div class="lc-portal-body">
+                    <p class="lc-eyebrow">FOR PEOPLE</p>
+                    <h3 class="lc-serif">Your Legal Journey,<br />Simplified.</h3>
+                    <p>Track your case, book verified counsel, access Legal SOS, and manage documents securely.</p>
+                    <button type="button" class="lc-btn-white" data-signup="client">Sign Up as Client →</button>
+                  </div>
                 </article>
-                <article>
-                  <span>Next Step</span>
-                  <strong>Operational layer</strong>
-                  <p>Backend database, login lanes, saved bookings, chats, tasks, SOS requests, and RNA admin review dashboard.</p>
+                <article class="lc-portal-card">
+                  <div class="lc-portal-img" style="background-image:url('images/law-library-bg.png')"></div>
+                  <div class="lc-portal-body">
+                    <p class="lc-eyebrow">FOR LEGAL PROFESSIONALS</p>
+                    <h3 class="lc-serif">Power Your Practice.<br />Elevate Justice.</h3>
+                    <p>Case tracker, court diary, proxy hub, daily judgments and Lawyer AI — your command centre.</p>
+                    <button type="button" class="lc-btn-gold" data-signup="advocate">Sign Up as Advocate →</button>
+                  </div>
                 </article>
               </div>
+              <div class="lc-intern-strip lc-reveal">
+                <div class="lc-intern-img" style="background-image:url('images/law-library-bg.png')"></div>
+                <div class="lc-intern-copy">
+                  <p class="lc-eyebrow">INTERNVERSE</p>
+                  <h3 class="lc-serif">Learn law through practical missions</h3>
+                  <p style="color:var(--lc-muted);font-size:0.875rem">Earn XP · Get mentor reviews · Unlock rewards</p>
+                </div>
+                <button type="button" class="lc-btn-outline" data-signup="intern">Sign Up as Intern →</button>
+              </div>
             </section>
+
+            <section class="lc-features lc-reveal" id="lc-features">
+              <div class="lc-section-head">
+                <p class="lc-eyebrow">WHY LEGAL CONNECT</p>
+                <h2 class="lc-serif">Built for Trust. Designed for India.</h2>
+              </div>
+              <div class="lc-feature-grid">
+                <div class="lc-feature"><div class="lc-feature-icon">🛡</div><h4>Bank-Grade Security</h4><p>End-to-end encryption &amp; role-based access.</p></div>
+                <div class="lc-feature"><div class="lc-feature-icon">⚖</div><h4>Dharma-Centric</h4><p>Built on justice and integrity.</p></div>
+                <div class="lc-feature"><div class="lc-feature-icon">☁</div><h4>All-in-One Platform</h4><p>Litigation, research &amp; client management.</p></div>
+                <div class="lc-feature"><div class="lc-feature-icon">📱</div><h4>Anywhere, Anytime</h4><p>Access from any device.</p></div>
+                <div class="lc-feature"><div class="lc-feature-icon">🎧</div><h4>Priority Support</h4><p>Dedicated assistance for professionals.</p></div>
+              </div>
+            </section>
+
+            <footer class="lc-footer lc-reveal">
+              <p class="lc-tagline">One Legal Identity. One Personal Dashboard. One Connected Legal Ecosystem.</p>
+              <p>© 2026 Legal Connect · MSME UDYAM-DL-11-0164811 · Serve Dharma. Deliver Justice.</p>
+            </footer>
           </div>
         </section>
         <section class="view" id="login">
-          <div class="split">
-            <div class="panel login-panel">
-              <div class="chakra-loader" aria-hidden="true"></div>
-              <span class="eyebrow">Secure Login</span>
-              <h2>The app recognizes your lane.</h2>
-              <div class="role-grid">
-                <button class="role-card selected" data-login-role="rna"><strong>RNA Counsel</strong><span>Trust command, proxy acceptance, audit, payment lock</span></button>
-                <button class="role-card" data-login-role="advocate"><strong>Independent Advocate</strong><span>Public feed, own cases, proxy posting, diary</span></button>
-                <button class="role-card" data-login-role="client"><strong>Client</strong><span>Book counsel, Legal SOS, receipts, case updates</span></button>
-                <button class="role-card" data-login-role="intern"><strong>Intern Board</strong><span>XP missions, court tasks, drafts, PPO path</span></button>
+          <div class="lc-page lc-signup">
+            <div class="lc-signup-visual">
+              <div class="lc-signup-visual-bg" id="signup-visual-bg"></div>
+              <div class="lc-signup-visual-overlay"></div>
+              <div class="lc-signup-visual-content">
+                <button type="button" class="lc-back-home" data-back-home>← Back to Legal Connect</button>
+                <p class="lc-eyebrow" id="signup-role-label">CLIENT PORTAL</p>
+                <h2 class="lc-serif" id="signup-headline">Your Personal Legal Hub</h2>
+                <p id="signup-subheadline" style="color:rgba(255,255,255,0.7);font-size:0.9rem;margin-top:0.5rem">Track cases, connect with counsel, and get help when it matters.</p>
+                <div class="lc-signup-perks" id="signup-perks"></div>
+              </div>
+              <div class="lc-signup-quote">
+                <blockquote id="signup-quote-text">"Justice delayed is justice denied — but clarity should never wait."</blockquote>
+                <footer id="signup-quote-author">— Legal Connect</footer>
               </div>
             </div>
-            <form class="panel form-panel" id="role-login-form">
-              <label>Name<input id="login-name" value="Legal Connect User" /></label>
-              <label>Email<input id="login-email" value="" placeholder="you@example.com" /></label>
-              <label>Phone<input id="login-phone" value="" placeholder="+91 98XX XX4210" /></label>
-              <div class="verification-box">
-                <strong>Contact Verification</strong>
-                <p>Email OTP works when Resend is configured. Phone OTP is ready for an approved SMS provider.</p>
-                <p class="otp-mode-note" data-otp-status>Checking OTP mode...</p>
-                <div class="verification-actions">
-                  <button class="ghost-button" type="button" id="request-login-code">Send Code</button>
-                  <label>Code<input id="login-code" inputmode="numeric" maxlength="6" placeholder="6-digit code" /></label>
-                  <button class="ghost-button" type="button" id="verify-login-code">Verify</button>
+            <div class="lc-signup-form-wrap">
+              <button type="button" class="lc-back-home lc-signup-mobile-back" data-back-home>← Back to homepage</button>
+              <h2 class="lc-serif">Create your account</h2>
+              <p>One account. One dashboard. Ready in under a minute.</p>
+              <div class="split">
+                <div class="panel login-panel">
+                  <div class="role-grid">
+                    <button class="role-card" data-login-role="client" type="button"><strong>Client</strong></button>
+                    <button class="role-card" data-login-role="advocate" type="button"><strong>Advocate</strong></button>
+                    <button class="role-card" data-login-role="intern" type="button"><strong>Intern</strong></button>
+                  </div>
                 </div>
-                <p class="auth-status" id="verification-status">No code requested yet.</p>
+                <form class="panel form-panel" id="role-login-form">
+                  <label>Full Name<input id="login-name" value="" placeholder="Your name" /></label>
+                  <label>Email<input id="login-email" value="" placeholder="you@email.com" /></label>
+                  <label>Mobile<input id="login-phone" value="" placeholder="+91 98765 43210" /></label>
+                  <div class="verification-box">
+                    <strong>Verify your contact</strong>
+                    <p>Email OTP when configured. Demo code fills automatically in testing.</p>
+                    <p class="otp-mode-note" data-otp-status>Checking OTP mode...</p>
+                    <div class="verification-actions">
+                      <button class="ghost-button" type="button" id="request-login-code">Send Code</button>
+                      <label>Code<input id="login-code" inputmode="numeric" maxlength="6" placeholder="6-digit code" /></label>
+                      <button class="ghost-button" type="button" id="verify-login-code">Verify</button>
+                    </div>
+                    <p class="auth-status" id="verification-status">No code requested yet.</p>
+                  </div>
+                  <label style="display:none">Role<select id="login-role"><option value="client">Client</option><option value="advocate">Advocate</option><option value="intern">Intern</option><option value="rna">RNA</option><option value="admin">Admin</option></select></label>
+                  <label class="consent-line"><input id="privacy-consent" type="checkbox" /> I agree to the Terms and acknowledge the Privacy Policy.</label>
+                  <p class="inline-legal-links"><button type="button" class="text-link" data-jump="privacy-policy">Privacy</button><button type="button" class="text-link" data-jump="terms">Terms</button></p>
+                  <button class="gold-button" type="submit">Enter Dashboard →</button>
+                  <p class="auth-status" id="auth-status">Sign up, verify OTP, and your personal dashboard opens automatically.</p>
+                </form>
               </div>
-              <label>Bar Council ID<input value="D/4210/2019" /></label>
-              <label>State Bar Council<select><option>Delhi</option><option>Haryana</option><option>Uttar Pradesh</option></select></label>
-              <label>Practice Areas<input value="Criminal, Commercial, Arbitration" /></label>
-              <label>Court Preferences<input value="DHC, Tis Hazari, Saket, Dwarka" /></label>
-              <label>Detected Lane<select id="login-role"><option value="rna">RNA Counsel - Trust Command</option><option value="advocate">Independent Advocate</option><option value="client">Client</option><option value="intern">Intern Board</option><option value="admin">Admin</option></select></label>
-              <label class="consent-line"><input id="privacy-consent" type="checkbox" /> I agree to the Terms and acknowledge the Privacy Policy. I understand that Legal Connect may process my information to authenticate my account, manage service requests, coordinate legal support, process payments, issue receipts, and maintain safety and audit records.</label>
-              <p class="inline-legal-links"><button type="button" class="text-link" data-jump="privacy-policy">Read Privacy Policy</button><button type="button" class="text-link" data-jump="terms">Read Terms</button></p>
-              <button class="gold-button" type="submit">Verify and Route Securely</button>
-              <p class="auth-status" id="auth-status">Login creates a confidential Phase 1 session. Receipts are private to you and RNA/Admin governance.</p>
-            </form>
+            </div>
           </div>
         </section>
 
@@ -1305,7 +1317,8 @@
 
     </div>
 
-    <script src="app.js?v=13"></script>
+    <script src="app.js?v=14"></script>
+    <script src="landing.js?v=1"></script>
   </body>
 </html>
 
