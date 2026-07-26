@@ -3,24 +3,21 @@
     "name": "Legal Connect",
     "slug": "legal-connect",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "scheme": "legalconnect",
     "userInterfaceStyle": "dark",
     "entryPoint": "./src/index.native.tsx",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["ios", "android", "web"],
+    "primaryColor": "#C5A059",
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./public/images/law-library-bg.png",
-        "backgroundColor": "#1e1e2e"
+        "backgroundColor": "#030303"
       },
       "package": "com.legalconnect.app"
     },
     "ios": {
-      "supportsTabletMode": true,
+      "supportsTablet": true,
       "bundleIdentifier": "com.legalconnect.app"
     },
     "web": {
@@ -30,21 +27,12 @@
     "splash": {
       "image": "./public/images/law-library-bg.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1e1e2e"
+      "backgroundColor": "#030303"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "plugins": [
-      [
-        "expo-font",
-        {
-          "fonts": []
-        }
-      ],
-      "expo-splash-screen",
-      "expo-router"
-    ],
-    "primaryColor": "#4169E1"
+      ["expo-font", { "fonts": [] }],
+      "expo-splash-screen"
+    ]
   }
 }
