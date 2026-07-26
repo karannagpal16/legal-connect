@@ -5,6 +5,7 @@ const path = require("path");
 const crypto = require("crypto");
 const config = require("./config");
 const db = require("./db");
+const { getPortalLoginRoute, getPostLoginRoute, normalizePortal } = require("./portal-auth");
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
@@ -515,6 +516,9 @@ function publicUser(user) {
     id: user.id,
     name: user.name,
     role: user.role,
+    accountStatus: user.accountStatus || user.account_status || 'active',
+    verificationStatus: user.verificationStatus || user.verification_status || 'verified',
+    onboardingCompleted: Boolean(user.onboardingCompleted ?? user.onboarding_completed ?? true),
     emailMasked: maskEmail(user.email),
     phoneMasked: maskPhone(user.phone),
     emailVerified: Boolean(user.emailVerifiedAt || user.email_verified_at),
@@ -1978,7 +1982,8 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
-    const requestedRole = roles.has(body.role) ? body.role : "client";
+    const selectedPortal = normalizePortal(body.portal || body.selectedPortal || body.portalType || body.role);
+    const requestedRole = roles.has(body.role) ? body.role : selectedPortal || "client";
     const name = body.name || body.email || body.phone || "Legal Connect User";
     const email = normalizeEmail(body.email) || null;
     const phone = normalizePhone(body.phone) || null;
@@ -2086,6 +2091,13 @@ const server = http.createServer(async (req, res) => {
 
     const token = encodeSession(user);
     await saveSessionToken(user, token);
+    const postLoginRoute = getPostLoginRoute({
+      role: user.role,
+      accountStatus: user.accountStatus || user.account_status || 'active',
+      verificationStatus: user.verificationStatus || user.verification_status || 'verified',
+      onboardingCompleted: Boolean(user.onboardingCompleted ?? user.onboarding_completed ?? true),
+    });
+    const portalRoute = getPortalLoginRoute(selectedPortal || requestedRole || user.role);
     await createReceipt({
       userId: user.id,
       actor: user,
@@ -2102,6 +2114,9 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       token,
       user: publicUser(user),
+      portal: selectedPortal || requestedRole || user.role,
+      portalRoute,
+      postLoginRoute,
       verification: { emailVerified: Boolean(user.emailVerifiedAt), phoneVerified: Boolean(user.phoneVerifiedAt), consentRecorded: Boolean(user.consentAt) },
       ...(isReviewLogin ? { reviewAccess: reviewAccessPayload(user.role), seededWorkspace: reviewSeedData(user) } : {}),
     });
@@ -3605,7 +3620,7 @@ async function strictCreateProfile(userId, role, body) {
 }
 
 async function handleStrictJwtAuthRoute(req, res, url) {
-  const strictAuthPath = url.pathname === '/api/auth/login' || url.pathname === '/api/auth/register' || url.pathname === '/api/auth/me' || url.pathname.startsWith('/api/auth/strict');
+  const strictAuthPath = url.pathname.startsWith('/api/auth/strict');
   if (!strictAuthPath) return false;
   if (!db.dbAvailable) {
     sendJson(res, 503, { ok: false, error: 'Database is required for secure authentication.' });
@@ -3613,7 +3628,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
   }
   await ensureStrictAuthSchema();
 
-  if ((url.pathname === '/api/auth/register' || url.pathname === '/api/auth/strict/register') && req.method === 'POST') {
+  if (url.pathname === '/api/auth/strict/register' && req.method === 'POST') {
     const body = await readBody(req);
     const email = normalizeEmail(body.email);
     const password = String(body.password || '');
@@ -3645,7 +3660,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     return true;
   }
 
-  if ((url.pathname === '/api/auth/login' || url.pathname === '/api/auth/strict/login') && req.method === 'POST') {
+  if (url.pathname === '/api/auth/strict/login' && req.method === 'POST') {
     const body = await readBody(req);
     const email = normalizeEmail(body.email);
     const password = String(body.password || '');
@@ -3665,7 +3680,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     return true;
   }
 
-  if ((url.pathname === '/api/auth/me' || url.pathname === '/api/auth/strict/me') && req.method === 'GET') {
+  if (url.pathname === '/api/auth/strict/me' && req.method === 'GET') {
     const authUser = getAuthUser(req);
     if (!authUser) {
       sendJson(res, 401, { ok: false, error: 'Authentication required.' });

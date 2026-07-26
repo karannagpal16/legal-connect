@@ -1,7 +1,9 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper, Landmark, Quote, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
+import { enterPortal } from "@/pages/auth/AuthPages";
+import type { Portal } from "@/lib/authFlow";
 
 const legalNews = [
   { tag: "SC", tagColor: "#ef4444", title: "Supreme Court upholds Right to Privacy as Fundamental Right in digital data case", source: "Supreme Court", date: "Apr 2026", img: "/news/news-1.png" },
@@ -92,12 +94,14 @@ function DharmaChakra({ size = 80 }: { size?: number }) {
   );
 }
 
-function PortalCard({ href, icon: Icon, label, subLabel, idx, accent, bg, glow }: {
-  href: string; icon: React.ElementType; label: string; subLabel: string; idx: number;
+function PortalCard({ portal, icon: Icon, label, subLabel, idx, accent, bg, glow }: {
+  portal: Portal; icon: React.ElementType; label: string; subLabel: string; idx: number;
   accent: string; bg: string; glow: string;
 }) {
+  const [, navigate] = useLocation();
+
   return (
-    <Link href={href}>
+    <button onClick={() => enterPortal(portal, navigate)} className="block w-full border-0 bg-transparent p-0 text-inherit">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -140,7 +144,7 @@ function PortalCard({ href, icon: Icon, label, subLabel, idx, accent, bg, glow }
           </div>
         </div>
       </motion.div>
-    </Link>
+    </button>
   );
 }
 
@@ -301,13 +305,13 @@ export function Home() {
 
           {/* Portal Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto w-full">
-            <PortalCard href="/advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0}
+            <PortalCard portal="advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0}
                         accent="#2563EB" bg="#EFF6FF" glow="#2563EB20" />
-            <PortalCard href="/client" icon={Scale} label="Client" subLabel="Portal" idx={1}
+            <PortalCard portal="client" icon={Scale} label="Client" subLabel="Portal" idx={1}
                         accent="#DC2626" bg="#FEF2F2" glow="#DC262620" />
-            <PortalCard href="/intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2}
+            <PortalCard portal="intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2}
                         accent="#D97706" bg="#FFFBEB" glow="#D9770620" />
-            <PortalCard href="/client/cases" icon={Landmark} label="eCourt" subLabel="Services" idx={3}
+            <PortalCard portal="client" icon={Landmark} label="eCourt" subLabel="Services" idx={3}
                         accent="#059669" bg="#ECFDF5" glow="#05966920" />
           </div>
 

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: legal-connect
+    runtime: node
+    plan: free
+    autoDeploy: true
+    buildCommand: |
+      npm install -g pnpm@11.17.0
+      pnpm install --frozen-lockfile
+      pnpm --dir artifacts/law-firm build
+      mkdir -p artifacts/api-server/public
+      cp -R artifacts/law-firm/dist/public/* artifacts/api-server/public/
+    startCommand: node artifacts/api-server/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "false"
