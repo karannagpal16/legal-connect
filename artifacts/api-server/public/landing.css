@@ -19,7 +19,11 @@ body.lc-landing-mode .rail,
 body.lc-landing-mode .topbar,
 body.lc-landing-mode .demo-status,
 body.lc-landing-mode .command-dock,
-body.lc-landing-mode .floating-work {
+body.lc-landing-mode .floating-work,
+body.lc-landing-mode .floating-lawbot,
+body.lc-landing-mode .floating-sos,
+body.lc-landing-mode .legal-footer,
+body.lc-landing-mode .app-update-banner {
   display: none !important;
 }
 
@@ -216,7 +220,7 @@ body.lc-landing-mode .view:not(.active) {
   display: flex;
   align-items: center;
   overflow: hidden;
-  padding: 6rem 1.5rem 3rem;
+  padding: 6rem 1.5rem 5.5rem;
 }
 
 .lc-hero-bg {
@@ -308,10 +312,13 @@ body.lc-landing-mode .view:not(.active) {
 }
 
 .lc-chakra {
+  filter: drop-shadow(0 0 35px rgba(197, 160, 89, 0.55));
+}
+
+.lc-chakra:not(.lc-chakra-outer):not(.lc-chakra-inner) {
   width: min(280px, 62vw);
   height: min(280px, 62vw);
   animation: lc-spin 45s linear infinite;
-  filter: drop-shadow(0 0 35px rgba(197, 160, 89, 0.55));
   position: relative;
   z-index: 2;
 }
@@ -1012,5 +1019,221 @@ body.lc-landing-mode .view:not(.active) {
     transition: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+}
+
+/* Landing isolation — overrides styles.css v16 cream theme */
+html:has(body.lc-landing-mode),
+body.lc-landing-mode {
+  background: #050505 !important;
+  color: #f7f3e8 !important;
+}
+
+body.lc-landing-mode .app-shell {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+  min-height: 100vh !important;
+}
+
+body.lc-landing-mode main {
+  display: block !important;
+  background: #050505 !important;
+  gap: 0 !important;
+  align-content: stretch !important;
+  min-height: 100vh !important;
+}
+
+body.lc-landing-mode #home.view,
+body.lc-landing-mode #home.view.active,
+body.lc-landing-mode #login.view,
+body.lc-landing-mode #login.view.active {
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  min-height: 100vh !important;
+  animation: none !important;
+}
+
+body.lc-landing-mode .lc-page {
+  min-height: 100vh;
+  background: #050505;
+}
+
+body.lc-landing-mode .lc-signup-form-wrap .panel,
+body.lc-landing-mode .lc-signup-form-wrap input,
+body.lc-landing-mode .lc-signup-form-wrap select,
+body.lc-landing-mode .lc-signup-form-wrap textarea {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #fff !important;
+  border-color: rgba(197, 160, 89, 0.28) !important;
+}
+
+body.lc-landing-mode .lc-signup-form-wrap h2,
+body.lc-landing-mode .lc-signup-form-wrap p,
+body.lc-landing-mode .lc-signup-form-wrap label,
+body.lc-landing-mode .lc-signup-form-wrap strong {
+  color: #fff !important;
+}
+
+body.lc-landing-mode .role-card {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #fff !important;
+  border-color: rgba(197, 160, 89, 0.28) !important;
+}
+
+body.lc-landing-mode .role-card.selected {
+  background: rgba(197, 160, 89, 0.22) !important;
+  border-color: var(--lc-gold) !important;
+}
+
+body.lc-landing-mode .auth-status,
+body.lc-landing-mode .verification-box p {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+/* Sharp dual-ring Dharma Chakra */
+.lc-chakra-stack {
+  position: relative;
+  width: min(300px, 68vw);
+  height: min(300px, 68vw);
+}
+
+.lc-chakra-stack svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.lc-chakra-outer {
+  animation: lc-spin 52s linear infinite;
+  filter: drop-shadow(0 0 42px rgba(197, 160, 89, 0.55));
+}
+
+.lc-chakra-inner {
+  animation: lc-spin-rev 36s linear infinite;
+  opacity: 0.92;
+}
+
+.lc-chakra-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14%;
+  height: 14%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6d0, #c5a059 55%, #7a5a1a);
+  box-shadow: 0 0 28px rgba(197, 160, 89, 0.75);
+  z-index: 3;
+}
+
+.lc-chakra-hub::after {
+  content: "";
+  position: absolute;
+  inset: 28%;
+  border-radius: 50%;
+  background: #050505;
+}
+
+@keyframes lc-spin-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.lc-hero-feature-ribbon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(180deg, transparent, rgba(5, 5, 5, 0.92) 35%);
+  border-top: 1px solid rgba(197, 160, 89, 0.12);
+}
+
+.lc-ribbon-item {
+  text-align: center;
+  padding: 0.5rem 0.35rem;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: lc-rise 0.7s ease forwards;
+  animation-delay: calc(0.8s + var(--r, 0) * 0.08s);
+}
+
+.lc-ribbon-icon {
+  font-size: 1.1rem;
+  color: var(--lc-gold);
+  margin-bottom: 0.25rem;
+}
+
+.lc-ribbon-item h5 {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.lc-ribbon-item p {
+  margin: 0.2rem 0 0;
+  font-size: 0.58rem;
+  color: var(--lc-muted);
+  line-height: 1.3;
+}
+
+.lc-quote-float {
+  position: absolute;
+  right: clamp(1rem, 4vw, 3rem);
+  bottom: clamp(5.5rem, 12vh, 8rem);
+  z-index: 5;
+  max-width: 16rem;
+  padding: 1rem 1.25rem;
+  background: rgba(8, 8, 8, 0.88);
+  border: 1px solid rgba(197, 160, 89, 0.22);
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  animation: lc-rise 0.9s ease 1.1s forwards;
+}
+
+.lc-quote-float p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--lc-gold);
+  line-height: 1.45;
+}
+
+.lc-quote-float cite {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.65rem;
+  color: var(--lc-muted);
+  font-style: normal;
+}
+
+@media (max-width: 900px) {
+  .lc-hero-feature-ribbon {
+    grid-template-columns: repeat(2, 1fr);
+    padding-bottom: 1.5rem;
+  }
+
+  .lc-quote-float {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .lc-hero-feature-ribbon {
+    display: none;
   }
 }

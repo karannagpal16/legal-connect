@@ -43,6 +43,17 @@
       source: "Justice Louis D. Brandeis",
       category: "Famous Jurists",
     },
+    {
+      sanskrit: "सत्यमेव जयते",
+      english: "Truth alone triumphs.",
+      source: "Mundaka Upanishad · 3.1.6",
+      category: "Upanishads",
+    },
+    {
+      english: "The arc of the moral universe is long, but it bends toward justice.",
+      source: "Theodore Parker · cited by MLK Jr.",
+      category: "Justice & Law",
+    },
   ];
 
   const QUOTES = {
@@ -97,11 +108,15 @@
 
   function renderHeroQuote(index) {
     const q = HERO_QUOTES[index % HERO_QUOTES.length];
+    const next = HERO_QUOTES[(index + 1) % HERO_QUOTES.length];
     const box = document.getElementById("hero-quote-box");
     const sans = document.getElementById("hero-quote-sanskrit");
     const eng = document.getElementById("hero-quote-english");
     const src = document.getElementById("hero-quote-source");
     const dots = document.getElementById("hero-quote-dots");
+    const floatSans = document.getElementById("hero-float-sanskrit");
+    const floatEng = document.getElementById("hero-float-english");
+    const floatSrc = document.getElementById("hero-float-source");
 
     if (box) {
       box.classList.remove("lc-quote-visible");
@@ -120,6 +135,12 @@
           `<span class="${i === index ? "active" : ""}"></span>`,
         ).join("");
       }
+      if (floatSans) {
+        floatSans.textContent = next.sanskrit || "";
+        floatSans.style.display = next.sanskrit ? "block" : "none";
+      }
+      if (floatEng) floatEng.textContent = next.english;
+      if (floatSrc) floatSrc.textContent = `— ${next.source}`;
       if (box) {
         box.classList.remove("lc-quote-changing");
         box.classList.add("lc-quote-visible");
@@ -169,8 +190,33 @@
   }
 
   function updateLandingMode(viewId) {
-    const isLanding = !getSession()?.user && (viewId === "home" || viewId === "login");
+    const session = getSession();
+    const isLanding = !session?.user && (viewId === "home" || viewId === "login");
     document.body.classList.toggle("lc-landing-mode", isLanding);
+    if (session?.user && viewId === "home") {
+      document.body.classList.remove("lc-landing-mode");
+    }
+  }
+
+  async function pingBackend() {
+    const status = document.getElementById("auth-status");
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      const otpNote = document.querySelector("[data-otp-status]");
+      if (otpNote) {
+        otpNote.textContent = data.otp_fallback_enabled
+          ? "Demo OTP available — tap Send Code."
+          : "Email OTP ready when configured.";
+      }
+      if (status && !getSession()?.user) {
+        status.textContent = data.status === "ok"
+          ? "Backend connected. Sign up, verify OTP, and your dashboard opens automatically."
+          : "Connecting to Legal Connect servers…";
+      }
+    } catch {
+      if (status) status.textContent = "Offline mode — reconnect to sync cases and bookings.";
+    }
   }
 
   function setSignupRole(role) {
@@ -305,4 +351,7 @@
   startHeroQuotes();
   initParallax();
   initHeaderScroll();
+  pingBackend();
+
+  document.getElementById("hero-quote-box")?.classList.add("lc-quote-visible");
 })();
