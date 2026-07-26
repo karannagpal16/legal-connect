@@ -1,4 +1,50 @@
 (function () {
+  const HERO_QUOTES = [
+    {
+      sanskrit: "यतो धर्मस्ततो जयः",
+      english: "Where there is Dharma, there is Victory.",
+      source: "Mahabharata",
+      category: "Indian Epics",
+    },
+    {
+      sanskrit: "कर्मण्येवाधिकारस्ते मा फलेषु कदाचन",
+      english: "You have a right to perform your duty, but not to the fruits of action.",
+      source: "Bhagavad Gita · 2.47",
+      category: "Bhagavad Gita",
+    },
+    {
+      english: "Constitutional morality is not a natural sentiment. It has to be cultivated.",
+      source: "Dr. B. R. Ambedkar",
+      category: "Constitutional Thinkers",
+    },
+    {
+      english: "A lawyer's true function is to unite parties riven asunder.",
+      source: "Mahatma Gandhi",
+      category: "Famous Jurists",
+    },
+    {
+      english: "The life of the law has not been logic; it has been experience.",
+      source: "Oliver Wendell Holmes Jr.",
+      category: "Legal Classics",
+    },
+    {
+      sanskrit: "धर्म एव हतो हन्ति धर्मो रक्षति रक्षितः",
+      english: "Dharma destroyed destroys; Dharma protected protects.",
+      source: "Manusmriti · 8.15",
+      category: "Dharma Shastra",
+    },
+    {
+      english: "Injustice anywhere is a threat to justice everywhere.",
+      source: "Martin Luther King Jr.",
+      category: "Justice & Law",
+    },
+    {
+      english: "Sunlight is said to be the best of disinfectants.",
+      source: "Justice Louis D. Brandeis",
+      category: "Famous Jurists",
+    },
+  ];
+
   const QUOTES = {
     client: [
       { text: "Justice delayed is justice denied — but clarity should never wait.", author: "Legal Connect" },
@@ -44,8 +90,70 @@
   };
 
   let quoteIndex = 0;
+  let heroQuoteIndex = 0;
   let quoteTimer = null;
+  let heroQuoteTimer = null;
   let currentSignupRole = "client";
+
+  function renderHeroQuote(index) {
+    const q = HERO_QUOTES[index % HERO_QUOTES.length];
+    const box = document.getElementById("hero-quote-box");
+    const sans = document.getElementById("hero-quote-sanskrit");
+    const eng = document.getElementById("hero-quote-english");
+    const src = document.getElementById("hero-quote-source");
+    const dots = document.getElementById("hero-quote-dots");
+
+    if (box) {
+      box.classList.remove("lc-quote-visible");
+      box.classList.add("lc-quote-changing");
+    }
+
+    window.setTimeout(() => {
+      if (sans) {
+        sans.textContent = q.sanskrit || "";
+        sans.style.display = q.sanskrit ? "block" : "none";
+      }
+      if (eng) eng.textContent = q.english;
+      if (src) src.textContent = `— ${q.source}`;
+      if (dots) {
+        dots.innerHTML = HERO_QUOTES.map((_, i) =>
+          `<span class="${i === index ? "active" : ""}"></span>`,
+        ).join("");
+      }
+      if (box) {
+        box.classList.remove("lc-quote-changing");
+        box.classList.add("lc-quote-visible");
+      }
+    }, 320);
+  }
+
+  function startHeroQuotes() {
+    renderHeroQuote(heroQuoteIndex);
+    if (heroQuoteTimer) clearInterval(heroQuoteTimer);
+    heroQuoteTimer = setInterval(() => {
+      heroQuoteIndex = (heroQuoteIndex + 1) % HERO_QUOTES.length;
+      renderHeroQuote(heroQuoteIndex);
+    }, 8000);
+  }
+
+  function initParallax() {
+    const bg = document.getElementById("lc-hero-bg");
+    if (!bg || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    window.addEventListener("scroll", () => {
+      const y = window.scrollY;
+      if (y < window.innerHeight) {
+        bg.style.transform = `scale(1.08) translateY(${y * 0.18}px)`;
+      }
+    }, { passive: true });
+  }
+
+  function initHeaderScroll() {
+    const header = document.querySelector(".lc-header");
+    if (!header) return;
+    window.addEventListener("scroll", () => {
+      header.classList.toggle("lc-header-scrolled", window.scrollY > 40);
+    }, { passive: true });
+  }
 
   function getSession() {
     try {
@@ -194,4 +302,7 @@
 
   updateLandingMode(location.hash.replace("#", "") || "home");
   setSignupRole("client");
+  startHeroQuotes();
+  initParallax();
+  initHeaderScroll();
 })();

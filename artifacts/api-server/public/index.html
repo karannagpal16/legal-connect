@@ -7,7 +7,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css?v=22" />
-    <link rel="stylesheet" href="landing.css?v=2" />
+    <link rel="stylesheet" href="landing.css?v=4" />
   </head>
   <body class="lc-landing-mode">
     <div class="app-shell">
@@ -80,60 +80,68 @@
                 <button type="button" data-scroll="lc-features">Features</button>
                 <button type="button" data-scroll="lc-features">Security</button>
               </nav>
-              <button type="button" class="lc-btn-outline" data-signup="client">Get Started</button>
+              <button type="button" class="lc-btn-outline lc-btn-login" data-signup="client">
+                Login
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              </button>
             </header>
 
             <section class="lc-hero">
-              <div class="lc-hero-bg" style="background-image: url('images/law-library-bg.png')"></div>
+              <div class="lc-hero-bg" id="lc-hero-bg" style="background-image: url('images/hero-courthouse.png')"></div>
               <div class="lc-hero-overlay"></div>
+              <div class="lc-hero-particles" aria-hidden="true"></div>
               <div class="lc-hero-inner">
-                <div class="lc-reveal">
-                  <p class="lc-eyebrow">INDIA'S LITIGATION OPERATING SYSTEM</p>
-                  <h1 class="lc-serif">Law. Simplified.<br />Justice. Empowered.</h1>
-                  <p class="lc-hero-desc">One secure platform for advocates and clients — manage cases, connect with counsel, and navigate India's legal system with clarity.</p>
-                  <div class="lc-hero-actions">
-                    <button type="button" class="lc-btn-gold" data-scroll="lc-portals">Choose Your Portal →</button>
+                <div class="lc-hero-copy lc-animate-in">
+                  <p class="lc-eyebrow lc-animate-item" style="--i:0">INDIA'S LITIGATION OPERATING SYSTEM</p>
+                  <h1 class="lc-serif lc-animate-item" style="--i:1">
+                    Law. Simplified.<br />
+                    Justice. <span class="lc-gold-text">Empowered.</span>
+                  </h1>
+                  <p class="lc-hero-desc lc-animate-item" style="--i:2">An all-in-one platform for legal professionals and individuals. Manage cases, connect with counsel, and navigate the legal system with clarity and confidence.</p>
+                  <div class="lc-hero-actions lc-animate-item" style="--i:3">
+                    <button type="button" class="lc-btn-gold" data-scroll="lc-portals">Explore Platform →</button>
                     <button type="button" class="lc-play-btn" data-scroll="lc-features">
                       <span class="lc-play-icon">▶</span>
                       See How It Works
                     </button>
                   </div>
-                  <div class="lc-stats">
-                    <div class="lc-stat"><strong>10K+</strong><span>Cases Managed</span></div>
-                    <div class="lc-stat"><strong>500+</strong><span>Verified Advocates</span></div>
-                    <div class="lc-stat"><strong>24/7</strong><span>Legal SOS</span></div>
-                    <div class="lc-stat"><strong>100%</strong><span>Source-Verified</span></div>
-                  </div>
                 </div>
-                <div class="lc-chakra-wrap lc-reveal">
-                  <svg class="lc-chakra" viewBox="0 0 220 220" fill="none" aria-label="Dharma Chakra">
-                    <defs>
-                      <linearGradient id="lcGold" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#E8D5A8" />
-                        <stop offset="50%" stop-color="#C5A059" />
-                        <stop offset="100%" stop-color="#8B6914" />
-                      </linearGradient>
-                    </defs>
-                    <circle cx="110" cy="110" r="100" stroke="url(#lcGold)" stroke-width="2" opacity="0.5" />
-                    <g stroke="url(#lcGold)" stroke-width="3.5" stroke-linecap="round">
-                      <line x1="110" y1="55" x2="110" y2="20" /><line x1="132" y1="58" x2="152" y2="28" />
-                      <line x1="148" y1="72" x2="178" y2="52" /><line x1="162" y1="92" x2="198" y2="82" />
-                      <line x1="165" y1="110" x2="200" y2="110" /><line x1="162" y1="128" x2="198" y2="138" />
-                      <line x1="148" y1="148" x2="178" y2="168" /><line x1="132" y1="162" x2="152" y2="192" />
-                      <line x1="110" y1="165" x2="110" y2="200" /><line x1="88" y1="162" x2="68" y2="192" />
-                      <line x1="72" y1="148" x2="42" y2="168" /><line x1="58" y1="128" x2="22" y2="138" />
-                      <line x1="55" y1="110" x2="20" y2="110" /><line x1="58" y1="92" x2="22" y2="82" />
-                      <line x1="72" y1="72" x2="42" y2="52" /><line x1="88" y1="58" x2="68" y2="28" />
-                    </g>
-                    <circle cx="110" cy="110" r="18" fill="url(#lcGold)" />
-                    <circle cx="110" cy="110" r="9" fill="#0a0a0a" />
-                  </svg>
-                  <div class="lc-pedestal"></div>
-                  <div class="lc-quote-box">
-                    <span class="lc-serif" style="font-size:2rem;color:#c5a059">"</span>
-                    <p class="lc-serif" style="color:#c5a059;font-size:1.1rem">यतो धर्मस्ततो जयः</p>
-                    <p>Where there is Dharma, there is Victory.</p>
-                    <cite>— Mahabharata</cite>
+
+                <div class="lc-hero-visual lc-animate-in lc-animate-delay">
+                  <div class="lc-chakra-scene">
+                    <div class="lc-chakra-glow-ring" aria-hidden="true"></div>
+                    <svg class="lc-chakra" viewBox="0 0 220 220" fill="none" aria-label="Dharma Chakra">
+                      <defs>
+                        <linearGradient id="lcGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stop-color="#F0E0B0" />
+                          <stop offset="45%" stop-color="#C5A059" />
+                          <stop offset="100%" stop-color="#8B6914" />
+                        </linearGradient>
+                      </defs>
+                      <circle cx="110" cy="110" r="100" stroke="url(#lcGold)" stroke-width="2" opacity="0.45" />
+                      <g stroke="url(#lcGold)" stroke-width="3.5" stroke-linecap="round">
+                        <line x1="110" y1="55" x2="110" y2="18" /><line x1="132" y1="58" x2="152" y2="26" />
+                        <line x1="148" y1="72" x2="178" y2="52" /><line x1="162" y1="92" x2="198" y2="82" />
+                        <line x1="165" y1="110" x2="200" y2="110" /><line x1="162" y1="128" x2="198" y2="138" />
+                        <line x1="148" y1="148" x2="178" y2="168" /><line x1="132" y1="162" x2="152" y2="192" />
+                        <line x1="110" y1="165" x2="110" y2="202" /><line x1="88" y1="162" x2="68" y2="192" />
+                        <line x1="72" y1="148" x2="42" y2="168" /><line x1="58" y1="128" x2="22" y2="138" />
+                        <line x1="55" y1="110" x2="20" y2="110" /><line x1="58" y1="92" x2="22" y2="82" />
+                        <line x1="72" y1="72" x2="42" y2="52" /><line x1="88" y1="58" x2="68" y2="26" />
+                      </g>
+                      <circle cx="110" cy="110" r="20" fill="url(#lcGold)" />
+                      <circle cx="110" cy="110" r="10" fill="#0a0a0a" />
+                    </svg>
+                    <div class="lc-pedestal"></div>
+                    <div class="lc-pedestal-base"></div>
+                  </div>
+
+                  <div class="lc-quote-box lc-quote-rotate" id="hero-quote-box">
+                    <span class="lc-quote-mark lc-serif" aria-hidden="true">&ldquo;</span>
+                    <p class="lc-quote-sanskrit lc-serif" id="hero-quote-sanskrit">यतो धर्मस्ततो जयः</p>
+                    <p class="lc-quote-english" id="hero-quote-english">Where there is Dharma, there is Victory.</p>
+                    <cite id="hero-quote-source">— Mahabharata</cite>
+                    <div class="lc-quote-dots" id="hero-quote-dots" aria-hidden="true"></div>
                   </div>
                 </div>
               </div>
@@ -163,7 +171,7 @@
                     <p class="lc-eyebrow">FOR PEOPLE</p>
                     <h3 class="lc-serif">Your Legal Journey,<br />Simplified.</h3>
                     <p>Track your case, book verified counsel, access Legal SOS, and manage documents securely.</p>
-                    <button type="button" class="lc-btn-white" data-signup="client">Sign Up as Client →</button>
+                    <button type="button" class="lc-btn-white" data-signup="client">Continue as Client →</button>
                   </div>
                 </article>
                 <article class="lc-portal-card">
@@ -172,7 +180,7 @@
                     <p class="lc-eyebrow">FOR LEGAL PROFESSIONALS</p>
                     <h3 class="lc-serif">Power Your Practice.<br />Elevate Justice.</h3>
                     <p>Case tracker, court diary, proxy hub, daily judgments and Lawyer AI — your command centre.</p>
-                    <button type="button" class="lc-btn-gold" data-signup="advocate">Sign Up as Advocate →</button>
+                    <button type="button" class="lc-btn-gold" data-signup="advocate">Professional Login →</button>
                   </div>
                 </article>
               </div>
@@ -1317,8 +1325,8 @@
 
     </div>
 
-    <script src="app.js?v=14"></script>
-    <script src="landing.js?v=1"></script>
+    <script src="app.js?v=15"></script>
+    <script src="landing.js?v=3"></script>
   </body>
 </html>
 
