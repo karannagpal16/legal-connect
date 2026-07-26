@@ -1110,13 +1110,14 @@ body.lc-landing-mode .verification-box p {
 }
 
 .lc-chakra-outer {
-  animation: lc-spin 52s linear infinite;
-  filter: drop-shadow(0 0 42px rgba(197, 160, 89, 0.55));
+  animation: lc-spin 60s linear infinite;
+  filter: drop-shadow(0 0 48px rgba(197, 160, 89, 0.65));
 }
 
 .lc-chakra-inner {
-  animation: lc-spin-rev 36s linear infinite;
-  opacity: 0.92;
+  animation: lc-spin-rev 42s linear infinite;
+  opacity: 0.75;
+  pointer-events: none;
 }
 
 .lc-chakra-hub {
@@ -1235,5 +1236,154 @@ body.lc-landing-mode .verification-box p {
 @media (max-width: 520px) {
   .lc-hero-feature-ribbon {
     display: none;
+  }
+}
+
+/* Kill styles.css v16/v20/Phase2 overrides inside landing */
+body.lc-landing-mode #home.view.active h1,
+body.lc-landing-mode #home.view.active h2,
+body.lc-landing-mode #home.view.active h3,
+body.lc-landing-mode #home.view.active h4,
+body.lc-landing-mode #home.view.active p,
+body.lc-landing-mode #home.view.active span,
+body.lc-landing-mode #home.view.active strong,
+body.lc-landing-mode #home.view.active label,
+body.lc-landing-mode #home.view.active cite,
+body.lc-landing-mode #home.view.active button {
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+}
+
+body.lc-landing-mode #home .lc-hero h1 {
+  color: #ffffff !important;
+  font-family: "Playfair Display", Georgia, serif !important;
+  font-size: clamp(2rem, 5vw, 3.25rem) !important;
+  line-height: 1.12 !important;
+  font-weight: 400 !important;
+  max-width: none !important;
+  margin: 0.75rem 0 !important;
+}
+
+body.lc-landing-mode #home .lc-hero-desc,
+body.lc-landing-mode #home .lc-eyebrow {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+body.lc-landing-mode #home .lc-eyebrow {
+  color: var(--lc-gold) !important;
+}
+
+body.lc-landing-mode #home .lc-section-head h2 {
+  color: #ffffff !important;
+  font-family: "Playfair Display", Georgia, serif !important;
+  font-size: clamp(1.75rem, 4vw, 2.5rem) !important;
+  line-height: 1.1 !important;
+}
+
+body.lc-landing-mode #home .lc-section-head p {
+  color: var(--lc-muted) !important;
+  font-size: 0.92rem !important;
+}
+
+body.lc-landing-mode #home .lc-portal-body h3 {
+  color: #ffffff !important;
+  font-family: "Playfair Display", Georgia, serif !important;
+  font-size: 1.45rem !important;
+  line-height: 1.15 !important;
+}
+
+body.lc-landing-mode #home .lc-portal-body p {
+  color: var(--lc-muted) !important;
+}
+
+body.lc-landing-mode #home .lc-feature h4 {
+  color: #ffffff !important;
+  font-size: 0.78rem !important;
+}
+
+body.lc-landing-mode #home .lc-feature p {
+  color: var(--lc-muted) !important;
+  font-size: 0.72rem !important;
+}
+
+body.lc-landing-mode #home .lc-footer p {
+  color: var(--lc-muted) !important;
+}
+
+body.lc-landing-mode #home .lc-trust p {
+  color: var(--lc-muted) !important;
+}
+
+body.lc-landing-mode #home .lc-trust-logos span {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+body.lc-landing-mode #home .lc-intern-copy h3 {
+  color: #fff !important;
+}
+
+body.lc-landing-mode .lc-header-nav button {
+  color: rgba(255, 255, 255, 0.88) !important;
+  background: transparent !important;
+  border: 1px solid rgba(197, 160, 89, 0.35) !important;
+  border-radius: 999px !important;
+  padding: 0.45rem 1rem !important;
+  min-height: auto !important;
+  box-shadow: none !important;
+}
+
+body.lc-landing-mode .lc-quote-float {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  body.lc-landing-mode .lc-quote-float {
+    display: block;
+    right: 2rem;
+    bottom: 6rem;
+  }
+}
+
+.lc-demo-login {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(197, 160, 89, 0.08);
+  border: 1px dashed rgba(197, 160, 89, 0.35);
+}
+
+.lc-demo-login p {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--lc-muted);
+}
+
+.lc-demo-login-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.lc-demo-login-grid button {
+  padding: 0.55rem 0.35rem;
+  font-size: 0.72rem;
+  border-radius: 8px;
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--lc-gold);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lc-demo-login-grid button:hover {
+  background: rgba(197, 160, 89, 0.18);
+}
+
+@media (max-width: 640px) {
+  .lc-demo-login-grid {
+    grid-template-columns: 1fr;
   }
 }

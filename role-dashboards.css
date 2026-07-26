@@ -1,0 +1,428 @@
+/* Legal Connect — Premium role dashboards (logged-in app mode) */
+
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap");
+
+body.lc-app-mode {
+  --dash-bg: #060606;
+  --dash-surface: #111111;
+  --dash-surface-2: #181818;
+  --dash-gold: #c5a059;
+  --dash-gold-bright: #e8c878;
+  --dash-text: #f5f0e6;
+  --dash-muted: #a8a29e;
+  --dash-line: rgba(197, 160, 89, 0.18);
+  --dash-radius: 16px;
+  --dash-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  background: var(--dash-bg) !important;
+  color: var(--dash-text) !important;
+  font-family: Inter, system-ui, sans-serif !important;
+}
+
+body.lc-app-mode html {
+  background: var(--dash-bg) !important;
+}
+
+body.lc-app-mode .app-shell {
+  width: 100% !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  padding: 0 16px 100px !important;
+  display: block !important;
+}
+
+body.lc-app-mode main {
+  display: block !important;
+  background: transparent !important;
+  gap: 0 !important;
+}
+
+body.lc-app-mode .topbar {
+  background: rgba(8, 8, 8, 0.94) !important;
+  color: var(--dash-text) !important;
+  border-bottom: 1px solid var(--dash-line) !important;
+  border-radius: 0 !important;
+  margin: 0 -16px 0 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.lc-app-mode .topbar h1,
+body.lc-app-mode .topbar span,
+body.lc-app-mode .topbar small,
+body.lc-app-mode #view-title {
+  color: var(--dash-text) !important;
+  font-family: "Playfair Display", Georgia, serif !important;
+  font-size: 1.35rem !important;
+  line-height: 1.1 !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+}
+
+body.lc-app-mode .top-actions .gold-button {
+  background: linear-gradient(180deg, #d4b06a, #a8864a) !important;
+  color: #0a0a0a !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+}
+
+body.lc-app-mode .view.active {
+  max-width: none !important;
+  width: 100% !important;
+  animation: dashIn 0.45s ease both !important;
+}
+
+body.lc-app-mode .view.active h1,
+body.lc-app-mode .view.active h2,
+body.lc-app-mode .view.active h3,
+body.lc-app-mode .view.active h4,
+body.lc-app-mode .view.active strong,
+body.lc-app-mode .view.active label {
+  color: var(--dash-text) !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  text-shadow: none !important;
+}
+
+body.lc-app-mode .view.active p,
+body.lc-app-mode .view.active li,
+body.lc-app-mode .view.active small,
+body.lc-app-mode .view.active span:not(.lc-gold-text) {
+  color: var(--dash-muted) !important;
+}
+
+body.lc-app-mode .legal-footer {
+  border-top-color: var(--dash-line) !important;
+  margin-top: 2rem !important;
+}
+
+body.lc-app-mode .footer-trust {
+  color: var(--dash-muted) !important;
+}
+
+body.lc-app-mode .legal-footer button {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--dash-muted) !important;
+  border-color: var(--dash-line) !important;
+}
+
+body.lc-app-mode .lc-role-nav {
+  background: rgba(12, 12, 12, 0.96) !important;
+  border-color: var(--dash-line) !important;
+  border-radius: 14px !important;
+}
+
+body.lc-app-mode .lc-role-nav button {
+  background: transparent !important;
+  color: var(--dash-muted) !important;
+  border-color: transparent !important;
+  font-weight: 600 !important;
+}
+
+body.lc-app-mode .lc-role-nav button.active {
+  background: rgba(197, 160, 89, 0.18) !important;
+  color: var(--dash-gold-bright) !important;
+  border-color: var(--dash-line) !important;
+}
+
+@keyframes dashIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lc-role-shell {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1rem 0 2rem;
+}
+
+.dash-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 1.75rem;
+  border-radius: var(--dash-radius);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(197, 160, 89, 0.14), transparent 42%),
+    linear-gradient(145deg, #141414, #0a0a0a);
+  border: 1px solid var(--dash-line);
+  box-shadow: var(--dash-shadow);
+}
+
+.dash-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 60%, rgba(197, 160, 89, 0.04));
+  pointer-events: none;
+}
+
+.dash-kicker {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dash-gold);
+  margin-bottom: 0.5rem;
+}
+
+.dash-title {
+  margin: 0 0 0.5rem;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  line-height: 1.12;
+  color: var(--dash-text);
+  font-weight: 600;
+}
+
+.dash-sub {
+  margin: 0;
+  color: var(--dash-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  max-width: 36rem;
+}
+
+.dash-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.dash-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.dash-metric {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--dash-line);
+}
+
+.dash-metric span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dash-muted);
+}
+
+.dash-metric strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1.45rem;
+  color: var(--dash-gold-bright);
+  line-height: 1;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.dash-card {
+  padding: 1.25rem;
+  border-radius: var(--dash-radius);
+  background: var(--dash-surface);
+  border: 1px solid var(--dash-line);
+  display: grid;
+  gap: 0.65rem;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.dash-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(197, 160, 89, 0.38);
+  box-shadow: var(--dash-shadow);
+}
+
+.dash-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  background: rgba(197, 160, 89, 0.12);
+  border: 1px solid var(--dash-line);
+}
+
+.dash-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--dash-text);
+}
+
+.dash-card p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--dash-muted);
+}
+
+.dash-card button,
+.dash-card .dash-btn {
+  justify-self: start;
+  margin-top: 0.25rem;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(180deg, #d4b06a, #a8864a);
+  color: #0a0a0a;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.dash-card .dash-btn-ghost {
+  background: transparent;
+  color: var(--dash-gold-bright);
+  border: 1px solid var(--dash-line);
+}
+
+.dash-panel {
+  padding: 1.25rem;
+  border-radius: var(--dash-radius);
+  background: var(--dash-surface);
+  border: 1px solid var(--dash-line);
+}
+
+.dash-panel h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  color: var(--dash-text);
+}
+
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.dash-table th,
+.dash-table td {
+  padding: 0.65rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--dash-line);
+  color: var(--dash-text);
+}
+
+.dash-table th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dash-muted);
+}
+
+.dash-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.dash-timeline li {
+  position: relative;
+  padding-left: 1.35rem;
+}
+
+.dash-timeline li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dash-gold);
+  box-shadow: 0 0 0 4px rgba(197, 160, 89, 0.15);
+}
+
+.dash-timeline strong {
+  display: block;
+  color: var(--dash-text);
+  font-size: 0.88rem;
+}
+
+.dash-timeline p {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--dash-muted);
+}
+
+.dash-xp-wrap {
+  margin-top: 1rem;
+}
+
+.dash-xp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--dash-muted);
+}
+
+.dash-xp-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.dash-xp-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c5a059, #22c55e);
+}
+
+.dash-reward {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(197, 160, 89, 0.08);
+  border: 1px dashed var(--dash-line);
+  font-size: 0.82rem;
+  color: var(--dash-gold-bright);
+}
+
+.dash-sos {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: linear-gradient(145deg, rgba(127, 29, 29, 0.25), #111);
+}
+
+.dash-sos .dash-card-icon {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+@media (max-width: 860px) {
+  body.lc-app-mode .lc-role-nav {
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .dash-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

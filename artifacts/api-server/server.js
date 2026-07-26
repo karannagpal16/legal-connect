@@ -112,6 +112,67 @@ const REVIEW_VERIFICATION_TTL_MS = 20 * 60 * 1000;
 const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
 const publicSignupRoles = new Set(["client", "advocate", "intern"]);
 
+const DEMO_ACCOUNTS = [
+  { email: "client@demo.legal-connect.in", name: "Demo Client", role: "client", phone: "+919999900001" },
+  { email: "lawyer@demo.legal-connect.in", name: "Demo Lawyer", role: "advocate", phone: "+919999900002" },
+  { email: "intern@demo.legal-connect.in", name: "Demo Intern", role: "intern", phone: "+919999900003" },
+];
+const DEMO_OTP = "123456";
+
+function getDemoAccount(email) {
+  const normalized = normalizeEmail(email);
+  return DEMO_ACCOUNTS.find((item) => item.email === normalized) || null;
+}
+
+function getDemoAccountByRole(role) {
+  return DEMO_ACCOUNTS.find((item) => item.role === role) || DEMO_ACCOUNTS[0];
+}
+
+function isDemoEmail(email) {
+  return Boolean(getDemoAccount(email));
+}
+
+async function upsertDemoUser(account) {
+  const privacyConsent = true;
+  const verifiedFlags = { emailVerified: true, phoneVerified: false };
+  let user;
+  if (db.dbAvailable) {
+    const existing = await db.query("SELECT * FROM users WHERE email = $1 LIMIT 1", [account.email]);
+    if (existing.rows.length) {
+      const updated = await db.query(
+        `UPDATE users SET name = $2, phone = $3, role = $4, consent_at = COALESCE(consent_at, now()), email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1 RETURNING *`,
+        [existing.rows[0].id, account.name, account.phone, account.role],
+      );
+      user = mapUser(updated.rows[0]);
+    } else {
+      const created = await db.query(
+        `INSERT INTO users (name, email, phone, role, consent_at, email_verified_at) VALUES ($1, $2, $3, $4, now(), now()) RETURNING *`,
+        [account.name, account.email, account.phone, account.role],
+      );
+      user = mapUser(created.rows[0]);
+    }
+  } else {
+    user = demoStore.users.find((item) => item.email === account.email);
+    if (!user) {
+      user = {
+        id: `demo-${account.role}-${Date.now()}`,
+        name: account.name,
+        email: account.email,
+        phone: account.phone,
+        role: account.role,
+        emailVerifiedAt: new Date().toISOString(),
+        phoneVerifiedAt: null,
+        consentAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      demoStore.users.push(user);
+    } else {
+      Object.assign(user, { name: account.name, role: account.role, phone: account.phone });
+    }
+  }
+  return { user, privacyConsent, verifiedFlags };
+}
+
 function resolveLoginRole(requestedRole, existingRole, isReviewLogin) {
   if (isReviewLogin) {
     return REVIEW_ROLES.includes(requestedRole) ? requestedRole : "client";
@@ -1666,6 +1727,37 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+    if (email && isDemoEmail(email)) {
+      const code = DEMO_OTP;
+      const record = {
+        id: `verify-demo-${Date.now()}`,
+        email,
+        phone: null,
+        codeHash: verificationHash(email, code),
+        purpose: "login",
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        consumedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+      if (db.dbAvailable) {
+        await db.query(
+          `INSERT INTO login_verifications (email, phone, code_hash, purpose, expires_at) VALUES ($1, $2, $3, $4, $5)`,
+          [record.email, null, record.codeHash, record.purpose, record.expiresAt],
+        );
+      } else {
+        demoStore.verifications.unshift(record);
+      }
+      sendJson(res, 200, {
+        ok: true,
+        status: "sent",
+        mode: "demo",
+        destinationType: "email",
+        destinationMasked: maskEmail(email),
+        devCode: code,
+        message: "Demo account — verification code filled automatically.",
+      });
+      return;
+    }
     if (config.nodeEnv === "production" && destinationType === "phone") {
       sendJson(res, 503, {
         ok: false,
@@ -1892,6 +1984,7 @@ const server = http.createServer(async (req, res) => {
     const phone = normalizePhone(body.phone) || null;
     const privacyConsent = body.privacyConsent === true || body.privacyConsent === "true";
     const isReviewLogin = Boolean(email && isPlayReviewEmail(email));
+    const isDemoLogin = Boolean(email && isDemoEmail(email));
     if (isReviewLogin && !reviewContactVerified(email)) {
       sendJson(res, 401, {
         ok: false,
@@ -1901,7 +1994,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const verifiedFlags = await verifiedContactFlags(email, phone);
-    if (config.nodeEnv === "production" && !isReviewLogin && !verifiedFlags.emailVerified && !verifiedFlags.phoneVerified) {
+    if (isDemoLogin) {
+      verifiedFlags.emailVerified = true;
+    }
+    if (config.nodeEnv === "production" && !isReviewLogin && !isDemoLogin && !verifiedFlags.emailVerified && !verifiedFlags.phoneVerified) {
       sendJson(res, 401, {
         ok: false,
         error: "Verify your email OTP before opening your workspace.",
@@ -2009,6 +2105,39 @@ const server = http.createServer(async (req, res) => {
       verification: { emailVerified: Boolean(user.emailVerifiedAt), phoneVerified: Boolean(user.phoneVerifiedAt), consentRecorded: Boolean(user.consentAt) },
       ...(isReviewLogin ? { reviewAccess: reviewAccessPayload(user.role), seededWorkspace: reviewSeedData(user) } : {}),
     });
+    return;
+  }
+
+  if (url.pathname === "/api/auth/demo-login" && req.method === "POST") {
+    const body = await readBody(req);
+    const role = roles.has(body.role) ? body.role : "client";
+    const account = getDemoAccountByRole(role === "rna" ? "admin" : role);
+    try {
+      const { user, privacyConsent } = await upsertDemoUser(account);
+      const token = encodeSession(user);
+      await saveSessionToken(user, token);
+      await createReceipt({
+        userId: user.id,
+        actor: user,
+        receiptType: "login",
+        title: "Demo login receipt",
+        message: `${user.role} demo workspace opened.`,
+        status: "signed-in",
+        targetType: "user",
+        targetId: user.id,
+        visibility: "private",
+        payload: { role: user.role, demo: true },
+      });
+      sendJson(res, 200, {
+        ok: true,
+        token,
+        user: publicUser(user),
+        demo: true,
+        verification: { emailVerified: true, phoneVerified: false, consentRecorded: privacyConsent },
+      });
+    } catch (error) {
+      sendJson(res, 500, { ok: false, error: error.message || "Demo login failed." });
+    }
     return;
   }
 

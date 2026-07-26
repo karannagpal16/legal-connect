@@ -2119,6 +2119,10 @@ window.addEventListener("hashchange", () => {
   function setBodyRole(role) {
     document.body.classList.remove("lc-role-client", "lc-role-advocate", "lc-role-intern", "lc-role-admin", "lc-role-rna", "lc-role-guest");
     document.body.classList.add(`lc-role-${role || "guest"}`);
+    const loggedIn = role && role !== "guest" && session()?.user;
+    const view = location.hash.replace("#", "") || "home";
+    document.body.classList.toggle("lc-app-mode", Boolean(loggedIn));
+    document.body.classList.toggle("lc-landing-mode", !loggedIn && (view === "home" || view === "login"));
   }
 
   function ensureRoleNav(activeId) {
@@ -2139,68 +2143,106 @@ window.addEventListener("hashchange", () => {
   function clientDashboard() {
     return `
       <div class="lc-role-shell" data-role-dashboard="client">
-        <section class="role-dash-hero">
-          <span class="role-dash-kicker">Client Command Center</span>
-          <h2 class="role-dash-title">Hello ${displayName()}, your matter is being tracked.</h2>
-          <span class="role-dash-badge">Your attendance is not required</span>
-          <p>Plain-English status: Waiting for opponent's reply. Next update will be sent with a receipt.</p>
-          <div class="lc-role-metrics">
-            <div class="lc-role-metric"><span>Next Hearing</span><strong>05 Aug</strong></div>
-            <div class="lc-role-metric"><span>Status</span><strong>Active</strong></div>
-            <div class="lc-role-metric"><span>Receipt</span><strong>Ready</strong></div>
+        <section class="dash-hero">
+          <span class="dash-kicker">Client Portal · 5-second view</span>
+          <h2 class="dash-title">${displayName()}, here's your legal status.</h2>
+          <p class="dash-sub">Book counsel, trigger Legal SOS, track your matter, and download receipts — without legal jargon.</p>
+          <span class="dash-badge">No court attendance needed today</span>
+          <div class="dash-metrics">
+            <div class="dash-metric"><span>Matter Status</span><strong>Active</strong></div>
+            <div class="dash-metric"><span>Next Update</span><strong>5 Aug</strong></div>
+            <div class="dash-metric"><span>Receipt</span><strong>Ready</strong></div>
           </div>
         </section>
-        <section class="role-dash-timeline">
-          <h3>Case timeline</h3>
-          <ol>
-            <li><strong>Case Filed</strong><p>Documents received and saved in your private matter room.</p></li>
-            <li><strong>Opponent Notified</strong><p>Notice stage started. You will be updated when a reply is filed.</p></li>
-            <li><strong>Next Date Scheduled</strong><p>Attendance not required unless your counsel informs you.</p></li>
+        <div class="dash-grid">
+          <article class="dash-card dash-sos">
+            <div class="dash-card-icon">🆘</div>
+            <h3>Legal SOS</h3>
+            <p>Emergency video counsel, police station help, court notice panic — one tap routing.</p>
+            <button type="button" data-open-sos>Start Legal SOS</button>
+          </article>
+          <article class="dash-card">
+            <div class="dash-card-icon">⚖</div>
+            <h3>Book Counsel</h3>
+            <p>Chat, video, office visit or doorstep support with verified advocates.</p>
+            <button type="button" data-open-booking>Book counsel</button>
+          </article>
+          <article class="dash-card">
+            <div class="dash-card-icon">📁</div>
+            <h3>My Matters</h3>
+            <p>Plain-English timeline, next dates, and uploaded documents in one room.</p>
+            <button type="button" data-jump="service-room">Open matter room</button>
+          </article>
+          <article class="dash-card">
+            <div class="dash-card-icon">📄</div>
+            <h3>Documents &amp; Drafts</h3>
+            <p>Upload files, request drafts, pay securely, and receive a receipt instantly.</p>
+            <button type="button" data-jump="documents">Open documents</button>
+          </article>
+        </div>
+        <section class="dash-panel">
+          <h3>Your case timeline</h3>
+          <ol class="dash-timeline">
+            <li><strong>Case recorded</strong><p>Your documents are saved privately in your matter room.</p></li>
+            <li><strong>Opponent notified</strong><p>Notice stage complete — waiting for their reply.</p></li>
+            <li><strong>Next step</strong><p>We'll notify you before any action is needed from you.</p></li>
           </ol>
         </section>
-        <div class="lc-role-grid">
-          <article class="role-dash-card"><h3>Legal Help</h3><p>Book chat, video, office visit, doorstep support, or SOS from one clean flow.</p><button data-open-booking>Book counsel</button></article>
-          <article class="role-dash-card"><h3>Documents</h3><p>Choose a draft, upload files, add your problem note, pay, and receive a receipt.</p><button data-jump="documents">Open documents</button></article>
-        </div>
       </div>`;
   }
 
   function advocateDashboard() {
     return `
       <div class="lc-role-shell" data-role-dashboard="advocate">
-        <section class="role-dash-hero">
-          <span class="role-dash-kicker">Advocate Workspace</span>
-          <h2 class="role-dash-title">Adv. ${displayName()}, today's court cockpit is ready.</h2>
-          <div class="lc-role-metrics">
-            <div class="lc-role-metric"><span>Hearings Today</span><strong>2</strong></div>
-            <div class="lc-role-metric"><span>Filings Due</span><strong>3</strong></div>
-            <div class="lc-role-metric"><span>Proxy Queue</span><strong>None</strong></div>
+        <section class="dash-hero">
+          <span class="dash-kicker">Advocate Command · Today</span>
+          <h2 class="dash-title">Adv. ${displayName()}, your court cockpit is ready.</h2>
+          <p class="dash-sub">ProxyHub, case diary, court calendar, eCourts sync, and daily judgments — one premium desk.</p>
+          <div class="dash-metrics">
+            <div class="dash-metric"><span>Hearings Today</span><strong>2</strong></div>
+            <div class="dash-metric"><span>Filings Due</span><strong>3</strong></div>
+            <div class="dash-metric"><span>Proxy Queue</span><strong>1</strong></div>
+            <div class="dash-metric"><span>Judgments</span><strong>New</strong></div>
           </div>
         </section>
-        <section class="role-dash-card">
-          <h3>Today's Cause List</h3>
-          <table class="role-dash-table"><thead><tr><th>Matter</th><th>Court Hall</th><th>Item</th><th>Next Action</th></tr></thead><tbody><tr><td>ABC v XYZ</td><td>Delhi HC Court 5</td><td>14</td><td>Arguments</td></tr><tr><td>State v Client</td><td>Saket Court 203</td><td>22</td><td>Pass-over watch</td></tr></tbody></table>
-        </section>
-        <div class="lc-role-grid">
-          <article class="role-dash-card"><h3>Post Court Mission</h3><p>Create a court task with fee, urgency, timer, and work completion hold.</p><button data-jump="posttask">Post mission</button></article>
-          <article class="role-dash-card"><h3>Upload Draft</h3><p>Attach a draft inside matter context so the chamber can review it cleanly.</p><button data-jump="diary">Open matters</button></article>
+        <div class="dash-grid">
+          <article class="dash-card"><div class="dash-card-icon">🎯</div><h3>ProxyHub</h3><p>Accept proxy appearances, post court missions, and track proof before payment release.</p><button type="button" data-jump="posttask">Open ProxyHub</button></article>
+          <article class="dash-card"><div class="dash-card-icon">📓</div><h3>Case Diary</h3><p>Every matter, next date, stage note, and filing reminder in one calm board.</p><button type="button" data-jump="diary">Open case diary</button></article>
+          <article class="dash-card"><div class="dash-card-icon">🏛</div><h3>Court Calendar</h3><p>Today's cause list, pass-over watch, and chamber prep checklist.</p><button type="button" data-jump="appearance">Court calendar</button></article>
+          <article class="dash-card"><div class="dash-card-icon">🔗</div><h3>eCourts Access</h3><p>Sync CNR, check listing status, and open matter snapshots quickly.</p><button type="button" data-jump="matter">Open eCourts desk</button></article>
+          <article class="dash-card"><div class="dash-card-icon">📚</div><h3>Judgments Library</h3><p>Daily judgments, bare acts, and source-locked research for arguments.</p><button type="button" data-jump="judgment">Browse judgments</button></article>
+          <article class="dash-card"><div class="dash-card-icon">🏢</div><h3>Chamber Mode</h3><p>Review drafts, assign interns, and keep client identity protected.</p><button type="button" data-jump="chambers">Enter chamber</button></article>
         </div>
+        <section class="dash-panel">
+          <h3>Today's cause list</h3>
+          <table class="dash-table"><thead><tr><th>Matter</th><th>Court</th><th>Item</th><th>Action</th></tr></thead><tbody><tr><td>State v. Mehra</td><td>Delhi HC · Court 5</td><td>17</td><td>Arguments</td></tr><tr><td>Metro Infra dispute</td><td>Saket Court · 214</td><td>8</td><td>Pass-over watch</td></tr></tbody></table>
+        </section>
       </div>`;
   }
 
   function internDashboard() {
     return `
       <div class="lc-role-shell" data-role-dashboard="intern">
-        <section class="role-dash-hero">
-          <span class="role-dash-kicker">Intern Learn-and-Earn</span>
-          <h2 class="role-dash-title">Level 2 - Researcher</h2>
-          <p>Assigned work only. No leaderboard by default, so case confidentiality stays protected.</p>
-          <div class="xp-bar" aria-label="XP progress"><span style="width:62%"></span></div>
+        <section class="dash-hero">
+          <span class="dash-kicker">Internverse · Learn &amp; Earn</span>
+          <h2 class="dash-title">Level 2 Researcher · ${displayName()}</h2>
+          <p class="dash-sub">Complete admin-posted missions, earn XP, unlock mentor reviews, and claim rewards at 1,000 XP.</p>
+          <div class="dash-xp-wrap">
+            <div class="dash-xp-head"><span>XP Progress</span><strong>620 / 1,000 XP</strong></div>
+            <div class="dash-xp-bar"><span style="width:62%"></span></div>
+            <div class="dash-reward">🎁 Reward unlocks at 1,000 XP — Verified Intern Certificate + chamber priority access</div>
+          </div>
+          <div class="dash-metrics">
+            <div class="dash-metric"><span>Active Quests</span><strong>3</strong></div>
+            <div class="dash-metric"><span>XP This Week</span><strong>+180</strong></div>
+            <div class="dash-metric"><span>Mentor Reviews</span><strong>2</strong></div>
+          </div>
         </section>
-        <div class="lc-role-grid">
-          <article class="role-dash-card"><h3>Research Quest</h3><p>Prepare a two-page note on bail principles from approved sources.</p><button data-jump="task">Open task</button></article>
-          <article class="role-dash-card"><h3>Chamber Assist</h3><p>Index documents for tomorrow's Delhi HC matter.</p><button data-jump="task">Start quest</button></article>
-          <article class="role-dash-card"><h3>Learn</h3><p>Read bare act, judgment, and procedure notes before accepting court-facing work.</p><button data-jump="bar">Open learning</button></article>
+        <div class="dash-grid">
+          <article class="dash-card"><div class="dash-card-icon">🔍</div><h3>Research Quest · +250 XP</h3><p>Find 5 bail judgments from approved sources and summarise in two pages.</p><button type="button" data-jump="task">Start quest</button></article>
+          <article class="dash-card"><div class="dash-card-icon">📋</div><h3>Chamber Assist · +180 XP</h3><p>Index documents for tomorrow's Delhi HC matter — admin assigned.</p><button type="button" data-jump="task">Accept task</button></article>
+          <article class="dash-card"><div class="dash-card-icon">📖</div><h3>Learn Track</h3><p>Bare acts, procedure notes, and judgment reading before court-facing work.</p><button type="button" data-jump="bar">Open learning</button></article>
+          <article class="dash-card"><div class="dash-card-icon">🏆</div><h3>Rewards Board</h3><p>See XP milestones, certificates, and what unlocks at each level.</p><button type="button" class="dash-btn-ghost" data-jump="intern">View rewards</button></article>
         </div>
       </div>`;
   }
@@ -2228,7 +2270,7 @@ window.addEventListener("hashchange", () => {
     const map = { client: clientDashboard, advocate: advocateDashboard, intern: internDashboard, admin: adminDashboard };
     Object.entries(map).forEach(([id, renderer]) => {
       const node = document.getElementById(id);
-      if (node && !node.dataset.phase2Dashboard) {
+      if (node) {
         node.innerHTML = renderer();
         node.dataset.phase2Dashboard = "true";
       }

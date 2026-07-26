@@ -157,7 +157,26 @@
     }, 8000);
   }
 
-  function initParallax() {
+  function initAshokaChakra() {
+    const group = document.getElementById("lc-chakra-spokes");
+    if (!group || group.dataset.built) return;
+    let markup = `
+      <circle r="108" fill="none" stroke="url(#lcAshokaGold)" stroke-width="2.2"/>
+      <circle r="98" fill="none" stroke="url(#lcAshokaGold)" stroke-width="1" opacity="0.55"/>
+      <g stroke="url(#lcAshokaGold)" stroke-width="2.4" stroke-linecap="butt">`;
+    for (let i = 0; i < 24; i += 1) {
+      markup += `<line x1="0" y1="-94" x2="0" y2="-56" transform="rotate(${i * 15})"/>`;
+    }
+    markup += `</g><circle r="56" fill="none" stroke="url(#lcAshokaGold)" stroke-width="1.8"/>
+      <g stroke="url(#lcAshokaGold)" stroke-width="2" stroke-linecap="butt">`;
+    for (let i = 0; i < 24; i += 1) {
+      markup += `<line x1="0" y1="-50" x2="0" y2="-30" transform="rotate(${i * 15})"/>`;
+    }
+    markup += "</g>";
+    group.innerHTML = markup;
+    group.dataset.built = "true";
+  }
+
     const bg = document.getElementById("lc-hero-bg");
     if (!bg || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     window.addEventListener("scroll", () => {
@@ -193,10 +212,29 @@
     const session = getSession();
     const isLanding = !session?.user && (viewId === "home" || viewId === "login");
     document.body.classList.toggle("lc-landing-mode", isLanding);
-    if (session?.user && viewId === "home") {
-      document.body.classList.remove("lc-landing-mode");
-    }
+    document.body.classList.toggle("lc-app-mode", Boolean(session?.user));
   }
+
+  window.demoLogin = async function demoLogin(role) {
+    const status = document.getElementById("auth-status");
+    try {
+      if (status) status.textContent = "Opening demo workspace…";
+      const res = await fetch("/api/auth/demo-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Demo login failed");
+      localStorage.setItem("legalConnectSession", JSON.stringify(result));
+      if (typeof applySessionToUi === "function") applySessionToUi(result);
+      const routes = { client: "client", advocate: "advocate", intern: "intern", admin: "admin", rna: "admin" };
+      if (typeof activateView === "function") activateView(routes[result.user.role] || "client");
+      if (status) status.textContent = `Demo ${result.user.role} dashboard opened.`;
+    } catch (error) {
+      if (status) status.textContent = error.message || "Demo login unavailable.";
+    }
+  };
 
   async function pingBackend() {
     const status = document.getElementById("auth-status");
@@ -297,6 +335,13 @@
       return;
     }
 
+    const demoBtn = event.target.closest("[data-demo-login]");
+    if (demoBtn) {
+      event.preventDefault();
+      demoLogin(demoBtn.dataset.demoLogin);
+      return;
+    }
+
     const scrollBtn = event.target.closest("[data-scroll]");
     if (scrollBtn) {
       event.preventDefault();
@@ -349,6 +394,7 @@
   updateLandingMode(location.hash.replace("#", "") || "home");
   setSignupRole("client");
   startHeroQuotes();
+  initAshokaChakra();
   initParallax();
   initHeaderScroll();
   pingBackend();
