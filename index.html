@@ -87,7 +87,6 @@
               </button>
             </header>
 
-<<<<<<< Updated upstream
             <section class="lc-hero">
               <div class="lc-hero-bg" id="lc-hero-bg" style="background-image: url('images/hero-courthouse.png')"></div>
               <div class="lc-hero-overlay"></div>
@@ -109,24 +108,40 @@
                   </div>
                 </div>
 
-                <div class="lc-hero-visual lc-animate-in lc-animate-delay">
-                  <div class="lc-chakra-scene">
-                    <div class="lc-chakra-glow-ring" aria-hidden="true"></div>
-                    <div class="lc-chakra-stack">
-                      <svg class="lc-chakra lc-chakra-outer" viewBox="0 0 240 240" fill="none" aria-hidden="true">
+                <div class="lc-hero-visual lc-animate-in">
+                  <div class="lc-dharma-stage">
+                    <div class="lc-chakra-ring" aria-hidden="true">
+                      <svg class="lc-chakra lc-chakra-outer" viewBox="0 0 240 240" fill="none">
+                        <circle cx="120" cy="120" r="114" stroke="url(#lcAshokaGold)" stroke-width="1.5" opacity="0.4" />
+                        <circle cx="120" cy="120" r="102" stroke="url(#lcAshokaGold)" stroke-width="1" stroke-dasharray="4 8" opacity="0.6" />
+                        <g transform="translate(120,120)">
+                          <circle r="90" fill="none" stroke="url(#lcAshokaGold)" stroke-width="1.5" opacity="0.8" />
+                          <circle r="22" fill="none" stroke="url(#lcAshokaGold)" stroke-width="2" />
+                          <circle r="6" fill="#D4AF37" />
+                        </g>
+                      </svg>
+                      <svg class="lc-chakra lc-chakra-spokes" viewBox="0 0 240 240" fill="none" aria-hidden="true">
                         <defs>
-                          <linearGradient id="lcAshokaGold" x1="0" y1="0" x2="240" y2="240">
-                            <stop offset="0%" stop-color="#FFF0C8" />
-                            <stop offset="45%" stop-color="#D4AF37" />
-                            <stop offset="100%" stop-color="#8B6914" />
+                          <linearGradient id="lcAshokaGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#F3E5AB" />
+                            <stop offset="50%" stop-color="#D4AF37" />
+                            <stop offset="100%" stop-color="#AA7C11" />
                           </linearGradient>
-                          <radialGradient id="lcAshokaGlow" cx="50%" cy="50%" r="50%">
-                            <stop offset="0%" stop-color="#FFF8E7" stop-opacity="0.9" />
-                            <stop offset="100%" stop-color="#C5A059" stop-opacity="0" />
-                          </radialGradient>
                         </defs>
-                        <circle cx="120" cy="120" r="115" fill="url(#lcAshokaGlow)" opacity="0.35" />
-                        <g transform="translate(120,120)" id="lc-chakra-spokes"></g>
+                        <g transform="translate(120,120)" stroke="url(#lcAshokaGold)" stroke-width="1.2" opacity="0.85">
+                          <line x1="0" y1="-90" x2="0" y2="-22" /><line x1="0" y1="22" x2="0" y2="90" />
+                          <line x1="-90" y1="0" x2="-22" y2="0" /><line x1="22" y1="0" x2="90" y2="0" />
+                          <line x1="-63.64" y1="-63.64" x2="-15.56" y2="-15.56" /><line x1="15.56" y1="15.56" x2="63.64" y2="63.64" />
+                          <line x1="63.64" y1="-63.64" x2="15.56" y2="-15.56" /><line x1="-15.56" y1="15.56" x2="-63.64" y2="63.64" />
+                          <line x1="-34.44" y1="-83.15" x2="-8.42" y2="-20.33" /><line x1="8.42" y1="20.33" x2="34.44" y2="83.15" />
+                          <line x1="83.15" y1="-34.44" x2="20.33" y2="-8.42" /><line x1="-20.33" y1="8.42" x2="-83.15" y2="34.44" />
+                          <line x1="-83.15" y1="-34.44" x2="-20.33" y2="-8.42" /><line x1="20.33" y1="8.42" x2="83.15" y2="34.44" />
+                          <line x1="34.44" y1="-83.15" x2="8.42" y2="-20.33" /><line x1="-8.42" y1="20.33" x2="-34.44" y2="83.15" />
+                          <line x1="-74.80" y1="-50.00" x2="-18.28" y2="-12.22" /><line x1="18.28" y1="12.22" x2="74.80" y2="50.00" />
+                          <line x1="50.00" y1="-74.80" x2="12.22" y2="-18.28" /><line x1="-12.22" y1="18.28" x2="-50.00" y2="74.80" />
+                          <line x1="-50.00" y1="-74.80" x2="-12.22" y2="-18.28" /><line x1="12.22" y1="18.28" x2="50.00" y2="74.80" />
+                          <line x1="74.80" y1="-50.00" x2="18.28" y2="-12.22" /><line x1="-18.28" y1="12.22" x2="-74.80" y2="50.00" />
+                        </g>
                       </svg>
                       <svg class="lc-chakra lc-chakra-inner" viewBox="0 0 240 240" fill="none" aria-hidden="true">
                         <g transform="translate(120,120)" stroke="url(#lcAshokaGold)" stroke-width="1.5" opacity="0.45">
@@ -134,12 +149,8 @@
                           <circle r="28" fill="none" stroke-dasharray="3 6" />
                         </g>
                       </svg>
-                      <div class="lc-chakra-hub" aria-hidden="true"></div>
                     </div>
-                    <div class="lc-pedestal"></div>
-                    <div class="lc-pedestal-base"></div>
                   </div>
-
                   <div class="lc-quote-box lc-quote-rotate" id="hero-quote-box">
                     <span class="lc-quote-mark lc-serif" aria-hidden="true">&ldquo;</span>
                     <p class="lc-quote-sanskrit lc-serif" id="hero-quote-sanskrit">यतो धर्मस्ततो जयः</p>
@@ -149,49 +160,6 @@
                   </div>
                 </div>
               </div>
-=======
-            <section class="poster-mast">
-              <span>Dharma. Duty. Due Process.</span>
-              <div class="poster-emblem" aria-hidden="true"><i></i></div>
-              <h2>Legal<br />Connect</h2>
-              <p>For people who need clarity. For lawyers who need command.</p>
-              <div class="msme-trust-badge" aria-label="MSME registration trust badge">
-                <strong>MSME Registered</strong>
-                <span>UDYAM-DL-11-0164811</span>
-              </div>
-              <blockquote class="dharma-quote-card">
-                <span>Today's Dharma</span>
-                <p>"Yada yada hi dharmasya glanir bhavati Bharata; abhyutthanam adharmasya tadatmanam srijamyaham. Paritranaya sadhunam vinashaya cha dushkritam; dharma-samsthapanarthaya sambhavami yuge yuge."</p>
-                <cite>Bhagavad Gita 4.7-4.8 - When duty weakens, order must rise.</cite>
-              </blockquote>
-            </section>
-
-            <section class="poster-gates" aria-label="Choose Legal Connect gateway">
-              <article data-jump="client" data-selected-portal="client">
-                <div class="portal-scene people-scene" aria-hidden="true">
-                  <img src="news/news-1.png" alt="" />
-                  <span></span>
-                </div>
-                <div class="poster-icon people-icon" aria-hidden="true"></div>
-                <h3>For People</h3>
-                <strong>People Shield</strong>
-                <p>SOS, advocate booking, documents, receipts and case status without panic.</p>
-                <button data-jump="client">Enter as Client</button>
-              </article>
-              <article data-jump="advocate" data-selected-portal="advocate">
-                <div class="portal-scene lawyer-scene" aria-hidden="true">
-                  <img src="images/law-library-bg.png" alt="" />
-                  <span></span>
-                </div>
-                <div class="poster-icon lawyer-icon" aria-hidden="true"></div>
-                <h3>For Lawyers</h3>
-                <strong>Advocate Command</strong>
-                <p>Cases, court missions, chamber work, diary and digital library in one board.</p>
-                <button data-jump="advocate">Enter as Advocate</button>
-              </article>
-            </section>
->>>>>>> Stashed changes
-
               <div class="lc-quote-float" id="hero-quote-float" aria-live="polite">
                 <p class="lc-serif" id="hero-float-sanskrit"></p>
                 <p id="hero-float-english"></p>
@@ -276,22 +244,6 @@
           </div>
         </section>
         <section class="view" id="login">
-<<<<<<< Updated upstream
-          <div class="lc-page lc-signup">
-            <div class="lc-signup-visual">
-              <div class="lc-signup-visual-bg" id="signup-visual-bg"></div>
-              <div class="lc-signup-visual-overlay"></div>
-              <div class="lc-signup-visual-content">
-                <button type="button" class="lc-back-home" data-back-home>← Back to Legal Connect</button>
-                <p class="lc-eyebrow" id="signup-role-label">CLIENT PORTAL</p>
-                <h2 class="lc-serif" id="signup-headline">Your Personal Legal Hub</h2>
-                <p id="signup-subheadline" style="color:rgba(255,255,255,0.7);font-size:0.9rem;margin-top:0.5rem">Track cases, connect with counsel, and get help when it matters.</p>
-                <div class="lc-signup-perks" id="signup-perks"></div>
-              </div>
-              <div class="lc-signup-quote">
-                <blockquote id="signup-quote-text">"Justice delayed is justice denied — but clarity should never wait."</blockquote>
-                <footer id="signup-quote-author">— Legal Connect</footer>
-=======
           <div class="split">
             <div class="panel login-panel">
               <div class="chakra-loader" aria-hidden="true"></div>
@@ -316,14 +268,9 @@
                   </button>
                   <button type="button" class="demo-account-card" data-demo-account="intern">
                     <strong>Intern Demo</strong>
-                    <span>Start XP missions</span>
-                  </button>
-                  <button type="button" class="demo-account-card" data-demo-account="admin">
-                    <strong>Admin Demo</strong>
-                    <span>Review the control room</span>
+                    <span>View your missions</span>
                   </button>
                 </div>
->>>>>>> Stashed changes
               </div>
             </div>
             <div class="lc-signup-form-wrap">
@@ -368,20 +315,7 @@
                   </div>
                 </form>
               </div>
-<<<<<<< Updated upstream
             </div>
-=======
-              <label>Bar Council ID<input value="D/4210/2019" /></label>
-              <label>State Bar Council<select><option>Delhi</option><option>Haryana</option><option>Uttar Pradesh</option></select></label>
-              <label>Practice Areas<input value="Criminal, Commercial, Arbitration" /></label>
-              <label>Court Preferences<input value="DHC, Tis Hazari, Saket, Dwarka" /></label>
-              <label>Detected Lane<select id="login-role"><option value="advocate">Advocate Portal</option><option value="client">Client Portal</option><option value="intern">Internverse</option><option value="admin">Administrator</option></select></label>
-              <label class="consent-line"><input id="privacy-consent" type="checkbox" /> I agree to the Terms and acknowledge the Privacy Policy. I understand that Legal Connect may process my information to authenticate my account, manage service requests, coordinate legal support, process payments, issue receipts, and maintain safety and audit records.</label>
-              <p class="inline-legal-links"><button type="button" class="text-link" data-jump="privacy-policy">Read Privacy Policy</button><button type="button" class="text-link" data-jump="terms">Read Terms</button></p>
-              <button class="gold-button" type="submit">Verify and Route Securely</button>
-              <p class="auth-status" id="auth-status">Login creates a confidential Phase 1 session. Receipts are private to you and RNA/Admin governance.</p>
-            </form>
->>>>>>> Stashed changes
           </div>
         </section>
 

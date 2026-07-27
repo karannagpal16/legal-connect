@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 import { useEffect, useState, type ElementType } from "react";
 import { Link, useLocation } from "wouter";
 import {
@@ -16,14 +15,14 @@ import {
   Shield,
   Smartphone,
   Users,
+  Gavel,
+  BookOpen,
+  ChevronRight,
+  Newspaper,
+  Landmark,
+  Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-=======
-import { Link, useLocation } from "wouter";
-import { Scale, Gavel, BookOpen, ArrowRight, ChevronRight, Newspaper, Landmark, Quote, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
->>>>>>> Stashed changes
 import { enterPortal } from "@/pages/auth/AuthPages";
 import type { Portal } from "@/lib/authFlow";
 
@@ -103,108 +102,7 @@ function DharmaChakra({ size = 52 }: { size?: number }) {
   );
 }
 
-<<<<<<< Updated upstream
 function QuoteCard() {
-=======
-function PortalCard({ portal, icon: Icon, label, subLabel, idx, accent, bg, glow }: {
-  portal: Portal; icon: React.ElementType; label: string; subLabel: string; idx: number;
-  accent: string; bg: string; glow: string;
-}) {
-  const [, navigate] = useLocation();
-
-  return (
-    <button onClick={() => enterPortal(portal, navigate)} className="block w-full border-0 bg-transparent p-0 text-inherit">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 + idx * 0.15, duration: 0.6 }}
-        whileHover={{ y: -6, scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="group relative cursor-pointer"
-      >
-        {/* Hover glow */}
-        <div className="absolute -inset-2 rounded-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-700 blur-xl"
-             style={{ background: glow }} />
-
-        <div className="relative rounded-xl p-6 text-center overflow-hidden transition-all duration-500"
-             style={{ background: bg, border: `1px solid ${accent}40`, boxShadow: `0 4px 20px ${accent}15, inset 0 1px 0 rgba(255,255,255,0.8)` }}>
-
-          {/* Top line */}
-          <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
-
-          {/* Corner sparkle */}
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-40 transition-opacity duration-500">
-            <Sparkles className="w-4 h-4" style={{ color: accent }} />
-          </div>
-
-          {/* Icon */}
-          <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 scale-90 group-hover:scale-110"
-                 style={{ background: `${accent}15`, border: `1px solid ${accent}30` }} />
-            <div className="w-16 h-16 rounded-xl flex items-center justify-center relative z-10 group-hover:scale-105 transition-transform duration-300"
-                 style={{ background: `${accent}18`, border: `1px solid ${accent}40` }}>
-              <Icon className="w-7 h-7" style={{ color: accent }} strokeWidth={1.5} />
-            </div>
-          </div>
-
-          <p className="font-bold text-sm uppercase tracking-[0.2em]" style={{ color: T.text }}>{label}</p>
-          <p className="text-[10px] mt-1 uppercase tracking-[0.15em] font-semibold" style={{ color: accent }}>{subLabel}</p>
-
-          <div className="mt-3 flex items-center justify-center gap-1 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0"
-               style={{ color: accent }}>
-            Enter Portal <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform duration-300" />
-          </div>
-        </div>
-      </motion.div>
-    </button>
-  );
-}
-
-function DharmaQuoteBar() {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setIdx(p => (p + 1) % dharmaQuotes.length), 5000);
-    return () => clearInterval(t);
-  }, []);
-  const q = dharmaQuotes[idx];
-  return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.6 }}
-                className="relative w-full max-w-2xl mx-auto">
-      <div className="relative rounded-xl overflow-hidden"
-           style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: `0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)` }}>
-        <div className="h-1" style={{ background: `linear-gradient(90deg, ${T.gold}, ${T.amber}, ${T.gold})` }} />
-        <div className="px-6 py-5 sm:px-8 sm:py-6">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-1">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${T.gold}20, ${T.amber}30)` }}>
-                <Quote className="w-4 h-4" style={{ color: T.gold }} />
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <AnimatePresence mode="wait">
-                <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.5 }}>
-                  <p className="text-lg sm:text-xl font-serif font-bold leading-snug" style={{ color: T.text }}>{q.text}</p>
-                  <p className="text-sm mt-1 font-medium" style={{ color: T.textMuted }}>{q.sub}</p>
-                  <p className="text-[10px] mt-2 uppercase tracking-wider font-bold" style={{ color: T.gold }}>{q.source}</p>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 mt-4 justify-center">
-            {dharmaQuotes.map((_, i) => (
-              <button key={i} onClick={() => setIdx(i)} className="transition-all duration-300 rounded-full"
-                      style={{ width: i === idx ? 20 : 6, height: 6, background: i === idx ? T.gold : `${T.border}`,
-                               boxShadow: i === idx ? `0 0 8px ${T.gold}50` : "none" }} />
-            ))}
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function LiveNewsPanel() {
->>>>>>> Stashed changes
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -318,7 +216,6 @@ export function Home() {
           </button>
         </header>
 
-<<<<<<< Updated upstream
         <div className="relative z-10 mx-auto grid max-w-[1500px] grid-cols-1 items-center gap-10 px-6 pb-10 pt-14 sm:px-10 lg:grid-cols-[1fr_0.92fr] lg:px-12 lg:pt-20">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }}>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#cda45e]">India's Litigation Operating System</p>
@@ -330,19 +227,6 @@ export function Home() {
               An all-in-one platform for legal professionals and individuals. Manage cases, connect with counsel,
               and navigate the legal system with clarity, confidence, and control.
             </p>
-=======
-          {/* Portal Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto w-full">
-            <PortalCard portal="advocate" icon={Gavel} label="Advocate" subLabel="Portal" idx={0}
-                        accent="#2563EB" bg="#EFF6FF" glow="#2563EB20" />
-            <PortalCard portal="client" icon={Scale} label="Client" subLabel="Portal" idx={1}
-                        accent="#DC2626" bg="#FEF2F2" glow="#DC262620" />
-            <PortalCard portal="intern" icon={BookOpen} label="Learn" subLabel="& Rise" idx={2}
-                        accent="#D97706" bg="#FFFBEB" glow="#D9770620" />
-            <PortalCard portal="client" icon={Landmark} label="eCourt" subLabel="Services" idx={3}
-                        accent="#059669" bg="#ECFDF5" glow="#05966920" />
-          </div>
->>>>>>> Stashed changes
 
             <div className="mt-9 flex flex-wrap items-center gap-5">
               <button
