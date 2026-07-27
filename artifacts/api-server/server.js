@@ -1548,6 +1548,10 @@ function serveStatic(req, res) {
   }
 
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    if (/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico|json|map)$/i.test(safePath)) {
+      sendJson(res, 404, { error: "Asset not found" });
+      return;
+    }
     filePath = path.join(publicDir, "index.html");
   }
 
