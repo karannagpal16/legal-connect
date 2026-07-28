@@ -10,7 +10,15 @@ const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedFo
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
 const SERVER_STARTED_AT = new Date().toISOString();
-const SESSION_SECRET = process.env.SESSION_SECRET || config.razorpayWebhookSecret || crypto.randomBytes(32).toString("hex");
+const sessionSecretMaterial = process.env.SESSION_SECRET
+  || process.env.JWT_SECRET
+  || config.razorpayWebhookSecret
+  || config.dbUrl;
+const SESSION_SECRET = sessionSecretMaterial || "legal-connect-local-session-secret";
+
+if (config.nodeEnv === "production" && !process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
+  console.warn("SESSION_SECRET/JWT_SECRET is not configured; using a stable deployment secret fallback.");
+}
 
 function appVersionPayload() {
   const candidates = ["app.js", "styles.css", "index.html"]
@@ -259,7 +267,8 @@ function decodeSession(token) {
     if (actual.length !== expectedBuffer.length || !crypto.timingSafeEqual(actual, expectedBuffer)) return null;
     const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
     if (!parsed.id || !roles.has(parsed.role)) return null;
-    if (!parsed.exp || Date.now() > parsed.exp) return null;
+    const expiresAt = Number(parsed.exp) < 1_000_000_000_000 ? Number(parsed.exp) * 1000 : Number(parsed.exp);
+    if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return null;
     return parsed;
   } catch {
     return null;
@@ -277,6 +286,28 @@ function canSeeAll(user) {
 
 function userIdForWrite(body, user) {
   return user?.id || null;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value) {
+  return UUID_PATTERN.test(String(value || ""));
+}
+
+async function resolveDatabaseUserId(user) {
+  if (!user?.id) return null;
+  if (!db.dbAvailable || isUuid(user.id)) return user.id;
+
+  const isLegacyDemoUser = String(user.id).startsWith("demo-");
+  if (!isLegacyDemoUser) return null;
+
+  const demoRole = user.role === "rna" ? "admin" : user.role;
+  const account = getDemoAccountByRole(demoRole);
+  const existing = await db.query("SELECT id FROM users WHERE email = $1 LIMIT 1", [account.email]);
+  if (existing.rows[0]?.id) return existing.rows[0].id;
+
+  const resolved = await upsertDemoUser(account);
+  return isUuid(resolved.user?.id) ? resolved.user.id : null;
 }
 
 function userRole(user) {
@@ -2566,9 +2597,14 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, []);
         return;
       }
+      const databaseUserId = await resolveDatabaseUserId(authUser);
+      if (!canSeeAll(authUser) && !databaseUserId) {
+        sendJson(res, 401, { error: "Your session has expired. Please log in again." });
+        return;
+      }
       const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM cases ORDER BY created_at DESC")
-        : await db.query("SELECT * FROM cases WHERE user_id = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC", [authUser.id]);
+        : await db.query("SELECT * FROM cases WHERE user_id = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC", [databaseUserId]);
       sendJson(res, 200, result.rows.map(mapCase));
       return;
     }
@@ -2628,12 +2664,17 @@ const server = http.createServer(async (req, res) => {
       createdAt: new Date().toISOString(),
     };
     if (db.dbAvailable) {
+      const databaseUserId = await resolveDatabaseUserId(authUser);
+      if (!databaseUserId) {
+        sendJson(res, 401, { error: "Your session has expired. Please log in again." });
+        return;
+      }
       const result = await db.query(
         `INSERT INTO cases (user_id, title, court, case_number, cnr, next_date, status, notes, payload)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
-          userIdForWrite(body, authUser),
+          databaseUserId,
           trackedCase.title,
           trackedCase.court,
           caseNumber,
@@ -2641,7 +2682,7 @@ const server = http.createServer(async (req, res) => {
           trackedCase.nextDate,
           trackedCase.status,
           body.notes || null,
-          JSON.stringify({ ...body, user_id: userIdForWrite(body, authUser), role: userRole(authUser), stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
+          JSON.stringify({ ...body, user_id: databaseUserId, role: userRole(authUser), stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
         ],
       );
       sendJson(res, 201, mapCase(result.rows[0]));
@@ -2666,7 +2707,8 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 401, { error: "Login is required." });
         return;
       }
-      if (!canSeeAll(authUser) && mapped.userId !== authUser.id && mapped.assignedTo !== authUser.id) {
+      const databaseUserId = await resolveDatabaseUserId(authUser);
+      if (!canSeeAll(authUser) && mapped.userId !== databaseUserId && mapped.assignedTo !== databaseUserId) {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
@@ -2705,7 +2747,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const current = mapCase(existing.rows[0]);
-      if (!canSeeAll(authUser) && current.userId !== authUser.id && current.assignedTo !== authUser.id) {
+      const databaseUserId = await resolveDatabaseUserId(authUser);
+      if (!canSeeAll(authUser) && current.userId !== databaseUserId && current.assignedTo !== databaseUserId) {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
@@ -4132,7 +4175,7 @@ startServer().catch((error) => {
 
 // STRICT PHASE 2 JWT AUTH AND ROLE ISOLATION SUPPORT
 function strictJwtSecret() {
-  return process.env.JWT_SECRET || process.env.SESSION_SECRET || config.razorpayWebhookSecret || 'legal-connect-local-jwt-secret-change-me';
+  return SESSION_SECRET;
 }
 
 function strictBase64Url(input) {
@@ -4331,17 +4374,31 @@ const strictOriginalRequestListeners = server.listeners('request').slice();
 server.removeAllListeners('request');
 server.on('request', async function strictRoleIsolatedRequest(req, res) {
   try {
-    const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
-    if (await handleStrictJwtAuthRoute(req, res, url)) return;
-  } catch (error) {
-    if (!res.headersSent && req.url && req.url.startsWith('/api/auth')) {
-      sendJson(res, 500, { ok: false, error: 'Authentication service failed.' });
-      return;
+    try {
+      const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
+      if (await handleStrictJwtAuthRoute(req, res, url)) return;
+    } catch (error) {
+      if (!res.headersSent && req.url && req.url.startsWith('/api/auth')) {
+        sendJson(res, 500, { ok: false, error: 'Authentication service failed.' });
+        return;
+      }
     }
-  }
-  for (const listener of strictOriginalRequestListeners) {
-    if (res.writableEnded) return;
-    const result = listener.call(server, req, res);
-    if (result && typeof result.then === 'function') await result;
+    for (const listener of strictOriginalRequestListeners) {
+      if (res.writableEnded) return;
+      const result = listener.call(server, req, res);
+      if (result && typeof result.then === 'function') await result;
+    }
+  } catch (error) {
+    const requestId = crypto.randomBytes(6).toString('hex');
+    console.error(`[request:${requestId}] ${req.method || 'UNKNOWN'} ${req.url || '/'} failed`, error);
+    if (!res.headersSent) {
+      sendJson(res, 500, {
+        ok: false,
+        error: 'The service could not complete this request. Please try again.',
+        requestId,
+      });
+    } else if (!res.writableEnded) {
+      res.end();
+    }
   }
 });

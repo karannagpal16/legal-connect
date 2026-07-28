@@ -145,11 +145,19 @@ function truncate(text: string, maxLength = 300): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
 
+function looksLikeHtml(text: string): boolean {
+  const normalized = text.trimStart().toLowerCase();
+  return normalized.startsWith("<!doctype html") || normalized.startsWith("<html");
+}
+
 function buildErrorMessage(response: Response, data: unknown): string {
   const prefix = `HTTP ${response.status} ${response.statusText}`;
 
   if (typeof data === "string") {
     const text = data.trim();
+    if (looksLikeHtml(text)) {
+      return `${prefix}: The service is temporarily unavailable. Please try again.`;
+    }
     return text ? `${prefix}: ${truncate(text)}` : prefix;
   }
 
