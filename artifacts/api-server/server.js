@@ -54,8 +54,31 @@ function createLocalDemoStore() {
       { id: "demo-intern", name: "Demo Intern", email: "intern@demo.legal-connect.in", phone: "+919999900003", role: "intern", createdAt: now },
     ],
     bookings: [
-      { id: "booking-demo-1", userId: "demo-client", clientName: "Demo Client", clientEmail: "client@demo.legal-connect.in", clientPhone: "+919999900001", legalIssueType: "Property", preferredLawyer: "Demo Lawyer", preferredDate: "2026-08-01", preferredTime: "11:00 AM", status: "Confirmed", createdAt: now },
-      { id: "booking-demo-2", userId: "demo-client-aarav", clientName: "Aarav Mehta", clientEmail: "aarav@example.com", clientPhone: "+919999900004", legalIssueType: "Civil", preferredLawyer: "Demo Lawyer", preferredDate: "2026-08-06", preferredTime: "3:00 PM", status: "Pending", createdAt: now },
+      {
+        id: "BK-9012",
+        userId: "demo-client",
+        clientName: "Priya Sharma",
+        clientEmail: "client@demo.legal-connect.in",
+        clientPhone: "+91 98765 43210",
+        serviceType: "Attorney Shield Consultation",
+        amount: 1999,
+        paymentStatus: "paid",
+        receiptNo: "LC-REC-9012",
+        caseTitle: "Property Title Dispute & Notice Reply",
+        caseNumber: "DL-HC/2026/8941",
+        courtName: "Delhi High Court",
+        caseType: "Property",
+        problemSummary: "Seller issued conflicting title notice. Require urgent advocate strategy review and legal reply notice.",
+        attachedFiles: [
+          { name: "Legal_Notice_2026.pdf", label: "Legal Notice", url: "#" },
+          { name: "Sale_Agreement_Draft.pdf", label: "Agreement Copy", url: "#" }
+        ],
+        stageStatus: "advocate_connected",
+        assignedAdvocateId: "demo-advocate",
+        assignedAdvocateName: "Adv. Rishika Nagpal",
+        workHoldStatus: "pending",
+        createdAt: now,
+      }
     ],
     cases: [
       {
@@ -3939,6 +3962,70 @@ const server = http.createServer(async (req, res) => {
       updatedAt: new Date().toISOString(),
     });
     sendJson(res, 200, dashboardBooking(booking));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/bookings/") && url.pathname.endsWith("/stage") && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    const body = await readBody(req);
+    const parts = url.pathname.split("/");
+    const bookingId = parts[3];
+    const newStage = body.stageStatus || body.stage || body.status || "booking_submitted";
+    const advocateName = body.assignedAdvocateName || body.advocateName || (authUser && authUser.role === 'advocate' ? authUser.name : "Adv. Rishika Nagpal");
+    const advocateId = body.assignedAdvocateId || (authUser ? authUser.id : "demo-advocate-id");
+    const meetingLink = body.meetingLink || body.link || null;
+
+    let targetBooking = null;
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingId]);
+      if (existing.rows.length) {
+        const payload = existing.rows[0].payload ? (typeof existing.rows[0].payload === 'string' ? JSON.parse(existing.rows[0].payload) : existing.rows[0].payload) : {};
+        payload.stageStatus = newStage;
+        payload.assignedAdvocateName = advocateName;
+        payload.assignedAdvocateId = advocateId;
+        if (meetingLink) payload.meetingLink = meetingLink;
+        const updated = await db.query(
+          `UPDATE bookings SET payload = $2, work_hold_status = $3 WHERE id = $1 RETURNING *`,
+          [bookingId, JSON.stringify(payload), newStage === 'request_entertained' ? 'released' : 'pending']
+        );
+        targetBooking = mapBooking(updated.rows[0]);
+      }
+    } else {
+      targetBooking = demoStore.bookings.find((item) => item.id === bookingId);
+      if (!targetBooking && demoStore.bookings.length > 0) {
+        targetBooking = demoStore.bookings[0];
+      }
+      if (targetBooking) {
+        targetBooking.stageStatus = newStage;
+        targetBooking.assignedAdvocateName = advocateName;
+        targetBooking.assignedAdvocateId = advocateId;
+        if (meetingLink) targetBooking.meetingLink = meetingLink;
+        if (newStage === 'request_entertained') {
+          targetBooking.workHoldStatus = 'released';
+          targetBooking.paymentStatus = 'paid';
+        }
+      }
+    }
+
+    if (targetBooking) {
+      const stageTitles = {
+        booking_submitted: "Booking Submitted & Fee Held in Escrow",
+        acknowledged_and_assigned: "Acknowledged & Assigned by Legal Connect",
+        advocate_connected: `Advocate Connected (${advocateName})`,
+        session_confirmed: "Session Confirmed & Scheduled",
+        request_entertained: "Request Entertained & Work Completed"
+      };
+      await createNotification(
+        "booking_stage_updated",
+        "Booking Status Update",
+        `Your booking status is now: ${stageTitles[newStage] || newStage}`,
+        { bookingId, stageStatus: newStage, advocateName },
+        targetBooking.userId || targetBooking.user_id || null
+      );
+      sendJson(res, 200, { ok: true, booking: targetBooking });
+    } else {
+      sendJson(res, 404, { ok: false, error: "Booking not found" });
+    }
     return;
   }
 
