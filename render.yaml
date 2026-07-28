@@ -7,12 +7,21 @@ services:
     buildCommand: |
       npm install -g pnpm@11.17.0
       pnpm install --frozen-lockfile
-      pnpm --dir artifacts/law-firm build
-      mkdir -p artifacts/api-server/public
-      cp -R artifacts/law-firm/dist/public/* artifacts/api-server/public/
-    startCommand: node artifacts/api-server/server.js
+      pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: DEMO_MODE
         value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true

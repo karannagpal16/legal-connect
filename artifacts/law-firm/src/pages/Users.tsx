@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useListUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@workspace/api-client-react";
 import type { User, CreateUserRequestRole } from "@workspace/api-client-react";
 import { Plus, Search, Edit2, Trash2, Shield, User as UserIcon, Phone, MapPin, Mail } from "lucide-react";
@@ -157,6 +157,17 @@ function UserDialog({ open, onOpenChange, editingUser }: any) {
       role: "Intern" as CreateUserRequestRole
     }
   });
+
+  useEffect(() => {
+    form.reset(editingUser || {
+      name: "",
+      email: "",
+      phone: "",
+      barId: "",
+      locationBase: "",
+      role: "Intern" as CreateUserRequestRole,
+    });
+  }, [editingUser, form, open]);
 
   const { mutate: create } = useCreateUser({
     mutation: {

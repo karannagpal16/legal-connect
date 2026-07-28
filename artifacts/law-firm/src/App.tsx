@@ -1,14 +1,15 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import { Login } from "@/pages/Login";
+import { AuthProvider, RequireAuth, roleHome, useAuth, type AppRole } from "@/lib/auth";
 
 import { Layout } from "@/components/layout/Layout";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 import { AdvocateLayout } from "@/components/layout/AdvocateLayout";
 import { InternLayout } from "@/components/layout/InternLayout";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 import { Home } from "@/pages/Home";
 import { Dashboard } from "@/pages/Dashboard";
@@ -58,7 +59,6 @@ import { InternDoubtPortal } from "@/pages/intern/InternDoubtPortal";
 import { InternAIAssistant } from "@/pages/intern/InternAIAssistant";
 import { AdvocateCaseTracker } from "@/pages/advocate/AdvocateCaseTracker";
 import { InternCaseTracker } from "@/pages/intern/InternCaseTracker";
-import { OnboardingPage, PortalLogin, PortalMismatch, PortalRegister, StatusPage, VerificationPending } from "@/pages/auth/AuthPages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,222 +70,169 @@ const queryClient = new QueryClient({
   },
 });
 
+function Private({ role, children }: { role: AppRole; children: React.ReactNode }) {
+  return <RequireAuth roles={[role]}>{children}</RequireAuth>;
+}
+
+function WorkspaceRedirect() {
+  const { session } = useAuth();
+  return <Redirect to={session ? roleHome(session.user.role) : "/login"} />;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/access-denied">
-        <StatusPage type="denied" />
-      </Route>
-      <Route path="/account-restricted">
-        <StatusPage type="restricted" />
-      </Route>
-      <Route path="/portal-mismatch">
-        <PortalMismatch />
-      </Route>
+      <Route path="/login" component={Login} />
+      <Route path="/app" component={WorkspaceRedirect} />
 
       {/* Legacy public pages */}
-      <Route path="/book" component={BookLawyer} />
+      <Route path="/book"><Private role="client"><BookLawyer /></Private></Route>
+
+      {/* ADMIN PORTAL */}
+      <Route path="/admin"><Private role="admin"><Layout><Dashboard /></Layout></Private></Route>
+      <Route path="/admin/users"><Private role="admin"><Layout><Users /></Layout></Private></Route>
+      <Route path="/admin/cases"><Private role="admin"><Layout><MyDiary /></Layout></Private></Route>
+      <Route path="/admin/bookings"><Private role="admin"><Layout><Bookings /></Layout></Private></Route>
+      <Route path="/admin/missions"><Private role="admin"><Layout><ProxyHub /></Layout></Private></Route>
+      <Route path="/admin/revenue"><Private role="admin"><Layout><RevenueTracker /></Layout></Private></Route>
+      <Route path="/admin/library"><Private role="admin"><Layout><LegalLibrary /></Layout></Private></Route>
 
       {/* Legacy admin routes */}
       <Route path="/dashboard">
-        <Layout><Dashboard /></Layout>
+        <Private role="admin"><Layout><Dashboard /></Layout></Private>
       </Route>
       <Route path="/diary">
-        <Layout><MyDiary /></Layout>
+        <Private role="admin"><Layout><MyDiary /></Layout></Private>
       </Route>
       <Route path="/proxy-hub">
-        <Layout><ProxyHub /></Layout>
+        <Private role="admin"><Layout><ProxyHub /></Layout></Private>
       </Route>
       <Route path="/intern-quests">
-        <Layout><InternQuests /></Layout>
+        <Private role="admin"><Layout><InternQuests /></Layout></Private>
       </Route>
       <Route path="/revenue-tracker">
-        <Layout><RevenueTracker /></Layout>
+        <Private role="admin"><Layout><RevenueTracker /></Layout></Private>
       </Route>
       <Route path="/bookings">
-        <Layout><Bookings /></Layout>
+        <Private role="admin"><Layout><Bookings /></Layout></Private>
       </Route>
       <Route path="/users">
-        <Layout><Users /></Layout>
+        <Private role="admin"><Layout><Users /></Layout></Private>
       </Route>
       <Route path="/legal-library">
-        <Layout><LegalLibrary /></Layout>
+        <Private role="admin"><Layout><LegalLibrary /></Layout></Private>
       </Route>
 
       {/* CLIENT PORTAL */}
-      <Route path="/client/login">
-        <PortalLogin portal="client" />
-      </Route>
-      <Route path="/client/register">
-        <PortalRegister portal="client" />
-      </Route>
-      <Route path="/client/onboarding">
-        <OnboardingPage portal="client" />
-      </Route>
-      <Route path="/client/dashboard">
-        <ProtectedRoute allowedRoles={["client"]}>
-          <ClientLayout><ClientHome /></ClientLayout>
-        </ProtectedRoute>
-      </Route>
       <Route path="/client">
-        <ProtectedRoute allowedRoles={["client"]}>
-          <ClientLayout><ClientHome /></ClientLayout>
-        </ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientHome /></ClientLayout></Private>
       </Route>
       <Route path="/client/connect">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientConnectChat /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientConnectChat /></ClientLayout></Private>
       </Route>
       <Route path="/client/wellness">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientWellness /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientWellness /></ClientLayout></Private>
       </Route>
       <Route path="/client/rights">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientRightsFeed /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientRightsFeed /></ClientLayout></Private>
       </Route>
       <Route path="/client/cases">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientCaseTracker /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientCaseTracker /></ClientLayout></Private>
       </Route>
       <Route path="/client/book">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientBookAdvocate /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientBookAdvocate /></ClientLayout></Private>
       </Route>
       <Route path="/client/reminders">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientReminders /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientReminders /></ClientLayout></Private>
       </Route>
       <Route path="/client/legal-guide">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientLegalGuide /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientLegalGuide /></ClientLayout></Private>
       </Route>
       <Route path="/client/diy-docs">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientDIYDocs /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientDIYDocs /></ClientLayout></Private>
       </Route>
       <Route path="/client/ai-assistant">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientAIAssistant /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientAIAssistant /></ClientLayout></Private>
       </Route>
       <Route path="/client/lawbot">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientLawBot /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientLawBot /></ClientLayout></Private>
       </Route>
       <Route path="/client/chat">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientChat /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientChat /></ClientLayout></Private>
       </Route>
       <Route path="/client/library">
-        <ProtectedRoute allowedRoles={["client"]}><ClientLayout><ClientLibrary /></ClientLayout></ProtectedRoute>
+        <Private role="client"><ClientLayout><ClientLibrary /></ClientLayout></Private>
       </Route>
 
       {/* ADVOCATE PORTAL */}
-      <Route path="/advocate/login">
-        <PortalLogin portal="advocate" />
-      </Route>
-      <Route path="/advocate/register">
-        <PortalRegister portal="advocate" />
-      </Route>
-      <Route path="/advocate/onboarding">
-        <OnboardingPage portal="advocate" />
-      </Route>
-      <Route path="/advocate/verification-pending">
-        <VerificationPending portal="advocate" />
-      </Route>
-      <Route path="/advocate/dashboard">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]}>
-          <AdvocateLayout><AdvocateDashboard /></AdvocateLayout>
-        </ProtectedRoute>
-      </Route>
       <Route path="/advocate">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]}>
-          <AdvocateLayout><AdvocateDashboard /></AdvocateLayout>
-        </ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateDashboard /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/calls">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateCalls /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateCalls /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/diary">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateDiary /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateDiary /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/proxy">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateProxy /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateProxy /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/reminders">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateReminders /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateReminders /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/bookings">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateBookings /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateBookings /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/library">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateLibrary /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateLibrary /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/revenue">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateRevenue /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateRevenue /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/team">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateTeam /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateTeam /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/chat">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateChat /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateChat /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/lawbot">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateLawBot /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateLawBot /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/judges">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateJudges /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateJudges /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/cases">
-        <ProtectedRoute allowedRoles={["advocate", "rna"]} requireVerification><AdvocateLayout><AdvocateCaseTracker /></AdvocateLayout></ProtectedRoute>
+        <Private role="advocate"><AdvocateLayout><AdvocateCaseTracker /></AdvocateLayout></Private>
       </Route>
 
       {/* INTERN PORTAL */}
-      <Route path="/intern/login">
-        <PortalLogin portal="intern" />
-      </Route>
-      <Route path="/intern/register">
-        <PortalRegister portal="intern" />
-      </Route>
-      <Route path="/intern/onboarding">
-        <OnboardingPage portal="intern" />
-      </Route>
-      <Route path="/intern/verification-pending">
-        <VerificationPending portal="intern" />
-      </Route>
-      <Route path="/intern/dashboard">
-        <ProtectedRoute allowedRoles={["intern"]}>
-          <InternLayout><InternDashboard /></InternLayout>
-        </ProtectedRoute>
-      </Route>
       <Route path="/intern">
-        <ProtectedRoute allowedRoles={["intern"]}>
-          <InternLayout><InternDashboard /></InternLayout>
-        </ProtectedRoute>
+        <Private role="intern"><InternLayout><InternDashboard /></InternLayout></Private>
       </Route>
       <Route path="/intern/quests">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternQuestsPage /></InternLayout></ProtectedRoute>
+        <Private role="intern"><InternLayout><InternQuestsPage /></InternLayout></Private>
       </Route>
       <Route path="/intern/xp">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternXP /></InternLayout></ProtectedRoute>
+        <Private role="intern"><InternLayout><InternXP /></InternLayout></Private>
       </Route>
       <Route path="/intern/leaderboard">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternLeaderboard /></InternLayout></ProtectedRoute>
+        <Private role="intern"><InternLayout><InternLeaderboard /></InternLayout></Private>
       </Route>
       <Route path="/intern/badges">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternBadges /></InternLayout></ProtectedRoute>
+        <Private role="intern"><InternLayout><InternBadges /></InternLayout></Private>
       </Route>
       <Route path="/intern/doubts">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternDoubtPortal /></InternLayout></ProtectedRoute>
+        <Private role="intern"><InternLayout><InternDoubtPortal /></InternLayout></Private>
       </Route>
       <Route path="/intern/ai-assistant">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternAIAssistant /></InternLayout></ProtectedRoute>
+        <Private role="intern"><InternLayout><InternAIAssistant /></InternLayout></Private>
       </Route>
       <Route path="/intern/library">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternLibrary /></InternLayout></ProtectedRoute>
+        <Private role="intern"><InternLayout><InternLibrary /></InternLayout></Private>
       </Route>
       <Route path="/intern/cases">
-        <ProtectedRoute allowedRoles={["intern"]} requireVerification><InternLayout><InternCaseTracker /></InternLayout></ProtectedRoute>
-      </Route>
-
-      {/* ADMIN PORTAL */}
-      <Route path="/admin/login">
-        <PortalLogin portal="admin" />
-      </Route>
-      <Route path="/admin/dashboard">
-        <ProtectedRoute allowedRoles={["admin"]}>
-          <StatusPage type="admin" />
-        </ProtectedRoute>
+        <Private role="intern"><InternLayout><InternCaseTracker /></InternLayout></Private>
       </Route>
 
       <Route component={NotFound} />
@@ -296,12 +243,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

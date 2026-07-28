@@ -91,13 +91,15 @@ export function SOSButton() {
         onClick={() => { setOpen(true); setPhase("menu"); }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-rose-600 hover:bg-rose-700 text-white px-5 py-3.5 rounded-2xl font-bold text-sm shadow-2xl shadow-rose-500/40 transition-colors"
+        className="lc-sos-trigger fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-rose-600 hover:bg-rose-700 text-white px-5 py-3.5 rounded-2xl font-bold text-sm shadow-2xl shadow-rose-500/40 transition-colors"
+        aria-label="Open Legal SOS"
+        title="Legal SOS"
       >
         <div className="relative">
           <AlertCircle className="w-5 h-5" />
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full animate-ping opacity-75" />
         </div>
-        Legal SOS
+        <span className="lc-sos-label">Legal SOS</span>
       </motion.button>
 
       {/* SOS Modal */}

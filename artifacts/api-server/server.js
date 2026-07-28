@@ -37,15 +37,26 @@ function appVersionPayload() {
 }
 
 function createLocalDemoStore() {
+  const now = new Date().toISOString();
   return {
-    users: [],
-    bookings: [],
+    users: [
+      { id: "demo-admin", name: "Demo Admin", email: "admin@demo.legal-connect.in", phone: "+919999900000", role: "admin", createdAt: now },
+      { id: "demo-client", name: "Demo Client", email: "client@demo.legal-connect.in", phone: "+919999900001", role: "client", createdAt: now },
+      { id: "demo-advocate", name: "Demo Lawyer", email: "lawyer@demo.legal-connect.in", phone: "+919999900002", role: "advocate", createdAt: now },
+      { id: "demo-intern", name: "Demo Intern", email: "intern@demo.legal-connect.in", phone: "+919999900003", role: "intern", createdAt: now },
+    ],
+    bookings: [
+      { id: "booking-demo-1", userId: "demo-client", clientName: "Demo Client", clientEmail: "client@demo.legal-connect.in", clientPhone: "+919999900001", legalIssueType: "Property", preferredLawyer: "Demo Lawyer", preferredDate: "2026-08-01", preferredTime: "11:00 AM", status: "Confirmed", createdAt: now },
+      { id: "booking-demo-2", userId: "demo-client-aarav", clientName: "Aarav Mehta", clientEmail: "aarav@example.com", clientPhone: "+919999900004", legalIssueType: "Civil", preferredLawyer: "Demo Lawyer", preferredDate: "2026-08-06", preferredTime: "3:00 PM", status: "Pending", createdAt: now },
+    ],
     cases: [
       {
         id: "case-demo-1",
+        userId: "demo-client",
+        assignedTo: "demo-advocate",
         title: "Tenancy Dispute - Rohini Property",
         status: "Active",
-        nextDate: "2026-07-04",
+        nextDate: "2026-08-04",
         court: "District Court, Rohini",
         courtType: "district",
         stateCode: "DL",
@@ -55,9 +66,11 @@ function createLocalDemoStore() {
       },
       {
         id: "case-demo-2",
+        userId: "demo-client",
+        assignedTo: "demo-advocate",
         title: "Consumer Complaint - Electronics Refund",
         status: "Active",
-        nextDate: "2026-07-12",
+        nextDate: "2026-08-12",
         court: "Consumer Commission, Delhi",
         courtType: "consumer",
         stateCode: "DL",
@@ -74,6 +87,11 @@ function createLocalDemoStore() {
         fee: 650,
         court: "Saket District Court",
       },
+    ],
+    internQuests: [
+      { id: "quest-demo-1", title: "Summarise a recent judgment", description: "Prepare a one-page issue, reasoning, and holding brief.", xpPoints: 120, deadline: "2026-08-02", status: "In Progress", createdAt: now },
+      { id: "quest-demo-2", title: "Build a case chronology", description: "Convert the supplied filings into a dated case timeline.", xpPoints: 80, deadline: "2026-08-05", status: "Open", createdAt: now },
+      { id: "quest-demo-3", title: "Research limitation periods", description: "Identify the applicable provisions and leading authorities.", xpPoints: 150, deadline: "2026-07-25", status: "Completed", createdAt: now },
     ],
     notifications: [],
     legalSources: [],
@@ -114,6 +132,7 @@ const roles = new Set(["client", "advocate", "rna", "intern", "admin"]);
 const publicSignupRoles = new Set(["client", "advocate", "intern"]);
 
 const DEMO_ACCOUNTS = [
+  { email: "admin@demo.legal-connect.in", name: "Demo Admin", role: "admin", phone: "+919999900000" },
   { email: "client@demo.legal-connect.in", name: "Demo Client", role: "client", phone: "+919999900001" },
   { email: "lawyer@demo.legal-connect.in", name: "Demo Lawyer", role: "advocate", phone: "+919999900002" },
   { email: "intern@demo.legal-connect.in", name: "Demo Intern", role: "intern", phone: "+919999900003" },
@@ -871,7 +890,7 @@ function verifyRazorpayWebhookSignature(rawBody, signature) {
 }
 
 function mapCase(row) {
-  return {
+  return dashboardCase({
     id: row.id,
     userId: row.user_id,
     title: row.title,
@@ -885,11 +904,11 @@ function mapCase(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.payload || {}),
-  };
+  });
 }
 
 function mapBooking(row) {
-  return {
+  return dashboardBooking({
     id: row.id,
     userId: row.user_id,
     serviceType: row.service_type,
@@ -904,11 +923,11 @@ function mapBooking(row) {
     verifiedAt: row.verified_at,
     createdAt: row.created_at,
     ...(row.payload || {}),
-  };
+  });
 }
 
 function mapTask(row) {
-  return {
+  return dashboardTask({
     id: row.id,
     title: row.title,
     court: row.court,
@@ -923,7 +942,102 @@ function mapTask(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.payload || {}),
+  });
+}
+
+function dashboardCase(item) {
+  return {
+    ...item,
+    caseTitle: item.caseTitle || item.title || "Untitled matter",
+    caseNumber: item.caseNumber || item.caseNo || "Number pending",
+    courtName: item.courtName || item.court || "Court not listed",
+    createdAt: item.createdAt || new Date().toISOString(),
   };
+}
+
+function dashboardBooking(item) {
+  const serviceType = item.legalIssueType || item.serviceType || item.service_type || item.plan || "Other";
+  return {
+    ...item,
+    clientName: item.clientName || item.name || "Legal Connect client",
+    clientEmail: item.clientEmail || item.email || "client@legal-connect.in",
+    clientPhone: item.clientPhone || item.phone || "Not provided",
+    legalIssueType: serviceType,
+    preferredDate: item.preferredDate || String(item.createdAt || new Date().toISOString()).slice(0, 10),
+    preferredTime: item.preferredTime || "10:00 AM",
+    status: item.status || item.paymentStatus || "Pending",
+    createdAt: item.createdAt || new Date().toISOString(),
+  };
+}
+
+function dashboardTask(item) {
+  return {
+    ...item,
+    taskDescription: item.taskDescription || item.title || "Court mission",
+    location: item.location || item.court || null,
+    fee: item.fee == null ? (item.amount == null ? null : String(item.amount)) : String(item.fee),
+    createdAt: item.createdAt || new Date().toISOString(),
+  };
+}
+
+function dashboardUser(item) {
+  const roleMap = { admin: "Admin", rna: "Admin", advocate: "Associate", intern: "Intern", client: "Proxy" };
+  return {
+    ...item,
+    role: roleMap[String(item.role || "").toLowerCase()] || item.role || "Proxy",
+    email: item.email || "",
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+}
+
+function internalUserRole(role) {
+  const roleMap = { Admin: "admin", Associate: "advocate", Intern: "intern", Proxy: "client" };
+  return roleMap[role] || String(role || "client").toLowerCase();
+}
+
+function revenueAnalytics(cases, tasks, users) {
+  const activeCases = cases.filter((item) => item.status === "Active");
+  const completedTasks = tasks.filter((item) => item.status === "Completed");
+  const openTasks = tasks.filter((item) => item.status === "Open");
+  const marketplaceProfit = completedTasks.reduce((sum, item) => sum + Number(item.amount || item.fee || 0) * 0.1, 0);
+  const totalManagedRevenue = activeCases.length * 50000;
+  const singaporeGoal = 38000000;
+  return {
+    totalActiveCases: activeCases.length,
+    totalManagedRevenue,
+    completedProxyTasks: completedTasks.length,
+    marketplaceProfit,
+    singaporeGoal,
+    singaporeProgress: Math.min(100, ((totalManagedRevenue + marketplaceProfit) / singaporeGoal) * 100),
+    totalUsers: users.length,
+    openProxyTasks: openTasks.length,
+  };
+}
+
+function mapInternQuest(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    xpPoints: Number(item.xpPoints ?? item.xp_points ?? 0),
+    deadline: item.deadline || null,
+    status: item.status || "Open",
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+}
+
+async function ensureInternQuestsTable() {
+  if (!db.dbAvailable) return;
+  await db.query(`CREATE TABLE IF NOT EXISTS intern_quests (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    title text NOT NULL,
+    description text NOT NULL,
+    xp_points integer NOT NULL DEFAULT 10,
+    deadline text,
+    status text NOT NULL DEFAULT 'Open',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+  )`);
 }
 
 function mapUser(row) {
@@ -2235,6 +2349,205 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/users" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Admin access required" });
+      return;
+    }
+    if (db.dbAvailable) {
+      const result = await db.query("SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC");
+      sendJson(res, 200, result.rows.map(dashboardUser));
+      return;
+    }
+    sendJson(res, 200, demoStore.users.map(dashboardUser));
+    return;
+  }
+
+  if (url.pathname === "/api/users" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Admin access required" });
+      return;
+    }
+    const body = await readBody(req);
+    const name = String(body.name || "").trim();
+    const email = normalizeEmail(body.email);
+    if (!name || !email || !email.includes("@")) {
+      sendJson(res, 400, { error: "Name and a valid email are required." });
+      return;
+    }
+    const role = internalUserRole(body.role);
+    if (db.dbAvailable) {
+      const result = await db.query(
+        "INSERT INTO users (name, email, phone, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, phone, role, created_at",
+        [name, email, body.phone || null, role],
+      );
+      sendJson(res, 201, dashboardUser(result.rows[0]));
+      return;
+    }
+    const user = dashboardUser({ id: `user-${Date.now()}`, name, email, phone: body.phone || null, role, barId: body.barId || null, locationBase: body.locationBase || null, createdAt: new Date().toISOString() });
+    demoStore.users.unshift({ ...user, role });
+    sendJson(res, 201, user);
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/users/") && ["GET", "PUT", "DELETE"].includes(req.method)) {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Admin access required" });
+      return;
+    }
+    const id = decodeURIComponent(url.pathname.split("/").pop());
+    if (req.method === "DELETE") {
+      if (String(authUser.id) === String(id)) {
+        sendJson(res, 400, { error: "You cannot delete the account currently in use." });
+        return;
+      }
+      if (db.dbAvailable) await db.query("DELETE FROM users WHERE id = $1", [id]);
+      else demoStore.users = demoStore.users.filter((item) => String(item.id) !== String(id));
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+    if (req.method === "GET") {
+      const user = db.dbAvailable
+        ? (await db.query("SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1", [id])).rows[0]
+        : demoStore.users.find((item) => String(item.id) === String(id));
+      if (!user) {
+        sendJson(res, 404, { error: "User not found" });
+        return;
+      }
+      sendJson(res, 200, dashboardUser(user));
+      return;
+    }
+    const body = await readBody(req);
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `UPDATE users SET name = COALESCE($2, name), email = COALESCE($3, email), phone = COALESCE($4, phone), role = COALESCE($5, role)
+         WHERE id = $1 RETURNING id, name, email, phone, role, created_at`,
+        [id, body.name || null, body.email ? normalizeEmail(body.email) : null, body.phone || null, body.role ? internalUserRole(body.role) : null],
+      );
+      if (!result.rows[0]) {
+        sendJson(res, 404, { error: "User not found" });
+        return;
+      }
+      sendJson(res, 200, dashboardUser(result.rows[0]));
+      return;
+    }
+    const user = demoStore.users.find((item) => String(item.id) === String(id));
+    if (!user) {
+      sendJson(res, 404, { error: "User not found" });
+      return;
+    }
+    Object.assign(user, body, body.role ? { role: internalUserRole(body.role) } : {});
+    sendJson(res, 200, dashboardUser(user));
+    return;
+  }
+
+  if (url.pathname === "/api/intern-quests" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    if (db.dbAvailable) {
+      await ensureInternQuestsTable();
+      const result = await db.query("SELECT * FROM intern_quests ORDER BY created_at DESC");
+      sendJson(res, 200, result.rows.map(mapInternQuest));
+      return;
+    }
+    sendJson(res, 200, demoStore.internQuests.map(mapInternQuest));
+    return;
+  }
+
+  if (url.pathname === "/api/intern-quests" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !["admin", "rna", "advocate", "intern"].includes(authUser.role)) {
+      sendJson(res, 403, { error: "Quest access required." });
+      return;
+    }
+    const body = await readBody(req);
+    if (!body.title || !body.description) {
+      sendJson(res, 400, { error: "Title and description are required." });
+      return;
+    }
+    if (db.dbAvailable) {
+      await ensureInternQuestsTable();
+      const result = await db.query(
+        "INSERT INTO intern_quests (title, description, xp_points, deadline, status) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        [body.title, body.description, Number(body.xpPoints || 10), body.deadline || null, body.status || "Open"],
+      );
+      sendJson(res, 201, mapInternQuest(result.rows[0]));
+      return;
+    }
+    const quest = mapInternQuest({ ...body, id: `quest-${Date.now()}`, createdAt: new Date().toISOString() });
+    demoStore.internQuests.unshift(quest);
+    sendJson(res, 201, quest);
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/intern-quests/") && ["PUT", "DELETE"].includes(req.method)) {
+    const authUser = getAuthUser(req);
+    if (!authUser || !["admin", "rna", "advocate", "intern"].includes(authUser.role)) {
+      sendJson(res, 403, { error: "Quest access required." });
+      return;
+    }
+    const id = decodeURIComponent(url.pathname.split("/").pop());
+    if (req.method === "DELETE") {
+      if (db.dbAvailable) {
+        await ensureInternQuestsTable();
+        await db.query("DELETE FROM intern_quests WHERE id = $1", [id]);
+      } else {
+        demoStore.internQuests = demoStore.internQuests.filter((item) => String(item.id) !== String(id));
+      }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+    const body = await readBody(req);
+    if (db.dbAvailable) {
+      await ensureInternQuestsTable();
+      const result = await db.query(
+        `UPDATE intern_quests SET title = COALESCE($2, title), description = COALESCE($3, description),
+         xp_points = COALESCE($4, xp_points), deadline = COALESCE($5, deadline), status = COALESCE($6, status), updated_at = now()
+         WHERE id = $1 RETURNING *`,
+        [id, body.title || null, body.description || null, body.xpPoints == null ? null : Number(body.xpPoints), body.deadline || null, body.status || null],
+      );
+      if (!result.rows[0]) {
+        sendJson(res, 404, { error: "Quest not found" });
+        return;
+      }
+      sendJson(res, 200, mapInternQuest(result.rows[0]));
+      return;
+    }
+    const quest = demoStore.internQuests.find((item) => String(item.id) === String(id));
+    if (!quest) {
+      sendJson(res, 404, { error: "Quest not found" });
+      return;
+    }
+    Object.assign(quest, body, { xpPoints: body.xpPoints == null ? quest.xpPoints : Number(body.xpPoints) });
+    sendJson(res, 200, mapInternQuest(quest));
+    return;
+  }
+
+  if (url.pathname === "/api/analytics/revenue" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Admin access required" });
+      return;
+    }
+    if (db.dbAvailable) {
+      const [cases, tasks, users] = await Promise.all([
+        db.query("SELECT * FROM cases"),
+        db.query("SELECT * FROM tasks"),
+        db.query("SELECT id FROM users"),
+      ]);
+      sendJson(res, 200, revenueAnalytics(cases.rows.map(mapCase), tasks.rows.map(mapTask), users.rows));
+      return;
+    }
+    sendJson(res, 200, revenueAnalytics(demoStore.cases.map(dashboardCase), demoStore.tasks.map(dashboardTask), demoStore.users));
+    return;
+  }
+
   if (url.pathname === "/api/cases" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (isReviewUser(authUser)) {
@@ -2252,7 +2565,16 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, result.rows.map(mapCase));
       return;
     }
-    sendJson(res, 200, demoStore.cases);
+    if (!authUser) {
+      sendJson(res, 200, []);
+      return;
+    }
+    const visibleCases = canSeeAll(authUser) || authUser.role === "intern"
+      ? demoStore.cases
+      : authUser.role === "advocate"
+        ? demoStore.cases.filter((item) => item.assignedTo === authUser.id)
+        : demoStore.cases.filter((item) => item.userId === authUser.id);
+    sendJson(res, 200, visibleCases.map(dashboardCase));
     return;
   }
 
@@ -3179,7 +3501,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, result.rows.map(mapTask));
       return;
     }
-    sendJson(res, 200, demoStore.tasks);
+    sendJson(res, 200, demoStore.tasks.map(dashboardTask));
     return;
   }
 
@@ -3194,13 +3516,22 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, []);
         return;
       }
-      const result = canSeeAll(authUser)
+      const result = canSeeAll(authUser) || authUser.role === "advocate"
         ? await db.query("SELECT * FROM bookings ORDER BY created_at DESC")
         : await db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [authUser.id]);
       sendJson(res, 200, result.rows.map(mapBooking));
       return;
     }
-    sendJson(res, 200, demoStore.bookings);
+    if (!authUser) {
+      sendJson(res, 200, []);
+      return;
+    }
+    const visibleBookings = canSeeAll(authUser) || authUser.role === "advocate"
+      ? demoStore.bookings
+      : authUser.role === "client"
+        ? demoStore.bookings.filter((item) => item.userId === authUser.id)
+        : [];
+    sendJson(res, 200, visibleBookings.map(dashboardBooking));
     return;
   }
 

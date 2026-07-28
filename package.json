@@ -2,7 +2,10 @@
   "name": "legal-connect-workspace",
   "private": true,
   "scripts": {
-    "build": "node --check app.js && node --check service-worker.js && node --check artifacts/api-server/config.js && node --check artifacts/api-server/db.js && node --check artifacts/api-server/server.js && node --check artifacts/api-server/public/app.js && node --check services/shared/env.mjs && node --check services/court-sync/index.js && node --check services/notify-worker/index.js",
+    "dev": "node scripts/dev-fullstack.mjs",
+    "dev:web": "pnpm --dir artifacts/law-firm dev",
+    "dev:api": "node artifacts/api-server/server.js",
+    "build": "pnpm --dir artifacts/law-firm build && node --check artifacts/api-server/config.js && node --check artifacts/api-server/db.js && node --check artifacts/api-server/server.js && node --check services/shared/env.mjs && node --check services/court-sync/index.js && node --check services/notify-worker/index.js",
     "start": "node artifacts/api-server/server.js"
   }
 }

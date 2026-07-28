@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useListInternQuests, useCreateInternQuest, useUpdateInternQuest, useDeleteInternQuest } from "@workspace/api-client-react";
 import type { InternQuest, CreateInternQuestRequestStatus } from "@workspace/api-client-react";
 import { Plus, Target, CheckCircle, Clock, Trash2, Edit2, Zap } from "lucide-react";
@@ -163,6 +163,16 @@ function QuestDialog({ open, onOpenChange, editingQuest }: any) {
       status: "Open" as CreateInternQuestRequestStatus
     }
   });
+
+  useEffect(() => {
+    form.reset(editingQuest || {
+      title: "",
+      description: "",
+      xpPoints: 10,
+      deadline: "",
+      status: "Open" as CreateInternQuestRequestStatus,
+    });
+  }, [editingQuest, form, open]);
 
   const { mutate: create } = useCreateInternQuest({
     mutation: {

@@ -29,7 +29,7 @@ export function roleTabOptions(role: RoleKey): BottomTabNavigationOptions {
     headerTintColor: colors.text,
     headerTitleStyle: styles.headerTitle,
     headerShadowVisible: false,
-    sceneContainerStyle: { backgroundColor: colors.bg },
+    sceneStyle: { backgroundColor: colors.bg },
   };
 }
 
