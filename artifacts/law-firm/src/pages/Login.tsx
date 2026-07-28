@@ -34,7 +34,10 @@ const roles: Array<{
 export function Login() {
   const [, setLocation] = useLocation();
   const { session, login, register, demoLogin } = useAuth();
-  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const params = useMemo(
+    () => new URLSearchParams(typeof window === "undefined" ? "" : window.location.search),
+    [],
+  );
   const requestedRole = normaliseRole(params.get("role"));
   const [mode, setMode] = useState<"login" | "register">(
     params.get("mode") === "register" ? "register" : "login",

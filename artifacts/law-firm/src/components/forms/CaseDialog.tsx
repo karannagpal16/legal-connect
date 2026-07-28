@@ -6,6 +6,7 @@ import { useCreateCase, useUpdateCase } from "@workspace/api-client-react";
 import type { CreateCaseRequestStatus } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 const DELHI_COURTS = [
   "Tis Hazari",
@@ -46,24 +47,39 @@ export function CaseDialog({ open, onOpenChange, editingCase }: any) {
     }
   });
 
-  const { mutate: create } = useCreateCase({
+  useEffect(() => {
+    if (!open) return;
+    form.reset(editingCase || {
+      caseTitle: "",
+      caseNumber: "",
+      courtName: "Tis Hazari",
+      courtRoomNo: "",
+      judgeName: "",
+      nextDate: "",
+      status: "Active" as CreateCaseRequestStatus,
+    });
+  }, [editingCase, form, open]);
+
+  const { mutate: create, isPending: isCreating } = useCreateCase({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
         onOpenChange(false);
         form.reset();
         toast({ title: "Case created" });
-      }
+      },
+      onError: (error) => toast({ title: "Case could not be created", description: error.message, variant: "destructive" }),
     }
   });
 
-  const { mutate: update } = useUpdateCase({
+  const { mutate: update, isPending: isUpdating } = useUpdateCase({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
         onOpenChange(false);
         toast({ title: "Case updated" });
-      }
+      },
+      onError: (error) => toast({ title: "Case could not be updated", description: error.message, variant: "destructive" }),
     }
   });
 
@@ -126,8 +142,11 @@ export function CaseDialog({ open, onOpenChange, editingCase }: any) {
             <input type="date" {...form.register("nextDate")} className="w-full p-4 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground" />
           </div>
 
-          <button type="submit" className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl mt-6 hover:shadow-lg hover:shadow-primary/20 transition-all text-lg">
-            {editingCase ? "Save Case Record" : "Add to Diary"}
+          {Object.values(form.formState.errors)[0]?.message && (
+            <p className="text-sm text-destructive" role="alert">{String(Object.values(form.formState.errors)[0]?.message)}</p>
+          )}
+          <button type="submit" disabled={isCreating || isUpdating} className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl mt-6 hover:shadow-lg hover:shadow-primary/20 transition-all text-lg disabled:opacity-60">
+            {isCreating || isUpdating ? "Saving..." : editingCase ? "Save Case Record" : "Add to Diary"}
           </button>
         </form>
       </DialogContent>

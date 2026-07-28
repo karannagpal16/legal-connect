@@ -589,7 +589,7 @@ function sendJson(res, status, data) {
     "Access-Control-Allow-Origin": res.localsCorsOrigin || config.allowedOrigin,
     "Vary": "Origin",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Legal-Connect-Token",
-    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
   });
   res.end(JSON.stringify(data));
 }
@@ -978,6 +978,12 @@ function dashboardTask(item) {
     fee: item.fee == null ? (item.amount == null ? null : String(item.amount)) : String(item.fee),
     createdAt: item.createdAt || new Date().toISOString(),
   };
+}
+
+function numericAmount(value, fallback = 0) {
+  if (value == null || value === "") return fallback;
+  const parsed = Number(String(value).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
 }
 
 function dashboardUser(item) {
@@ -1704,7 +1710,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === "/health" || url.pathname === "/api/health") {
+  if (url.pathname === "/health" || url.pathname === "/api/health" || url.pathname === "/api/healthz") {
     const dbHealth = await db.healthCheck();
     const lawbotCounts = dbHealth.connected || config.nodeEnv !== "production"
       ? await lawbotHealthCounts()
@@ -1713,6 +1719,7 @@ const server = http.createServer(async (req, res) => {
     const otpStatus = otpRuntimeStatus();
     sendJson(res, dbHealth.connected || config.nodeEnv !== "production" ? 200 : 503, {
       ok: dbHealth.connected || config.nodeEnv !== "production",
+      status: dbHealth.connected || config.nodeEnv !== "production" ? "ok" : "degraded",
       app: "Legal Connect",
       mode: "Phase 2 production foundation",
       web_version: version.web_version,
@@ -2581,6 +2588,10 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/cases" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
     if (isReviewUser(authUser)) {
       const seed = reviewSeedData(authUser).cases[0];
       sendJson(res, 201, {
@@ -2590,10 +2601,11 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    const caseNumber = body.caseNo || body.case_number;
+    const caseNumber = body.caseNo || body.case_number || body.caseNumber;
+    const court = body.court || body.courtName;
     const missing = [];
-    if (!body.court) missing.push("court");
-    if (!caseNumber) missing.push("caseNo");
+    if (!court) missing.push("courtName");
+    if (!caseNumber) missing.push("caseNumber");
     if (missing.length > 0) {
       sendJson(res, 400, { error: `Missing required fields: ${missing.join(", ")}` });
       return;
@@ -2601,13 +2613,16 @@ const server = http.createServer(async (req, res) => {
 
     const trackedCase = {
       id: `case-${Date.now()}`,
-      title: body.title || `${body.court} | ${caseNumber}`,
-      status: "Active",
+      userId: userIdForWrite(body, authUser),
+      title: body.title || body.caseTitle || `${court} | ${caseNumber}`,
+      status: body.status || "Active",
       nextDate: body.nextDate || "Sync pending",
-      court: body.court,
+      court,
       courtType: body.courtType || "district",
       stateCode: body.stateCode,
       caseNo: caseNumber,
+      courtRoomNo: body.courtRoomNo || null,
+      judgeName: body.judgeName || null,
       reminder: body.reminder || "24h before",
       stage: body.stage || "Court Sync pending",
       createdAt: new Date().toISOString(),
@@ -2633,7 +2648,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     demoStore.cases.push(trackedCase);
-    sendJson(res, 201, trackedCase);
+    sendJson(res, 201, dashboardCase(trackedCase));
     return;
   }
 
@@ -2651,7 +2666,7 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 401, { error: "Login is required." });
         return;
       }
-      if (!canSeeAll(authUser) && mapped.userId !== authUser.id) {
+      if (!canSeeAll(authUser) && mapped.userId !== authUser.id && mapped.assignedTo !== authUser.id) {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
@@ -2663,7 +2678,89 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 404, { error: "Case not found" });
       return;
     }
-    sendJson(res, 200, trackedCase);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    if (!canSeeAll(authUser) && trackedCase.userId !== authUser.id && trackedCase.assignedTo !== authUser.id) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+    sendJson(res, 200, dashboardCase(trackedCase));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/cases/") && ["PUT", "DELETE"].includes(req.method)) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const id = url.pathname.split("/").pop();
+
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM cases WHERE id = $1", [id]);
+      if (existing.rows.length === 0) {
+        sendJson(res, 404, { error: "Case not found" });
+        return;
+      }
+      const current = mapCase(existing.rows[0]);
+      if (!canSeeAll(authUser) && current.userId !== authUser.id && current.assignedTo !== authUser.id) {
+        sendJson(res, 403, { error: "Forbidden" });
+        return;
+      }
+      if (req.method === "DELETE") {
+        await db.query("DELETE FROM cases WHERE id = $1", [id]);
+        sendJson(res, 204, {});
+        return;
+      }
+
+      const body = await readBody(req);
+      const next = {
+        ...current,
+        ...body,
+        title: body.title ?? body.caseTitle ?? current.caseTitle,
+        court: body.court ?? body.courtName ?? current.courtName,
+        caseNumber: body.caseNumber ?? body.caseNo ?? body.case_number ?? current.caseNumber,
+        nextDate: body.nextDate ?? current.nextDate,
+        status: body.status ?? current.status,
+      };
+      const result = await db.query(
+        `UPDATE cases
+         SET title = $2, court = $3, case_number = $4, next_date = $5, status = $6, notes = $7, payload = $8, updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, next.title, next.court, next.caseNumber, next.nextDate, next.status, body.notes ?? current.notes ?? null, JSON.stringify({ ...next, user_id: current.userId })],
+      );
+      sendJson(res, 200, mapCase(result.rows[0]));
+      return;
+    }
+
+    const index = demoStore.cases.findIndex((item) => item.id === id);
+    if (index === -1) {
+      sendJson(res, 404, { error: "Case not found" });
+      return;
+    }
+    const trackedCase = demoStore.cases[index];
+    if (!canSeeAll(authUser) && trackedCase.userId !== authUser.id && trackedCase.assignedTo !== authUser.id) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+    if (req.method === "DELETE") {
+      demoStore.cases.splice(index, 1);
+      sendJson(res, 204, {});
+      return;
+    }
+    const body = await readBody(req);
+    Object.assign(trackedCase, body, {
+      title: body.title ?? body.caseTitle ?? trackedCase.title,
+      court: body.court ?? body.courtName ?? trackedCase.court,
+      caseNo: body.caseNo ?? body.caseNumber ?? body.case_number ?? trackedCase.caseNo,
+      nextDate: body.nextDate ?? trackedCase.nextDate,
+      status: body.status ?? trackedCase.status,
+      updatedAt: new Date().toISOString(),
+    });
+    sendJson(res, 200, dashboardCase(trackedCase));
     return;
   }
 
@@ -3496,12 +3593,142 @@ const server = http.createServer(async (req, res) => {
       const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM tasks ORDER BY created_at DESC")
         : authUser.role === "intern"
-          ? await db.query("SELECT * FROM tasks WHERE accepted_by = $1 OR payload->>'assignedIntern' = $1 ORDER BY created_at DESC", [authUser.id])
+          ? await db.query("SELECT * FROM tasks WHERE status = 'Open' OR accepted_by = $1 OR payload->>'assignedIntern' = $1 ORDER BY created_at DESC", [authUser.id])
           : await db.query("SELECT * FROM tasks WHERE posted_by = $1 OR accepted_by = $1 OR payload->>'user_id' = $1 ORDER BY created_at DESC", [authUser.id]);
       sendJson(res, 200, result.rows.map(mapTask));
       return;
     }
-    sendJson(res, 200, demoStore.tasks.map(dashboardTask));
+    if (!authUser) {
+      sendJson(res, 200, []);
+      return;
+    }
+    const visibleTasks = canSeeAll(authUser)
+      ? demoStore.tasks
+      : authUser.role === "intern"
+        ? demoStore.tasks.filter((item) => item.status === "Open" || item.acceptedBy === authUser.id || item.assignedIntern === authUser.id)
+        : demoStore.tasks.filter((item) => item.postedBy === authUser.id || item.acceptedBy === authUser.id || item.status === "Open");
+    sendJson(res, 200, visibleTasks.map(dashboardTask));
+    return;
+  }
+
+  if (url.pathname.endsWith("/accept") && url.pathname.startsWith("/api/tasks/") && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const id = url.pathname.split("/").at(-2);
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM tasks WHERE id = $1", [id]);
+      if (existing.rows.length === 0) {
+        sendJson(res, 404, { error: "Task not found" });
+        return;
+      }
+      const current = mapTask(existing.rows[0]);
+      if (current.status !== "Open" && current.acceptedBy !== authUser.id) {
+        sendJson(res, 409, { error: "This task is no longer available." });
+        return;
+      }
+      const result = await db.query(
+        "UPDATE tasks SET status = $2, accepted_by = $3, updated_at = now() WHERE id = $1 RETURNING *",
+        [id, "Accepted", authUser.id],
+      );
+      sendJson(res, 200, mapTask(result.rows[0]));
+      return;
+    }
+    const task = demoStore.tasks.find((item) => item.id === id);
+    if (!task) {
+      sendJson(res, 404, { error: "Task not found" });
+      return;
+    }
+    if (task.status !== "Open" && task.acceptedBy !== authUser.id) {
+      sendJson(res, 409, { error: "This task is no longer available." });
+      return;
+    }
+    Object.assign(task, { status: "Accepted", acceptedBy: authUser.id, assignedToId: authUser.id, updatedAt: new Date().toISOString() });
+    sendJson(res, 200, dashboardTask(task));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/tasks/") && ["GET", "PUT", "DELETE"].includes(req.method)) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const id = url.pathname.split("/").pop();
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM tasks WHERE id = $1", [id]);
+      if (existing.rows.length === 0) {
+        sendJson(res, 404, { error: "Task not found" });
+        return;
+      }
+      const current = mapTask(existing.rows[0]);
+      if (req.method === "GET") {
+        sendJson(res, 200, current);
+        return;
+      }
+      if (!canSeeAll(authUser) && current.postedBy !== authUser.id) {
+        sendJson(res, 403, { error: "Only the task owner or an admin can change this task." });
+        return;
+      }
+      if (req.method === "DELETE") {
+        await db.query("DELETE FROM tasks WHERE id = $1", [id]);
+        sendJson(res, 204, {});
+        return;
+      }
+      const body = await readBody(req);
+      const next = {
+        ...current,
+        ...body,
+        title: body.title ?? body.taskDescription ?? current.taskDescription,
+        court: body.court ?? body.location ?? current.location,
+        taskType: body.taskType ?? body.task_type ?? current.taskType,
+        amount: numericAmount(body.amount ?? body.fee, numericAmount(current.amount ?? current.fee)),
+        status: body.status ?? current.status,
+        acceptedBy: body.acceptedBy ?? body.accepted_by ?? body.assignedToId ?? current.acceptedBy,
+      };
+      const result = await db.query(
+        `UPDATE tasks
+         SET title = $2, court = $3, task_type = $4, amount = $5, escrow_status = $6, status = $7, accepted_by = $8, proof_url = $9, payload = $10, updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, next.proofUrl || null, JSON.stringify({ ...next, user_id: current.postedBy })],
+      );
+      sendJson(res, 200, mapTask(result.rows[0]));
+      return;
+    }
+
+    const index = demoStore.tasks.findIndex((item) => item.id === id);
+    if (index === -1) {
+      sendJson(res, 404, { error: "Task not found" });
+      return;
+    }
+    const task = demoStore.tasks[index];
+    if (req.method === "GET") {
+      sendJson(res, 200, dashboardTask(task));
+      return;
+    }
+    if (!canSeeAll(authUser) && task.postedBy !== authUser.id) {
+      sendJson(res, 403, { error: "Only the task owner or an admin can change this task." });
+      return;
+    }
+    if (req.method === "DELETE") {
+      demoStore.tasks.splice(index, 1);
+      sendJson(res, 204, {});
+      return;
+    }
+    const body = await readBody(req);
+    Object.assign(task, body, {
+      title: body.title ?? body.taskDescription ?? task.title,
+      court: body.court ?? body.location ?? task.court,
+      taskType: body.taskType ?? body.task_type ?? task.taskType,
+      amount: numericAmount(body.amount ?? body.fee, numericAmount(task.amount ?? task.fee)),
+      status: body.status ?? task.status,
+      acceptedBy: body.acceptedBy ?? body.accepted_by ?? body.assignedToId ?? task.acceptedBy,
+      updatedAt: new Date().toISOString(),
+    });
+    sendJson(res, 200, dashboardTask(task));
     return;
   }
 
@@ -3542,7 +3769,7 @@ const server = http.createServer(async (req, res) => {
       const seed = reviewSeedData(authUser);
       sendJson(res, 201, {
         ...seed.bookings[0],
-        serviceType: body.serviceType || body.service_type || body.plan || seed.bookings[0].serviceType,
+        serviceType: body.serviceType || body.service_type || body.legalIssueType || body.plan || seed.bookings[0].serviceType,
         amount: Number(body.amount || body.price || seed.bookings[0].amount),
         transparencyReceipt: seed.receipts[0],
         message: "Google Play review booking is synthetic and does not charge Razorpay.",
@@ -3558,8 +3785,8 @@ const server = http.createServer(async (req, res) => {
          RETURNING *`,
         [
           bookingUserId,
-          body.serviceType || body.service_type || body.plan || "Legal Connect booking",
-          Number(body.amount || body.price || 0),
+          body.serviceType || body.service_type || body.legalIssueType || body.plan || "Legal Connect booking",
+          numericAmount(body.amount || body.price),
           body.paymentStatus || body.payment_status || body.status || "Pending",
           body.receiptNo || body.receipt_no || null,
           body.nextDestination || body.next_destination || body.route || null,
@@ -3603,19 +3830,88 @@ const server = http.createServer(async (req, res) => {
       payload: { nextDestination: booking.nextDestination || booking.route || null, workHoldStatus: booking.workHoldStatus || "pending" },
     });
     demoStore.bookings.push(booking);
-    sendJson(res, 201, booking);
+    sendJson(res, 201, dashboardBooking(booking));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/bookings/") && ["PUT", "DELETE"].includes(req.method)) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const id = url.pathname.split("/").pop();
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM bookings WHERE id = $1", [id]);
+      if (existing.rows.length === 0) {
+        sendJson(res, 404, { error: "Booking not found" });
+        return;
+      }
+      const current = mapBooking(existing.rows[0]);
+      if (!canSeeAll(authUser) && authUser.role !== "advocate" && current.userId !== authUser.id) {
+        sendJson(res, 403, { error: "Forbidden" });
+        return;
+      }
+      if (req.method === "DELETE") {
+        await db.query("DELETE FROM bookings WHERE id = $1", [id]);
+        sendJson(res, 204, {});
+        return;
+      }
+      const body = await readBody(req);
+      const next = {
+        ...current,
+        ...body,
+        legalIssueType: body.legalIssueType ?? body.serviceType ?? current.legalIssueType,
+        status: body.status ?? body.paymentStatus ?? current.status,
+      };
+      const result = await db.query(
+        `UPDATE bookings
+         SET service_type = $2, amount = $3, payment_status = $4, payload = $5
+         WHERE id = $1
+         RETURNING *`,
+        [id, next.legalIssueType, numericAmount(body.amount, numericAmount(current.amount)), next.status, JSON.stringify({ ...next, user_id: current.userId })],
+      );
+      sendJson(res, 200, mapBooking(result.rows[0]));
+      return;
+    }
+    const index = demoStore.bookings.findIndex((item) => item.id === id);
+    if (index === -1) {
+      sendJson(res, 404, { error: "Booking not found" });
+      return;
+    }
+    const booking = demoStore.bookings[index];
+    if (!canSeeAll(authUser) && authUser.role !== "advocate" && booking.userId !== authUser.id) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+    if (req.method === "DELETE") {
+      demoStore.bookings.splice(index, 1);
+      sendJson(res, 204, {});
+      return;
+    }
+    const body = await readBody(req);
+    Object.assign(booking, body, {
+      legalIssueType: body.legalIssueType ?? body.serviceType ?? booking.legalIssueType,
+      status: body.status ?? body.paymentStatus ?? booking.status,
+      updatedAt: new Date().toISOString(),
+    });
+    sendJson(res, 200, dashboardBooking(booking));
     return;
   }
 
   if (url.pathname === "/api/tasks" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
     if (isReviewUser(authUser)) {
       const seed = reviewSeedData(authUser);
       sendJson(res, 201, {
         ...seed.tasks[0],
-        title: body.title || seed.tasks[0].title,
-        amount: Number(body.amount || body.fee || seed.tasks[0].amount),
+        title: body.title || body.taskDescription || seed.tasks[0].title,
+        amount: numericAmount(body.amount || body.fee, numericAmount(seed.tasks[0].amount)),
         transparencyReceipt: seed.receipts[0],
         message: "Google Play review court mission is synthetic and cannot release funds.",
       });
@@ -3623,16 +3919,19 @@ const server = http.createServer(async (req, res) => {
     }
     const actorId = userIdForWrite(body, authUser);
     const task = { id: `task-${Date.now()}`, postedBy: actorId, status: "Open", createdAt: new Date().toISOString(), ...body };
+    task.title = body.title || body.taskDescription || "Legal Connect mission";
+    task.court = body.court || body.location || null;
+    task.amount = numericAmount(body.amount || body.fee);
     if (db.dbAvailable) {
       const result = await db.query(
         `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, accepted_by, proof_url, payload)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
-          body.title || "Legal Connect mission",
-          body.court || null,
+          body.title || body.taskDescription || "Legal Connect mission",
+          body.court || body.location || null,
           body.taskType || body.task_type || body.type || "Mission",
-          Number(body.amount || body.fee || 0),
+          numericAmount(body.amount || body.fee),
           body.escrowStatus || body.escrow_status || "Not locked",
           body.status || "Open",
           body.postedBy || body.posted_by || actorId,
@@ -3674,7 +3973,7 @@ const server = http.createServer(async (req, res) => {
       payload: { court: task.court || null, taskType: task.taskType || task.type || null, workHoldStatus: task.escrowStatus || "Not locked" },
     });
     demoStore.tasks.push(task);
-    sendJson(res, 201, task);
+    sendJson(res, 201, dashboardTask(task));
     return;
   }
 

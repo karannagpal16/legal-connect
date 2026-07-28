@@ -106,6 +106,14 @@
 .lc-button-danger { background: var(--lc-red); color: #fff; }
 .lc-button-full { width: 100%; }
 
+.lc-error-page { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: var(--lc-canvas); }
+.lc-error-panel { width: min(100%, 560px); padding: 40px; border: 1px solid var(--lc-border); border-radius: 8px; background: #fff; box-shadow: var(--lc-shadow); }
+.lc-error-icon { display: inline-flex; width: 46px; height: 46px; align-items: center; justify-content: center; margin-bottom: 22px; border-radius: 8px; background: #fff3e4; color: #9a621d; }
+.lc-error-icon svg { width: 23px; }
+.lc-error-panel h1 { margin: 8px 0 12px; font-family: 'Playfair Display', serif; font-size: 34px; line-height: 1.15; }
+.lc-error-panel > p:not(.lc-kicker) { margin: 0; color: var(--lc-muted); line-height: 1.65; }
+.lc-error-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+
 /* Public home */
 .lc-home { min-height: 100vh; background: #fff; }
 .lc-public-header { position: sticky; top: 0; z-index: 30; display: flex; height: 72px; align-items: center; gap: 28px; padding: 0 max(24px, calc((100vw - 1180px) / 2)); border-bottom: 1px solid rgba(223, 228, 235, .9); background: rgba(255,255,255,.96); backdrop-filter: blur(12px); }

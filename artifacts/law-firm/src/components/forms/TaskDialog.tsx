@@ -6,6 +6,7 @@ import { useCreateTask, useUpdateTask } from "@workspace/api-client-react";
 import type { CreateTaskRequestStatus, CreateTaskRequestTaskType } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 const taskSchema = z.object({
   taskDescription: z.string().min(1, "Description required"),
@@ -30,24 +31,37 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     }
   });
 
-  const { mutate: create } = useCreateTask({
+  useEffect(() => {
+    if (!open) return;
+    form.reset(editingTask || {
+      taskDescription: "",
+      taskType: "Pass-over" as CreateTaskRequestTaskType,
+      fee: "",
+      location: "",
+      status: "Open" as CreateTaskRequestStatus,
+    });
+  }, [editingTask, form, open]);
+
+  const { mutate: create, isPending: isCreating } = useCreateTask({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
         onOpenChange(false);
         form.reset();
         toast({ title: "Task posted" });
-      }
+      },
+      onError: (error) => toast({ title: "Task could not be posted", description: error.message, variant: "destructive" }),
     }
   });
 
-  const { mutate: update } = useUpdateTask({
+  const { mutate: update, isPending: isUpdating } = useUpdateTask({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
         onOpenChange(false);
         toast({ title: "Task updated" });
-      }
+      },
+      onError: (error) => toast({ title: "Task could not be updated", description: error.message, variant: "destructive" }),
     }
   });
 
@@ -101,8 +115,11 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
               </select>
             </div>
           </div>
-          <button type="submit" className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl mt-4 hover:opacity-90 transition-all text-lg shadow-lg shadow-primary/20">
-            {editingTask ? "Save Changes" : "Post to Marketplace"}
+          {Object.values(form.formState.errors)[0]?.message && (
+            <p className="text-sm text-destructive" role="alert">{String(Object.values(form.formState.errors)[0]?.message)}</p>
+          )}
+          <button type="submit" disabled={isCreating || isUpdating} className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl mt-4 hover:opacity-90 transition-all text-lg shadow-lg shadow-primary/20 disabled:opacity-60">
+            {isCreating || isUpdating ? "Saving..." : editingTask ? "Save Changes" : "Post to Marketplace"}
           </button>
         </form>
       </DialogContent>

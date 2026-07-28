@@ -59,6 +59,7 @@ import { InternDoubtPortal } from "@/pages/intern/InternDoubtPortal";
 import { InternAIAssistant } from "@/pages/intern/InternAIAssistant";
 import { AdvocateCaseTracker } from "@/pages/advocate/AdvocateCaseTracker";
 import { InternCaseTracker } from "@/pages/intern/InternCaseTracker";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -246,7 +247,9 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
+            <AppErrorBoundary>
+              <Router />
+            </AppErrorBoundary>
           </WouterRouter>
           <Toaster />
         </TooltipProvider>
