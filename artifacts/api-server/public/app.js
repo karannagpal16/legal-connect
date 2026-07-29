@@ -2462,6 +2462,124 @@ window.addEventListener("hashchange", () => {
         <div class="lc-quote-box" style="margin-top:12px;background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(212,175,55,0.4);">
           <p class="lc-quote-text" style="color:#fff;">"${escapeHtml(q.quote)}"</p>
           <span class="lc-quote-author" style="color:#f8cc67;">— ${escapeHtml(q.source)} (${escapeHtml(q.type)})</span>
+        </div>
+      </section>
+    `;
+  }
+
+  window.openRoleOnboardingModal = function openRoleOnboardingModal(targetRole = "client") {
+    let modal = document.querySelector("#lc-role-onboarding-backdrop");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "lc-role-onboarding-backdrop";
+      modal.className = "lc-intake-backdrop";
+      document.body.appendChild(modal);
+    }
+
+    const roleTitles = {
+      client: "Client Onboarding & Aadhaar e-KYC Verification",
+      advocate: "Advocate Bar Council Verification Desk",
+      intern: "Internverse & University ID Card Verification",
+      admin: "Legal Connect Master Admin Desk"
+    };
+
+    modal.innerHTML = `
+      <div class="lc-intake-modal" style="max-width:540px;">
+        <div class="lc-intake-header">
+          <div>
+            <h3>${roleTitles[targetRole] || "Portal Verification"}</h3>
+            <p style="margin:2px 0 0;font-size:0.8rem;color:#64748b;">Credentials saved securely in DB &amp; audited by Admin</p>
+          </div>
+          <button type="button" class="ghost-button" style="min-height:36px;padding:4px 10px;" id="close-role-modal">✕ Close</button>
+        </div>
+
+        <form id="lc-onboarding-form" style="display:grid;gap:12px;">
+          <label>Full Legal Name <input type="text" id="onboard-name" required placeholder="Full Legal Name" value="${escapeHtml(getSession()?.user?.name || '')}" /></label>
+          <label>Email Address <input type="email" id="onboard-email" required placeholder="you@email.com" value="${escapeHtml(getSession()?.user?.email || '')}" /></label>
+          <label>Mobile Number (+91) <input type="tel" id="onboard-phone" required placeholder="+91 98765 43210" value="${escapeHtml(getSession()?.user?.phone || '+91 ')}" /></label>
+
+          ${targetRole === 'client' ? `
+            <label>Aadhaar Card Number (12 Digits) 
+              <input type="text" id="onboard-aadhaar" maxLength="12" required placeholder="1234 5678 9012" value="987654328912" />
+            </label>
+            <p style="font-size:0.78rem;color:#0f766e;margin:0;">🔒 Aadhaar number is e-KYC verified &amp; masked as XXXX-XXXX-8912 for privacy.</p>
+          ` : ''}
+
+          ${targetRole === 'advocate' ? `
+            <label>Bar Council Enrollment Number <input type="text" id="onboard-bar-no" required placeholder="e.g. D/1482/2018" value="D/1482/2018" /></label>
+            <label>State Bar Council <input type="text" id="onboard-state-bar" required placeholder="e.g. Bar Council of Delhi" value="Bar Council of Delhi" /></label>
+            <label>Practice Courts <input type="text" id="onboard-courts" required placeholder="e.g. Supreme Court, Delhi High Court, Saket Court" value="Supreme Court, Delhi High Court" /></label>
+            <p style="font-size:0.78rem;color:#0f766e;margin:0;">🔒 Bar Enrollment is audited by Legal Connect Admin for Bar-verified badge.</p>
+          ` : ''}
+
+          ${targetRole === 'intern' ? `
+            <label>Law College / University Name <input type="text" id="onboard-college" required placeholder="e.g. Campus Law Centre, Faculty of Law, DU" value="Campus Law Centre, DU" /></label>
+            <label>College Student ID Card No. <input type="text" id="onboard-college-id" required placeholder="e.g. CLC-2024-8901" value="CLC-2024-8901" /></label>
+            <label>Year of Study 
+              <select id="onboard-study-year">
+                <option value="LL.B 1st Year">LL.B 1st Year</option>
+                <option value="LL.B 2nd Year">LL.B 2nd Year</option>
+                <option value="LL.B 3rd Year / 5th Year Integrated" selected>LL.B 3rd Year / 5th Year Integrated</option>
+              </select>
+            </label>
+          ` : ''}
+
+          ${targetRole === 'admin' ? `
+            <label>Legal Connect Master Security Key <input type="password" id="onboard-master-key" required placeholder="••••••••••••" value="masterkey123" /></label>
+          ` : ''}
+
+          <button type="submit" class="gold-button" style="margin-top:8px;">Verify Credentials &amp; Open Portal →</button>
+        </form>
+      </div>
+    `;
+
+    document.querySelector("#close-role-modal")?.addEventListener("click", () => modal.remove());
+    
+    document.querySelector("#lc-onboarding-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.querySelector("#onboard-name").value;
+      const email = document.querySelector("#onboard-email").value;
+      const phone = document.querySelector("#onboard-phone").value;
+      
+      let extra = {};
+      if (targetRole === 'client') {
+        const aadh = document.querySelector("#onboard-aadhaar") ? document.querySelector("#onboard-aadhaar").value : "987654328912";
+        extra.aadhaarMasked = `XXXX-XXXX-${aadh.slice(-4)}`;
+      } else if (targetRole === 'advocate') {
+        extra.barEnrollmentNo = document.querySelector("#onboard-bar-no") ? document.querySelector("#onboard-bar-no").value : "D/1482/2018";
+        extra.stateBar = document.querySelector("#onboard-state-bar") ? document.querySelector("#onboard-state-bar").value : "Bar Council of Delhi";
+        extra.practiceCourts = document.querySelector("#onboard-courts") ? document.querySelector("#onboard-courts").value : "Delhi High Court";
+      } else if (targetRole === 'intern') {
+        extra.collegeIdCardNo = document.querySelector("#onboard-college-id") ? document.querySelector("#onboard-college-id").value : "CLC-2024-8901";
+        extra.lawSchoolName = document.querySelector("#onboard-college") ? document.querySelector("#onboard-college").value : "DU Law School";
+      }
+
+      const sessionUser = { name, email, phone, role: targetRole, ...extra };
+      setSession({ user: sessionUser });
+      applySessionToUi({ user: sessionUser });
+      modal.remove();
+      activateView(targetRole);
+    });
+  };
+
+  document.addEventListener("click", (event) => {
+    const gateBtn = event.target.closest(".portal-gate button, .portal-gate a, [data-open-portal]");
+    if (gateBtn) {
+      event.preventDefault();
+      const parentGate = gateBtn.closest(".portal-gate");
+      let role = "client";
+      if (parentGate) {
+        const title = parentGate.querySelector("h3")?.textContent.toLowerCase() || "";
+        if (title.includes("advocate") || title.includes("lawyer")) role = "advocate";
+        else if (title.includes("intern")) role = "intern";
+        else if (title.includes("admin")) role = "admin";
+      } else if (gateBtn.dataset.openPortal) {
+        role = gateBtn.dataset.openPortal;
+      }
+      openRoleOnboardingModal(role);
+    }
+  });
+
   function render5StageStepperHtml(booking) {
     const currentStage = booking.stageStatus || booking.stage || "booking_submitted";
     const stages = [
