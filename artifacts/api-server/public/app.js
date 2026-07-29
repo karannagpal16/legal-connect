@@ -2462,9 +2462,523 @@ window.addEventListener("hashchange", () => {
         <div class="lc-quote-box" style="margin-top:12px;background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(212,175,55,0.4);">
           <p class="lc-quote-text" style="color:#fff;">"${escapeHtml(q.quote)}"</p>
           <span class="lc-quote-author" style="color:#f8cc67;">— ${escapeHtml(q.source)} (${escapeHtml(q.type)})</span>
+  function render5StageStepperHtml(booking) {
+    const currentStage = booking.stageStatus || booking.stage || "booking_submitted";
+    const stages = [
+      { key: "booking_submitted", num: 1, title: "Submitted", sub: "Fee Paid & Verified" },
+      { key: "acknowledged_and_assigned", num: 2, title: "Assigned by LC", sub: booking.assignedAdvocateName || "Legal Connect Reviewing" },
+      { key: "advocate_connected", num: 3, title: "Connected", sub: booking.assignedAdvocateName || "Adv. Rishika Nagpal" },
+      { key: "session_confirmed", num: 4, title: "Confirmed", sub: booking.meetingLink ? "Link Ready" : "Session scheduled" },
+      { key: "request_entertained", num: 5, title: "Entertained", sub: "Work Completed" }
+    ];
+
+    const stageOrder = ["booking_submitted", "acknowledged_and_assigned", "advocate_connected", "session_confirmed", "request_entertained"];
+    let currentIndex = stageOrder.indexOf(currentStage);
+    if (currentIndex < 0) currentIndex = 0;
+
+    const userRole = roleOf();
+    const isAdmin = userRole === 'admin';
+    const isLawyerOrAdmin = userRole === 'advocate' || userRole === 'rna' || userRole === 'admin';
+
+    return `
+      <div class="lc-stepper-card" data-booking-id="${escapeHtml(booking.id || 'BK-9012')}">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">
+          <div>
+            <strong style="color:#0f172a;font-size:1.1rem;">${escapeHtml(booking.caseTitle || booking.serviceType || "Legal Consultation")}</strong>
+            <p style="margin:2px 0 0;font-size:0.8rem;color:#64748b;">Booking #${escapeHtml(booking.id || 'BK-9012')} · Work Completion Hold: <span style="color:#0f766e;font-weight:700;">${booking.workHoldStatus === 'released' ? 'Released' : 'Active Escrow (Fee Paid)'}</span></p>
+          </div>
+          <span class="role-dash-badge" style="background:#fef3c7;color:#92400e;">Stage ${currentIndex + 1} of 5</span>
         </div>
-      </section>
+
+        <div class="lc-stepper-tracks">
+          ${stages.map((st, i) => `
+            <div class="lc-step-item ${i < currentIndex ? 'completed' : (i === currentIndex ? 'active' : '')}">
+              <div class="lc-step-circle">${i < currentIndex ? '✓' : st.num}</div>
+              <strong>${st.title}</strong>
+              <small>${st.sub}</small>
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px;display:grid;gap:6px;font-size:0.86rem;">
+          <div><strong>Specialty Category:</strong> ${escapeHtml(booking.caseType || 'Civil / Criminal')}</div>
+          <div><strong>Legal Connect Assigned Lawyer:</strong> ${booking.assignedAdvocateName ? escapeHtml(booking.assignedAdvocateName) : `<span style="color:#d97706;font-weight:700;">Legal Connect Reviewing &amp; Assigning Panel Lawyer...</span>`}</div>
+          ${booking.caseNumber ? `<div><strong>Case / CNR No:</strong> ${escapeHtml(booking.caseNumber)}</div>` : ''}
+          ${booking.courtName ? `<div><strong>Target Court:</strong> ${escapeHtml(booking.courtName)}</div>` : ''}
+          ${booking.problemSummary ? `<div><strong>Client Overview / Requirements:</strong> ${escapeHtml(booking.problemSummary)}</div>` : ''}
+          ${booking.attachedFiles && booking.attachedFiles.length ? `
+            <div style="margin-top:4px;">
+              <strong>Client Uploaded Documents (${booking.attachedFiles.length}):</strong>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+                ${booking.attachedFiles.map(f => `<span class="lc-file-chip">📄 ${escapeHtml(f.name || f.label || 'Document')} (${escapeHtml(f.label || 'File')})</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-top:4px;">
+          ${isAdmin && currentIndex < 2 ? `
+            <button type="button" class="gold-button" style="background:#0f766e!important;color:#fff!important;" data-assign-lawyer="${escapeHtml(booking.id)}">Assign Bar-Verified Lawyer (Legal Connect Desk)</button>
+          ` : ''}
+          ${isLawyerOrAdmin ? `
+            ${currentIndex < 2 ? `<button type="button" class="gold-button" data-advance-stage="acknowledged_and_assigned" data-booking-target="${escapeHtml(booking.id)}">Acknowledge Request</button>` : ''}
+            ${currentIndex < 3 ? `<button type="button" class="gold-button" data-advance-stage="advocate_connected" data-booking-target="${escapeHtml(booking.id)}">Connect as Advocate</button>` : ''}
+            ${currentIndex < 3 ? `<button type="button" class="gold-button" data-advance-stage="session_confirmed" data-booking-target="${escapeHtml(booking.id)}">Confirm Session &amp; Link</button>` : ''}
+            ${currentIndex < 4 ? `<button type="button" class="gold-button" style="background:#0f766e!important;color:#fff!important;" data-advance-stage="request_entertained" data-booking-target="${escapeHtml(booking.id)}">Mark Request Entertained</button>` : ''}
+            ${currentIndex === 4 ? `<span style="color:#0f766e;font-weight:800;">✓ Work Completed &amp; Escrow Released</span>` : ''}
+          ` : `
+            ${currentIndex === 4 ? `
+              <span style="color:#0f766e;font-weight:800;">✓ Work Completed &amp; Verified</span>
+              <button type="button" class="gold-button" data-rate-booking="${escapeHtml(booking.id)}">Rate Session (★ 5/5)</button>
+            ` : `
+              <button type="button" class="ghost-button" data-refresh-booking="${escapeHtml(booking.id)}">🔄 Refresh Live Status</button>
+            `}
+          `}
+        </div>
+      </div>
     `;
+  }
+
+  window.openIntakeBookingModal = function openIntakeBookingModal(initialPlan = "Attorney Shield Consultation", initialPrice = 1999) {
+    let modal = document.querySelector("#lc-intake-modal-backdrop");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "lc-intake-modal-backdrop";
+      modal.className = "lc-intake-backdrop";
+      document.body.appendChild(modal);
+    }
+
+    const sessionUser = getSession()?.user || {};
+    let currentStep = 1;
+
+    let intakeData = {
+      name: sessionUser.name || "Client",
+      email: sessionUser.email || "client@demo.legal-connect.in",
+      phone: sessionUser.phone || "+91 98765 43210",
+      caseTitle: "",
+      caseNumber: "",
+      courtName: "Tis Hazari Court, Delhi",
+      caseType: "Civil",
+      problemSummary: "",
+      attachedFiles: [],
+      plan: initialPlan,
+      price: initialPrice,
+    };
+
+    function updateModalHtml() {
+      modal.innerHTML = `
+        <div class="lc-intake-modal">
+          <div class="lc-intake-header">
+            <div>
+              <h3>Legal Connect — Upfront Payment &amp; Case Intake</h3>
+              <p style="margin:2px 0 0;font-size:0.8rem;color:#64748b;">Step ${currentStep} of 4 · ${
+                currentStep === 1 ? 'Contact & Verification' :
+                currentStep === 2 ? 'Legal Requirements & Case Overview' :
+                currentStep === 3 ? 'Document Attachments' : 'Upfront Fee Payment'
+              }</p>
+            </div>
+            <button type="button" class="ghost-button" style="min-height:36px;padding:4px 10px;" id="close-intake-modal">✕ Close</button>
+          </div>
+
+          <div class="lc-intake-steps">
+            <div class="lc-intake-step-pill ${currentStep >= 1 ? (currentStep > 1 ? 'completed' : 'active') : ''}"></div>
+            <div class="lc-intake-step-pill ${currentStep >= 2 ? (currentStep > 2 ? 'completed' : 'active') : ''}"></div>
+            <div class="lc-intake-step-pill ${currentStep >= 3 ? (currentStep > 3 ? 'completed' : 'active') : ''}"></div>
+            <div class="lc-intake-step-pill ${currentStep >= 4 ? 'active' : ''}"></div>
+          </div>
+
+          ${currentStep === 1 ? `
+            <div style="display:grid;gap:12px;">
+              <label>Full Name <input type="text" id="intake-name" value="${escapeHtml(intakeData.name)}" placeholder="Your full legal name" /></label>
+              <label>Email Address <input type="email" id="intake-email" value="${escapeHtml(intakeData.email)}" placeholder="you@email.com" /></label>
+              <label>Mobile Number (+91) <input type="tel" id="intake-phone" value="${escapeHtml(intakeData.phone)}" placeholder="+91 98765 43210" /></label>
+              <p style="font-size:0.8rem;color:#0f766e;margin:0;">✓ Contact details verified for confidential legal session.</p>
+            </div>
+          ` : ''}
+
+          ${currentStep === 2 ? `
+            <div style="display:grid;gap:12px;">
+              <label>Lawyer Specialty Needed
+                <select id="intake-category">
+                  <option value="Civil Lawyer" ${intakeData.caseType.includes('Civil') ? 'selected' : ''}>Civil Lawyer (Property, Contracts, Recovery, Suits)</option>
+                  <option value="Criminal Lawyer" ${intakeData.caseType.includes('Criminal') ? 'selected' : ''}>Criminal Lawyer (Bail, FIR, Police Station, Notices)</option>
+                  <option value="Property Specialist" ${intakeData.caseType.includes('Property') ? 'selected' : ''}>Property Specialist (Title, Partition, Eviction)</option>
+                  <option value="Family Law" ${intakeData.caseType.includes('Family') ? 'selected' : ''}>Family &amp; Matrimonial Law</option>
+                  <option value="Consumer Protection" ${intakeData.caseType.includes('Consumer') ? 'selected' : ''}>Consumer Protection Commission</option>
+                  <option value="Labour / Employment" ${intakeData.caseType.includes('Labour') ? 'selected' : ''}>Labour &amp; Employment Law</option>
+                </select>
+              </label>
+              <label>Matter / Case Title <input type="text" id="intake-case-title" value="${escapeHtml(intakeData.caseTitle)}" placeholder="e.g. Property Title Notice Reply / Bail Application" /></label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <label>Existing Case / CNR No. (Optional) <input type="text" id="intake-case-no" value="${escapeHtml(intakeData.caseNumber)}" placeholder="e.g. CNR-DL-2026-901" /></label>
+                <label>Target Court <input type="text" id="intake-court" value="${escapeHtml(intakeData.courtName)}" placeholder="e.g. Tis Hazari Court / Saket Court / High Court" /></label>
+              </div>
+              <label>Client Overview &amp; Requirements <textarea id="intake-summary" rows="3" placeholder="Describe your legal problem, what notices were received, and what help you require...">${escapeHtml(intakeData.problemSummary)}</textarea></label>
+            </div>
+          ` : ''}
+
+          ${currentStep === 3 ? `
+            <div style="display:grid;gap:12px;">
+              <div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:16px;padding:16px;text-align:center;">
+                <p style="margin:0 0 8px;font-weight:700;">Upload Documents Related to Case (Notices, Orders, FIR, Contracts)</p>
+                <label style="margin:0 0 8px;">Document Label <input type="text" id="intake-file-tag" placeholder="e.g. Legal Notice Copy / Agreement / Order Sheet" style="margin-bottom:8px;" /></label>
+                <button type="button" class="gold-button" id="trigger-intake-file">+ Add File Attachment</button>
+              </div>
+              <div id="intake-file-list" style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${intakeData.attachedFiles.map((f, idx) => `
+                  <span class="lc-file-chip">📄 ${escapeHtml(f.name)} (${escapeHtml(f.label)}) <button type="button" style="border:0;background:none;cursor:pointer;color:#c2415f;" data-remove-file="${idx}">✕</button></span>
+                `).join('')}
+                ${!intakeData.attachedFiles.length ? `<p style="font-size:0.8rem;color:#64748b;margin:0;">No documents attached yet (optional).</p>` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          ${currentStep === 4 ? `
+            <div style="display:grid;gap:12px;">
+              <label>Choose Service Plan
+                <select id="intake-plan-select">
+                  <option value="Attorney Shield Consultation|1999" ${intakeData.plan.includes('Attorney Shield') ? 'selected' : ''}>🛡️ Attorney Shield Consultation — ₹1,999 (Full strategy &amp; notice review)</option>
+                  <option value="Emergency Video SOS|1500" ${intakeData.plan.includes('Video') ? 'selected' : ''}>🆘 Emergency Video SOS — ₹1,500 (15 min immediate video counsel)</option>
+                  <option value="Quick Chat Consultation|150" ${intakeData.plan.includes('Chat') ? 'selected' : ''}>💬 Quick Chat Consultation — ₹150 (8 min encrypted chat)</option>
+                  <option value="Chamber Office Visit|799" ${intakeData.plan.includes('Office') ? 'selected' : ''}>🏛️ Chamber Office Visit — ₹799 (20 min in-person consultation)</option>
+                  <option value="Doorstep Advocate Visit|2499" ${intakeData.plan.includes('Doorstep') ? 'selected' : ''}>🚗 Doorstep Advocate Visit — ₹2,499 (Advocate comes to your location)</option>
+                </select>
+              </label>
+              <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:12px;font-size:0.86rem;color:#065f46;">
+                <strong>🔒 Mandatory Upfront Fee Payment (₹${intakeData.price}):</strong> Payment is held in Work Completion Escrow and routed to Legal Connect. Legal Connect will review your intake and assign the best Bar-verified lawyer to your matter.
+              </div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px;font-size:0.84rem;">
+                <strong>Summary of Request:</strong>
+                <div>Client: ${escapeHtml(intakeData.name || 'Priya Sharma')} (${escapeHtml(intakeData.phone)})</div>
+                <div>Specialty: ${escapeHtml(intakeData.caseType || 'Civil Lawyer')}</div>
+                <div>Title: ${escapeHtml(intakeData.caseTitle || 'Legal Inquiry')}</div>
+                <div>Documents Attached: ${intakeData.attachedFiles.length} files</div>
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;border-top:1px solid #e2e8f0;padding-top:12px;">
+            ${currentStep > 1 ? `<button type="button" class="ghost-button" id="intake-prev-step">← Previous Step</button>` : `<div></div>`}
+            ${currentStep < 4 ? `<button type="button" class="gold-button" id="intake-next-step">Next Step →</button>` : `<button type="button" class="gold-button" style="background:#0f766e!important;color:#fff!important;" id="intake-submit-pay">Pay ₹${intakeData.price} &amp; Route to Legal Connect</button>`}
+          </div>
+        </div>
+      `;
+
+      document.querySelector("#close-intake-modal")?.addEventListener("click", () => modal.remove());
+      
+      document.querySelector("#intake-next-step")?.addEventListener("click", () => {
+        saveCurrentStepInputs();
+        currentStep += 1;
+        updateModalHtml();
+      });
+
+      document.querySelector("#intake-prev-step")?.addEventListener("click", () => {
+        saveCurrentStepInputs();
+        currentStep -= 1;
+        updateModalHtml();
+      });
+
+      document.querySelector("#trigger-intake-file")?.addEventListener("click", () => {
+        const tagInput = document.querySelector("#intake-file-tag");
+        const tag = tagInput?.value.trim() || "Case Document";
+        intakeData.attachedFiles.push({ name: `Document_${Date.now().toString().slice(-4)}.pdf`, label: tag, url: "#" });
+        if (tagInput) tagInput.value = "";
+        updateModalHtml();
+      });
+
+      document.querySelectorAll("[data-remove-file]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.dataset.removeFile);
+          intakeData.attachedFiles.splice(idx, 1);
+          updateModalHtml();
+        });
+      });
+
+      document.querySelector("#intake-plan-select")?.addEventListener("change", (e) => {
+        const [p, amt] = e.target.value.split("|");
+        intakeData.plan = p;
+        intakeData.price = Number(amt);
+        updateModalHtml();
+      });
+
+      document.querySelector("#intake-submit-pay")?.addEventListener("click", async () => {
+        saveCurrentStepInputs();
+        modal.remove();
+        await submitIntakeBooking(intakeData);
+      });
+    }
+
+    function saveCurrentStepInputs() {
+      if (document.querySelector("#intake-name")) intakeData.name = document.querySelector("#intake-name").value;
+      if (document.querySelector("#intake-email")) intakeData.email = document.querySelector("#intake-email").value;
+      if (document.querySelector("#intake-phone")) intakeData.phone = document.querySelector("#intake-phone").value;
+      if (document.querySelector("#intake-case-title")) intakeData.caseTitle = document.querySelector("#intake-case-title").value;
+      if (document.querySelector("#intake-case-no")) intakeData.caseNumber = document.querySelector("#intake-case-no").value;
+      if (document.querySelector("#intake-court")) intakeData.courtName = document.querySelector("#intake-court").value;
+      if (document.querySelector("#intake-category")) intakeData.caseType = document.querySelector("#intake-category").value;
+      if (document.querySelector("#intake-summary")) intakeData.problemSummary = document.querySelector("#intake-summary").value;
+    }
+
+    updateModalHtml();
+  };
+
+  async function submitIntakeBooking(intakeData) {
+    const bookingId = `BK-${Date.now().toString().slice(-6)}`;
+    try {
+      const savedBooking = await apiFetch("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          serviceType: intakeData.plan,
+          amount: Number(intakeData.price),
+          paymentStatus: "paid",
+          receiptNo: `LC-REC-${bookingId}`,
+          nextDestination: "service-room",
+          workHoldStatus: "pending",
+          stageStatus: "booking_submitted",
+          clientName: intakeData.name || "Client",
+          clientEmail: intakeData.email,
+          clientPhone: intakeData.phone,
+          caseTitle: intakeData.caseTitle || "Legal Consultation Request",
+          caseNumber: intakeData.caseNumber,
+          courtName: intakeData.courtName,
+          caseType: intakeData.caseType,
+          problemSummary: intakeData.problemSummary,
+          attachedFiles: intakeData.attachedFiles,
+        }),
+      });
+
+      setFlowStatus("Booking Created & Paid", `${intakeData.plan} booking #${bookingId} paid & submitted to Legal Connect Admin for lawyer assignment.`);
+      activateView("client");
+      await loadAndInjectBookings();
+    } catch (err) {
+      console.error("Booking submission error:", err);
+    }
+  }
+
+  async function loadAndInjectBookings() {
+    try {
+      const res = await apiFetch("/api/bookings");
+      let list = Array.isArray(res) ? res : (res && res.rows ? res.rows : []);
+      if (!list.length) {
+        list = [{
+          id: "BK-9012",
+          serviceType: "Attorney Shield Consultation",
+          amount: 1999,
+          caseTitle: "Property Title Dispute & Notice Reply",
+          caseNumber: "DL-HC/2026/8941",
+          courtName: "Delhi High Court",
+          caseType: "Civil / Property",
+          problemSummary: "Seller issued conflicting title notice. Require urgent advocate strategy review and legal reply notice.",
+          attachedFiles: [
+            { name: "Legal_Notice_2026.pdf", label: "Legal Notice" },
+            { name: "Sale_Agreement_Draft.pdf", label: "Agreement Copy" }
+          ],
+          stageStatus: "advocate_connected",
+          assignedAdvocateName: "Adv. Rishika Nagpal (Delhi High Court Panel)",
+          paymentStatus: "paid",
+          workHoldStatus: "pending"
+        }];
+      }
+
+      document.querySelectorAll("[data-stage-stepper-container]").forEach(el => {
+        el.innerHTML = list.map(b => render5StageStepperHtml(b)).join("");
+      });
+    } catch (e) {
+      console.warn("Could not fetch bookings list:", e);
+    }
+  }
+
+  document.addEventListener("click", async (event) => {
+    const openBtn = event.target.closest("[data-open-booking], [data-open-sos], [data-open-intake]");
+    if (openBtn) {
+      event.preventDefault();
+      const plan = openBtn.dataset.plan || "Attorney Shield Consultation";
+      const price = Number(openBtn.dataset.price || 1999);
+      openIntakeBookingModal(plan, price);
+      return;
+    }
+
+    const assignBtn = event.target.closest("[data-assign-lawyer]");
+    if (assignBtn) {
+      event.preventDefault();
+      const targetId = assignBtn.dataset.assignLawyer;
+      assignBtn.textContent = "Assigning Panel Lawyer...";
+      try {
+        await apiFetch(`/api/bookings/${targetId}/assign`, {
+          method: "POST",
+          body: JSON.stringify({
+            assignedAdvocateName: "Adv. Rishika Nagpal (Bar Council D/1482/2018)",
+            assignedAdvocateId: "demo-advocate",
+          }),
+        });
+        await loadAndInjectBookings();
+      } catch (err) {
+        console.error("Assign lawyer error:", err);
+      }
+      return;
+    }
+
+    const stageBtn = event.target.closest("[data-advance-stage]");
+    if (stageBtn) {
+      event.preventDefault();
+      const targetId = stageBtn.dataset.bookingTarget;
+      const newStage = stageBtn.dataset.advanceStage;
+      stageBtn.textContent = "Updating...";
+      try {
+        await apiFetch(`/api/bookings/${targetId}/stage`, {
+          method: "POST",
+          body: JSON.stringify({
+            stageStatus: newStage,
+            assignedAdvocateName: getSession()?.user?.name || "Adv. Rishika Nagpal",
+            assignedAdvocateId: getSession()?.user?.id || "demo-advocate",
+          }),
+        });
+        await loadAndInjectBookings();
+      } catch (err) {
+        console.error("Stage update error:", err);
+      }
+      return;
+    }
+
+    const refreshBtn = event.target.closest("[data-refresh-booking]");
+    if (refreshBtn) {
+      event.preventDefault();
+      await loadAndInjectBookings();
+      return;
+    }
+
+    const rateBtn = event.target.closest("[data-rate-booking]");
+    if (rateBtn) {
+      event.preventDefault();
+      alert("Thank you! Your 5-star rating and feedback have been recorded. Escrow payment released to advocate.");
+    }
+  });
+
+  function adminDashboard() {
+    return `
+      <div class="lc-role-shell" data-role-dashboard="admin">
+        <section class="role-dash-hero">
+          <span class="role-dash-kicker">Legal Connect Admin Control Desk</span>
+          <h2 class="role-dash-title">Review Client Intake &amp; Assign Panel Lawyers.</h2>
+          <p class="role-dash-sub">Every client intake and upfront payment is routed here. Review requirements and assign Bar-verified advocates.</p>
+          <div class="lc-role-metrics">
+            <div class="lc-role-metric"><span>Pending Assignment</span><strong>1 Intake</strong></div>
+            <div class="lc-role-metric"><span>Verifications</span><strong>Bar Council Active</strong></div>
+            <div class="lc-role-metric"><span>Escrow Balance</span><strong>Fee Secured</strong></div>
+          </div>
+        </section>
+        <section class="role-dash-card">
+          <h3>Incoming Client Intakes &amp; Lawyer Assignment Desk</h3>
+          <div data-stage-stepper-container></div>
+        </section>
+      </div>`;
+  }
+
+  function clientDashboard() {
+    const sessionUser = getSession()?.user || { name: "Karan Nagpal" };
+    return `
+      <div class="lc-role-shell" data-role-dashboard="client">
+        ${getDailyGreetingHeader(sessionUser.name || "Karan Nagpal")}
+
+        <section class="role-dash-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <h3>Active Matters &amp; Live Court Trackers</h3>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <select class="lc-case-switcher" id="client-case-switcher" data-action-case-switch>
+                <option value="CASE-101">Matter 1: Property Title Dispute (Rohini Court)</option>
+                <option value="CASE-102">Matter 2: Consumer Court Complaint (Delhi Commission)</option>
+                <option value="CASE-103">Matter 3: Commercial Suit Notice (Saket Court)</option>
+              </select>
+              <button type="button" class="gold-button" data-open-intake>+ Book New Counsel</button>
+            </div>
+          </div>
+
+          <div id="client-active-case-view" style="margin-top:14px;">
+            <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:16px;padding:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;color:#9f1239;">
+              <div>
+                <strong style="font-size:0.95rem;">⚠️ Mandatory NDOH &amp; Court Appearance Alert</strong>
+                <p style="margin:2px 0 0;font-size:0.84rem;">Next Hearing: <strong>12 August 2026 at Saket Court (Court Room 204)</strong>. Physical or Virtual appearance mandatory to avoid cost imposition under Order XVII CPC.</p>
+              </div>
+              <span class="role-dash-badge" style="background:#ffe4e6;color:#9f1239;">Hearing Due in 14 Days</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0;">
+              <div class="lc-role-metric">
+                <span>Current Stage</span>
+                <strong style="color:#0f766e;">DE - Defendant Evidence</strong>
+              </div>
+              <div class="lc-role-metric">
+                <span>Assigned Lawyer</span>
+                <strong style="font-size:1.1rem;margin-top:6px;">Adv. Rishika Nagpal <small style="display:block;font-size:0.75rem;color:#64748b;">(D/1482/2018 · RNA Panel)</small></strong>
+              </div>
+              <div class="lc-role-metric">
+                <span>Court Fee / Stamp Duty</span>
+                <strong style="color:#b91c1c;">₹450 Pending</strong>
+                <button type="button" class="gold-button" style="min-height:32px;padding:4px 10px;font-size:0.78rem;margin-top:6px;" data-pay-court-fee="450">Pay Court Fee (₹450)</button>
+              </div>
+            </div>
+
+            <div data-stage-stepper-container></div>
+          </div>
+        </section>
+      </div>`;
+  }
+
+  function advocateDashboard() {
+    const sessionUser = getSession()?.user || { name: "Rishika Nagpal" };
+    return `
+      <div class="lc-role-shell" data-role-dashboard="advocate">
+        <section class="role-dash-hero">
+          <span class="role-dash-kicker">Advocate Cockpit · Practice Management</span>
+          <h2 class="role-dash-title">Adv. ${escapeHtml(sessionUser.name || "Rishika Nagpal")}, your Chamber Vault is active.</h2>
+          <p class="role-dash-sub">Bar Council Verified Enrollment: <strong>D/1482/2018</strong> · Supreme Court &amp; High Court Panel Desk.</p>
+          <div class="lc-role-metrics">
+            <div class="lc-role-metric"><span>Active Matters</span><strong>4</strong></div>
+            <div class="lc-role-metric"><span>Chamber Team</span><strong>3 Members</strong></div>
+            <div class="lc-role-metric"><span>Sub-Second Sync</span><strong style="color:#0f766e;">Active (&lt; 300ms)</strong></div>
+          </div>
+        </section>
+
+        <section class="role-dash-card">
+          <h3>🏛️ Chamber Vault — Team &amp; Delegation Desk</h3>
+          <p style="font-size:0.84rem;color:#64748b;margin:0 0 10px;">Manage junior lawyers, interns, and delegate court proxy appearances with instant sub-second status updates.</p>
+          <table class="lc-chamber-vault-table">
+            <thead>
+              <tr>
+                <th>Matter &amp; CNR</th>
+                <th>Court</th>
+                <th>Assigned Handler</th>
+                <th>Task Type</th>
+                <th>Sub-Second Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>State v. Mehra</strong><br/><small>CNR-DL-HC-901</small></td>
+                <td>Delhi HC · Court 5</td>
+                <td>Adv. Aarav Mehta (Junior)</td>
+                <td>Proxy Appearance</td>
+                <td><span style="color:#0f766e;font-weight:800;">✓ Accepted (&lt; 200ms)</span></td>
+                <td><button type="button" class="ghost-button" style="min-height:30px;padding:2px 8px;font-size:0.75rem;">Reassign</button></td>
+              </tr>
+              <tr>
+                <td><strong>Rohini Tenancy Dispute</strong><br/><small>CNR-DL-2026-904</small></td>
+                <td>Rohini District Court</td>
+                <td>Rohan Verma (Intern Level 2)</td>
+                <td>Document Indexing</td>
+                <td><span style="color:#d97706;font-weight:800;">In Progress</span></td>
+                <td><button type="button" class="gold-button" style="min-height:30px;padding:2px 8px;font-size:0.75rem;">Verify Draft</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="role-dash-card">
+          <h3>Client Intake &amp; Live 5-Stage Stepper Desk</h3>
+          <div data-stage-stepper-container></div>
+        </section>
+      </div>`;
   }
 
   function renderRoleDashboards() {
@@ -2476,6 +2990,7 @@ window.addEventListener("hashchange", () => {
         node.dataset.phase2Dashboard = "true";
       }
     });
+    loadAndInjectBookings();
   }
 
   function canOpen(viewId, role) {
@@ -2503,13 +3018,6 @@ window.addEventListener("hashchange", () => {
     renderRoleDashboards();
     ensureRoleNav(location.hash.replace("#", "") || "home");
   };
-
-  document.addEventListener("click", (event) => {
-    const routeButton = event.target.closest("[data-role-route]");
-    if (!routeButton) return;
-    event.preventDefault();
-    activateView(routeButton.dataset.roleRoute);
-  });
 
   renderRoleDashboards();
   ensureRoleNav(location.hash.replace("#", "") || "home");

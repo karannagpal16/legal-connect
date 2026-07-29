@@ -3276,6 +3276,55 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname.startsWith("/api/bookings/") && url.pathname.endsWith("/assign") && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    const body = await readBody(req);
+    const parts = url.pathname.split("/");
+    const bookingId = parts[3];
+    const advocateName = body.assignedAdvocateName || body.advocateName || "Adv. Rishika Nagpal (Delhi High Court Panel)";
+    const advocateId = body.assignedAdvocateId || body.advocateId || "demo-advocate";
+
+    let targetBooking = null;
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingId]);
+      if (existing.rows.length) {
+        const payload = existing.rows[0].payload ? (typeof existing.rows[0].payload === 'string' ? JSON.parse(existing.rows[0].payload) : existing.rows[0].payload) : {};
+        payload.stageStatus = "acknowledged_and_assigned";
+        payload.assignedAdvocateName = advocateName;
+        payload.assignedAdvocateId = advocateId;
+        const updated = await db.query(
+          `UPDATE bookings SET payload = $2 WHERE id = $1 RETURNING *`,
+          [bookingId, JSON.stringify(payload)]
+        );
+        targetBooking = mapBooking(updated.rows[0]);
+      }
+    } else {
+      targetBooking = demoStore.bookings.find((item) => item.id === bookingId);
+      if (!targetBooking && demoStore.bookings.length > 0) {
+        targetBooking = demoStore.bookings[0];
+      }
+      if (targetBooking) {
+        targetBooking.stageStatus = "acknowledged_and_assigned";
+        targetBooking.assignedAdvocateName = advocateName;
+        targetBooking.assignedAdvocateId = advocateId;
+      }
+    }
+
+    if (targetBooking) {
+      await createNotification(
+        "advocate_assigned",
+        "Lawyer Assigned by Legal Connect",
+        `Legal Connect has reviewed your intake and assigned ${advocateName} to your matter.`,
+        { bookingId, advocateName },
+        targetBooking.userId || targetBooking.user_id || null
+      );
+      sendJson(res, 200, { ok: true, booking: targetBooking });
+    } else {
+      sendJson(res, 404, { ok: false, error: "Booking not found" });
+    }
+    return;
+  }
+
   if (url.pathname === "/api/tasks" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
