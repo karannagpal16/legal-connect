@@ -1,37 +1,37 @@
 import { Link } from "wouter";
 import {
   ArrowRight,
-  BookOpen,
-  CheckCircle2,
-  FileSearch,
-  Gavel,
-  LayoutDashboard,
+  BriefcaseBusiness,
+  Headphones,
   LockKeyhole,
-  MessageSquareText,
   Scale,
-  ShieldAlert,
   ShieldCheck,
+  Smartphone,
   UserRound,
 } from "lucide-react";
-import { roleHome, useAuth, type AppRole } from "@/lib/auth";
+import { roleHome, useAuth } from "@/lib/auth";
 
-const roleCards: Array<{
-  role: AppRole;
-  label: string;
-  description: string;
-  features: string;
-  icon: typeof Scale;
-}> = [
-  { role: "client", label: "For clients", description: "Understand your matter and get legal help.", features: "Cases · Counsel · Documents", icon: UserRound },
-  { role: "advocate", label: "For advocates", description: "Run your practice from one daily workspace.", features: "Diary · Bookings · Research", icon: Gavel },
-  { role: "intern", label: "For interns", description: "Learn through supervised legal work.", features: "Quests · XP · Library", icon: BookOpen },
-  { role: "admin", label: "For administrators", description: "Operate the platform with a clear audit trail.", features: "Users · Cases · Payments", icon: LayoutDashboard },
-];
-
-const steps = [
-  { number: "01", title: "Choose your role", text: "Your role controls the tools and information you can access." },
-  { number: "02", title: "Sign in securely", text: "Use one account across your cases, requests, and activity." },
-  { number: "03", title: "Work from one dashboard", text: "See only what needs your attention and act from the same screen." },
+const trustPoints = [
+  {
+    title: "Secure by design",
+    text: "Protected legal records",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Dharma-centric",
+    text: "Clarity, fairness, integrity",
+    icon: Scale,
+  },
+  {
+    title: "Access anywhere",
+    text: "One workspace on every device",
+    icon: Smartphone,
+  },
+  {
+    title: "Priority support",
+    text: "Help when your matter needs it",
+    icon: Headphones,
+  },
 ];
 
 export function Home() {
@@ -39,108 +39,100 @@ export function Home() {
   const workspace = session ? roleHome(session.user.role) : "/login";
 
   return (
-    <div className="lc-home">
-      <header className="lc-public-header">
-        <Link href="/" className="lc-public-brand">
-          <span className="lc-brand-symbol"><Scale /></span>
-          <span><strong>Legal Connect</strong><small>India's Legal OS</small></span>
+    <div className="lc-dharma-home">
+      <header className="lc-dharma-header">
+        <Link href="/" className="lc-dharma-brand" aria-label="Legal Connect home">
+          <span className="lc-dharma-brand-mark" aria-hidden="true">
+            <span />
+          </span>
+          <span className="lc-dharma-brand-copy">
+            <strong>Legal Connect</strong>
+            <small>Serve Dharma. Deliver Justice.</small>
+          </span>
         </Link>
+
         <nav aria-label="Public navigation">
-          <a href="#roles">Workspaces</a>
-          <a href="#how-it-works">How it works</a>
+          <a href="#people">For People</a>
+          <a href="#professionals">For Legal Professionals</a>
           <a href="#security">Security</a>
         </nav>
-        <div className="lc-public-actions">
-          {session ? (
-            <Link className="lc-button lc-button-primary" href={workspace}>Open dashboard <ArrowRight /></Link>
-          ) : (
-            <>
-              <Link className="lc-button lc-button-quiet" href="/login">Sign in</Link>
-              <Link className="lc-button lc-button-primary" href="/login?mode=register">Create account <ArrowRight /></Link>
-            </>
-          )}
-        </div>
+
+        <Link className="lc-dharma-login" href={workspace}>
+          {session ? "Dashboard" : "Login"}
+          <ArrowRight aria-hidden="true" />
+        </Link>
       </header>
 
       <main>
-        <section className="lc-public-hero">
-          <div className="lc-public-hero-image" aria-hidden="true" />
-          <div className="lc-public-hero-shade" aria-hidden="true" />
-          <div className="lc-public-hero-content">
-            <span className="lc-public-badge"><ShieldCheck /> UDYAM registered · Built for India</span>
-            <h1>Legal Connect</h1>
-            <p className="lc-hero-lead">Your legal work, clearly organised.</p>
-            <p className="lc-hero-copy">One secure place for clients, advocates, interns, and administrators to manage cases, conversations, bookings, and legal work.</p>
-            <div className="lc-hero-actions">
-              <Link className="lc-button lc-button-gold" href={workspace}>{session ? "Open your dashboard" : "Get started"} <ArrowRight /></Link>
-              <a className="lc-button lc-button-glass" href="#roles">Choose a workspace</a>
-            </div>
-            <div className="lc-hero-proof">
-              <span><CheckCircle2 /> Role-based access</span>
-              <span><CheckCircle2 /> Transparent activity</span>
-              <span><CheckCircle2 /> Secure legal records</span>
-            </div>
-          </div>
-        </section>
+        <section className="lc-dharma-stage" aria-labelledby="legal-connect-title">
+          <div className="lc-dharma-backdrop" aria-hidden="true" />
+          <div className="lc-dharma-shade" aria-hidden="true" />
+          <div className="lc-dharma-orbit" aria-hidden="true"><span /></div>
 
-        <section className="lc-role-section" id="roles">
-          <div className="lc-section-heading">
-            <span className="lc-kicker">PERSONAL WORKSPACES</span>
-            <h2>One login. The right dashboard.</h2>
-            <p>Choose your role and Legal Connect keeps the experience focused on the work you actually need to do.</p>
-          </div>
-          <div className="lc-role-grid">
-            {roleCards.map((item) => (
-              <Link href={`/login?role=${item.role}`} key={item.role} className="lc-role-card">
-                <span className="lc-role-icon"><item.icon /></span>
-                <div>
-                  <h3>{item.label}</h3>
-                  <p>{item.description}</p>
-                  <small>{item.features}</small>
+          <div className="lc-dharma-stage-inner">
+            <div className="lc-dharma-hero">
+              <div className="lc-dharma-product-name">
+                <span>India's legal operating system</span>
+                <h1 id="legal-connect-title">Legal Connect</h1>
+              </div>
+
+              <p className="lc-dharma-motto" aria-label="Serve Dharma. Deliver Justice.">
+                <span>Serve Dharma.</span>
+                <i aria-hidden="true" />
+                <span>Deliver Justice.</span>
+              </p>
+            </div>
+
+            <blockquote className="lc-dharma-quote">
+              <span aria-hidden="true">“</span>
+              <div>
+                <p lang="sa">यतो धर्मस्ततो जयः</p>
+                <cite>Where there is Dharma, there is Victory. <em>Mahabharata</em></cite>
+              </div>
+            </blockquote>
+
+            <div className="lc-dharma-portals" aria-label="Choose your Legal Connect workspace">
+              <article className="lc-dharma-portal-card" id="people">
+                <span className="lc-dharma-portal-icon"><UserRound aria-hidden="true" /></span>
+                <div className="lc-dharma-portal-copy">
+                  <span>For people</span>
+                  <h2>Your legal journey, simplified.</h2>
+                  <p>Track matters, receive updates, connect with trusted advocates, and keep every legal step organised.</p>
                 </div>
-                <ArrowRight />
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className="lc-how-section" id="how-it-works">
-          <div className="lc-section-heading lc-section-heading-left">
-            <span className="lc-kicker">SIMPLE BY DESIGN</span>
-            <h2>From login to next action in seconds.</h2>
-          </div>
-          <div className="lc-step-grid">
-            {steps.map((step) => (
-              <article key={step.number}>
-                <span>{step.number}</span>
-                <h3>{step.title}</h3>
-                <p>{step.text}</p>
+                <Link className="lc-dharma-card-action lc-dharma-card-action-light" href="/login?role=client">
+                  Continue as client <ArrowRight aria-hidden="true" />
+                </Link>
               </article>
-            ))}
-          </div>
-        </section>
 
-        <section className="lc-security-band" id="security">
-          <div className="lc-security-copy">
-            <LockKeyhole />
-            <div><span className="lc-kicker">SECURITY FIRST</span><h2>Your role decides what you can see.</h2><p>Protected routes, authenticated API requests, and private role workspaces keep legal information separated.</p></div>
-          </div>
-          <div className="lc-security-points">
-            <span><FileSearch /> Case-level access</span>
-            <span><MessageSquareText /> Private conversations</span>
-            <span><ShieldCheck /> Auditable actions</span>
-          </div>
-        </section>
+              <article className="lc-dharma-portal-card" id="professionals">
+                <span className="lc-dharma-portal-icon"><BriefcaseBusiness aria-hidden="true" /></span>
+                <div className="lc-dharma-portal-copy">
+                  <span>For legal professionals</span>
+                  <h2>Power your practice. Elevate justice.</h2>
+                  <p>Manage cases, teams, bookings, court missions, documents, and clients from one focused workspace.</p>
+                </div>
+                <Link className="lc-dharma-card-action lc-dharma-card-action-gold" href="/login?role=advocate">
+                  Professional login <ArrowRight aria-hidden="true" />
+                </Link>
+              </article>
+            </div>
 
-        <section className="lc-sos-band">
-          <div><ShieldAlert /><span><strong>Need urgent legal help?</strong><small>Open the Client workspace and use Legal SOS.</small></span></div>
-          <Link className="lc-button lc-button-danger" href="/login?role=client">Open Client workspace <ArrowRight /></Link>
+            <div className="lc-dharma-trust" id="security">
+              {trustPoints.map((item) => (
+                <div key={item.title}>
+                  <item.icon aria-hidden="true" />
+                  <span><strong>{item.title}</strong><small>{item.text}</small></span>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       </main>
 
-      <footer className="lc-public-footer">
-        <Link href="/" className="lc-public-brand"><span className="lc-brand-symbol"><Scale /></span><span><strong>Legal Connect</strong><small>Serve Dharma. Deliver Justice.</small></span></Link>
+      <footer className="lc-dharma-footer">
+        <span><LockKeyhole aria-hidden="true" /> Role-protected access</span>
         <p>© 2026 Legal Connect · UDYAM-DL-11-0164811</p>
+        <Link href="/login?mode=register">Create an account <ArrowRight aria-hidden="true" /></Link>
       </footer>
     </div>
   );
