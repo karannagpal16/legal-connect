@@ -402,6 +402,35 @@ document.addEventListener("click", (event) => {
   if (!viewId) return;
 
   event.preventDefault();
+  if (navTarget.dataset.selectedPortal) {
+    const selectedPortal = navTarget.dataset.selectedPortal;
+    const roleSelect = document.querySelector("#login-role");
+    if (roleSelect) roleSelect.value = selectedPortal;
+    document.querySelectorAll(".role-card").forEach((card) => {
+      card.classList.toggle("selected", card.dataset.loginRole === selectedPortal);
+    });
+    updatePortalHeading(selectedPortal);
+  }
+  if (viewId === "client" || viewId === "advocate" || viewId === "intern" || viewId === "admin") {
+    const selected = navTarget.dataset.selectedPortal || viewId;
+    const roleSelect = document.querySelector("#login-role");
+    if (roleSelect) roleSelect.value = selected;
+    document.querySelectorAll(".role-card").forEach((card) => {
+      card.classList.toggle("selected", card.dataset.loginRole === selected);
+    });
+    updatePortalHeading(selected);
+    const session = getSession();
+    if (session?.user) {
+      const nextRoute = getPostLoginRoute(session.user);
+      if (nextRoute) {
+        window.location.hash = nextRoute;
+        activateView(resolveViewIdForRoute(nextRoute));
+        return;
+      }
+    }
+    activateView("login");
+    return;
+  }
   activateView(viewId);
 });
 
@@ -412,6 +441,7 @@ document.querySelectorAll(".role-card").forEach((card) => {
     const roleSelect = document.querySelector("#login-role");
     if (roleSelect && card.dataset.loginRole) roleSelect.value = card.dataset.loginRole;
     const label = card.querySelector("strong")?.textContent || "Role";
+    updatePortalHeading(card.dataset.loginRole);
     if (authStatus) authStatus.textContent = `${label} selected. Verify OTP, then open your private board.`;
     setFlowStatus("Role selected", `${label} lane is ready.`);
   });
@@ -421,6 +451,55 @@ const roleLoginForm = document.querySelector("#role-login-form");
 const authStatus = document.querySelector("#auth-status");
 const verificationStatus = document.querySelector("#verification-status");
 const requestLoginCode = document.querySelector("#request-login-code");
+const demoAccounts = {
+  advocate: { name: "Adv. Maya Rao", email: "advocate.demo@legalconnect.local", phone: "+91 99999 00001", role: "advocate" },
+  client: { name: "Aarav Mehta", email: "client.demo@legalconnect.local", phone: "+91 99999 00002", role: "client" },
+  intern: { name: "Nisha Verma", email: "intern.demo@legalconnect.local", phone: "+91 99999 00003", role: "intern" },
+  admin: { name: "RNA Admin", email: "admin.demo@legalconnect.local", phone: "+91 99999 00004", role: "admin" },
+};
+
+function getDemoAccount(payload = {}) {
+  const email = String(payload.email || "").trim().toLowerCase();
+  const phone = String(payload.phone || "").trim();
+  const role = String(payload.role || "").trim().toLowerCase();
+  const candidate = demoAccounts[role] || Object.values(demoAccounts).find((account) => account.email.toLowerCase() === email || account.phone === phone);
+  if (!candidate) return null;
+  if (email && candidate.email.toLowerCase() !== email && phone && candidate.phone !== phone) return null;
+  return {
+    token: `demo-${candidate.role}`,
+    user: {
+      ...candidate,
+      onboardingCompleted: true,
+      verificationStatus: "verified",
+      accountStatus: "active",
+    },
+    postLoginRoute: getPostLoginRoute({ ...candidate, onboardingCompleted: true, verificationStatus: "verified", accountStatus: "active" }),
+    verification: { emailVerified: true, phoneVerified: true },
+  };
+}
+
+document.querySelectorAll("[data-demo-account]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const role = button.dataset.demoAccount;
+    const account = demoAccounts[role];
+    if (!account) return;
+    const roleSelect = document.querySelector("#login-role");
+    if (roleSelect) roleSelect.value = role;
+    document.querySelector("#login-name").value = account.name;
+    document.querySelector("#login-email").value = account.email;
+    document.querySelector("#login-phone").value = account.phone;
+    document.querySelector("#privacy-consent").checked = true;
+    document.querySelectorAll(".role-card").forEach((card) => {
+      card.classList.toggle("selected", card.dataset.loginRole === role);
+    });
+    updatePortalHeading(role);
+    loginVerified = true;
+    if (verificationStatus) verificationStatus.textContent = `${account.name} is ready for a one-tap demo login.`;
+    if (authStatus) authStatus.textContent = `${account.name} ready. Launching your ${role} workspace.`;
+    setFlowStatus("Demo account ready", `${account.name} is set to open the ${role} workspace.`);
+    roleLoginForm?.requestSubmit();
+  });
+});
 const verifyLoginCode = document.querySelector("#verify-login-code");
 const serviceRoomTitle = document.querySelector("#service-room-title");
 const serviceRoomStatus = document.querySelector("#service-room-status");
@@ -430,10 +509,57 @@ const serviceRoomTimeline = document.querySelector("#service-room-timeline");
 const roleRoutes = {
   client: "client",
   advocate: "advocate",
-  rna: "admin",
+  rna: "advocate",
   intern: "intern",
   admin: "admin",
 };
+
+function getPortalSelection() {
+  const selected = document.querySelector("[data-selected-portal]")?.dataset.selectedPortal || document.querySelector("#login-role")?.value || "client";
+  return selected;
+}
+
+function resolveViewIdForRoute(route = "") {
+  const normalized = String(route || "").replace(/^\//, "").split("?")[0];
+  if (!normalized) return "home";
+  if (normalized.startsWith("client")) return "client";
+  if (normalized.startsWith("advocate")) return "advocate";
+  if (normalized.startsWith("intern")) return "intern";
+  if (normalized.startsWith("admin")) return "admin";
+  if (normalized.startsWith("account-restricted") || normalized.startsWith("access-denied") || normalized.startsWith("portal-mismatch")) return "login";
+  return normalized;
+}
+
+function updatePortalHeading(selectedPortal = getPortalSelection()) {
+  const heading = document.querySelector("#portal-heading");
+  if (!heading) return;
+  const titleByPortal = {
+    advocate: "Welcome to your Litigation Command Centre",
+    client: "Welcome to your Personal Legal Hub",
+    intern: "Welcome to Internverse",
+    admin: "Welcome to Administrative Control",
+  };
+  heading.textContent = titleByPortal[selectedPortal] || "Welcome to Legal Connect";
+}
+
+function getPostLoginRoute(user = {}) {
+  if (user.accountStatus === "suspended") return "/account-restricted";
+  if (!user.onboardingCompleted) return `/${user.role}/onboarding`;
+  if (["advocate", "intern"].includes(user.role) && user.verificationStatus !== "verified") return `/${user.role}/verification-pending`;
+  switch (user.role) {
+    case "client":
+      return "/client/dashboard";
+    case "advocate":
+    case "rna":
+      return "/advocate/dashboard";
+    case "intern":
+      return "/intern/dashboard";
+    case "admin":
+      return "/admin/dashboard";
+    default:
+      return "/access-denied";
+  }
+}
 
 function loginContactPayload() {
   return {
@@ -504,11 +630,13 @@ verifyLoginCode?.addEventListener("click", async () => {
 
 roleLoginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const selectedPortal = getPortalSelection();
   const payload = {
     name: document.querySelector("#login-name")?.value || "Legal Connect User",
     email: document.querySelector("#login-email")?.value || "",
     phone: document.querySelector("#login-phone")?.value || "",
-    role: document.querySelector("#login-role")?.value || "client",
+    role: document.querySelector("#login-role")?.value || selectedPortal || "client",
+    portal: selectedPortal,
     privacyConsent: Boolean(document.querySelector("#privacy-consent")?.checked),
   };
   if (!payload.email && !payload.phone) {
@@ -523,6 +651,24 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     if (authStatus) authStatus.textContent = "Verify the OTP first. Your private board opens only after verification.";
     return;
   }
+  const demoSession = getDemoAccount(payload);
+  if (demoSession) {
+    currentSession = demoSession;
+    localStorage.setItem("legalConnectSession", JSON.stringify(demoSession));
+    const destination = demoSession.postLoginRoute || roleRoutes[demoSession.user.role] || "client";
+    if (authStatus) authStatus.textContent = `${demoSession.user.name} signed in with a demo account. Your private board is ready.`;
+    setDemoStatus(`${demoSession.user.name} signed in as ${demoSession.user.role}.`);
+    applySessionToUi(demoSession);
+    if (destination.startsWith("/")) {
+      window.location.hash = destination;
+      activateView(resolveViewIdForRoute(destination));
+    } else {
+      activateView(destination);
+    }
+    window.setTimeout(refreshWorkspaceData, 120);
+    return;
+  }
+
   try {
     const result = await apiFetch("/api/auth/login", {
       method: "POST",
@@ -530,12 +676,17 @@ roleLoginForm?.addEventListener("submit", async (event) => {
     });
     currentSession = result;
     localStorage.setItem("legalConnectSession", JSON.stringify(result));
-    const destination = roleRoutes[result.user.role] || "client";
+    const destination = result.postLoginRoute || getPostLoginRoute(result.user) || roleRoutes[result.user.role] || "client";
     const verifyNote = result.verification?.emailVerified || result.verification?.phoneVerified ? " Contact verified." : " Contact verification pending.";
     if (authStatus) authStatus.textContent = `${result.user.name} logged in as ${result.user.role}.${verifyNote} Your private board is ready.`;
     setDemoStatus(`${result.user.name} logged in successfully.`);
     applySessionToUi(result);
-    activateView(destination);
+    if (destination.startsWith("/")) {
+      window.location.hash = destination;
+      activateView(resolveViewIdForRoute(destination));
+    } else {
+      activateView(destination);
+    }
     window.setTimeout(refreshWorkspaceData, 120);
   } catch (error) {
     if (!localTestingRuntime) {
@@ -551,6 +702,7 @@ roleLoginForm?.addEventListener("submit", async (event) => {
   }
 });
 
+updatePortalHeading(getPortalSelection());
 applySessionToUi(getSession());
 
 const dailyGreetings = [
@@ -2264,6 +2416,55 @@ window.addEventListener("hashchange", () => {
           <table class="role-dash-table"><thead><tr><th>Queue</th><th>Status</th><th>Owner</th><th>Action</th></tr></thead><tbody><tr><td>User verification</td><td>Review</td><td>RNA Desk</td><td>Check profile</td></tr><tr><td>Work completion hold</td><td>Awaiting proof</td><td>Payments</td><td>Verify</td></tr><tr><td>Source library</td><td>Pending approval</td><td>Legal AI Admin</td><td>Review</td></tr></tbody></table>
         </section>
       </div>`;
+  }
+
+  const QUOTE_DATABASE = [
+    { quote: "यतो धर्मस्ततो जयः", source: "Mahabharata", type: "Hindu Legal Dharma", sub: "Where there is righteousness, there is victory." },
+    { quote: "धर्मो रक्षति रक्षितः", source: "Manusmriti", type: "Hindu Legal Dharma", sub: "Dharma protects those who protect it." },
+    { quote: "Freedom lies in the hearts of men and women; when it dies there, no constitution can save it.", source: "Nani Palkhivala", type: "Legendary Jurist", sub: "Senior Advocate, Supreme Court of India" },
+    { quote: "The strength of the Republic lies in the independence of its Judiciary and Bar.", source: "Fali S. Nariman", type: "Legendary Jurist", sub: "Jurisprudence & Constitutional Luminary" },
+    { quote: "Law and order are the medicine of the body politic and when the political body gets sick, medicine must be administered.", source: "Dr. B.R. Ambedkar", type: "Chief Architect of the Constitution", sub: "First Law Minister of Independent India" },
+    { quote: "The law should not be a silent spectator when justice is crying for help.", source: "Justice V.R. Krishna Iyer", type: "Supreme Court of India", sub: "Champion of Legal Aid & Human Rights" },
+    { quote: "Be you never so high, the law is above you.", source: "Lord Denning", type: "Master of the Rolls", sub: "Common Law & Equity Legacy" },
+    { quote: "A judge can never be a spectator when legal rights of citizens are endangered.", source: "Justice H.R. Khanna", type: "Supreme Court of India", sub: "Defender of Basic Structure & Liberty" }
+  ];
+
+  let currentQuoteIndex = 0;
+  function startQuoteRotation() {
+    setInterval(() => {
+      currentQuoteIndex = (currentQuoteIndex + 1) % QUOTE_DATABASE.length;
+      const q = QUOTE_DATABASE[currentQuoteIndex];
+      document.querySelectorAll("[data-quote-container]").forEach((el) => {
+        el.style.opacity = "0";
+        setTimeout(() => {
+          el.innerHTML = `
+            <div class="lc-quote-box">
+              <p class="lc-quote-text">"${escapeHtml(q.quote)}"</p>
+              <span class="lc-quote-author">— ${escapeHtml(q.source)} <small>(${escapeHtml(q.type)})</small></span>
+            </div>
+          `;
+          el.style.opacity = "1";
+        }, 300);
+      });
+    }, 6000);
+  }
+  startQuoteRotation();
+
+  function getDailyGreetingHeader(userName) {
+    const hour = new Date().getHours();
+    const tod = hour < 12 ? "Good Morning" : (hour < 17 ? "Good Afternoon" : "Good Evening");
+    const q = QUOTE_DATABASE[currentQuoteIndex || 0];
+    return `
+      <section class="role-dash-hero">
+        <span class="role-dash-kicker">${tod} · Everyday Legal Protection</span>
+        <h2 class="role-dash-title">${tod}, ${escapeHtml(userName || 'Karan Nagpal')}.</h2>
+        <p class="role-dash-sub">How may Legal Connect protect your rights and matters today?</p>
+        <div class="lc-quote-box" style="margin-top:12px;background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(212,175,55,0.4);">
+          <p class="lc-quote-text" style="color:#fff;">"${escapeHtml(q.quote)}"</p>
+          <span class="lc-quote-author" style="color:#f8cc67;">— ${escapeHtml(q.source)} (${escapeHtml(q.type)})</span>
+        </div>
+      </section>
+    `;
   }
 
   function renderRoleDashboards() {

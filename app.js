@@ -2418,6 +2418,55 @@ window.addEventListener("hashchange", () => {
       </div>`;
   }
 
+  const QUOTE_DATABASE = [
+    { quote: "यतो धर्मस्ततो जयः", source: "Mahabharata", type: "Hindu Legal Dharma", sub: "Where there is righteousness, there is victory." },
+    { quote: "धर्मो रक्षति रक्षितः", source: "Manusmriti", type: "Hindu Legal Dharma", sub: "Dharma protects those who protect it." },
+    { quote: "Freedom lies in the hearts of men and women; when it dies there, no constitution can save it.", source: "Nani Palkhivala", type: "Legendary Jurist", sub: "Senior Advocate, Supreme Court of India" },
+    { quote: "The strength of the Republic lies in the independence of its Judiciary and Bar.", source: "Fali S. Nariman", type: "Legendary Jurist", sub: "Jurisprudence & Constitutional Luminary" },
+    { quote: "Law and order are the medicine of the body politic and when the political body gets sick, medicine must be administered.", source: "Dr. B.R. Ambedkar", type: "Chief Architect of the Constitution", sub: "First Law Minister of Independent India" },
+    { quote: "The law should not be a silent spectator when justice is crying for help.", source: "Justice V.R. Krishna Iyer", type: "Supreme Court of India", sub: "Champion of Legal Aid & Human Rights" },
+    { quote: "Be you never so high, the law is above you.", source: "Lord Denning", type: "Master of the Rolls", sub: "Common Law & Equity Legacy" },
+    { quote: "A judge can never be a spectator when legal rights of citizens are endangered.", source: "Justice H.R. Khanna", type: "Supreme Court of India", sub: "Defender of Basic Structure & Liberty" }
+  ];
+
+  let currentQuoteIndex = 0;
+  function startQuoteRotation() {
+    setInterval(() => {
+      currentQuoteIndex = (currentQuoteIndex + 1) % QUOTE_DATABASE.length;
+      const q = QUOTE_DATABASE[currentQuoteIndex];
+      document.querySelectorAll("[data-quote-container]").forEach((el) => {
+        el.style.opacity = "0";
+        setTimeout(() => {
+          el.innerHTML = `
+            <div class="lc-quote-box">
+              <p class="lc-quote-text">"${escapeHtml(q.quote)}"</p>
+              <span class="lc-quote-author">— ${escapeHtml(q.source)} <small>(${escapeHtml(q.type)})</small></span>
+            </div>
+          `;
+          el.style.opacity = "1";
+        }, 300);
+      });
+    }, 6000);
+  }
+  startQuoteRotation();
+
+  function getDailyGreetingHeader(userName) {
+    const hour = new Date().getHours();
+    const tod = hour < 12 ? "Good Morning" : (hour < 17 ? "Good Afternoon" : "Good Evening");
+    const q = QUOTE_DATABASE[currentQuoteIndex || 0];
+    return `
+      <section class="role-dash-hero">
+        <span class="role-dash-kicker">${tod} · Everyday Legal Protection</span>
+        <h2 class="role-dash-title">${tod}, ${escapeHtml(userName || 'Karan Nagpal')}.</h2>
+        <p class="role-dash-sub">How may Legal Connect protect your rights and matters today?</p>
+        <div class="lc-quote-box" style="margin-top:12px;background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(212,175,55,0.4);">
+          <p class="lc-quote-text" style="color:#fff;">"${escapeHtml(q.quote)}"</p>
+          <span class="lc-quote-author" style="color:#f8cc67;">— ${escapeHtml(q.source)} (${escapeHtml(q.type)})</span>
+        </div>
+      </section>
+    `;
+  }
+
   function renderRoleDashboards() {
     const map = { client: clientDashboard, advocate: advocateDashboard, intern: internDashboard, admin: adminDashboard };
     Object.entries(map).forEach(([id, renderer]) => {
