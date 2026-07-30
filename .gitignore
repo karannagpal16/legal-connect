@@ -10,6 +10,7 @@ out-tsc
 *.tsbuildinfo
 .expo
 .expo-shared
+/artifacts/api-server/public/
 
 # dependencies
 node_modules

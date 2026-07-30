@@ -21,7 +21,7 @@ if (config.nodeEnv === "production" && !process.env.SESSION_SECRET && !process.e
 }
 
 function appVersionPayload() {
-  const candidates = ["app.js", "styles.css", "index.html"]
+  const candidates = ["index.html"]
     .map((fileName) => path.join(publicDir, fileName))
     .filter((filePath) => fs.existsSync(filePath));
   const latestMtime = candidates.reduce((latest, filePath) => {
