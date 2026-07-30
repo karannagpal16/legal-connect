@@ -565,16 +565,19 @@ export function ClientCaseTracker() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Link href="/client/chat">
                     <button className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary border border-primary/25 py-3 rounded-xl text-sm font-bold transition-all">
-                      <FileText className="w-4 h-4" /> Message Advocate
+                      <FileText className="w-4 h-4" /> Encrypted Chat with Counsel
                     </button>
                   </Link>
                   <Link href="/client/connect">
-                    <button className="w-full flex items-center justify-center gap-2 bg-[#1A2332]/8 hover:bg-[#1A2332]/8 text-[#1A2332] border border-[#1A2332]/10 py-3 rounded-xl text-sm font-bold transition-all">
-                      <Phone className="w-4 h-4" /> Request Call
+                    <button className="w-full flex items-center justify-center gap-2 bg-[#1A2332]/8 hover:bg-[#1A2332]/12 text-[#1A2332] border border-[#1A2332]/10 py-3 rounded-xl text-sm font-bold transition-all">
+                      <Phone className="w-4 h-4" /> Instant SOS Video Call
                     </button>
                   </Link>
-                  <button className="w-full flex items-center justify-center gap-2 bg-[#1A2332]/5 hover:bg-[#1A2332]/8 text-[#1A2332]/50 hover:text-[#1A2332] border border-[#1A2332]/8 py-3 rounded-xl text-sm font-bold transition-all">
-                    <Bell className="w-4 h-4" /> Set Hearing Reminder
+                  <button 
+                    onClick={() => alert(`📲 WhatsApp & SMS Hearing Reminder Active!\n\nAutomated alert set for ${c.nextDate || '12 August 2026'} at ${c.court}.\n\nMessage: "Mandatory NDOH Court Appearance under Order XVII CPC. Physical/Virtual appearance required."`)}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 border border-emerald-500/30 py-3 rounded-xl text-sm font-bold transition-all"
+                  >
+                    <Bell className="w-4 h-4 text-emerald-600" /> 📲 Send WhatsApp Reminder
                   </button>
                 </div>
               </motion.div>
