@@ -26,7 +26,13 @@ function sslConfig() {
   if (!connectionString) return false;
   if (process.env.PGSSL === "false") return false;
   if (process.env.PGSSL === "true") return { rejectUnauthorized: false };
-  return isProduction ? { rejectUnauthorized: false } : false;
+  try {
+    const host = new URL(connectionString).hostname;
+    const localHost = ["localhost", "127.0.0.1", "::1"].includes(host);
+    return isProduction || !localHost ? { rejectUnauthorized: false } : false;
+  } catch {
+    return isProduction ? { rejectUnauthorized: false } : false;
+  }
 }
 
 function poolState(label = available ? "healthy" : "unavailable") {
@@ -456,6 +462,135 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS receipts_user_created_idx ON receipts (user_id, created_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS receipts_created_idx ON receipts (created_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS account_deletion_requests_user_idx ON account_deletion_requests (user_id, requested_at DESC)`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS identity_verifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role text NOT NULL,
+        credential_kind text NOT NULL,
+        reference_hash text NOT NULL,
+        reference_last4 text,
+        status text NOT NULL DEFAULT 'pending',
+        metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+        reviewed_by uuid,
+        reviewed_at timestamptz,
+        review_note text,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now(),
+        UNIQUE (user_id, credential_kind)
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS identity_verifications_status_idx ON identity_verifications (status, created_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS identity_verifications_user_idx ON identity_verifications (user_id, created_at DESC)`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS chambers (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now(),
+        UNIQUE (owner_id)
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS chamber_members (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+        user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+        display_name text NOT NULL,
+        email text,
+        member_role text NOT NULL DEFAULT 'associate',
+        status text NOT NULL DEFAULT 'invited',
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS chamber_members_chamber_idx ON chamber_members (chamber_id, status)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS chamber_tasks (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+        case_id uuid REFERENCES cases(id) ON DELETE SET NULL,
+        title text NOT NULL,
+        details text,
+        assigned_to uuid REFERENCES users(id) ON DELETE SET NULL,
+        assignee_name text,
+        status text NOT NULL DEFAULT 'assigned',
+        priority text NOT NULL DEFAULT 'normal',
+        due_at timestamptz,
+        created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+        accepted_at timestamptz,
+        completed_at timestamptz,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS chamber_tasks_chamber_idx ON chamber_tasks (chamber_id, status, updated_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS chamber_tasks_assignee_idx ON chamber_tasks (assigned_to, status)`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS case_assignments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        advocate_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        assigned_by uuid REFERENCES users(id) ON DELETE SET NULL,
+        status text NOT NULL DEFAULT 'active',
+        assigned_at timestamptz DEFAULT now(),
+        ended_at timestamptz,
+        UNIQUE (case_id, advocate_id)
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS case_assignments_advocate_idx ON case_assignments (advocate_id, status)`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS case_documents (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+        file_name text NOT NULL,
+        category text,
+        storage_key text NOT NULL,
+        mime_type text,
+        size_bytes bigint,
+        checksum text,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS case_documents_case_idx ON case_documents (case_id, created_at DESC)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS case_communications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        sender_id uuid REFERENCES users(id) ON DELETE SET NULL,
+        communication_type text NOT NULL,
+        title text NOT NULL,
+        summary text,
+        storage_key text,
+        recording_consent boolean NOT NULL DEFAULT false,
+        occurred_at timestamptz DEFAULT now(),
+        payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS case_communications_case_idx ON case_communications (case_id, occurred_at DESC)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS case_fees (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+        label text NOT NULL,
+        amount integer NOT NULL DEFAULT 0,
+        status text NOT NULL DEFAULT 'due',
+        due_date text,
+        payment_id uuid REFERENCES payments(id) ON DELETE SET NULL,
+        payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS case_fees_case_idx ON case_fees (case_id, status, due_date)`);
 
     await checkConnection();
     migrationStatus = "up_to_date";

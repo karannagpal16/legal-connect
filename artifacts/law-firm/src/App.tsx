@@ -48,6 +48,8 @@ import { AdvocateTeam } from "@/pages/advocate/AdvocateTeam";
 import { AdvocateChat } from "@/pages/advocate/AdvocateChat";
 import { AdvocateLawBot } from "@/pages/advocate/AdvocateLawBot";
 import { AdvocateJudges } from "@/pages/advocate/AdvocateJudges";
+import { ChamberVault } from "@/pages/advocate/ChamberVault";
+import { AdminVerifications } from "@/pages/admin/AdminVerifications";
 
 import { InternDashboard } from "@/pages/intern/InternDashboard";
 import { InternQuestsPage } from "@/pages/intern/InternQuestsPage";
@@ -93,6 +95,7 @@ function Router() {
       {/* ADMIN PORTAL */}
       <Route path="/admin"><Private role="admin"><Layout><Dashboard /></Layout></Private></Route>
       <Route path="/admin/users"><Private role="admin"><Layout><Users /></Layout></Private></Route>
+      <Route path="/admin/verifications"><Private role="admin"><Layout><AdminVerifications /></Layout></Private></Route>
       <Route path="/admin/cases"><Private role="admin"><Layout><MyDiary /></Layout></Private></Route>
       <Route path="/admin/bookings"><Private role="admin"><Layout><Bookings /></Layout></Private></Route>
       <Route path="/admin/missions"><Private role="admin"><Layout><ProxyHub /></Layout></Private></Route>
@@ -193,6 +196,9 @@ function Router() {
       </Route>
       <Route path="/advocate/team">
         <Private role="advocate"><AdvocateLayout><AdvocateTeam /></AdvocateLayout></Private>
+      </Route>
+      <Route path="/advocate/chamber">
+        <Private role="advocate"><AdvocateLayout><ChamberVault /></AdvocateLayout></Private>
       </Route>
       <Route path="/advocate/chat">
         <Private role="advocate"><AdvocateLayout><AdvocateChat /></AdvocateLayout></Private>

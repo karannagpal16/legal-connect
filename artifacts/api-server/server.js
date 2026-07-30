@@ -119,6 +119,18 @@ function createLocalDemoStore() {
         court: "Saket District Court",
       },
     ],
+    chamber: {
+      id: "chamber-demo-1",
+      name: "Demo Lawyer's Chamber",
+      members: [
+        { id: "member-demo-1", display_name: "Aditi Rao", email: "aditi@example.com", member_role: "associate", status: "active" },
+        { id: "member-demo-2", display_name: "Kabir Mehta", email: "kabir@example.com", member_role: "intern", status: "active" },
+      ],
+      tasks: [
+        { id: "chamber-task-demo-1", title: "Draft evidence affidavit", details: "Prepare first draft from indexed documents.", assignee_name: "Aditi Rao", status: "in_progress", priority: "high", updated_at: now },
+        { id: "chamber-task-demo-2", title: "Tis Hazari order inspection", details: "Collect certified order status.", assignee_name: "Kabir Mehta", status: "accepted", priority: "normal", updated_at: now },
+      ],
+    },
     internQuests: [
       { id: "quest-demo-1", title: "Summarise a recent judgment", description: "Prepare a one-page issue, reasoning, and holding brief.", xpPoints: 120, deadline: "2026-08-02", status: "In Progress", createdAt: now },
       { id: "quest-demo-2", title: "Build a case chronology", description: "Convert the supplied filings into a dated case timeline.", xpPoints: 80, deadline: "2026-08-05", status: "Open", createdAt: now },
@@ -3365,6 +3377,22 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+    if (/^Demo Client$/i.test(String(authUser?.name || ''))) {
+      sendJson(res, 200, {
+        ok: true,
+        success: true,
+        mode: 'demo',
+        provider: 'demo',
+        status: 'review_only',
+        payment_status: 'demo-verified',
+        work_hold_status: 'not-applicable-demo',
+        amount: amount * 100,
+        currency: 'INR',
+        receipt: body.receiptNo || body.receipt_no || `LC-DEMO-${Date.now()}`,
+        message: 'Demo workspace payment completed without a real charge.',
+      });
+      return;
+    }
     if (!hasRazorpay) {
       sendJson(res, 503, {
         ok: false,
@@ -4348,6 +4376,72 @@ async function ensureStrictAuthSchema() {
   await db.query('CREATE TABLE IF NOT EXISTS profile_advocates (user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, display_name text, bar_council_id text, practice_areas text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())');
   await db.query('CREATE TABLE IF NOT EXISTS profile_interns (user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, display_name text, level text, xp integer DEFAULT 120, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())');
   await db.query('CREATE TABLE IF NOT EXISTS profile_admins (user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, display_name text, access_scope text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())');
+  await db.query('ALTER TABLE profile_clients ADD COLUMN IF NOT EXISTS aadhaar_last4 text');
+  await db.query('ALTER TABLE profile_clients ADD COLUMN IF NOT EXISTS address text');
+  await db.query("ALTER TABLE profile_clients ADD COLUMN IF NOT EXISTS verification_status text DEFAULT 'pending'");
+  await db.query('ALTER TABLE profile_advocates ADD COLUMN IF NOT EXISTS enrollment_no text');
+  await db.query('ALTER TABLE profile_advocates ADD COLUMN IF NOT EXISTS state_bar_council text');
+  await db.query('ALTER TABLE profile_advocates ADD COLUMN IF NOT EXISTS practice_courts text');
+  await db.query('ALTER TABLE profile_advocates ADD COLUMN IF NOT EXISTS years_practice integer');
+  await db.query('ALTER TABLE profile_advocates ADD COLUMN IF NOT EXISTS office_address text');
+  await db.query("ALTER TABLE profile_advocates ADD COLUMN IF NOT EXISTS verification_status text DEFAULT 'pending'");
+  await db.query('ALTER TABLE profile_interns ADD COLUMN IF NOT EXISTS college_id_no text');
+  await db.query('ALTER TABLE profile_interns ADD COLUMN IF NOT EXISTS law_school_name text');
+  await db.query('ALTER TABLE profile_interns ADD COLUMN IF NOT EXISTS study_year text');
+  await db.query("ALTER TABLE profile_interns ADD COLUMN IF NOT EXISTS verification_status text DEFAULT 'pending'");
+  await db.query(`CREATE TABLE IF NOT EXISTS identity_verifications (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role text NOT NULL,
+    credential_kind text NOT NULL,
+    reference_hash text NOT NULL,
+    reference_last4 text,
+    status text NOT NULL DEFAULT 'pending',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    reviewed_by uuid,
+    reviewed_at timestamptz,
+    review_note text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    UNIQUE (user_id, credential_kind)
+  )`);
+  await db.query('CREATE INDEX IF NOT EXISTS identity_verifications_status_idx ON identity_verifications (status, created_at DESC)');
+  await db.query(`CREATE TABLE IF NOT EXISTS chambers (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    UNIQUE (owner_id)
+  )`);
+  await db.query(`CREATE TABLE IF NOT EXISTS chamber_members (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+    user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+    display_name text NOT NULL,
+    email text,
+    member_role text NOT NULL DEFAULT 'associate',
+    status text NOT NULL DEFAULT 'invited',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+  )`);
+  await db.query(`CREATE TABLE IF NOT EXISTS chamber_tasks (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+    case_id uuid REFERENCES cases(id) ON DELETE SET NULL,
+    title text NOT NULL,
+    details text,
+    assigned_to uuid REFERENCES users(id) ON DELETE SET NULL,
+    assignee_name text,
+    status text NOT NULL DEFAULT 'assigned',
+    priority text NOT NULL DEFAULT 'normal',
+    due_at timestamptz,
+    created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+    accepted_at timestamptz,
+    completed_at timestamptz,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+  )`);
   return true;
 }
 
@@ -4358,35 +4452,235 @@ function strictPublicUser(row) {
     emailMasked: maskEmail(row.email),
     phoneMasked: maskPhone(row.phone),
     role: row.role || 'client',
+    verificationStatus: row.verification_status || 'pending',
     createdAt: row.created_at || row.createdAt,
   };
 }
 
 async function strictUserByEmail(email) {
   if (!db.dbAvailable) return null;
-  const result = await db.query('SELECT users.id, users.name, users.email, users.phone, users.password_hash, COALESCE(roles.name, users.role) AS role, users.created_at FROM users LEFT JOIN roles ON roles.id = users.role_id WHERE lower(users.email) = lower($1) LIMIT 1', [email]);
+  const result = await db.query(`SELECT users.id, users.name, users.email, users.phone, users.password_hash,
+    COALESCE(roles.name, users.role) AS role, users.created_at,
+    COALESCE((SELECT iv.status FROM identity_verifications iv WHERE iv.user_id = users.id ORDER BY iv.created_at DESC LIMIT 1), 'pending') AS verification_status
+    FROM users LEFT JOIN roles ON roles.id = users.role_id WHERE lower(users.email) = lower($1) LIMIT 1`, [email]);
   const user = result.rows[0] || null;
   if (user && !user.role) user.role = 'client';
   return user;
 }
 
-async function strictCreateProfile(userId, role, body) {
+async function strictCreateProfile(userId, role, body, executor = db) {
+  const query = executor.query.bind(executor);
   const displayName = body.name || body.displayName || body.email || 'Legal Connect User';
   if (role === 'advocate') {
-    await db.query('INSERT INTO profile_advocates (user_id, display_name, bar_council_id, practice_areas) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, bar_council_id = COALESCE(EXCLUDED.bar_council_id, profile_advocates.bar_council_id), practice_areas = COALESCE(EXCLUDED.practice_areas, profile_advocates.practice_areas), updated_at = now()', [userId, displayName, body.barCouncilId || null, body.practiceAreas || null]);
+    await query(`INSERT INTO profile_advocates
+      (user_id, display_name, bar_council_id, practice_areas, enrollment_no, state_bar_council, practice_courts, years_practice, office_address, verification_status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+      ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, bar_council_id = EXCLUDED.bar_council_id,
+      practice_areas = EXCLUDED.practice_areas, enrollment_no = EXCLUDED.enrollment_no, state_bar_council = EXCLUDED.state_bar_council,
+      practice_courts = EXCLUDED.practice_courts, years_practice = EXCLUDED.years_practice, office_address = EXCLUDED.office_address,
+      verification_status = 'pending', updated_at = now()`, [userId, displayName, body.enrollmentNo, body.practiceAreas || null, body.enrollmentNo, body.stateBarCouncil, body.practiceCourts, Number(body.yearsPractice || 0), body.officeAddress || null]);
+    await query("INSERT INTO chambers (owner_id, name) VALUES ($1, $2) ON CONFLICT (owner_id) DO NOTHING", [userId, `${displayName}'s Chamber`]);
   } else if (role === 'intern') {
-    await db.query('INSERT INTO profile_interns (user_id, display_name, level, xp) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = now()', [userId, displayName, 'Level 1 - Observer', 120]);
+    await query(`INSERT INTO profile_interns (user_id, display_name, level, xp, college_id_no, law_school_name, study_year, verification_status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+      ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, college_id_no = EXCLUDED.college_id_no,
+      law_school_name = EXCLUDED.law_school_name, study_year = EXCLUDED.study_year, verification_status = 'pending', updated_at = now()`, [userId, displayName, 'Level 1 - Observer', 120, body.collegeId, body.lawSchool, body.studyYear]);
   } else if (role === 'admin') {
-    await db.query('INSERT INTO profile_admins (user_id, display_name, access_scope) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = now()', [userId, displayName, 'platform']);
+    await query('INSERT INTO profile_admins (user_id, display_name, access_scope) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = now()', [userId, displayName, 'platform']);
   } else {
-    await db.query('INSERT INTO profile_clients (user_id, display_name, matter_summary) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, matter_summary = COALESCE(EXCLUDED.matter_summary, profile_clients.matter_summary), updated_at = now()', [userId, displayName, body.matterSummary || null]);
+    await query(`INSERT INTO profile_clients (user_id, display_name, matter_summary, aadhaar_last4, address, verification_status)
+      VALUES ($1, $2, $3, $4, $5, 'pending')
+      ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, matter_summary = COALESCE(EXCLUDED.matter_summary, profile_clients.matter_summary),
+      aadhaar_last4 = EXCLUDED.aadhaar_last4, address = EXCLUDED.address, verification_status = 'pending', updated_at = now()`, [userId, displayName, body.matterSummary || null, String(body.aadhaarNumber || '').slice(-4), body.address || null]);
   }
 }
 
+function strictCredential(body, role) {
+  if (role === 'client') return { kind: 'aadhaar', value: String(body.aadhaarNumber || '').replace(/\D/g, ''), last4: String(body.aadhaarNumber || '').replace(/\D/g, '').slice(-4) };
+  if (role === 'advocate') return { kind: 'bar_enrollment', value: String(body.enrollmentNo || '').trim().toUpperCase(), last4: String(body.enrollmentNo || '').trim().slice(-4) };
+  return { kind: 'college_id', value: String(body.collegeId || '').trim().toUpperCase(), last4: String(body.collegeId || '').trim().slice(-4) };
+}
+
+function strictCredentialHash(value) {
+  return crypto.createHmac('sha256', strictJwtSecret()).update(`identity:${String(value)}`).digest('hex');
+}
+
+function strictRegistrationError(body, role) {
+  if (!String(body.name || '').trim()) return 'Full legal name is required.';
+  if (!body.privacyConsent) return 'Privacy consent is required.';
+  if (role === 'client') {
+    if (!/^\d{12}$/.test(String(body.aadhaarNumber || '').replace(/\D/g, ''))) return 'Enter a valid 12-digit Aadhaar number.';
+    if (!String(body.address || '').trim()) return 'Residential address is required.';
+  }
+  if (role === 'advocate') {
+    if (!String(body.enrollmentNo || '').trim()) return 'Bar enrollment number is required.';
+    if (!String(body.stateBarCouncil || '').trim()) return 'State Bar Council is required.';
+    if (!String(body.practiceCourts || '').trim()) return 'At least one practising court is required.';
+  }
+  if (role === 'intern') {
+    if (!String(body.collegeId || '').trim()) return 'College ID number is required.';
+    if (!String(body.lawSchool || '').trim()) return 'Law school name is required.';
+    if (!String(body.studyYear || '').trim()) return 'Current year of study is required.';
+  }
+  return '';
+}
+
+function clientWorkspaceDemo(name) {
+  const counsel = { name: 'Adv. Meera Khanna', enrollment: 'D/1842/2014', assignedAt: '2026-07-19', contactPolicy: 'Contact through Legal Connect' };
+  return [
+    {
+      id: 'client-case-1', caseTitle: 'Karan Nagpal v. State', caseNumber: 'CRL/1842/2026', courtName: 'Tis Hazari Courts, Delhi',
+      status: 'Active', stage: 'Defence Evidence', nextDate: '2026-08-05', appearanceRequired: true,
+      nextAction: 'Appear with original identity documents on the next date of hearing.', costRisk: 'Non-appearance may lead to costs or an adverse procedural order.',
+      counsel, documents: [{ id: 'doc-1', name: 'Order dated 18 Jul 2026.pdf', category: 'Court order', uploadedAt: '2026-07-18' }, { id: 'doc-2', name: 'Evidence index.pdf', category: 'Evidence', uploadedAt: '2026-07-22' }],
+      communications: [{ id: 'com-1', type: 'call-summary', title: 'Strategy call', summary: 'Discussed defence evidence and witness availability.', occurredAt: '2026-07-24', recordingStatus: 'Consent-managed archive' }, { id: 'com-2', type: 'message', title: 'Counsel update', summary: 'Draft evidence affidavit shared for review.', occurredAt: '2026-07-26' }],
+      fees: [{ id: 'fee-1', label: 'vCourt process fee', amount: 750, status: 'due', dueDate: '2026-08-02' }],
+    },
+    {
+      id: 'client-case-2', caseTitle: 'Consumer Refund Matter', caseNumber: 'CC/2201/2026', courtName: 'District Consumer Commission, Delhi',
+      status: 'Active', stage: 'Complainant Evidence', nextDate: '2026-08-12', appearanceRequired: false,
+      nextAction: 'Approve the evidence affidavit uploaded by assigned counsel.', costRisk: '', counsel,
+      documents: [{ id: 'doc-3', name: 'Complaint with annexures.pdf', category: 'Pleading', uploadedAt: '2026-07-11' }],
+      communications: [{ id: 'com-3', type: 'message', title: 'Document request', summary: 'Counsel requested the original purchase invoice.', occurredAt: '2026-07-23' }],
+      fees: [{ id: 'fee-2', label: 'Evidence filing fee', amount: 0, status: 'paid', dueDate: null }],
+    },
+    {
+      id: 'client-case-3', caseTitle: 'Property Notice Review', caseNumber: 'LC-INTAKE-912', courtName: 'Pre-litigation workspace',
+      status: 'Intake', stage: 'Counsel Review', nextDate: null, appearanceRequired: false,
+      nextAction: 'Counsel is reviewing the notice and title documents.', costRisk: '', counsel: { ...counsel, name: 'Assignment confirmed' },
+      documents: [{ id: 'doc-4', name: 'Legal notice.pdf', category: 'Notice', uploadedAt: '2026-07-28' }], communications: [], fees: [],
+    },
+  ];
+}
+
+function enrichWorkspaceCase(item) {
+  const payload = item || {};
+  return {
+    ...payload,
+    id: payload.id,
+    caseTitle: payload.caseTitle || payload.title || 'Untitled matter',
+    caseNumber: payload.caseNumber || payload.caseNo || 'Number pending',
+    courtName: payload.courtName || payload.court || 'Court not listed',
+    stage: payload.stage || 'Case review',
+    appearanceRequired: Boolean(payload.appearanceRequired),
+    nextAction: payload.nextAction || 'No action is due from you right now.',
+    costRisk: payload.costRisk || '',
+    counsel: payload.counsel || (payload.assignedTo ? { name: 'Legal Connect assigned counsel', contactPolicy: 'Contact through Legal Connect' } : null),
+    documents: Array.isArray(payload.documents) ? payload.documents : [],
+    communications: Array.isArray(payload.communications) ? payload.communications : [],
+    fees: Array.isArray(payload.fees) ? payload.fees : [],
+  };
+}
+
+async function attachStoredCaseRecords(cases) {
+  const enriched = cases.map(enrichWorkspaceCase);
+  if (!db.dbAvailable || !enriched.length) return enriched;
+  const caseIds = enriched.map((item) => item.id).filter(isUuid);
+  if (!caseIds.length) return enriched;
+  const [documents, communications, fees] = await Promise.all([
+    db.query('SELECT * FROM case_documents WHERE case_id = ANY($1::uuid[]) ORDER BY created_at DESC', [caseIds]),
+    db.query('SELECT * FROM case_communications WHERE case_id = ANY($1::uuid[]) ORDER BY occurred_at DESC', [caseIds]),
+    db.query('SELECT * FROM case_fees WHERE case_id = ANY($1::uuid[]) ORDER BY created_at DESC', [caseIds]),
+  ]);
+  return enriched.map((matter) => ({
+    ...matter,
+    documents: [
+      ...documents.rows.filter((row) => row.case_id === matter.id).map((row) => ({ id: row.id, name: row.file_name, category: row.category || 'Case document', uploadedAt: row.created_at })),
+      ...matter.documents,
+    ],
+    communications: [
+      ...communications.rows.filter((row) => row.case_id === matter.id).map((row) => ({ id: row.id, type: row.communication_type, title: row.title, summary: row.summary || '', occurredAt: row.occurred_at, recordingStatus: row.storage_key ? (row.recording_consent ? 'Consent-managed archive' : 'Recording withheld - consent required') : undefined })),
+      ...matter.communications,
+    ],
+    fees: [
+      ...fees.rows.filter((row) => row.case_id === matter.id).map((row) => ({ id: row.id, label: row.label, amount: Number(row.amount || 0), status: row.status, dueDate: row.due_date })),
+      ...matter.fees,
+    ],
+  }));
+}
+
+function maskCredential(kind, last4) {
+  if (kind === 'aadhaar') return `XXXX XXXX ${last4 || 'XXXX'}`;
+  return `•••• ${last4 || '----'}`;
+}
+
+async function handleLocalWorkspaceRoute(req, res, url) {
+  if (config.nodeEnv === 'production') return false;
+  const authUser = getAuthUser(req);
+  if (!authUser) {
+    sendJson(res, 401, { ok: false, error: 'Authentication required.' });
+    return true;
+  }
+  if (url.pathname === '/api/workspaces/client' && req.method === 'GET') {
+    if (authUser.role !== 'client') {
+      sendJson(res, 403, { ok: false, error: 'Client workspace access required.' });
+      return true;
+    }
+    sendJson(res, 200, { ok: true, profile: { name: authUser.name || 'Demo Client', identity: 'XXXX XXXX 4242', verificationStatus: 'verified' }, cases: clientWorkspaceDemo(authUser.name), bookings: demoStore.bookings.map(dashboardBooking), payments: [], dataMode: 'sample' });
+    return true;
+  }
+  if (url.pathname === '/api/workspaces/advocate' && req.method === 'GET') {
+    if (authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Advocate workspace access required.' });
+      return true;
+    }
+    const cases = clientWorkspaceDemo(authUser.name).slice(0, 2).map((item, index) => ({ ...item, id: `adv-case-${index + 1}`, clientName: index ? 'Aarav Sharma' : 'Karan Nagpal' }));
+    sendJson(res, 200, { ok: true, profile: { name: authUser.name || 'Demo Lawyer', enrollmentNo: 'D/1842/2014', stateBarCouncil: 'Bar Council of Delhi', practiceCourts: 'Delhi High Court, District Courts', verificationStatus: 'verified' }, cases, paidIntakes: demoStore.bookings.map(dashboardBooking), chamber: demoStore.chamber, dataMode: 'sample' });
+    return true;
+  }
+  const caseStatusMatch = url.pathname.match(/^\/api\/workspaces\/advocate\/cases\/([^/]+)\/status$/);
+  if (caseStatusMatch && req.method === 'PATCH' && authUser.role === 'advocate') {
+    const body = await readBody(req);
+    const demoMatter = clientWorkspaceDemo(authUser.name)[Number(caseStatusMatch[1].split('-').pop() || 1) - 1] || clientWorkspaceDemo(authUser.name)[0];
+    sendJson(res, 200, { ok: true, matter: { ...demoMatter, id: caseStatusMatch[1], stage: body.stage || demoMatter.stage }, syncedAt: new Date().toISOString(), dataMode: 'sample' });
+    return true;
+  }
+  if (url.pathname === '/api/chamber' && req.method === 'GET' && authUser.role === 'advocate') {
+    sendJson(res, 200, { ok: true, chamber: demoStore.chamber });
+    return true;
+  }
+  if (url.pathname === '/api/chamber/members' && req.method === 'POST' && authUser.role === 'advocate') {
+    const body = await readBody(req);
+    const member = { id: `member-${Date.now()}`, display_name: body.displayName, email: body.email, member_role: body.memberRole || 'associate', status: 'invited' };
+    demoStore.chamber.members.push(member);
+    sendJson(res, 201, { ok: true, member });
+    return true;
+  }
+  if (url.pathname === '/api/chamber/tasks' && req.method === 'POST' && authUser.role === 'advocate') {
+    const body = await readBody(req);
+    const task = { id: `task-${Date.now()}`, title: body.title, details: body.details || '', assignee_name: body.assigneeName || 'Unassigned', status: 'assigned', priority: body.priority || 'normal', due_at: body.dueAt || null, updated_at: new Date().toISOString() };
+    demoStore.chamber.tasks.unshift(task);
+    sendJson(res, 201, { ok: true, task, syncedAt: new Date().toISOString() });
+    return true;
+  }
+  const taskStatusMatch = url.pathname.match(/^\/api\/chamber\/tasks\/([^/]+)\/status$/);
+  if (taskStatusMatch && req.method === 'PATCH' && authUser.role === 'advocate') {
+    const body = await readBody(req);
+    const task = demoStore.chamber.tasks.find((item) => item.id === taskStatusMatch[1]);
+    if (!task) {
+      sendJson(res, 404, { ok: false, error: 'Task not found.' });
+      return true;
+    }
+    task.status = body.status;
+    task.updated_at = new Date().toISOString();
+    sendJson(res, 200, { ok: true, task, syncedAt: task.updated_at });
+    return true;
+  }
+  if (url.pathname === '/api/admin/verifications' && req.method === 'GET' && canSeeAll(authUser)) {
+    sendJson(res, 200, { ok: true, verifications: [] });
+    return true;
+  }
+  return false;
+}
+
 async function handleStrictJwtAuthRoute(req, res, url) {
-  const strictAuthPath = url.pathname.startsWith('/api/auth/strict');
-  if (!strictAuthPath) return false;
+  const managedPath = url.pathname.startsWith('/api/auth/strict')
+    || url.pathname.startsWith('/api/workspaces/')
+    || url.pathname.startsWith('/api/chamber')
+    || url.pathname.startsWith('/api/admin/verifications');
+  if (!managedPath) return false;
   if (!db.dbAvailable) {
+    if (await handleLocalWorkspaceRoute(req, res, url)) return true;
     sendJson(res, 503, { ok: false, error: 'Database is required for secure authentication.' });
     return true;
   }
@@ -4396,8 +4690,12 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const body = await readBody(req);
     const email = normalizeEmail(body.email);
     const password = String(body.password || '');
-    const role = ['client', 'advocate', 'intern', 'admin'].includes(body.role) ? body.role : 'client';
+    const role = ['client', 'advocate', 'intern'].includes(body.role) ? body.role : null;
     const name = String(body.name || body.email || 'Legal Connect User').trim();
+    if (!role) {
+      sendJson(res, 403, { ok: false, error: 'Admin accounts are issued only by Legal Connect.' });
+      return true;
+    }
     if (!email || !email.includes('@')) {
       sendJson(res, 400, { ok: false, error: 'A valid email is required.' });
       return true;
@@ -4406,21 +4704,54 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 400, { ok: false, error: 'Password must be at least 8 characters.' });
       return true;
     }
+    const registrationError = strictRegistrationError(body, role);
+    if (registrationError) {
+      sendJson(res, 400, { ok: false, error: registrationError });
+      return true;
+    }
     const roleResult = await db.query('SELECT id FROM roles WHERE name = $1', [role]);
     const roleId = roleResult.rows[0] && roleResult.rows[0].id;
-    let user = await strictUserByEmail(email);
-    if (user) {
-      const updated = await db.query('UPDATE users SET name = $1, phone = COALESCE($2, phone), role = $3, role_id = $4, password_hash = $5, consent_at = COALESCE(consent_at, now()), email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $6 RETURNING id, name, email, phone, role, created_at', [name, normalizePhone(body.phone) || null, role, roleId, strictHashPassword(password), user.id]);
-      user = updated.rows[0];
-    } else {
-      const created = await db.query('INSERT INTO users (name, email, phone, role, role_id, password_hash, consent_at, email_verified_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now()) RETURNING id, name, email, phone, role, created_at', [name, email, normalizePhone(body.phone) || null, role, roleId, strictHashPassword(password)]);
-      user = created.rows[0];
+    const existingUser = await strictUserByEmail(email);
+    if (existingUser) {
+      sendJson(res, 409, { ok: false, error: 'An account already exists for this email. Sign in or reset your password.' });
+      return true;
     }
-    await strictCreateProfile(user.id, role, body);
+    const client = await db.pool.connect();
+    let user;
+    try {
+      await client.query('BEGIN');
+      const created = await client.query('INSERT INTO users (name, email, phone, role, role_id, password_hash, consent_at, email_verified_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now()) RETURNING id, name, email, phone, role, created_at', [name, email, normalizePhone(body.phone) || null, role, roleId, strictHashPassword(password)]);
+      user = created.rows[0];
+      await strictCreateProfile(user.id, role, body, client);
+      const credential = strictCredential(body, role);
+      await client.query(`INSERT INTO identity_verifications
+        (user_id, role, credential_kind, reference_hash, reference_last4, status, metadata)
+        VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+        ON CONFLICT (user_id, credential_kind) DO UPDATE SET reference_hash = EXCLUDED.reference_hash,
+        reference_last4 = EXCLUDED.reference_last4, status = 'pending', metadata = EXCLUDED.metadata, updated_at = now()`, [
+        user.id,
+        role,
+        credential.kind,
+        strictCredentialHash(credential.value),
+        credential.last4,
+        JSON.stringify(role === 'client'
+          ? { addressProvided: Boolean(body.address) }
+          : role === 'advocate'
+            ? { stateBarCouncil: body.stateBarCouncil, practiceCourts: body.practiceCourts, yearsPractice: Number(body.yearsPractice || 0) }
+            : { lawSchool: body.lawSchool, studyYear: body.studyYear }),
+      ]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    user.verification_status = 'pending';
     const token = strictSignJwt(user);
     await saveSessionToken(user, token);
     await writeAuditLog(user, 'jwt_register', 'user', user.id, 'Strict JWT registration completed.', { role, emailMasked: maskEmail(email) });
-    sendJson(res, 201, { ok: true, token, user: strictPublicUser(user) });
+    sendJson(res, 201, { ok: true, token, user: strictPublicUser(user), message: 'Account created. Identity review is pending.' });
     return true;
   }
 
@@ -4454,6 +4785,249 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     return true;
   }
 
+  if (url.pathname === '/api/workspaces/client' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser || !['client', 'admin', 'rna'].includes(authUser.role)) {
+      sendJson(res, 403, { ok: false, error: 'Client workspace access required.' });
+      return true;
+    }
+    const userId = await resolveDatabaseUserId(authUser);
+    const profileResult = await db.query('SELECT display_name, aadhaar_last4, address, verification_status FROM profile_clients WHERE user_id = $1', [userId]);
+    const casesResult = await db.query('SELECT * FROM cases WHERE user_id = $1 ORDER BY updated_at DESC', [userId]);
+    const bookingsResult = await db.query('SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
+    const paymentsResult = await db.query('SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
+    const useDemo = /^Demo Client$/i.test(String(authUser.name || '')) && casesResult.rows.length === 0;
+    const cases = useDemo ? clientWorkspaceDemo(authUser.name) : await attachStoredCaseRecords(casesResult.rows.map(mapCase));
+    sendJson(res, 200, {
+      ok: true,
+      profile: {
+        name: profileResult.rows[0]?.display_name || authUser.name || 'Client',
+        identity: profileResult.rows[0]?.aadhaar_last4 ? `XXXX XXXX ${profileResult.rows[0].aadhaar_last4}` : 'Verification record pending',
+        verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
+      },
+      cases,
+      bookings: bookingsResult.rows.map(mapBooking),
+      payments: paymentsResult.rows.map((row) => ({ id: row.id, bookingId: row.booking_id, amount: row.amount, currency: row.currency, status: row.status, createdAt: row.created_at })),
+      dataMode: useDemo ? 'sample' : 'live',
+    });
+    return true;
+  }
+
+  if (url.pathname === '/api/workspaces/advocate' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser || !['advocate', 'admin', 'rna'].includes(authUser.role)) {
+      sendJson(res, 403, { ok: false, error: 'Advocate workspace access required.' });
+      return true;
+    }
+    const userId = await resolveDatabaseUserId(authUser);
+    const profileResult = await db.query('SELECT display_name, enrollment_no, state_bar_council, practice_courts, verification_status FROM profile_advocates WHERE user_id = $1', [userId]);
+    const casesResult = await db.query("SELECT * FROM cases WHERE payload->>'assignedTo' = $1 OR id IN (SELECT case_id FROM case_assignments WHERE advocate_id = $1 AND status = 'active') ORDER BY updated_at DESC", [userId]);
+    const bookingsResult = await db.query("SELECT * FROM bookings WHERE payment_status = 'paid' ORDER BY created_at DESC LIMIT 20");
+    const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const chamberId = chamberResult.rows[0]?.id;
+    const tasksResult = chamberId ? await db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC LIMIT 30', [chamberId]) : { rows: [] };
+    const membersResult = chamberId ? await db.query('SELECT id, display_name, email, member_role, status FROM chamber_members WHERE chamber_id = $1 ORDER BY created_at', [chamberId]) : { rows: [] };
+    const useDemo = /^Demo Lawyer$/i.test(String(authUser.name || '')) && casesResult.rows.length === 0;
+    const demoCases = clientWorkspaceDemo(authUser.name).slice(0, 2).map((item, index) => ({ ...item, id: `adv-case-${index + 1}`, clientName: index ? 'Aarav Sharma' : 'Karan Nagpal' }));
+    sendJson(res, 200, {
+      ok: true,
+      profile: {
+        name: profileResult.rows[0]?.display_name || authUser.name || 'Counsel',
+        enrollmentNo: profileResult.rows[0]?.enrollment_no || (useDemo ? 'D/1842/2014' : 'Pending'),
+        stateBarCouncil: profileResult.rows[0]?.state_bar_council || 'Not recorded',
+        practiceCourts: profileResult.rows[0]?.practice_courts || '',
+        verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
+      },
+      cases: useDemo ? demoCases : await attachStoredCaseRecords(casesResult.rows.map(mapCase)),
+      paidIntakes: bookingsResult.rows.map(mapBooking),
+      chamber: chamberResult.rows[0] ? { id: chamberId, name: chamberResult.rows[0].name, members: membersResult.rows, tasks: tasksResult.rows } : null,
+      dataMode: useDemo ? 'sample' : 'live',
+    });
+    return true;
+  }
+
+  const advocateCaseStatusMatch = url.pathname.match(/^\/api\/workspaces\/advocate\/cases\/([^/]+)\/status$/);
+  if (advocateCaseStatusMatch && req.method === 'PATCH') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    const stage = String(body.stage || '').trim();
+    if (!stage || stage.length > 80) {
+      sendJson(res, 400, { ok: false, error: 'A valid case stage is required.' });
+      return true;
+    }
+    const caseId = advocateCaseStatusMatch[1];
+    if (!isUuid(caseId) && /^Demo Lawyer$/i.test(String(authUser.name || ''))) {
+      const demoMatter = clientWorkspaceDemo(authUser.name)[Number(caseId.split('-').pop() || 1) - 1] || clientWorkspaceDemo(authUser.name)[0];
+      sendJson(res, 200, { ok: true, matter: { ...demoMatter, id: caseId, stage }, syncedAt: new Date().toISOString(), dataMode: 'sample' });
+      return true;
+    }
+    const userId = await resolveDatabaseUserId(authUser);
+    const existing = await db.query('SELECT * FROM cases WHERE id = $1 LIMIT 1', [caseId]);
+    if (!existing.rows[0]) {
+      sendJson(res, 404, { ok: false, error: 'Case not found.' });
+      return true;
+    }
+    const current = mapCase(existing.rows[0]);
+    const assignment = await db.query("SELECT 1 FROM case_assignments WHERE case_id = $1 AND advocate_id = $2 AND status = 'active' LIMIT 1", [caseId, userId]);
+    if (String(current.assignedTo || '') !== String(userId) && !assignment.rows[0]) {
+      sendJson(res, 403, { ok: false, error: 'This matter is not assigned to your workspace.' });
+      return true;
+    }
+    const nextStatus = stage === 'Disposed' ? 'Closed' : current.status || 'Active';
+    const updated = await db.query(`UPDATE cases SET status = $2,
+      payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb, updated_at = now()
+      WHERE id = $1 RETURNING *`, [caseId, nextStatus, JSON.stringify({ stage, statusUpdatedBy: userId, statusUpdatedAt: new Date().toISOString() })]);
+    await db.query(`INSERT INTO case_updates (case_id, update_type, message, payload)
+      VALUES ($1, 'stage_update', $2, $3)`, [caseId, `Matter stage updated to ${stage}.`, JSON.stringify({ stage, actorId: userId })]);
+    await writeAuditLog(authUser, 'case_stage_updated', 'case', caseId, `Matter stage updated to ${stage}.`, { stage });
+    sendJson(res, 200, { ok: true, matter: enrichWorkspaceCase(mapCase(updated.rows[0])), syncedAt: new Date().toISOString() });
+    return true;
+  }
+
+  if (url.pathname === '/api/chamber' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser || !['advocate', 'admin', 'rna'].includes(authUser.role)) {
+      sendJson(res, 403, { ok: false, error: 'Chamber access required.' });
+      return true;
+    }
+    const userId = await resolveDatabaseUserId(authUser);
+    let chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    if (!chamberResult.rows[0] && authUser.role === 'advocate') {
+      chamberResult = await db.query("INSERT INTO chambers (owner_id, name) VALUES ($1, $2) RETURNING *", [userId, `${authUser.name || 'Counsel'}'s Chamber`]);
+    }
+    const chamber = chamberResult.rows[0];
+    if (!chamber) {
+      sendJson(res, 404, { ok: false, error: 'Chamber not found.' });
+      return true;
+    }
+    const members = await db.query('SELECT id, user_id, display_name, email, member_role, status, created_at FROM chamber_members WHERE chamber_id = $1 ORDER BY created_at', [chamber.id]);
+    const tasks = await db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC', [chamber.id]);
+    sendJson(res, 200, { ok: true, chamber: { id: chamber.id, name: chamber.name, members: members.rows, tasks: tasks.rows } });
+    return true;
+  }
+
+  if (url.pathname === '/api/chamber/members' && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    const displayName = String(body.displayName || '').trim();
+    const email = normalizeEmail(body.email);
+    if (!displayName || !email) {
+      sendJson(res, 400, { ok: false, error: 'Member name and email are required.' });
+      return true;
+    }
+    const userId = await resolveDatabaseUserId(authUser);
+    const chamberResult = await db.query('SELECT id FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const created = await db.query(`INSERT INTO chamber_members (chamber_id, display_name, email, member_role, status)
+      VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamberResult.rows[0].id, displayName, email, body.memberRole || 'associate']);
+    await writeAuditLog(authUser, 'chamber_member_invited', 'chamber_member', created.rows[0].id, 'A chamber member was invited.', { emailMasked: maskEmail(email) });
+    sendJson(res, 201, { ok: true, member: created.rows[0] });
+    return true;
+  }
+
+  if (url.pathname === '/api/chamber/tasks' && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    if (!String(body.title || '').trim()) {
+      sendJson(res, 400, { ok: false, error: 'Task title is required.' });
+      return true;
+    }
+    const userId = await resolveDatabaseUserId(authUser);
+    const chamberResult = await db.query('SELECT id FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const created = await db.query(`INSERT INTO chamber_tasks
+      (chamber_id, case_id, title, details, assigned_to, assignee_name, status, priority, due_at, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, 'assigned', $7, $8, $9) RETURNING *`, [
+      chamberResult.rows[0].id, isUuid(body.caseId) ? body.caseId : null, String(body.title).trim(), body.details || null,
+      isUuid(body.assignedTo) ? body.assignedTo : null, body.assigneeName || 'Unassigned', body.priority || 'normal', body.dueAt || null, userId,
+    ]);
+    await writeAuditLog(authUser, 'chamber_task_created', 'chamber_task', created.rows[0].id, 'A chamber task was delegated.', { caseId: body.caseId || null });
+    sendJson(res, 201, { ok: true, task: created.rows[0], syncedAt: new Date().toISOString() });
+    return true;
+  }
+
+  const chamberTaskStatusMatch = url.pathname.match(/^\/api\/chamber\/tasks\/([^/]+)\/status$/);
+  if (chamberTaskStatusMatch && req.method === 'PATCH') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    const status = ['assigned', 'accepted', 'in_progress', 'blocked', 'completed'].includes(body.status) ? body.status : null;
+    if (!status) {
+      sendJson(res, 400, { ok: false, error: 'Select a valid task status.' });
+      return true;
+    }
+    const userId = await resolveDatabaseUserId(authUser);
+    const updated = await db.query(`UPDATE chamber_tasks SET status = $2, updated_at = now(),
+      accepted_at = CASE WHEN $2 IN ('accepted', 'in_progress') THEN COALESCE(accepted_at, now()) ELSE accepted_at END,
+      completed_at = CASE WHEN $2 = 'completed' THEN now() ELSE completed_at END
+      WHERE id = $1 AND chamber_id IN (SELECT id FROM chambers WHERE owner_id = $3) RETURNING *`, [chamberTaskStatusMatch[1], status, userId]);
+    if (!updated.rows[0]) {
+      sendJson(res, 404, { ok: false, error: 'Task not found.' });
+      return true;
+    }
+    sendJson(res, 200, { ok: true, task: updated.rows[0], syncedAt: new Date().toISOString() });
+    return true;
+  }
+
+  if (url.pathname === '/api/admin/verifications' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: 'Admin access required.' });
+      return true;
+    }
+    const result = await db.query(`SELECT iv.id, iv.user_id, iv.role, iv.credential_kind, iv.reference_last4, iv.status,
+      iv.metadata, iv.review_note, iv.reviewed_at, iv.created_at, u.name, u.email, u.phone
+      FROM identity_verifications iv JOIN users u ON u.id = iv.user_id ORDER BY
+      CASE iv.status WHEN 'pending' THEN 0 WHEN 'rejected' THEN 1 ELSE 2 END, iv.created_at DESC`);
+    sendJson(res, 200, { ok: true, verifications: result.rows.map((row) => ({
+      id: row.id, userId: row.user_id, role: row.role, name: row.name, emailMasked: maskEmail(row.email), phoneMasked: maskPhone(row.phone),
+      credentialKind: row.credential_kind, credentialMasked: maskCredential(row.credential_kind, row.reference_last4), status: row.status,
+      metadata: row.metadata || {}, reviewNote: row.review_note, reviewedAt: row.reviewed_at, createdAt: row.created_at,
+    })) });
+    return true;
+  }
+
+  const verificationMatch = url.pathname.match(/^\/api\/admin\/verifications\/([^/]+)$/);
+  if (verificationMatch && req.method === 'PATCH') {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: 'Admin access required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    const status = ['approved', 'rejected'].includes(body.status) ? body.status : null;
+    if (!status) {
+      sendJson(res, 400, { ok: false, error: 'Status must be approved or rejected.' });
+      return true;
+    }
+    const reviewerId = await resolveDatabaseUserId(authUser);
+    const updated = await db.query(`UPDATE identity_verifications SET status = $2, reviewed_by = $3, reviewed_at = now(),
+      review_note = $4, updated_at = now() WHERE id = $1 RETURNING *`, [verificationMatch[1], status, reviewerId, String(body.note || '').slice(0, 500) || null]);
+    const verification = updated.rows[0];
+    if (!verification) {
+      sendJson(res, 404, { ok: false, error: 'Verification record not found.' });
+      return true;
+    }
+    const profileTable = { client: 'profile_clients', advocate: 'profile_advocates', intern: 'profile_interns' }[verification.role];
+    if (profileTable) await db.query(`UPDATE ${profileTable} SET verification_status = $2, updated_at = now() WHERE user_id = $1`, [verification.user_id, status]);
+    await writeAuditLog(authUser, `identity_${status}`, 'identity_verification', verification.id, `Identity verification ${status}.`, { userId: verification.user_id, role: verification.role });
+    sendJson(res, 200, { ok: true, verification: { id: verification.id, status, reviewedAt: verification.reviewed_at } });
+    return true;
+  }
+
   return false;
 }
 
@@ -4465,8 +5039,14 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
       const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
       if (await handleStrictJwtAuthRoute(req, res, url)) return;
     } catch (error) {
-      if (!res.headersSent && req.url && req.url.startsWith('/api/auth')) {
-        sendJson(res, 500, { ok: false, error: 'Authentication service failed.' });
+      const managedRequest = req.url && (
+        req.url.startsWith('/api/auth')
+        || req.url.startsWith('/api/workspaces/')
+        || req.url.startsWith('/api/chamber')
+        || req.url.startsWith('/api/admin/verifications')
+      );
+      if (!res.headersSent && managedRequest) {
+        sendJson(res, 500, { ok: false, error: req.url.startsWith('/api/auth') ? 'Authentication service failed.' : 'The secure workspace service could not complete this request.' });
         return;
       }
     }

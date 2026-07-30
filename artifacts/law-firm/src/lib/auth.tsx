@@ -34,6 +34,18 @@ interface LoginInput {
 interface RegisterInput extends LoginInput {
   name: string;
   role: Exclude<AppRole, "admin">;
+  phone?: string;
+  address?: string;
+  aadhaarNumber?: string;
+  enrollmentNo?: string;
+  stateBarCouncil?: string;
+  practiceCourts?: string;
+  practiceAreas?: string;
+  yearsPractice?: string;
+  officeAddress?: string;
+  collegeId?: string;
+  lawSchool?: string;
+  studyYear?: string;
 }
 
 interface AuthContextValue {

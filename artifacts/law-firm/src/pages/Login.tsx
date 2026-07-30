@@ -45,7 +45,19 @@ export function Login() {
   const [role, setRole] = useState<AppRole>(requestedRole);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [address, setAddress] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
+  const [enrollmentNo, setEnrollmentNo] = useState("");
+  const [stateBarCouncil, setStateBarCouncil] = useState("");
+  const [practiceCourts, setPracticeCourts] = useState("");
+  const [practiceAreas, setPracticeAreas] = useState("");
+  const [yearsPractice, setYearsPractice] = useState("");
+  const [officeAddress, setOfficeAddress] = useState("");
+  const [collegeId, setCollegeId] = useState("");
+  const [lawSchool, setLawSchool] = useState("");
+  const [studyYear, setStudyYear] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -78,6 +90,18 @@ export function Login() {
           email,
           password,
           role: role as Exclude<AppRole, "admin">,
+          phone,
+          address,
+          aadhaarNumber,
+          enrollmentNo,
+          stateBarCouncil,
+          practiceCourts,
+          practiceAreas,
+          yearsPractice,
+          officeAddress,
+          collegeId,
+          lawSchool,
+          studyYear,
         }));
       }
     } catch (requestError) {
@@ -142,7 +166,7 @@ export function Login() {
           <div className="lc-login-heading">
             <span className="lc-kicker">SECURE ACCESS</span>
             <h2>{mode === "login" ? "Welcome back" : "Create your workspace"}</h2>
-            <p>{mode === "login" ? "Use your registered email and password." : "Choose a role and complete the three fields below."}</p>
+            <p>{mode === "login" ? "Use your registered email and password." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
           </div>
 
           <div className="lc-role-picker" aria-label="Select a role">
@@ -161,10 +185,16 @@ export function Login() {
 
           <form className="lc-login-form" onSubmit={handleSubmit}>
             {mode === "register" && (
-              <label>
-                <span>Full name</span>
-                <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Your full name" autoComplete="name" required />
-              </label>
+              <div className="lc-form-grid">
+                <label>
+                  <span>Full legal name</span>
+                  <input value={name} onChange={(event) => setName(event.target.value)} placeholder="As shown on your identity record" autoComplete="name" required />
+                </label>
+                <label>
+                  <span>Mobile number</span>
+                  <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+91 98765 43210" inputMode="tel" autoComplete="tel" />
+                </label>
+              </div>
             )}
             <label>
               <span>Email address</span>
@@ -187,6 +217,91 @@ export function Login() {
                 </button>
               </div>
             </label>
+            {mode === "register" && role === "client" && (
+              <fieldset className="lc-role-fields">
+                <legend>Client identity</legend>
+                <div className="lc-form-grid">
+                  <label>
+                    <span>Aadhaar number</span>
+                    <input
+                      value={aadhaarNumber}
+                      onChange={(event) => setAadhaarNumber(event.target.value.replace(/\D/g, "").slice(0, 12))}
+                      placeholder="12-digit number"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>Residential address</span>
+                    <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="City, State" autoComplete="street-address" required />
+                  </label>
+                </div>
+                <p><ShieldCheck /> The raw Aadhaar number is never retained. We store a one-way verification hash and masked last four digits.</p>
+              </fieldset>
+            )}
+            {mode === "register" && role === "advocate" && (
+              <fieldset className="lc-role-fields">
+                <legend>Professional credentials</legend>
+                <div className="lc-form-grid">
+                  <label>
+                    <span>Bar enrollment number</span>
+                    <input value={enrollmentNo} onChange={(event) => setEnrollmentNo(event.target.value)} placeholder="D/1234/2020" required />
+                  </label>
+                  <label>
+                    <span>State Bar Council</span>
+                    <input value={stateBarCouncil} onChange={(event) => setStateBarCouncil(event.target.value)} placeholder="Bar Council of Delhi" required />
+                  </label>
+                  <label>
+                    <span>Practising courts</span>
+                    <input value={practiceCourts} onChange={(event) => setPracticeCourts(event.target.value)} placeholder="Delhi HC, Tis Hazari" required />
+                  </label>
+                  <label>
+                    <span>Years in practice</span>
+                    <input value={yearsPractice} onChange={(event) => setYearsPractice(event.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="6" inputMode="numeric" />
+                  </label>
+                  <label>
+                    <span>Practice areas</span>
+                    <input value={practiceAreas} onChange={(event) => setPracticeAreas(event.target.value)} placeholder="Criminal, civil, consumer" />
+                  </label>
+                  <label>
+                    <span>Office address</span>
+                    <input value={officeAddress} onChange={(event) => setOfficeAddress(event.target.value)} placeholder="Chamber / office address" />
+                  </label>
+                </div>
+                <p><ShieldCheck /> Enrollment details are encrypted in transit and visible only to authorised Legal Connect administrators.</p>
+              </fieldset>
+            )}
+            {mode === "register" && role === "intern" && (
+              <fieldset className="lc-role-fields">
+                <legend>Academic credentials</legend>
+                <div className="lc-form-grid">
+                  <label>
+                    <span>College ID number</span>
+                    <input value={collegeId} onChange={(event) => setCollegeId(event.target.value)} placeholder="University ID" required />
+                  </label>
+                  <label>
+                    <span>Law school</span>
+                    <input value={lawSchool} onChange={(event) => setLawSchool(event.target.value)} placeholder="College / university name" required />
+                  </label>
+                  <label>
+                    <span>Current year</span>
+                    <select value={studyYear} onChange={(event) => setStudyYear(event.target.value)} required>
+                      <option value="">Select year</option>
+                      <option value="1">Year 1</option>
+                      <option value="2">Year 2</option>
+                      <option value="3">Year 3</option>
+                      <option value="4">Year 4</option>
+                      <option value="5">Year 5</option>
+                    </select>
+                  </label>
+                </div>
+                <p><ShieldCheck /> Academic identity is placed in the admin verification queue before chamber work is assigned.</p>
+              </fieldset>
+            )}
+            {mode === "login" && role === "admin" && (
+              <div className="lc-admin-access-note"><ShieldCheck /> Admin credentials are issued directly by Legal Connect. Public admin registration is disabled.</div>
+            )}
             {mode === "register" && (
               <label className="lc-consent-field">
                 <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />

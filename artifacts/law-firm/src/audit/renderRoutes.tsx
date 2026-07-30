@@ -37,6 +37,8 @@ import { AdvocateReminders } from "@/pages/advocate/AdvocateReminders";
 import { AdvocateRevenue } from "@/pages/advocate/AdvocateRevenue";
 import { AdvocateTeam } from "@/pages/advocate/AdvocateTeam";
 import { AdvocateJudges } from "@/pages/advocate/AdvocateJudges";
+import { ChamberVault } from "@/pages/advocate/ChamberVault";
+import { AdminVerifications } from "@/pages/admin/AdminVerifications";
 import { InternDashboard } from "@/pages/intern/InternDashboard";
 import { InternQuestsPage } from "@/pages/intern/InternQuestsPage";
 import { InternCaseTracker } from "@/pages/intern/InternCaseTracker";
@@ -54,6 +56,7 @@ const pages: Array<[string, React.ComponentType]> = [
   ["/login", Login],
   ["/admin", Dashboard],
   ["/admin/users", Users],
+  ["/admin/verifications", AdminVerifications],
   ["/admin/cases", MyDiary],
   ["/admin/bookings", Bookings],
   ["/admin/missions", ProxyHub],
@@ -74,6 +77,7 @@ const pages: Array<[string, React.ComponentType]> = [
   ["/client/ai-assistant", ClientAIAssistant],
   ["/advocate", AdvocateDashboard],
   ["/advocate/cases", AdvocateCaseTracker],
+  ["/advocate/chamber", ChamberVault],
   ["/advocate/diary", AdvocateDiary],
   ["/advocate/bookings", AdvocateBookings],
   ["/advocate/chat", AdvocateChat],

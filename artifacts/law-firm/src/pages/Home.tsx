@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowRight,
@@ -9,7 +10,9 @@ import {
   Smartphone,
   UserRound,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { roleHome, useAuth } from "@/lib/auth";
+import { legalQuotes } from "@/lib/workspace";
 
 const trustPoints = [
   {
@@ -37,6 +40,17 @@ const trustPoints = [
 export function Home() {
   const { session } = useAuth();
   const workspace = session ? roleHome(session.user.role) : "/login";
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setQuoteIndex((current) => (current + 1) % legalQuotes.length),
+      6000,
+    );
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const quote = legalQuotes[quoteIndex];
 
   return (
     <div className="lc-dharma-home">
@@ -68,6 +82,7 @@ export function Home() {
           <div className="lc-dharma-backdrop" aria-hidden="true" />
           <div className="lc-dharma-shade" aria-hidden="true" />
           <div className="lc-dharma-orbit" aria-hidden="true"><span /></div>
+          <div className="lc-dharma-chakra" aria-hidden="true"><span /></div>
 
           <div className="lc-dharma-stage-inner">
             <div className="lc-dharma-hero">
@@ -83,11 +98,30 @@ export function Home() {
               </p>
             </div>
 
-            <blockquote className="lc-dharma-quote">
+            <blockquote className="lc-dharma-quote" aria-live="polite">
               <span aria-hidden="true">“</span>
-              <div>
-                <p lang="sa">यतो धर्मस्ततो जयः</p>
-                <cite>Where there is Dharma, there is Victory. <em>Mahabharata</em></cite>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={quoteIndex}
+                  initial={{ opacity: 0, y: 7 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -7 }}
+                  transition={{ duration: 0.35 }}
+                >
+                  <p lang={quote.category === "Dharma" ? "sa" : "en"}>{quote.original}</p>
+                  <cite>{quote.translation} <em>{quote.source}</em></cite>
+                </motion.div>
+              </AnimatePresence>
+              <div className="lc-quote-progress" aria-label={`Quote ${quoteIndex + 1} of ${legalQuotes.length}`}>
+                {legalQuotes.map((item, index) => (
+                  <button
+                    key={`${item.source}-${index}`}
+                    type="button"
+                    className={index === quoteIndex ? "active" : ""}
+                    onClick={() => setQuoteIndex(index)}
+                    aria-label={`Show quote ${index + 1}`}
+                  />
+                ))}
               </div>
             </blockquote>
 
@@ -114,6 +148,10 @@ export function Home() {
                 <Link className="lc-dharma-card-action lc-dharma-card-action-gold" href="/login?role=advocate">
                   Professional login <ArrowRight aria-hidden="true" />
                 </Link>
+                <div className="lc-dharma-portal-links">
+                  <Link href="/login?role=intern">Intern portal</Link>
+                  <Link href="/login?role=admin">Admin access</Link>
+                </div>
               </article>
             </div>
 

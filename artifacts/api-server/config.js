@@ -4,6 +4,7 @@ const path = require("path");
 function loadDotEnv() {
   const candidates = [
     path.join(process.cwd(), ".env"),
+    path.join(__dirname, ".env"),
     path.join(__dirname, "..", "..", ".env"),
   ];
 

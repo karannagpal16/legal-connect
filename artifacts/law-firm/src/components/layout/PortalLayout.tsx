@@ -17,9 +17,11 @@ import {
   MessageSquare,
   ReceiptIndianRupee,
   Scale,
+  ShieldCheck,
   Sparkles,
   Target,
   Users,
+  Vault,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +38,7 @@ interface NavItem {
 const navigation: Record<AppRole, NavItem[]> = {
   admin: [
     { label: "Overview", href: "/admin", icon: LayoutDashboard },
+    { label: "Verifications", href: "/admin/verifications", icon: ShieldCheck },
     { label: "Users", href: "/admin/users", icon: Users },
     { label: "Cases", href: "/admin/cases", icon: FileSearch },
     { label: "Bookings", href: "/admin/bookings", icon: CalendarDays },
@@ -46,7 +49,9 @@ const navigation: Record<AppRole, NavItem[]> = {
   advocate: [
     { label: "Dashboard", href: "/advocate", icon: Home },
     { label: "My cases", href: "/advocate/cases", icon: FileSearch },
+    { label: "Chamber Vault", href: "/advocate/chamber", icon: Vault },
     { label: "Court diary", href: "/advocate/diary", icon: BookOpen },
+    { label: "Proxy Hub", href: "/advocate/proxy", icon: BriefcaseBusiness },
     { label: "Bookings", href: "/advocate/bookings", icon: CalendarDays },
     { label: "Messages", href: "/advocate/chat", icon: MessageSquare },
     { label: "LawBot", href: "/advocate/lawbot", icon: Sparkles },
@@ -55,7 +60,7 @@ const navigation: Record<AppRole, NavItem[]> = {
   client: [
     { label: "Home", href: "/client", icon: Home },
     { label: "My cases", href: "/client/cases", icon: FileSearch },
-    { label: "Find an advocate", href: "/client/book", icon: Gavel },
+    { label: "Get legal help", href: "/client/book", icon: Gavel },
     { label: "Messages", href: "/client/chat", icon: MessageSquare },
     { label: "LawBot", href: "/client/lawbot", icon: Sparkles },
     { label: "Documents", href: "/client/diy-docs", icon: ReceiptIndianRupee },
