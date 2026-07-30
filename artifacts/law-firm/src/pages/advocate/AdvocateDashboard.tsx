@@ -131,6 +131,100 @@ export function AdvocateDashboard() {
         </aside>
       </section>
 
+      {/* Daily Cause List & Hearing Schedule */}
+      <section className="lc-operational-panel" style={{ marginTop: '20px' }}>
+        <header>
+          <div>
+            <span>Daily Cause List &amp; Hearing Schedule</span>
+            <h2>Today's Court Appearances &amp; Listed Items</h2>
+          </div>
+          <button className="lc-button" style={{ background: '#f8fafc', color: '#0f172a', border: '1px solid #e2e8f0', fontSize: '0.8rem' }} onClick={() => alert("🔄 Live eCourts Cause List refreshed (< 220ms sync).")}>
+            🔄 Refresh Cause List
+          </button>
+        </header>
+        <div style={{ padding: '16px', display: 'grid', gap: '10px' }}>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <strong style={{ color: '#0f172a' }}>Item No. 14 — State v. Mehra (CNR-DL-HC-901)</strong>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>Delhi High Court · Court Room 5 (Hon'ble Bench 2) · Defendant Evidence (DE)</p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span className="role-dash-badge" style={{ background: '#dbeafe', color: '#1e40af' }}>In Hearing</span>
+              <button className="lc-button lc-button-primary" style={{ height: '32px', fontSize: '0.76rem', padding: '0 10px' }} onClick={() => alert("Passover requested on eCourts portal.")}>
+                Request Passover
+              </button>
+            </div>
+          </div>
+
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <strong style={{ color: '#0f172a' }}>Item No. 28 — Rohini Property Title Dispute (CNR-DL-2026-904)</strong>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>Saket District Court · Court Room 204 · Framing of Issues</p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span className="role-dash-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Proxy Delegated</span>
+              <button className="lc-button" style={{ background: '#0f766e', color: '#fff', border: 0, height: '32px', fontSize: '0.76rem', padding: '0 10px' }} onClick={() => alert("Proxy appearance verified for Adv. Aarav Mehta.")}>
+                View Proxy Memo
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Practice Escrow Ledger & Precedent Research */}
+      <section className="lc-practice-grid" style={{ marginTop: '20px' }}>
+        <div className="lc-operational-panel">
+          <header>
+            <div>
+              <span>Practice Finance &amp; Escrow</span>
+              <h2>Work Completion Escrow Balance</h2>
+            </div>
+          </header>
+          <div style={{ padding: '16px', display: 'grid', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>Secured Escrow Hold</span>
+                <strong style={{ display: 'block', fontSize: '1.4rem', color: '#0f766e', marginTop: '2px' }}>₹14,500</strong>
+              </div>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>Released Earnings</span>
+                <strong style={{ display: 'block', fontSize: '1.4rem', color: '#15803d', marginTop: '2px' }}>₹38,200</strong>
+              </div>
+            </div>
+            <button 
+              onClick={() => alert("✓ Work Completion Verification Sent! Escrow funds will release upon client 5-star rating.")}
+              className="lc-button lc-button-primary"
+              style={{ width: '100%', height: '40px', fontWeight: 800 }}
+            >
+              💸 Request Work Completion Escrow Release
+            </button>
+          </div>
+        </div>
+
+        <div className="lc-operational-panel">
+          <header>
+            <div>
+              <span>AI Judgment Research</span>
+              <h2>Precedent Case Law Search</h2>
+            </div>
+          </header>
+          <div style={{ padding: '16px', display: 'grid', gap: '10px' }}>
+            <input 
+              type="text" 
+              placeholder="Search Supreme Court &amp; High Court judgments..." 
+              style={{ width: '100%', height: '40px', borderRadius: '12px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '0.88rem' }}
+            />
+            <button 
+              onClick={() => alert("🔍 Legal Research Query Executed: Found 14 Supreme Court precedents matching your query.")}
+              className="lc-button"
+              style={{ background: '#0f172a', color: '#fff', height: '38px', fontWeight: 800 }}
+            >
+              🔍 Search Landmark Precedents
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* ProxyHub & Paid Intake Quick Actions */}
       <section className="lc-practice-grid" style={{ marginTop: '20px' }}>
         <div className="lc-operational-panel">
@@ -172,7 +266,7 @@ export function AdvocateDashboard() {
             <button 
               onClick={() => alert("📲 WhatsApp & SMS Reminder Sent to Client!\n\nMessage: 'Mandatory NDOH Court Appearance on 12 August 2026 at Saket Court Room 204 under Order XVII CPC.'")}
               className="lc-button"
-              style={{ background: '#10b981', color: '#fff', border: 0, height: '38px', fontWeight: 800 }}
+              style={{ background: '#10b981', color: '#fff', border: 0, height: '38px', font: 'inherit', fontWeight: 800 }}
             >
               📲 Dispatch WhatsApp Hearing Alert
             </button>
