@@ -245,6 +245,16 @@ async function initDb() {
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS work_hold_status text`);
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS failure_reason text`);
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS verified_at timestamptz`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS stage_status text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS case_title text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS case_number text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS court_name text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS case_type text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS problem_summary text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS attached_files jsonb`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS assigned_advocate_id text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS assigned_advocate_name text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS assigned_advocate_enrollment text`);
     await query(`CREATE INDEX IF NOT EXISTS bookings_user_created_idx ON bookings (user_id, created_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS bookings_payment_status_idx ON bookings (payment_status)`);
     await query(`CREATE INDEX IF NOT EXISTS bookings_created_at_idx ON bookings (created_at DESC)`);

@@ -4095,6 +4095,19 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/events/live" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    const events = (demoStore.auditLogs || []).slice(0, 20).map(log => ({
+      eventId: log.id || `EVT-${Date.now()}`,
+      timestamp: log.createdAt || new Date().toISOString(),
+      eventType: log.eventType || "STATUS_UPDATE",
+      actor: log.actor || { name: "System", role: "system" },
+      payload: log.payload || log
+    }));
+    sendJson(res, 200, { ok: true, events, timestamp: new Date().toISOString() });
+    return;
+  }
+
   if (url.pathname === "/api/tasks" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
