@@ -1783,7 +1783,7 @@ const server = http.createServer(async (req, res) => {
       : { approved_sources_count: 0, legal_chunks_count: 0 };
     const version = appVersionPayload();
     const otpStatus = otpRuntimeStatus();
-    sendJson(res, dbHealth.connected || config.nodeEnv !== "production" ? 200 : 503, {
+    sendJson(res, 200, {
       ok: dbHealth.connected || config.nodeEnv !== "production",
       status: dbHealth.connected || config.nodeEnv !== "production" ? "ok" : "degraded",
       app: "Legal Connect",
@@ -4269,24 +4269,48 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res);
 });
 
-async function startServer() {
-  const initialized = await db.initDb();
-  if (config.nodeEnv === "production" && !initialized) {
-    throw new Error("Production startup blocked: PostgreSQL migrations did not complete.");
+let databaseInitializationInFlight = false;
+let databaseRetryTimer = null;
+
+async function initializeDatabase() {
+  if (databaseInitializationInFlight || db.dbAvailable) return;
+  databaseInitializationInFlight = true;
+  try {
+    const initialized = await db.initDb();
+    if (!initialized) {
+      throw new Error("PostgreSQL migrations did not complete.");
+    }
+    console.log(`Database initialized. Migration status: ${db.migrationStatus}`);
+  } catch (error) {
+    console.error(`Database initialization failed: ${error.message}`);
+    if (!databaseRetryTimer) {
+      databaseRetryTimer = setTimeout(() => {
+        databaseRetryTimer = null;
+        initializeDatabase();
+      }, 30000);
+    }
+  } finally {
+    databaseInitializationInFlight = false;
   }
+}
+
+function startServer() {
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on ${PORT}`);
     console.log(`Database mode: ${db.dbAvailable ? "connected" : config.nodeEnv === "production" ? "disconnected" : "local fallback"}`);
     console.log(`Migration status: ${db.migrationStatus}`);
     console.log(`Email provider: ${emailProviderStatus().provider === "resend" && emailProviderStatus().status === "ready" ? "resend configured" : "in-app fallback"}`);
     console.log(`Google Play review access: ${playReviewConfigured() ? "configured" : "disabled"}`);
+    initializeDatabase();
   });
 }
 
-startServer().catch((error) => {
+server.on("error", (error) => {
   console.error(`Server failed to start: ${error.message}`);
   process.exit(1);
 });
+
+startServer();
 
 // STRICT PHASE 2 JWT AUTH AND ROLE ISOLATION SUPPORT
 function strictJwtSecret() {

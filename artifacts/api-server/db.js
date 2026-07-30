@@ -620,6 +620,17 @@ async function healthCheck() {
     };
   }
 
+  if (!available && migrationStatus !== "up_to_date") {
+    return {
+      connected: false,
+      db: "disconnected",
+      latency_ms: lastLatencyMs,
+      pool: poolState(migrationStatus === "running" ? "initializing" : "unhealthy"),
+      migrations: migrationStatus,
+      error: initError || "PostgreSQL initialization is still in progress.",
+    };
+  }
+
   const started = Date.now();
   try {
     await query("SELECT 1");
