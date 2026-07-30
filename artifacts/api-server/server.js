@@ -3,6 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { spawnSync } = require("child_process");
 const config = require("./config");
 const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
@@ -42,6 +43,35 @@ function appVersionPayload() {
     public_url: config.publicAppUrl,
     message: "Legal Connect is up to date",
   };
+}
+
+function ensureWebAssets() {
+  const indexPath = path.join(publicDir, "index.html");
+  if (fs.existsSync(indexPath)) return;
+
+  const frontendDir = path.join(__dirname, "..", "law-firm");
+  const commands = process.platform === "win32"
+    ? [
+        ["pnpm.cmd", ["--dir", frontendDir, "build"]],
+        ["npm.cmd", ["--prefix", frontendDir, "run", "build"]],
+      ]
+    : [
+        ["pnpm", ["--dir", frontendDir, "build"]],
+        ["npm", ["--prefix", frontendDir, "run", "build"]],
+      ];
+
+  let lastError = "No supported package manager was available.";
+  for (const [command, args] of commands) {
+    const result = spawnSync(command, args, {
+      cwd: path.join(__dirname, "..", ".."),
+      env: process.env,
+      stdio: "inherit",
+    });
+    if (result.status === 0 && fs.existsSync(indexPath)) return;
+    lastError = result.error?.message || `${command} exited with status ${result.status}`;
+  }
+
+  throw new Error(`Frontend assets could not be built: ${lastError}`);
 }
 
 function createLocalDemoStore() {
@@ -4295,6 +4325,7 @@ async function initializeDatabase() {
 }
 
 function startServer() {
+  ensureWebAssets();
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on ${PORT}`);
     console.log(`Database mode: ${db.dbAvailable ? "connected" : config.nodeEnv === "production" ? "disconnected" : "local fallback"}`);
