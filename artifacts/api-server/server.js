@@ -906,11 +906,23 @@ function readBody(req) {
   });
 }
 
-function readRawBody(req) {
-  return new Promise((resolve) => {
+function readRawBody(req, maxBytes = 1024 * 1024) {
+  return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    let total = 0;
+    req.on("data", (chunk) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        const error = new Error("Request body is too large.");
+        error.statusCode = 413;
+        reject(error);
+        req.destroy();
+        return;
+      }
+      chunks.push(Buffer.from(chunk));
+    });
     req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
   });
 }
 
@@ -1065,6 +1077,122 @@ function dashboardBooking(item) {
     status: item.status || item.paymentStatus || "Pending",
     createdAt: item.createdAt || new Date().toISOString(),
   };
+}
+
+function safeAttachmentName(rawName) {
+  let decoded = String(rawName || "case-file");
+  try {
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    // Keep the original header value when it is not URI encoded.
+  }
+  return path.basename(decoded).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 180) || "case-file";
+}
+
+async function ensurePaidBookingCase(bookingId) {
+  if (!db.dbAvailable || !isUuid(bookingId)) return null;
+  const bookingResult = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingId]);
+  const bookingRow = bookingResult.rows[0];
+  if (!bookingRow || bookingRow.payment_status !== "paid") return null;
+  const booking = mapBooking(bookingRow);
+  const payload = bookingRow.payload || {};
+
+  let caseRow = null;
+  if (isUuid(payload.existingCaseId)) {
+    const existingMatter = await db.query("SELECT * FROM cases WHERE id = $1 AND user_id = $2 LIMIT 1", [payload.existingCaseId, bookingRow.user_id]);
+    caseRow = existingMatter.rows[0] || null;
+  }
+  if (!caseRow) {
+    const linkedMatter = await db.query("SELECT * FROM cases WHERE payload->>'bookingId' = $1 LIMIT 1", [bookingId]);
+    caseRow = linkedMatter.rows[0] || null;
+  }
+  if (!caseRow) {
+    const matterPayload = {
+      bookingId,
+      caseTitle: payload.caseTitle || booking.serviceType || "Legal Connect matter",
+      caseType: payload.caseType || payload.legalIssueType || "Other",
+      partyName: payload.partyName || payload.clientName || "Client",
+      oppositeParty: payload.oppositeParty || "Conflict check pending",
+      particulars: payload.particulars || payload.problemSummary || "",
+      consultationChannel: payload.consultationChannel || "call",
+      urgency: payload.urgency || "standard",
+      stage: "Submitted & Paid",
+      nextAction: "Legal Connect is completing the conflict check and assigning verified counsel.",
+      appearanceRequired: false,
+      counsel: null,
+      source: payload.source || "booking",
+    };
+    const created = await db.query(
+      `INSERT INTO cases (user_id, title, court, case_number, next_date, status, notes, payload)
+       VALUES ($1, $2, $3, $4, NULL, 'Intake', $5, $6)
+       ON CONFLICT DO NOTHING
+       RETURNING *`,
+      [
+        bookingRow.user_id,
+        matterPayload.caseTitle,
+        payload.court || "Pre-litigation workspace",
+        `LC-INTAKE-${String(bookingId).slice(0, 8).toUpperCase()}`,
+        matterPayload.particulars || null,
+        JSON.stringify(matterPayload),
+      ],
+    );
+    caseRow = created.rows[0] || (await db.query("SELECT * FROM cases WHERE payload->>'bookingId' = $1 LIMIT 1", [bookingId])).rows[0];
+  }
+  if (!caseRow) return null;
+
+  await db.query(
+    `UPDATE bookings SET payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb WHERE id = $1`,
+    [bookingId, JSON.stringify({ caseId: caseRow.id })],
+  );
+  await db.query(
+    `INSERT INTO case_documents (case_id, uploaded_by, file_name, category, storage_key, mime_type, size_bytes, checksum)
+     SELECT $1, uploaded_by, file_name, 'Client intake', 'booking-attachment:' || id::text, mime_type, size_bytes, checksum
+     FROM booking_attachments attachment
+     WHERE booking_id = $2
+       AND NOT EXISTS (
+         SELECT 1 FROM case_documents document
+         WHERE document.case_id = $1 AND document.storage_key = 'booking-attachment:' || attachment.id::text
+       )`,
+    [caseRow.id, bookingId],
+  );
+  const communicationExists = await db.query(
+    "SELECT 1 FROM case_communications WHERE case_id = $1 AND payload->>'bookingId' = $2 LIMIT 1",
+    [caseRow.id, bookingId],
+  );
+  if (!communicationExists.rows[0]) {
+    await db.query(
+      `INSERT INTO case_communications (case_id, sender_id, communication_type, title, summary, payload)
+       VALUES ($1, $2, 'consultation_request', $3, $4, $5)`,
+      [
+        caseRow.id,
+        bookingRow.user_id,
+        `${payload.consultationChannel || "call"} consultation booked`,
+        `${booking.serviceType || "Counsel consultation"} payment verified. Assignment is pending.`,
+        JSON.stringify({ bookingId, channel: payload.consultationChannel || "call", paymentStatus: "paid" }),
+      ],
+    );
+    await db.query(
+      `INSERT INTO case_updates (case_id, update_type, message, payload)
+       VALUES ($1, 'intake_paid', 'Counsel intake and payment verified.', $2)`,
+      [caseRow.id, JSON.stringify({ bookingId, stage: "Submitted & Paid" })],
+    );
+  }
+  return caseRow.id;
+}
+
+async function canAccessStoredCase(authUser, caseRow) {
+  if (!authUser || !caseRow) return false;
+  if (canSeeAll(authUser)) return true;
+  const databaseUserId = await resolveDatabaseUserId(authUser);
+  if (!databaseUserId) return false;
+  if (String(caseRow.user_id) === String(databaseUserId)) return true;
+  if (String(caseRow.payload?.assignedTo || "") === String(databaseUserId)) return true;
+  if (authUser.role !== "advocate") return false;
+  const assignment = await db.query(
+    "SELECT 1 FROM case_assignments WHERE case_id = $1 AND advocate_id = $2 AND status = 'active' LIMIT 1",
+    [caseRow.id, databaseUserId],
+  );
+  return Boolean(assignment.rows[0]);
 }
 
 function dashboardTask(item) {
@@ -1784,7 +1912,18 @@ function serveStatic(req, res) {
       sendJson(res, 500, { error: "Unable to read file" });
       return;
     }
-    res.writeHead(200, { "Content-Type": contentType(filePath) });
+    const isHtml = path.extname(filePath).toLowerCase() === ".html";
+    const isFingerprintAsset = /[\\/]assets[\\/].+-[a-zA-Z0-9_-]{8,}\.[^.]+$/.test(filePath);
+    const cacheControl = isHtml
+      ? "no-cache, no-store, must-revalidate"
+      : isFingerprintAsset
+        ? "public, max-age=31536000, immutable"
+        : "public, max-age=86400";
+    res.writeHead(200, {
+      "Content-Type": contentType(filePath),
+      "Cache-Control": cacheControl,
+      "X-Content-Type-Options": "nosniff",
+    });
     res.end(data);
   });
 }
@@ -1814,7 +1953,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === "/health" || url.pathname === "/api/health" || url.pathname === "/api/healthz") {
+  if (url.pathname === "/api/healthz") {
+    sendJson(res, 200, {
+      ok: true,
+      status: "ok",
+      app: "Legal Connect",
+      started_at: SERVER_STARTED_AT,
+    });
+    return;
+  }
+
+  if (url.pathname === "/health" || url.pathname === "/api/health") {
     const dbHealth = await db.healthCheck();
     const lawbotCounts = dbHealth.connected || config.nodeEnv !== "production"
       ? await lawbotHealthCounts()
@@ -2766,6 +2915,100 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const caseDocumentMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/documents\/([^/]+)$/);
+  if (caseDocumentMatch && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    if (!db.dbAvailable || !isUuid(caseDocumentMatch[1]) || !isUuid(caseDocumentMatch[2])) {
+      sendJson(res, 404, { error: "Document not found." });
+      return;
+    }
+    const matterResult = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseDocumentMatch[1]]);
+    if (!matterResult.rows[0] || !(await canAccessStoredCase(authUser, matterResult.rows[0]))) {
+      sendJson(res, matterResult.rows[0] ? 403 : 404, { error: matterResult.rows[0] ? "Forbidden" : "Case not found." });
+      return;
+    }
+    const documentResult = await db.query("SELECT * FROM case_documents WHERE id = $1 AND case_id = $2 LIMIT 1", [caseDocumentMatch[2], caseDocumentMatch[1]]);
+    const document = documentResult.rows[0];
+    if (!document || !String(document.storage_key || "").startsWith("booking-attachment:")) {
+      sendJson(res, 404, { error: "Document file is not available." });
+      return;
+    }
+    const attachmentId = String(document.storage_key).slice("booking-attachment:".length);
+    const attachmentResult = await db.query("SELECT file_name, mime_type, size_bytes, file_data FROM booking_attachments WHERE id = $1 LIMIT 1", [attachmentId]);
+    const attachment = attachmentResult.rows[0];
+    if (!attachment) {
+      sendJson(res, 404, { error: "Document file is not available." });
+      return;
+    }
+    const fileName = safeAttachmentName(attachment.file_name);
+    res.writeHead(200, {
+      "Content-Type": attachment.mime_type || "application/octet-stream",
+      "Content-Length": String(attachment.size_bytes || attachment.file_data.length),
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.end(attachment.file_data);
+    return;
+  }
+
+  const caseCommunicationsMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/communications$/);
+  if (caseCommunicationsMatch && ["GET", "POST"].includes(req.method)) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const caseId = caseCommunicationsMatch[1];
+    if (!isUuid(caseId)) {
+      if (/^Demo (Client|Lawyer)$/i.test(String(authUser.name || ""))) {
+        const matter = clientWorkspaceDemo(authUser.name)[Number(caseId.split("-").pop() || 1) - 1] || clientWorkspaceDemo(authUser.name)[0];
+        if (req.method === "GET") sendJson(res, 200, { ok: true, communications: matter.communications, dataMode: "sample" });
+        else {
+          const body = await readBody(req);
+          sendJson(res, 201, { ok: true, communication: { id: `demo-message-${Date.now()}`, type: "message", title: "Demo message", summary: String(body.summary || body.message || ""), occurredAt: new Date().toISOString() }, dataMode: "sample" });
+        }
+        return;
+      }
+      sendJson(res, 404, { error: "Case not found." });
+      return;
+    }
+    const matterResult = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]);
+    if (!matterResult.rows[0] || !(await canAccessStoredCase(authUser, matterResult.rows[0]))) {
+      sendJson(res, matterResult.rows[0] ? 403 : 404, { error: matterResult.rows[0] ? "Forbidden" : "Case not found." });
+      return;
+    }
+    if (req.method === "GET") {
+      const result = await db.query("SELECT * FROM case_communications WHERE case_id = $1 ORDER BY occurred_at, created_at", [caseId]);
+      sendJson(res, 200, {
+        ok: true,
+        communications: result.rows.map((row) => ({ id: row.id, type: row.communication_type, title: row.title, summary: row.summary || "", occurredAt: row.occurred_at, senderId: row.sender_id })),
+        dataMode: "live",
+      });
+      return;
+    }
+    const body = await readBody(req);
+    const summary = String(body.summary || body.message || "").trim();
+    if (!summary || summary.length > 4000) {
+      sendJson(res, 400, { error: "Message must contain between 1 and 4,000 characters." });
+      return;
+    }
+    const senderId = await resolveDatabaseUserId(authUser);
+    const created = await db.query(
+      `INSERT INTO case_communications (case_id, sender_id, communication_type, title, summary, payload)
+       VALUES ($1, $2, 'message', $3, $4, $5) RETURNING *`,
+      [caseId, senderId, body.title || "Matter message", summary, JSON.stringify({ senderRole: authUser.role })],
+    );
+    await db.query("UPDATE cases SET updated_at = now() WHERE id = $1", [caseId]);
+    const row = created.rows[0];
+    sendJson(res, 201, { ok: true, communication: { id: row.id, type: row.communication_type, title: row.title, summary: row.summary, occurredAt: row.occurred_at, senderId: row.sender_id }, dataMode: "live" });
+    return;
+  }
+
   if (url.pathname.startsWith("/api/cases/") && req.method === "GET") {
     const authUser = getAuthUser(req);
     const id = url.pathname.split("/").pop();
@@ -3524,6 +3767,7 @@ const server = http.createServer(async (req, res) => {
     }
     const valid = verifyRazorpayPaymentSignature(orderId, paymentId, signature);
     if (valid) {
+      let linkedCaseId = null;
       if (db.dbAvailable && bookingId) {
         await db.query(
           `UPDATE bookings
@@ -3533,6 +3777,7 @@ const server = http.createServer(async (req, res) => {
            WHERE id = $1`,
           [bookingId, orderId, paymentId, JSON.stringify({ razorpay_order_id: orderId, razorpay_payment_id: paymentId, work_hold_status: "active", verified_at: new Date().toISOString() })],
         );
+        linkedCaseId = await ensurePaidBookingCase(bookingId);
       } else if (bookingId) {
         const booking = demoStore.bookings.find((item) => item.id === bookingId);
         if (booking) Object.assign(booking, { paymentStatus: "paid", workHoldStatus: "active", razorpayOrderId: orderId, razorpayPaymentId: paymentId, verifiedAt: new Date().toISOString() });
@@ -3560,7 +3805,7 @@ const server = http.createServer(async (req, res) => {
         visibility: "private",
         payload: { orderId, paymentId, workHoldStatus: "active" },
       });
-      sendJson(res, 200, { ok: true, mode: "razorpay", status: "verified", payment_status: "paid", work_hold_status: "active" });
+      sendJson(res, 200, { ok: true, mode: "razorpay", status: "verified", payment_status: "paid", work_hold_status: "active", caseId: linkedCaseId });
       return;
     }
     if (db.dbAvailable && bookingId) {
@@ -3637,6 +3882,8 @@ const server = http.createServer(async (req, res) => {
         workHoldStatus: "active",
         payload: { webhookEvent: event },
       });
+      const paidBooking = await db.query("SELECT id FROM bookings WHERE razorpay_order_id = $1 LIMIT 1", [orderId]);
+      if (paidBooking.rows[0]) await ensurePaidBookingCase(paidBooking.rows[0].id);
     }
     if (db.dbAvailable && orderId && event === "payment.failed") {
       await db.query(
@@ -3875,9 +4122,12 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, []);
         return;
       }
-      const result = canSeeAll(authUser) || authUser.role === "advocate"
+      const databaseUserId = await resolveDatabaseUserId(authUser);
+      const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM bookings ORDER BY created_at DESC")
-        : await db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [authUser.id]);
+        : authUser.role === "advocate"
+          ? await db.query("SELECT * FROM bookings WHERE payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC", [databaseUserId])
+          : await db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [databaseUserId]);
       sendJson(res, 200, result.rows.map(mapBooking));
       return;
     }
@@ -3897,6 +4147,10 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/bookings" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required before creating a counsel booking." });
+      return;
+    }
     if (isReviewUser(authUser)) {
       const seed = reviewSeedData(authUser);
       sendJson(res, 201, {
@@ -3963,6 +4217,70 @@ const server = http.createServer(async (req, res) => {
     });
     demoStore.bookings.push(booking);
     sendJson(res, 201, dashboardBooking(booking));
+    return;
+  }
+
+  const bookingAttachmentMatch = url.pathname.match(/^\/api\/bookings\/([^/]+)\/attachments$/);
+  if (bookingAttachmentMatch && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const bookingId = bookingAttachmentMatch[1];
+    if (!db.dbAvailable || !isUuid(bookingId)) {
+      sendJson(res, 503, { error: "Secure file storage is not available." });
+      return;
+    }
+    const bookingResult = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingId]);
+    const bookingRow = bookingResult.rows[0];
+    if (!bookingRow) {
+      sendJson(res, 404, { error: "Booking not found." });
+      return;
+    }
+    const databaseUserId = await resolveDatabaseUserId(authUser);
+    if (!canSeeAll(authUser) && String(bookingRow.user_id) !== String(databaseUserId)) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+    const allowedTypes = new Set([
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "image/jpeg",
+      "image/png",
+    ]);
+    const mimeType = String(req.headers["content-type"] || "application/octet-stream").split(";")[0].trim().toLowerCase();
+    const fileName = safeAttachmentName(req.headers["x-file-name"]);
+    const expectedSize = Number(req.headers["x-file-size"] || 0);
+    if (!allowedTypes.has(mimeType)) {
+      sendJson(res, 415, { error: "Upload PDF, Word, JPG or PNG files only." });
+      return;
+    }
+    if (!expectedSize || expectedSize > 5 * 1024 * 1024) {
+      sendJson(res, 413, { error: "Each case file must be 5 MB or smaller." });
+      return;
+    }
+    let fileData;
+    try {
+      fileData = await readRawBody(req, 5 * 1024 * 1024);
+    } catch (error) {
+      sendJson(res, error.statusCode || 400, { error: error.message || "File upload failed." });
+      return;
+    }
+    if (!fileData.length || fileData.length !== expectedSize) {
+      sendJson(res, 400, { error: "The uploaded file was incomplete." });
+      return;
+    }
+    const checksum = crypto.createHash("sha256").update(fileData).digest("hex");
+    const created = await db.query(
+      `INSERT INTO booking_attachments (booking_id, uploaded_by, file_name, mime_type, size_bytes, checksum, file_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, booking_id, file_name, mime_type, size_bytes, checksum, created_at`,
+      [bookingId, databaseUserId, fileName, mimeType, fileData.length, checksum, fileData],
+    );
+    await writeAuditLog(authUser, "booking_attachment_uploaded", "booking", bookingId, "A case intake attachment was uploaded.", { attachmentId: created.rows[0].id, fileName, sizeBytes: fileData.length, checksum });
+    sendJson(res, 201, { ok: true, attachment: created.rows[0] });
     return;
   }
 
@@ -4661,7 +4979,7 @@ async function attachStoredCaseRecords(cases) {
   return enriched.map((matter) => ({
     ...matter,
     documents: [
-      ...documents.rows.filter((row) => row.case_id === matter.id).map((row) => ({ id: row.id, name: row.file_name, category: row.category || 'Case document', uploadedAt: row.created_at })),
+      ...documents.rows.filter((row) => row.case_id === matter.id).map((row) => ({ id: row.id, name: row.file_name, category: row.category || 'Case document', uploadedAt: row.created_at, downloadPath: `/api/cases/${matter.id}/documents/${row.id}` })),
       ...matter.documents,
     ],
     communications: [
@@ -4898,7 +5216,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const userId = await resolveDatabaseUserId(authUser);
     const profileResult = await db.query('SELECT display_name, enrollment_no, state_bar_council, practice_courts, verification_status FROM profile_advocates WHERE user_id = $1', [userId]);
     const casesResult = await db.query("SELECT * FROM cases WHERE payload->>'assignedTo' = $1 OR id IN (SELECT case_id FROM case_assignments WHERE advocate_id = $1 AND status = 'active') ORDER BY updated_at DESC", [userId]);
-    const bookingsResult = await db.query("SELECT * FROM bookings WHERE payment_status = 'paid' ORDER BY created_at DESC LIMIT 20");
+    const bookingsResult = await db.query("SELECT * FROM bookings WHERE payment_status = 'paid' AND (payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1) ORDER BY created_at DESC LIMIT 20", [userId]);
     const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
     const chamberId = chamberResult.rows[0]?.id;
     const tasksResult = chamberId ? await db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC LIMIT 30', [chamberId]) : { rows: [] };
@@ -4915,7 +5233,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
       },
       cases: useDemo ? demoCases : await attachStoredCaseRecords(casesResult.rows.map(mapCase)),
-      paidIntakes: bookingsResult.rows.map(mapBooking),
+      paidIntakes: useDemo ? demoStore.bookings.map(dashboardBooking) : bookingsResult.rows.map(mapBooking),
       chamber: chamberResult.rows[0] ? { id: chamberId, name: chamberResult.rows[0].name, members: membersResult.rows, tasks: tasksResult.rows } : null,
       dataMode: useDemo ? 'sample' : 'live',
     });

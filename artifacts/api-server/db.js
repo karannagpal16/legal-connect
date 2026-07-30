@@ -226,6 +226,7 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS cases_case_number_idx ON cases (case_number) WHERE case_number IS NOT NULL`);
     await query(`CREATE INDEX IF NOT EXISTS cases_status_idx ON cases (status)`);
     await query(`CREATE INDEX IF NOT EXISTS cases_next_date_idx ON cases (next_date)`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS cases_booking_id_unique_idx ON cases ((payload->>'bookingId')) WHERE payload->>'bookingId' IS NOT NULL`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS bookings (
@@ -258,6 +259,20 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS bookings_user_created_idx ON bookings (user_id, created_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS bookings_payment_status_idx ON bookings (payment_status)`);
     await query(`CREATE INDEX IF NOT EXISTS bookings_created_at_idx ON bookings (created_at DESC)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS booking_attachments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        booking_id uuid NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+        uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+        file_name text NOT NULL,
+        mime_type text NOT NULL,
+        size_bytes bigint NOT NULL,
+        checksum text NOT NULL,
+        file_data bytea NOT NULL,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS booking_attachments_booking_idx ON booking_attachments (booking_id, created_at)`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS payments (

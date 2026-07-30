@@ -1,21 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Download,
   FileText,
   Gavel,
   IndianRupee,
   MessageSquareText,
+  Phone,
   RefreshCw,
   Scale,
   ShieldCheck,
   UserRoundCheck,
+  Video,
+  X,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
+import { CounselIntake, type ConsultationChannel } from "@/components/client/CounselIntake";
 import {
   dailyQuote,
   greetingFor,
@@ -51,6 +58,9 @@ export function ClientHome() {
   const { session } = useAuth();
   const [selectedCaseId, setSelectedCaseId] = useState("");
   const [tab, setTab] = useState<MatterTab>("overview");
+  const [noticeIndex, setNoticeIndex] = useState(0);
+  const [downloadingId, setDownloadingId] = useState("");
+  const [booking, setBooking] = useState<{ open: boolean; channel: ConsultationChannel; caseId?: string; caseTitle?: string }>({ open: false, channel: "call" });
   const quote = dailyQuote();
   const query = useQuery({
     queryKey: ["client-workspace", session?.user.id],
@@ -58,18 +68,64 @@ export function ClientHome() {
     enabled: Boolean(session?.token),
     staleTime: 30_000,
   });
+  const cases = Array.isArray(query.data?.cases) ? query.data.cases : [];
 
   useEffect(() => {
-    if (!selectedCaseId && query.data?.cases[0]) setSelectedCaseId(query.data.cases[0].id);
-  }, [query.data, selectedCaseId]);
+    if (!selectedCaseId && cases[0]) setSelectedCaseId(cases[0].id);
+  }, [cases, selectedCaseId]);
 
   const selectedCase = useMemo(
-    () => query.data?.cases.find((matter) => matter.id === selectedCaseId) || query.data?.cases[0],
-    [query.data, selectedCaseId],
+    () => cases.find((matter) => matter.id === selectedCaseId) || cases[0],
+    [cases, selectedCaseId],
   );
-  const name = query.data?.profile.name || session?.user.name || "Client";
-  const dueFees = query.data?.cases.flatMap((matter) => matter.fees).filter((fee) => fee.status === "due") || [];
-  const upcoming = query.data?.cases.filter((matter) => matter.nextDate).length || 0;
+  const name = query.data?.profile?.name || session?.user.name || "Client";
+  const dueFees = cases.flatMap((matter) => matter.fees || []).filter((fee) => fee.status === "due");
+  const upcoming = cases.filter((matter) => matter.nextDate).length;
+  const notices = useMemo(() => {
+    const items: Array<{ label: string; title: string; detail: string; tone: "gold" | "red" | "green" | "navy" }> = [];
+    if (selectedCase?.appearanceRequired) items.push({ label: "ACTION REQUIRED", title: `Appear on ${formatDate(selectedCase.nextDate)}`, detail: selectedCase.costRisk || "Coordinate with your counsel before the hearing.", tone: "red" });
+    const firstDue = cases.flatMap((matter) => (matter.fees || []).map((fee) => ({ matter, fee }))).find(({ fee }) => fee.status === "due");
+    if (firstDue) items.push({ label: "PAYMENT DUE", title: `${firstDue.fee.label} · ₹${firstDue.fee.amount.toLocaleString("en-IN")}`, detail: `${firstDue.matter.caseTitle} · due ${formatDate(firstDue.fee.dueDate)}`, tone: "gold" });
+    if (selectedCase?.nextAction) items.push({ label: "NEXT STEP", title: selectedCase.nextAction, detail: selectedCase.caseTitle, tone: "green" });
+    items.push({ label: quote.category.toUpperCase(), title: quote.original, detail: `${quote.translation} · ${quote.source}`, tone: "navy" });
+    return items;
+  }, [cases, quote, selectedCase]);
+
+  useEffect(() => {
+    if (notices.length < 2) return;
+    const timer = window.setInterval(() => setNoticeIndex((current) => (current + 1) % notices.length), 5200);
+    return () => window.clearInterval(timer);
+  }, [notices.length]);
+
+  useEffect(() => setNoticeIndex(0), [selectedCaseId]);
+
+  const focusMatter = (matterId: string, nextTab: MatterTab = "overview") => {
+    setSelectedCaseId(matterId);
+    setTab(nextTab);
+    window.setTimeout(() => document.getElementById("client-matters")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
+  const openBooking = (channel: ConsultationChannel = "call", matter?: WorkspaceCase) => {
+    setBooking({ open: true, channel, caseId: matter?.id, caseTitle: matter?.caseTitle });
+  };
+
+  const downloadDocument = async (record: WorkspaceCase["documents"][number]) => {
+    if (!record.downloadPath) return;
+    setDownloadingId(record.id);
+    try {
+      const response = await fetch(record.downloadPath, { headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {} });
+      if (!response.ok) throw new Error("Document could not be opened.");
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const anchor = window.document.createElement("a");
+      anchor.href = href;
+      anchor.download = record.name;
+      anchor.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setDownloadingId("");
+    }
+  };
 
   if (query.isLoading) {
     return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Preparing your private case workspace...</p></div>;
@@ -88,40 +144,47 @@ export function ClientHome() {
   return (
     <div className="lc-workspace-page">
       <section className="lc-command-hero">
-        <div>
+        <div className="lc-command-intro">
           <span className="lc-kicker">CLIENT COMMAND CENTRE</span>
           <h2>{greetingFor()}, {name}.</h2>
-          <p>How should we assist you today?</p>
+          <p>{cases.length ? `${cases.length} matters · ${upcoming} upcoming dates · ${dueFees.length} payment dues` : "Tell us what happened and we will assign verified counsel."}</p>
+          <button className="lc-button lc-button-primary" onClick={() => openBooking()}><Gavel /> Book a counsel <ArrowRight /></button>
         </div>
-        <blockquote>
-          <p>{quote.original}</p>
-          <cite>{quote.translation} <strong>{quote.source}</strong></cite>
-        </blockquote>
-        <span className={`lc-verification-badge ${query.data?.profile.verificationStatus === "approved" || query.data?.profile.verificationStatus === "verified" ? "verified" : "pending"}`}>
-          <ShieldCheck /> Identity {query.data?.profile.verificationStatus || "pending"}
+        <div className={`lc-live-notice tone-${notices[noticeIndex]?.tone || "navy"}`} aria-live="polite">
+          <AnimatePresence mode="wait">
+            <motion.div key={`${selectedCaseId}-${noticeIndex}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <span>{notices[noticeIndex]?.label}</span>
+              <strong>{notices[noticeIndex]?.title}</strong>
+              <small>{notices[noticeIndex]?.detail}</small>
+            </motion.div>
+          </AnimatePresence>
+          <div className="lc-notice-dots">{notices.map((_, index) => <button key={index} className={index === noticeIndex ? "active" : ""} onClick={() => setNoticeIndex(index)} aria-label={`Show notification ${index + 1}`} />)}</div>
+        </div>
+        <span className={`lc-verification-badge ${query.data?.profile?.verificationStatus === "approved" || query.data?.profile?.verificationStatus === "verified" ? "verified" : "pending"}`}>
+          <ShieldCheck /> Identity {query.data?.profile?.verificationStatus || "pending"}
         </span>
       </section>
 
       <section className="lc-workspace-metrics" aria-label="Matter summary">
-        <div><Scale /><span><strong>{query.data?.cases.length || 0}</strong><small>Total matters</small></span></div>
-        <div><CalendarDays /><span><strong>{upcoming}</strong><small>Upcoming dates</small></span></div>
-        <div><IndianRupee /><span><strong>{dueFees.length}</strong><small>Payments due</small></span></div>
-        <div><MessageSquareText /><span><strong>{selectedCase?.communications.length || 0}</strong><small>Case updates</small></span></div>
+        <button onClick={() => selectedCase && focusMatter(selectedCase.id)}><Scale /><span><strong>{cases.length || 0}</strong><small>Total matters</small></span><ArrowRight /></button>
+        <button onClick={() => { const matter = cases.find((item) => item.nextDate); if (matter) focusMatter(matter.id); }} disabled={!upcoming}><CalendarDays /><span><strong>{upcoming}</strong><small>Upcoming dates</small></span><ArrowRight /></button>
+        <button onClick={() => { const matter = cases.find((item) => (item.fees || []).some((fee) => fee.status === "due")); if (matter) focusMatter(matter.id, "payments"); }} disabled={!dueFees.length}><IndianRupee /><span><strong>{dueFees.length}</strong><small>Payments due</small></span><ArrowRight /></button>
+        <button onClick={() => selectedCase && focusMatter(selectedCase.id, "communications")} disabled={!selectedCase?.communications?.length}><MessageSquareText /><span><strong>{selectedCase?.communications?.length || 0}</strong><small>Case updates</small></span><ArrowRight /></button>
       </section>
 
-      {!query.data?.cases.length ? (
+      {!cases.length ? (
         <section className="lc-workspace-empty">
           <Gavel />
           <h2>No matters in your workspace</h2>
           <p>Start a paid intake. Legal Connect will review the issue and assign suitable verified counsel.</p>
-          <Link className="lc-button lc-button-primary" href="/client/book">Start legal intake</Link>
+          <button className="lc-button lc-button-primary" onClick={() => openBooking()}>Book a counsel</button>
         </section>
       ) : (
-        <section className="lc-matter-workspace">
+        <section className="lc-matter-workspace" id="client-matters">
           <aside className="lc-matter-switcher">
-            <header><span>My matters</span><small>{query.data.cases.length} records</small></header>
+            <header><span>My matters</span><small>{cases.length} records</small></header>
             <div>
-              {query.data.cases.map((matter) => (
+              {cases.map((matter) => (
                 <button
                   key={matter.id}
                   className={matter.id === selectedCase?.id ? "active" : ""}
@@ -132,7 +195,7 @@ export function ClientHome() {
                 </button>
               ))}
             </div>
-            <Link href="/client/book"><Gavel /> Start another intake</Link>
+            <button className="lc-matter-new" onClick={() => openBooking()}><Gavel /> Book another counsel</button>
           </aside>
 
           {selectedCase && (
@@ -180,7 +243,7 @@ export function ClientHome() {
                   </section>
                   <section>
                     <span className="lc-section-icon"><UserRoundCheck /></span>
-                    <div><small>Assigned counsel</small><h3>{selectedCase.counsel?.name || "Assignment pending"}</h3><p>{selectedCase.counsel?.enrollment || selectedCase.counsel?.contactPolicy || "Legal Connect will assign verified counsel after intake payment."}</p></div>
+                    <div><small>Assigned counsel</small><h3>{selectedCase.counsel?.name || "Assignment pending"}</h3><p>{selectedCase.counsel?.enrollment || selectedCase.counsel?.contactPolicy || "Legal Connect will assign verified counsel after intake payment."}</p>{selectedCase.counsel && <div className="lc-counsel-actions"><Link href={`/client/chat?caseId=${encodeURIComponent(selectedCase.id)}`}><MessageSquareText /> Chat</Link><button onClick={() => openBooking("call", selectedCase)}><Phone /> Call</button><button onClick={() => openBooking("video", selectedCase)}><Video /> Video</button></div>}</div>
                   </section>
                   <section>
                     <span className="lc-section-icon"><CheckCircle2 /></span>
@@ -192,7 +255,7 @@ export function ClientHome() {
               {tab === "documents" && (
                 <div className="lc-record-list">
                   {selectedCase.documents.length ? selectedCase.documents.map((document) => (
-                    <div key={document.id}><FileText /><span><strong>{document.name}</strong><small>{document.category} · uploaded {formatDate(document.uploadedAt)}</small></span><button title="Open document">Open</button></div>
+                    <div key={document.id}><FileText /><span><strong>{document.name}</strong><small>{document.category} · uploaded {formatDate(document.uploadedAt)}</small></span>{document.downloadPath ? <button title="Download document" onClick={() => downloadDocument(document)} disabled={downloadingId === document.id}>{downloadingId === document.id ? "Opening..." : <><Download /> Download</>}</button> : <em className="lc-record-state">Sample record</em>}</div>
                   )) : <p className="lc-inline-empty">No documents have been uploaded for this matter.</p>}
                 </div>
               )}
@@ -200,7 +263,7 @@ export function ClientHome() {
               {tab === "communications" && (
                 <div className="lc-record-list">
                   {selectedCase.communications.length ? selectedCase.communications.map((item) => (
-                    <div key={item.id}><MessageSquareText /><span><strong>{item.title}</strong><small>{item.summary} · {formatDate(item.occurredAt)}{item.recordingStatus ? ` · ${item.recordingStatus}` : ""}</small></span><button title="Open conversation">Open</button></div>
+                    <div key={item.id}><MessageSquareText /><span><strong>{item.title}</strong><small>{item.summary} · {formatDate(item.occurredAt)}{item.recordingStatus ? ` · ${item.recordingStatus}` : ""}</small></span><em className="lc-record-state">Matter record</em></div>
                   )) : <p className="lc-inline-empty">No counsel communication has been recorded for this matter.</p>}
                 </div>
               )}
@@ -216,6 +279,25 @@ export function ClientHome() {
           )}
         </section>
       )}
+
+      <AnimatePresence>
+        {booking.open && (
+          <div className="lc-intake-modal" role="dialog" aria-modal="true" aria-label="Book a counsel">
+            <motion.button className="lc-intake-backdrop" aria-label="Close booking" onClick={() => setBooking((current) => ({ ...current, open: false }))} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+            <motion.div className="lc-intake-modal-panel" initial={{ opacity: 0, y: 24, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: .98 }}>
+              <button className="lc-modal-mobile-close" onClick={() => setBooking((current) => ({ ...current, open: false }))} aria-label="Close booking"><X /></button>
+              <CounselIntake
+                initialChannel={booking.channel}
+                initialCaseId={booking.caseId}
+                initialCaseTitle={booking.caseTitle}
+                source={booking.caseId ? "matter" : "dashboard"}
+                onClose={() => setBooking((current) => ({ ...current, open: false }))}
+                onComplete={() => query.refetch()}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

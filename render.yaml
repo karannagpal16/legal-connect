@@ -9,7 +9,9 @@ services:
       pnpm install --frozen-lockfile
       pnpm build
     startCommand: pnpm start
-    healthCheckPath: /api/health
+    # Liveness stays independent from PostgreSQL so Render can route static UI
+    # immediately while database readiness finishes in the background.
+    healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production

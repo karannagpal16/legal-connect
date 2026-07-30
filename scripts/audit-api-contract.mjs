@@ -149,6 +149,7 @@ try {
 
   const createdBooking = await request("/api/bookings", {
     method: "POST",
+    token,
     body: {
       clientName: "Audit Client",
       clientEmail: "audit@example.com",

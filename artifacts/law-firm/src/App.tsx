@@ -1,9 +1,8 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-import { Login } from "@/pages/Login";
 import { AuthProvider, RequireAuth, roleHome, useAuth, type AppRole } from "@/lib/auth";
 
 import { Layout } from "@/components/layout/Layout";
@@ -11,57 +10,65 @@ import { ClientLayout } from "@/components/layout/ClientLayout";
 import { AdvocateLayout } from "@/components/layout/AdvocateLayout";
 import { InternLayout } from "@/components/layout/InternLayout";
 
-import { Home } from "@/pages/Home";
-import { Dashboard } from "@/pages/Dashboard";
-import { MyDiary } from "@/pages/MyDiary";
-import { ProxyHub } from "@/pages/ProxyHub";
-import { InternQuests } from "@/pages/InternQuests";
-import { RevenueTracker } from "@/pages/RevenueTracker";
-import { Users } from "@/pages/Users";
-import { LegalLibrary } from "@/pages/LegalLibrary";
-import { BookLawyer } from "@/pages/BookLawyer";
-import { Bookings } from "@/pages/Bookings";
-
-import { ClientHome } from "@/pages/client/ClientHome";
-import { ClientBookAdvocate } from "@/pages/client/ClientBookAdvocate";
-import { ClientReminders } from "@/pages/client/ClientReminders";
-import { ClientLibrary } from "@/pages/client/ClientLibrary";
-import { ClientLegalGuide } from "@/pages/client/ClientLegalGuide";
-import { ClientDIYDocs } from "@/pages/client/ClientDIYDocs";
-import { ClientAIAssistant } from "@/pages/client/ClientAIAssistant";
-import { ClientLawBot } from "@/pages/client/ClientLawBot";
-import { ClientChat } from "@/pages/client/ClientChat";
-import { ClientConnectChat } from "@/pages/client/ClientConnectChat";
-import { ClientWellness } from "@/pages/client/ClientWellness";
-import { ClientRightsFeed } from "@/pages/client/ClientRightsFeed";
-import { ClientCaseTracker } from "@/pages/client/ClientCaseTracker";
-
-import { AdvocateDashboard } from "@/pages/advocate/AdvocateDashboard";
-import { AdvocateCalls } from "@/pages/advocate/AdvocateCalls";
-import { AdvocateDiary } from "@/pages/advocate/AdvocateDiary";
-import { AdvocateProxy } from "@/pages/advocate/AdvocateProxy";
-import { AdvocateReminders } from "@/pages/advocate/AdvocateReminders";
-import { AdvocateBookings } from "@/pages/advocate/AdvocateBookings";
-import { AdvocateLibrary } from "@/pages/advocate/AdvocateLibrary";
-import { AdvocateRevenue } from "@/pages/advocate/AdvocateRevenue";
-import { AdvocateTeam } from "@/pages/advocate/AdvocateTeam";
-import { AdvocateChat } from "@/pages/advocate/AdvocateChat";
-import { AdvocateLawBot } from "@/pages/advocate/AdvocateLawBot";
-import { AdvocateJudges } from "@/pages/advocate/AdvocateJudges";
-import { ChamberVault } from "@/pages/advocate/ChamberVault";
-import { AdminVerifications } from "@/pages/admin/AdminVerifications";
-
-import { InternDashboard } from "@/pages/intern/InternDashboard";
-import { InternQuestsPage } from "@/pages/intern/InternQuestsPage";
-import { InternXP } from "@/pages/intern/InternXP";
-import { InternLeaderboard } from "@/pages/intern/InternLeaderboard";
-import { InternBadges } from "@/pages/intern/InternBadges";
-import { InternLibrary } from "@/pages/intern/InternLibrary";
-import { InternDoubtPortal } from "@/pages/intern/InternDoubtPortal";
-import { InternAIAssistant } from "@/pages/intern/InternAIAssistant";
-import { AdvocateCaseTracker } from "@/pages/advocate/AdvocateCaseTracker";
-import { InternCaseTracker } from "@/pages/intern/InternCaseTracker";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+
+function lazyNamed<T extends Record<string, ComponentType<any>>, K extends keyof T>(
+  loader: () => Promise<T>,
+  name: K,
+) {
+  return lazy(async () => ({ default: (await loader())[name] }));
+}
+
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Login = lazyNamed(() => import("@/pages/Login"), "Login");
+const Home = lazyNamed(() => import("@/pages/Home"), "Home");
+const Dashboard = lazyNamed(() => import("@/pages/Dashboard"), "Dashboard");
+const MyDiary = lazyNamed(() => import("@/pages/MyDiary"), "MyDiary");
+const ProxyHub = lazyNamed(() => import("@/pages/ProxyHub"), "ProxyHub");
+const InternQuests = lazyNamed(() => import("@/pages/InternQuests"), "InternQuests");
+const RevenueTracker = lazyNamed(() => import("@/pages/RevenueTracker"), "RevenueTracker");
+const Users = lazyNamed(() => import("@/pages/Users"), "Users");
+const LegalLibrary = lazyNamed(() => import("@/pages/LegalLibrary"), "LegalLibrary");
+const BookLawyer = lazyNamed(() => import("@/pages/BookLawyer"), "BookLawyer");
+const Bookings = lazyNamed(() => import("@/pages/Bookings"), "Bookings");
+
+const ClientHome = lazyNamed(() => import("@/pages/client/ClientHome"), "ClientHome");
+const ClientBookAdvocate = lazyNamed(() => import("@/pages/client/ClientBookAdvocate"), "ClientBookAdvocate");
+const ClientReminders = lazyNamed(() => import("@/pages/client/ClientReminders"), "ClientReminders");
+const ClientLibrary = lazyNamed(() => import("@/pages/client/ClientLibrary"), "ClientLibrary");
+const ClientLegalGuide = lazyNamed(() => import("@/pages/client/ClientLegalGuide"), "ClientLegalGuide");
+const ClientDIYDocs = lazyNamed(() => import("@/pages/client/ClientDIYDocs"), "ClientDIYDocs");
+const ClientAIAssistant = lazyNamed(() => import("@/pages/client/ClientAIAssistant"), "ClientAIAssistant");
+const ClientLawBot = lazyNamed(() => import("@/pages/client/ClientLawBot"), "ClientLawBot");
+const ClientChat = lazyNamed(() => import("@/pages/client/ClientChat"), "ClientChat");
+const ClientWellness = lazyNamed(() => import("@/pages/client/ClientWellness"), "ClientWellness");
+const ClientRightsFeed = lazyNamed(() => import("@/pages/client/ClientRightsFeed"), "ClientRightsFeed");
+
+const AdvocateDashboard = lazyNamed(() => import("@/pages/advocate/AdvocateDashboard"), "AdvocateDashboard");
+const AdvocateCalls = lazyNamed(() => import("@/pages/advocate/AdvocateCalls"), "AdvocateCalls");
+const AdvocateDiary = lazyNamed(() => import("@/pages/advocate/AdvocateDiary"), "AdvocateDiary");
+const AdvocateProxy = lazyNamed(() => import("@/pages/advocate/AdvocateProxy"), "AdvocateProxy");
+const AdvocateReminders = lazyNamed(() => import("@/pages/advocate/AdvocateReminders"), "AdvocateReminders");
+const AdvocateBookings = lazyNamed(() => import("@/pages/advocate/AdvocateBookings"), "AdvocateBookings");
+const AdvocateLibrary = lazyNamed(() => import("@/pages/advocate/AdvocateLibrary"), "AdvocateLibrary");
+const AdvocateRevenue = lazyNamed(() => import("@/pages/advocate/AdvocateRevenue"), "AdvocateRevenue");
+const AdvocateTeam = lazyNamed(() => import("@/pages/advocate/AdvocateTeam"), "AdvocateTeam");
+const AdvocateChat = lazyNamed(() => import("@/pages/advocate/AdvocateChat"), "AdvocateChat");
+const AdvocateLawBot = lazyNamed(() => import("@/pages/advocate/AdvocateLawBot"), "AdvocateLawBot");
+const AdvocateJudges = lazyNamed(() => import("@/pages/advocate/AdvocateJudges"), "AdvocateJudges");
+const ChamberVault = lazyNamed(() => import("@/pages/advocate/ChamberVault"), "ChamberVault");
+const AdvocateCaseTracker = lazyNamed(() => import("@/pages/advocate/AdvocateCaseTracker"), "AdvocateCaseTracker");
+const AdminVerifications = lazyNamed(() => import("@/pages/admin/AdminVerifications"), "AdminVerifications");
+
+const InternDashboard = lazyNamed(() => import("@/pages/intern/InternDashboard"), "InternDashboard");
+const InternQuestsPage = lazyNamed(() => import("@/pages/intern/InternQuestsPage"), "InternQuestsPage");
+const InternXP = lazyNamed(() => import("@/pages/intern/InternXP"), "InternXP");
+const InternLeaderboard = lazyNamed(() => import("@/pages/intern/InternLeaderboard"), "InternLeaderboard");
+const InternBadges = lazyNamed(() => import("@/pages/intern/InternBadges"), "InternBadges");
+const InternLibrary = lazyNamed(() => import("@/pages/intern/InternLibrary"), "InternLibrary");
+const InternDoubtPortal = lazyNamed(() => import("@/pages/intern/InternDoubtPortal"), "InternDoubtPortal");
+const InternAIAssistant = lazyNamed(() => import("@/pages/intern/InternAIAssistant"), "InternAIAssistant");
+const InternCaseTracker = lazyNamed(() => import("@/pages/intern/InternCaseTracker"), "InternCaseTracker");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -133,7 +140,7 @@ function Router() {
         <Private role="client"><ClientLayout><ClientHome /></ClientLayout></Private>
       </Route>
       <Route path="/client/connect">
-        <Private role="client"><ClientLayout><ClientConnectChat /></ClientLayout></Private>
+        <Private role="client"><Redirect to="/client/book" /></Private>
       </Route>
       <Route path="/client/wellness">
         <Private role="client"><ClientLayout><ClientWellness /></ClientLayout></Private>
@@ -142,7 +149,7 @@ function Router() {
         <Private role="client"><ClientLayout><ClientRightsFeed /></ClientLayout></Private>
       </Route>
       <Route path="/client/cases">
-        <Private role="client"><ClientLayout><ClientCaseTracker /></ClientLayout></Private>
+        <Private role="client"><Redirect to="/client" /></Private>
       </Route>
       <Route path="/client/book">
         <Private role="client"><ClientLayout><ClientBookAdvocate /></ClientLayout></Private>
@@ -254,7 +261,9 @@ function App() {
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <AppErrorBoundary>
-              <Router />
+              <Suspense fallback={<div className="lc-route-loading"><span className="lc-spinner" /><p>Opening workspace...</p></div>}>
+                <Router />
+              </Suspense>
             </AppErrorBoundary>
           </WouterRouter>
           <Toaster />

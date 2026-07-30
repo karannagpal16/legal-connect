@@ -61,6 +61,7 @@ export interface WorkspaceDocument {
   name: string;
   category: string;
   uploadedAt: string;
+  downloadPath?: string;
 }
 
 export interface WorkspaceCommunication {

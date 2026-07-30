@@ -34,6 +34,7 @@ export class AppErrorBoundary extends Component<Props, State> {
           <p>
             Your session is still safe. Retry this screen, or return to the home page and continue from there.
           </p>
+          {import.meta.env.DEV && <pre className="lc-error-detail">{this.state.error.stack || this.state.error.message}</pre>}
           <div className="lc-error-actions">
             <button className="lc-button lc-button-primary" onClick={() => window.location.reload()}>
               <RefreshCw /> Retry
