@@ -96,9 +96,11 @@ async function authRequest(path: string, init: RequestInit = {}) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       payload.error || payload.error_message || payload.message || "Unable to complete this request.",
     );
+    Object.assign(error, { status: response.status });
+    throw error;
   }
   return payload;
 }
@@ -128,8 +130,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((error: Error & { status?: number }) => {
         if (!active) return;
-        // Keep a demo session usable when the local API is temporarily offline.
-        if (String(error.message).toLowerCase().includes("authentication required")) {
+        if (
+          error.status === 401
+          || error.status === 403
+          || /authentication required|login is required/i.test(String(error.message))
+        ) {
           setSession(null);
           saveSession(null);
         }
