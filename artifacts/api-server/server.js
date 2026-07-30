@@ -10,6 +10,7 @@ const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedFo
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
+const frontendPublicDir = path.join(__dirname, "..", "law-firm", "public");
 const SERVER_STARTED_AT = new Date().toISOString();
 const sessionSecretMaterial = process.env.SESSION_SECRET
   || process.env.JWT_SECRET
@@ -1764,11 +1765,18 @@ function serveStatic(req, res) {
   }
 
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    if (/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico|json|map)$/i.test(safePath)) {
+    const canonicalAssetPath = path.join(frontendPublicDir, safePath);
+    const canonicalAssetExists = canonicalAssetPath.startsWith(frontendPublicDir)
+      && fs.existsSync(canonicalAssetPath)
+      && !fs.statSync(canonicalAssetPath).isDirectory();
+    if (canonicalAssetExists) {
+      filePath = canonicalAssetPath;
+    } else if (/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico|json|map)$/i.test(safePath)) {
       sendJson(res, 404, { error: "Asset not found" });
       return;
+    } else {
+      filePath = path.join(publicDir, "index.html");
     }
-    filePath = path.join(publicDir, "index.html");
   }
 
   fs.readFile(filePath, (error, data) => {
