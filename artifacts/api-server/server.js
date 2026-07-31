@@ -5017,6 +5017,15 @@ async function attachStoredCaseRecords(cases) {
   }));
 }
 
+async function runWorkspaceStep(stage, operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error && typeof error === 'object') error.workspaceStage = stage;
+    throw error;
+  }
+}
+
 function maskCredential(kind, last4) {
   if (kind === 'aadhaar') return `XXXX XXXX ${last4 || 'XXXX'}`;
   return `•••• ${last4 || '----'}`;
@@ -5237,16 +5246,35 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: 'Advocate workspace access required.' });
       return true;
     }
-    const userId = await resolveDatabaseUserId(authUser);
-    const profileResult = await db.query('SELECT display_name, enrollment_no, state_bar_council, practice_courts, verification_status FROM profile_advocates WHERE user_id = $1', [userId]);
-    const casesResult = await db.query("SELECT * FROM cases WHERE payload->>'assignedTo' = $1::text OR id IN (SELECT case_id FROM case_assignments WHERE advocate_id = $1::uuid AND status = 'active') ORDER BY updated_at DESC", [userId]);
-    const bookingsResult = await db.query("SELECT * FROM bookings WHERE payment_status = 'paid' AND (payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1) ORDER BY created_at DESC LIMIT 20", [userId]);
-    const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const userId = await runWorkspaceStep('identity', () => resolveDatabaseUserId(authUser));
+    const profileResult = await runWorkspaceStep('profile', () => db.query(
+      'SELECT display_name, enrollment_no, state_bar_council, practice_courts, verification_status FROM profile_advocates WHERE user_id = $1',
+      [userId],
+    ));
+    const casesResult = await runWorkspaceStep('matters', () => db.query(
+      "SELECT * FROM cases WHERE payload->>'assignedTo' = $1 OR id IN (SELECT case_id FROM case_assignments WHERE advocate_id::text = $1 AND status = 'active') ORDER BY updated_at DESC",
+      [userId],
+    ));
+    const bookingsResult = await runWorkspaceStep('paid_intakes', () => db.query(
+      "SELECT * FROM bookings WHERE payment_status = 'paid' AND (payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1) ORDER BY created_at DESC LIMIT 20",
+      [userId],
+    ));
+    const chamberResult = await runWorkspaceStep('chamber', () => db.query(
+      'SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1',
+      [userId],
+    ));
     const chamberId = chamberResult.rows[0]?.id;
-    const tasksResult = chamberId ? await db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC LIMIT 30', [chamberId]) : { rows: [] };
-    const membersResult = chamberId ? await db.query('SELECT id, display_name, email, member_role, status FROM chamber_members WHERE chamber_id = $1 ORDER BY created_at', [chamberId]) : { rows: [] };
+    const tasksResult = chamberId
+      ? await runWorkspaceStep('chamber_tasks', () => db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC LIMIT 30', [chamberId]))
+      : { rows: [] };
+    const membersResult = chamberId
+      ? await runWorkspaceStep('chamber_members', () => db.query('SELECT id, display_name, email, member_role, status FROM chamber_members WHERE chamber_id = $1 ORDER BY created_at', [chamberId]))
+      : { rows: [] };
     const useDemo = /^Demo Lawyer$/i.test(String(authUser.name || '')) && casesResult.rows.length === 0;
     const demoCases = clientWorkspaceDemo(authUser.name).slice(0, 2).map((item, index) => ({ ...item, id: `adv-case-${index + 1}`, clientName: index ? 'Aarav Sharma' : 'Karan Nagpal' }));
+    const cases = useDemo
+      ? demoCases
+      : await runWorkspaceStep('matter_records', () => attachStoredCaseRecords(casesResult.rows.map(mapCase)));
     sendJson(res, 200, {
       ok: true,
       profile: {
@@ -5256,7 +5284,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         practiceCourts: profileResult.rows[0]?.practice_courts || '',
         verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
       },
-      cases: useDemo ? demoCases : await attachStoredCaseRecords(casesResult.rows.map(mapCase)),
+      cases,
       paidIntakes: useDemo ? demoStore.bookings.map(dashboardBooking) : bookingsResult.rows.map(mapBooking),
       chamber: chamberResult.rows[0] ? { id: chamberId, name: chamberResult.rows[0].name, members: membersResult.rows, tasks: tasksResult.rows } : null,
       dataMode: useDemo ? 'sample' : 'live',
@@ -5470,6 +5498,9 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
           ok: false,
           error: req.url.startsWith('/api/auth') ? 'Authentication service failed.' : 'The secure workspace service could not complete this request.',
           requestId,
+          ...(req.url.startsWith('/api/workspaces/advocate') && error?.workspaceStage
+            ? { failureStage: error.workspaceStage }
+            : {}),
         });
         return;
       }
