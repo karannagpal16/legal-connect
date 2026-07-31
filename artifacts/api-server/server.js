@@ -4649,6 +4649,7 @@ async function initializeDatabase() {
     if (!initialized) {
       throw new Error("PostgreSQL migrations did not complete.");
     }
+    await ensureStrictAuthSchema();
     console.log(`Database initialized. Migration status: ${db.migrationStatus}`);
   } catch (error) {
     console.error(`Database initialization failed: ${error.message}`);
@@ -4749,7 +4750,30 @@ function strictVerifyPassword(password, storedHash) {
   }
 }
 
+let strictAuthSchemaReady = false;
+let strictAuthSchemaInFlight = null;
+
 async function ensureStrictAuthSchema() {
+  if (!db.dbAvailable) return false;
+  if (strictAuthSchemaReady) return true;
+  if (!strictAuthSchemaInFlight) {
+    strictAuthSchemaInFlight = initializeStrictAuthSchema()
+      .then((initialized) => {
+        strictAuthSchemaReady = Boolean(initialized);
+        return initialized;
+      })
+      .catch((error) => {
+        strictAuthSchemaReady = false;
+        throw error;
+      })
+      .finally(() => {
+        strictAuthSchemaInFlight = null;
+      });
+  }
+  return strictAuthSchemaInFlight;
+}
+
+async function initializeStrictAuthSchema() {
   if (!db.dbAvailable) return false;
   await db.query('CREATE TABLE IF NOT EXISTS roles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text UNIQUE NOT NULL, created_at timestamptz DEFAULT now())');
   for (const roleName of ['admin', 'advocate', 'client', 'intern']) {
@@ -5215,7 +5239,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     }
     const userId = await resolveDatabaseUserId(authUser);
     const profileResult = await db.query('SELECT display_name, enrollment_no, state_bar_council, practice_courts, verification_status FROM profile_advocates WHERE user_id = $1', [userId]);
-    const casesResult = await db.query("SELECT * FROM cases WHERE payload->>'assignedTo' = $1 OR id IN (SELECT case_id FROM case_assignments WHERE advocate_id = $1 AND status = 'active') ORDER BY updated_at DESC", [userId]);
+    const casesResult = await db.query("SELECT * FROM cases WHERE payload->>'assignedTo' = $1::text OR id IN (SELECT case_id FROM case_assignments WHERE advocate_id = $1::uuid AND status = 'active') ORDER BY updated_at DESC", [userId]);
     const bookingsResult = await db.query("SELECT * FROM bookings WHERE payment_status = 'paid' AND (payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1) ORDER BY created_at DESC LIMIT 20", [userId]);
     const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
     const chamberId = chamberResult.rows[0]?.id;
@@ -5440,7 +5464,13 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
         || req.url.startsWith('/api/admin/verifications')
       );
       if (!res.headersSent && managedRequest) {
-        sendJson(res, 500, { ok: false, error: req.url.startsWith('/api/auth') ? 'Authentication service failed.' : 'The secure workspace service could not complete this request.' });
+        const requestId = crypto.randomBytes(6).toString('hex');
+        console.error(`[managed:${requestId}] ${req.method || 'UNKNOWN'} ${req.url || '/'} failed`, error);
+        sendJson(res, 500, {
+          ok: false,
+          error: req.url.startsWith('/api/auth') ? 'Authentication service failed.' : 'The secure workspace service could not complete this request.',
+          requestId,
+        });
         return;
       }
     }
