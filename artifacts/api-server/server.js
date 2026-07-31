@@ -2506,6 +2506,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/auth/demo-login" && req.method === "POST") {
+    // SECURITY: Demo login is completely disabled in production to prevent unauthenticated access.
+    if (config.nodeEnv === "production") {
+      await writeAuditLog({ role: "system" }, "demo_login_blocked", "auth", "demo-login", "Demo login attempt blocked in production.", { ip: req.socket?.remoteAddress });
+      sendJson(res, 403, { ok: false, error: "Demo authentication is disabled in production. Please register and log in with OTP verification." });
+      return;
+    }
     const body = await readBody(req);
     const role = roles.has(body.role) ? body.role : "client";
     const account = getDemoAccountByRole(role === "rna" ? "admin" : role);
@@ -2610,6 +2616,54 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     sendJson(res, 200, demoStore.deletionRequests.filter((request) => request.userId === authUser.id).slice(0, 5));
+    return;
+  }
+
+  // Admin advocate picker — returns Bar-verified advocates for the Admin Assignment Desk.
+  if (url.pathname === "/api/admin/advocates" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Admin access required" });
+      return;
+    }
+    if (db.dbAvailable) {
+      const result = await db.query(`
+        SELECT
+          u.id,
+          u.name,
+          u.email,
+          u.phone,
+          pa.enrollment_no AS "enrollmentNo",
+          pa.state_bar_council AS "stateBarCouncil",
+          pa.practice_courts AS "practiceCourts",
+          pa.years_practice AS "yearsPractice",
+          pa.verification_status AS "verificationStatus",
+          pa.bar_council_id AS "barCouncilId",
+          (SELECT COUNT(*) FROM cases WHERE payload->>'assignedTo' = u.id::text AND status = 'Active') AS "activeCasesCount"
+        FROM users u
+        JOIN profile_advocates pa ON pa.user_id = u.id
+        WHERE u.role = 'advocate' AND pa.verification_status = 'approved'
+        ORDER BY pa.enrollment_no ASC
+      `);
+      sendJson(res, 200, result.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        emailMasked: maskEmail(row.email),
+        phoneMasked: maskPhone(row.phone),
+        enrollmentNo: row.enrollmentNo || "Pending",
+        stateBarCouncil: row.stateBarCouncil || "Not recorded",
+        practiceCourts: row.practiceCourts || "",
+        yearsPractice: Number(row.yearsPractice || 0),
+        verificationStatus: row.verificationStatus || "pending",
+        activeCasesCount: Number(row.activeCasesCount || 0),
+      })));
+      return;
+    }
+    // Demo fallback — synthetic bar-verified advocate list
+    sendJson(res, 200, [
+      { id: "demo-advocate", name: "Adv. Rishika Nagpal", emailMasked: "r****@demo.legal-connect.in", phoneMasked: "+91 ****00002", enrollmentNo: "D/1482/2018", stateBarCouncil: "Bar Council of Delhi", practiceCourts: "Delhi High Court, Saket, Tis Hazari, Rohini", yearsPractice: 8, verificationStatus: "approved", activeCasesCount: 3 },
+      { id: "demo-advocate-2", name: "Adv. Aarav Mehta", emailMasked: "a****@example.in", phoneMasked: "+91 ****00099", enrollmentNo: "D/2104/2019", stateBarCouncil: "Bar Council of Delhi", practiceCourts: "Delhi High Court, Saket", yearsPractice: 5, verificationStatus: "approved", activeCasesCount: 1 },
+    ]);
     return;
   }
 
@@ -3632,6 +3686,136 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ProxyHub: Create a real Razorpay order for a proxy mission fee (replaces window.confirm synthetic payment).
+  if (url.pathname === "/api/proxy-hub/create-order" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !(authUser.role === "advocate" || canSeeAll(authUser))) {
+      sendJson(res, 403, { ok: false, error: "Advocate access required to post a proxy mission." });
+      return;
+    }
+    const body = await readBody(req);
+    const fee = numericAmount(body.fee || body.amount);
+    if (!fee || fee < 100) {
+      sendJson(res, 400, { ok: false, error: "Proxy mission fee must be at least ₹100." });
+      return;
+    }
+    if (!body.title || !String(body.title).trim()) {
+      sendJson(res, 400, { ok: false, error: "Mission title is required." });
+      return;
+    }
+    const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+    if (!hasRazorpay) {
+      if (config.nodeEnv === "production") {
+        sendJson(res, 503, { ok: false, error: "Payment gateway is not configured. Contact Legal Connect support." });
+        return;
+      }
+      // Dev/demo fallback: return a synthetic order so ProxyHub UI can proceed without live keys.
+      const syntheticOrderId = `order_proxy_demo_${Date.now()}`;
+      sendJson(res, 200, {
+        ok: true,
+        mode: "demo",
+        orderId: syntheticOrderId,
+        amount: fee * 100,
+        currency: "INR",
+        keyId: "rzp_test_demo",
+        description: String(body.title).trim(),
+        message: "Demo mode: no real charge will occur.",
+      });
+      return;
+    }
+    try {
+      const Razorpay = require("razorpay");
+      const rzp = new Razorpay({ key_id: config.razorpayKeyId, key_secret: config.razorpayKeySecret });
+      const receiptId = `proxy_${Date.now()}_${authUser.id?.toString().slice(0, 8) || "anon"}`;
+      const order = await rzp.orders.create({
+        amount: fee * 100,
+        currency: "INR",
+        receipt: receiptId,
+        notes: { missionTitle: String(body.title).trim(), postedBy: authUser.id, role: "proxy-hub" },
+      });
+      await writeAuditLog(authUser, "proxy_hub_order_created", "proxy_hub", order.id, `ProxyHub order created for mission: ${body.title}`, { orderId: order.id, fee });
+      sendJson(res, 200, {
+        ok: true,
+        mode: "razorpay",
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: config.razorpayKeyId,
+        description: String(body.title).trim(),
+      });
+    } catch (error) {
+      sendJson(res, 502, { ok: false, error: "Payment gateway order creation failed. Please try again.", detail: error.message });
+    }
+    return;
+  }
+
+  // ProxyHub: Verify payment signature and open the proxy task (fail-closed — task is NOT created if verification fails).
+  if (url.pathname === "/api/proxy-hub/verify-payment" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !(authUser.role === "advocate" || canSeeAll(authUser))) {
+      sendJson(res, 403, { ok: false, error: "Advocate access required." });
+      return;
+    }
+    const body = await readBody(req);
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+    const isDemoOrder = String(razorpay_order_id || "").startsWith("order_proxy_demo_");
+    const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+
+    // Verify HMAC signature for real Razorpay orders (fail-closed in production).
+    if (!isDemoOrder && hasRazorpay) {
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        sendJson(res, 400, { ok: false, error: "Payment details are incomplete. Cannot verify payment." });
+        return;
+      }
+      const expectedSignature = crypto
+        .createHmac("sha256", config.razorpayKeySecret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest("hex");
+      if (expectedSignature !== razorpay_signature) {
+        await writeAuditLog(authUser, "proxy_hub_payment_signature_mismatch", "proxy_hub", razorpay_order_id, "ProxyHub payment signature verification failed.", { orderId: razorpay_order_id, paymentId: razorpay_payment_id });
+        sendJson(res, 400, { ok: false, error: "Payment signature verification failed. The proxy mission cannot be opened." });
+        return;
+      }
+    } else if (!isDemoOrder && config.nodeEnv === "production") {
+      sendJson(res, 503, { ok: false, error: "Payment gateway is not configured. Cannot post proxy mission." });
+      return;
+    }
+
+    // Payment is verified — create the proxy task
+    const taskTitle = String(body.title || body.missionTitle || "Proxy Mission").trim();
+    const taskCourt = String(body.court || body.location || "").trim();
+    const fee = numericAmount(body.fee || body.amount);
+    const task = {
+      id: `task-${Date.now()}`,
+      postedBy: authUser.id,
+      title: taskTitle,
+      court: taskCourt || null,
+      taskType: body.taskType || "Proxy Appearance",
+      amount: fee,
+      escrowStatus: "Locked",
+      status: "Open",
+      paymentVerified: !isDemoOrder,
+      razorpayOrderId: isDemoOrder ? null : razorpay_order_id,
+      razorpayPaymentId: isDemoOrder ? null : razorpay_payment_id,
+      passoverInstructions: String(body.passoverInstructions || "").slice(0, 500),
+      hearingDate: body.hearingDate || body.date || null,
+      createdAt: new Date().toISOString(),
+    };
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, proof_url, payload)
+         VALUES ($1, $2, $3, $4, $5, 'Open', $6, NULL, $7) RETURNING *`,
+        [task.title, task.court, task.taskType, task.amount, "Locked", authUser.id, JSON.stringify({ ...task, user_id: authUser.id })],
+      );
+      await writeAuditLog(authUser, "proxy_hub_task_posted", "task", result.rows[0].id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified });
+      sendJson(res, 201, { ok: true, task: mapTask(result.rows[0]), paymentVerified: task.paymentVerified });
+      return;
+    }
+    demoStore.tasks.unshift(task);
+    sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: "demo" });
+    return;
+  }
+
   if (url.pathname === "/api/payments/create-order" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
@@ -3851,6 +4035,18 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/payments/webhook" && req.method === "POST") {
     const rawBody = await readRawBody(req);
     const signature = req.headers["x-razorpay-signature"];
+    // SECURITY: In production, reject any webhook that lacks a signature OR arrives when secret is not configured.
+    // This prevents unsigned webhook payloads from updating payment state in production.
+    if (config.nodeEnv === "production" && !config.razorpayWebhookSecret) {
+      await writeAuditLog({ role: "system" }, "payment_webhook_no_secret", "payment", "razorpay-webhook", "Production webhook rejected: RAZORPAY_WEBHOOK_SECRET is not set.", {});
+      sendJson(res, 503, { ok: false, error: "Webhook endpoint is not configured for production. Set RAZORPAY_WEBHOOK_SECRET." });
+      return;
+    }
+    if (config.nodeEnv === "production" && !signature) {
+      await writeAuditLog({ role: "system" }, "payment_webhook_missing_signature", "payment", "razorpay-webhook", "Production webhook rejected: x-razorpay-signature header is missing.", {});
+      sendJson(res, 400, { ok: false, error: "Webhook signature is required in production." });
+      return;
+    }
     if (config.razorpayWebhookSecret && !verifyRazorpayWebhookSignature(rawBody, signature)) {
       await writeAuditLog({ role: "system" }, "payment_webhook_invalid_signature", "payment", "razorpay-webhook", "Invalid Razorpay webhook signature.", {});
       sendJson(res, 400, { ok: false, error: "Invalid webhook signature." });
