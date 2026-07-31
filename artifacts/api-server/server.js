@@ -4000,7 +4000,17 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 401, { error: "Login is required." });
       return;
     }
+    // Peer accept is disabled. Legal Connect Admin assigns paid proxy tasks.
+    if (!canSeeAll(authUser)) {
+      sendJson(res, 403, {
+        error: "Proxy tasks are assigned by Legal Connect Admin after payment. Peer accept is disabled.",
+      });
+      return;
+    }
     const id = url.pathname.split("/").at(-2);
+    const body = await readBody(req);
+    const proxyName = body.proxyAdvocateName || body.assigneeName || authUser.name || "Panel counsel";
+    const proxyId = body.proxyAdvocateId || body.acceptedBy || authUser.id;
     if (db.dbAvailable) {
       const existing = await db.query("SELECT * FROM tasks WHERE id = $1", [id]);
       if (existing.rows.length === 0) {
@@ -4008,14 +4018,20 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const current = mapTask(existing.rows[0]);
-      if (current.status !== "Open" && current.acceptedBy !== authUser.id) {
-        sendJson(res, 409, { error: "This task is no longer available." });
+      if (!["Open", "Awaiting Admin Assignment"].includes(current.status) && current.acceptedBy !== proxyId) {
+        sendJson(res, 409, { error: "This task is no longer available for assignment." });
         return;
       }
       const result = await db.query(
-        "UPDATE tasks SET status = $2, accepted_by = $3, updated_at = now() WHERE id = $1 RETURNING *",
-        [id, "Accepted", authUser.id],
+        `UPDATE tasks
+         SET status = $2, accepted_by = $3,
+             payload = COALESCE(payload, '{}'::jsonb) || $4::jsonb,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, "Assigned", proxyId, JSON.stringify({ assignedProxyName: proxyName, assignmentStatus: "Assigned", assignedByAdmin: true })],
       );
+      await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });
       sendJson(res, 200, mapTask(result.rows[0]));
       return;
     }
@@ -4024,11 +4040,18 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 404, { error: "Task not found" });
       return;
     }
-    if (task.status !== "Open" && task.acceptedBy !== authUser.id) {
-      sendJson(res, 409, { error: "This task is no longer available." });
+    if (!["Open", "Awaiting Admin Assignment"].includes(task.status) && task.acceptedBy !== proxyId) {
+      sendJson(res, 409, { error: "This task is no longer available for assignment." });
       return;
     }
-    Object.assign(task, { status: "Accepted", acceptedBy: authUser.id, assignedToId: authUser.id, updatedAt: new Date().toISOString() });
+    Object.assign(task, {
+      status: "Assigned",
+      acceptedBy: proxyId,
+      assignedToId: proxyId,
+      assignedProxyName: proxyName,
+      updatedAt: new Date().toISOString(),
+    });
+    await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });
     sendJson(res, 200, dashboardTask(task));
     return;
   }
@@ -4448,11 +4471,47 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+    const PROXY_MIN_FEE = 400;
+    const feeAmount = numericAmount(body.amount || body.fee);
+    const taskType = body.taskType || body.task_type || body.type || "Mission";
+    const isProxyPost = ["Pass-over", "Adjournment", "Evidence", "Arguments", "Other", "Proxy", "Mission"].includes(String(taskType))
+      || body.kind === "proxy"
+      || Boolean(body.proxyTask);
+    if (isProxyPost && authUser.role === "advocate") {
+      if (feeAmount < PROXY_MIN_FEE) {
+        sendJson(res, 400, { ok: false, error: `Proxy fee must be at least ₹${PROXY_MIN_FEE}.` });
+        return;
+      }
+      if (!body.paymentConfirmed) {
+        sendJson(res, 402, {
+          ok: false,
+          needsPayment: true,
+          error: `Confirm payment of at least ₹${PROXY_MIN_FEE} before posting. Admin will assign the proxy.`,
+        });
+        return;
+      }
+    }
     const actorId = userIdForWrite(body, authUser);
-    const task = { id: `task-${Date.now()}`, postedBy: actorId, status: "Open", createdAt: new Date().toISOString(), ...body };
-    task.title = body.title || body.taskDescription || "Legal Connect mission";
-    task.court = body.court || body.location || null;
-    task.amount = numericAmount(body.amount || body.fee);
+    const initialStatus = isProxyPost && authUser.role === "advocate"
+      ? "Awaiting Admin Assignment"
+      : (body.status || "Open");
+    const escrowStatus = isProxyPost && authUser.role === "advocate"
+      ? "Held"
+      : (body.escrowStatus || body.escrow_status || "Not locked");
+    const task = {
+      id: `task-${Date.now()}`,
+      postedBy: actorId,
+      createdAt: new Date().toISOString(),
+      ...body,
+      status: initialStatus,
+      escrowStatus,
+      title: body.title || body.taskDescription || "Legal Connect mission",
+      court: body.court || body.location || null,
+      amount: feeAmount,
+      kind: isProxyPost ? "proxy" : body.kind || null,
+      paymentStatus: isProxyPost && body.paymentConfirmed ? "Paid" : null,
+      assignmentStatus: initialStatus,
+    };
     if (db.dbAvailable) {
       const result = await db.query(
         `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, accepted_by, proof_url, payload)
@@ -4461,14 +4520,22 @@ const server = http.createServer(async (req, res) => {
         [
           body.title || body.taskDescription || "Legal Connect mission",
           body.court || body.location || null,
-          body.taskType || body.task_type || body.type || "Mission",
-          numericAmount(body.amount || body.fee),
-          body.escrowStatus || body.escrow_status || "Not locked",
-          body.status || "Open",
+          taskType,
+          feeAmount,
+          escrowStatus,
+          initialStatus,
           body.postedBy || body.posted_by || actorId,
           body.acceptedBy || body.accepted_by || null,
           body.proofUrl || body.proof_url || null,
-          JSON.stringify({ ...body, user_id: actorId, role: userRole(authUser), payment_lock_status: body.paymentLockStatus || body.payment_lock_status || body.escrowStatus || "none" }),
+          JSON.stringify({
+            ...body,
+            user_id: actorId,
+            role: userRole(authUser),
+            kind: isProxyPost ? "proxy" : body.kind || null,
+            paymentStatus: isProxyPost && body.paymentConfirmed ? "Paid" : null,
+            assignmentStatus: initialStatus,
+            payment_lock_status: body.paymentLockStatus || body.payment_lock_status || escrowStatus || "none",
+          }),
         ],
       );
       const savedTask = mapTask(result.rows[0]);

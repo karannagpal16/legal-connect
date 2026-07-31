@@ -1,1 +1,0 @@
-import{j as r}from"./index-bNJ3O6od.js";import{RevenueTracker as o}from"./RevenueTracker-Oe-asSsv.js";import"./api-CBmuBckY.js";import"./useQuery-BGY-qJUB.js";import"./useMutation-jSKJ_1fq.js";import"./trending-up-ZpIzlbQF.js";import"./briefcase-DIxF86sG.js";import"./trophy-jSIK9mkv.js";import"./award-CpAKy0ek.js";function a(){return r.jsx(o,{})}export{a as AdvocateRevenue};
