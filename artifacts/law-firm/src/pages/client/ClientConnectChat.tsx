@@ -273,8 +273,11 @@ export function ClientConnectChat() {
           </div>
           <div>
             <h1 className="text-2xl font-serif font-bold text-[#1A2332]">Connect with an Advocate</h1>
-            <p className="text-[#1A2332]/40 text-xs mt-0.5">Start with AI · Get matched · Chat securely</p>
+            <p className="text-[#1A2332]/40 text-xs mt-0.5">First preview chat is free · See how Legal Connect works</p>
           </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-600">
+            FREE PREVIEW
+          </span>
         </div>
 
         {/* Phase stepper */}

@@ -78,6 +78,9 @@ const config = {
   razorpayKeyId: optionalString("RAZORPAY_KEY_ID"),
   razorpayKeySecret: optionalString("RAZORPAY_KEY_SECRET"),
   razorpayWebhookSecret: optionalString("RAZORPAY_WEBHOOK_SECRET") || optionalString("WEBHOOK_SECRET"),
+  /** Merchant UPI VPA for direct QR. Env overrides this default. */
+  upiVpa: optionalString("LEGAL_CONNECT_UPI_VPA") || optionalString("UPI_VPA") || "7982871464@ptaxis",
+  upiPayeeName: optionalString("LEGAL_CONNECT_UPI_NAME", "Legal Connect"),
   emailProvider: optionalString("EMAIL_PROVIDER"),
   sendgridApiKey: optionalString("SENDGRID_API_KEY") || optionalString("SENDGRID_KEY"),
   resendApiKey: optionalString("RESEND_API_KEY"),

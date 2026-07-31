@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -7,11 +7,13 @@ import {
   ArrowRight,
   CheckCircle2,
   FileText,
+  Gift,
   IndianRupee,
   Loader2,
   LockKeyhole,
   MessageSquareText,
   Phone,
+  QrCode,
   ShieldCheck,
   Upload,
   Video,
@@ -41,8 +43,21 @@ interface CounselIntakeProps {
   embedded?: boolean;
 }
 
+interface PaymentConfig {
+  mode?: string;
+  upi_vpa?: string;
+  upi_payee_name?: string;
+  upi_configured?: boolean;
+  test_upi_id?: string;
+  warning?: string;
+  first_chat_free_available?: boolean;
+  chat_amount?: number;
+}
+
+const PAID_CHAT_AMOUNT = 499;
+
 const channelOptions: Record<ConsultationChannel, { title: string; detail: string; amount: number; icon: typeof Phone }> = {
-  chat: { title: "Secure chat", detail: "Written consultation in your matter room", amount: 499, icon: MessageSquareText },
+  chat: { title: "Secure chat", detail: "Written consultation in your matter room", amount: PAID_CHAT_AMOUNT, icon: MessageSquareText },
   call: { title: "Counsel call", detail: "Scheduled private audio consultation", amount: 999, icon: Phone },
   video: { title: "Video consultation", detail: "Scheduled private video consultation", amount: 1499, icon: Video },
 };
@@ -63,6 +78,21 @@ const maxFileBytes = 5 * 1024 * 1024;
 const maxTotalBytes = 12 * 1024 * 1024;
 
 type IntakeStage = "intake" | "payment" | "assignment";
+
+function isValidEmail(value?: string | null) {
+  return Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
+}
+
+function buildUpiUri(vpa: string, payeeName: string, amount: number, note: string) {
+  const params = new URLSearchParams({
+    pa: vpa,
+    pn: payeeName,
+    cu: "INR",
+  });
+  if (amount > 0) params.set("am", amount.toFixed(2));
+  if (note) params.set("tn", note.slice(0, 80));
+  return `upi://pay?${params.toString()}`;
+}
 
 async function loadRazorpay() {
   if (window.Razorpay) return true;
@@ -123,9 +153,41 @@ export function CounselIntake({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<{ id: string; receiptNo?: string; amount: number; caseId?: string } | null>(null);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
+
+  const firstChatFree = channel === "chat" && Boolean(paymentConfig?.first_chat_free_available);
+  const payableAmount = firstChatFree ? 0 : channelOptions[channel].amount;
   const selectedChannel = channelOptions[channel];
   const heading = source === "sos" ? "Request urgent counsel" : "Book a counsel";
-  const submitLabel = source === "sos" ? "Review urgent request" : "Review and pay";
+  const submitLabel = firstChatFree ? "Continue — first chat free" : source === "sos" ? "Review urgent request" : "Review and pay";
+
+  const upiUri = useMemo(() => {
+    if (!paymentConfig?.upi_configured || !paymentConfig.upi_vpa || payableAmount <= 0) return "";
+    return buildUpiUri(
+      paymentConfig.upi_vpa,
+      paymentConfig.upi_payee_name || "Legal Connect",
+      payableAmount,
+      caseTitle || selectedChannel.title,
+    );
+  }, [paymentConfig, payableAmount, caseTitle, selectedChannel.title]);
+
+  const qrImageUrl = upiUri
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiUri)}`
+    : "";
+
+  useEffect(() => {
+    let active = true;
+    workspaceRequest<PaymentConfig>("/api/payments/config", session?.token)
+      .then((config) => {
+        if (active) setPaymentConfig(config);
+      })
+      .catch(() => {
+        if (active) setPaymentConfig({ first_chat_free_available: true, mode: "unknown" });
+      });
+    return () => {
+      active = false;
+    };
+  }, [session?.token]);
 
   const totalSize = useMemo(() => files.reduce((total, file) => total + file.size, 0), [files]);
 
@@ -173,8 +235,9 @@ export function CounselIntake({
         signature: response.razorpay_signature,
       }),
     });
-    setReceipt({ id: booking.id, receiptNo: booking.receiptNo, amount: selectedChannel.amount, caseId: verification.caseId });
+    setReceipt({ id: booking.id, receiptNo: booking.receiptNo, amount: payableAmount, caseId: verification.caseId });
     setStage("assignment");
+    setPaymentConfig((current) => (current ? { ...current, first_chat_free_available: false } : current));
     await queryClient.invalidateQueries({ queryKey: ["client-workspace"] });
     onComplete?.();
   };
@@ -187,9 +250,9 @@ export function CounselIntake({
       const booking = await workspaceRequest<any>("/api/bookings", session?.token, {
         method: "POST",
         body: JSON.stringify({
-          serviceType: `${selectedChannel.title}${source === "sos" ? " - Legal SOS" : ""}`,
+          serviceType: `${selectedChannel.title}${source === "sos" ? " - Legal SOS" : ""}${firstChatFree ? " - First chat free" : ""}`,
           legalIssueType: caseType,
-          amount: selectedChannel.amount,
+          amount: payableAmount,
           paymentStatus: "payment_pending",
           workHoldStatus: "pending",
           nextDestination: "Legal Connect assignment desk",
@@ -207,6 +270,7 @@ export function CounselIntake({
           existingCaseId: initialCaseId || null,
           attachedFiles,
           assignmentPolicy: "legal-connect-managed",
+          firstChatFree,
         }),
       });
 
@@ -216,15 +280,28 @@ export function CounselIntake({
         method: "POST",
         body: JSON.stringify({
           bookingId: booking.id,
-          amount: selectedChannel.amount,
+          amount: payableAmount,
           serviceType: selectedChannel.title,
           receiptNo: booking.receiptNo,
+          consultationChannel: channel,
+          firstChatFree,
+          mode: firstChatFree ? "first_chat_free" : undefined,
         }),
       });
 
-      if (order.mode === "google-play-review" || (order.mode === "demo" && order.status === "review_only")) {
-        setReceipt({ id: booking.id, receiptNo: order.receipt, amount: selectedChannel.amount, caseId: initialCaseId || undefined });
+      if (
+        order.mode === "first_chat_free"
+        || order.mode === "google-play-review"
+        || (order.mode === "demo" && order.status === "review_only")
+      ) {
+        setReceipt({
+          id: booking.id,
+          receiptNo: order.receipt,
+          amount: payableAmount,
+          caseId: order.caseId || initialCaseId || undefined,
+        });
         setStage("assignment");
+        setPaymentConfig((current) => (current ? { ...current, first_chat_free_available: false } : current));
         await queryClient.invalidateQueries({ queryKey: ["client-workspace"] });
         onComplete?.();
         return;
@@ -233,6 +310,7 @@ export function CounselIntake({
       const loaded = await loadRazorpay();
       if (!loaded || !window.Razorpay) throw new Error("Secure checkout could not be loaded. Please retry.");
 
+      const email = session?.user.email;
       const checkout = new window.Razorpay({
         key: order.key_id,
         amount: order.amount,
@@ -240,8 +318,18 @@ export function CounselIntake({
         order_id: order.order_id,
         name: "Legal Connect",
         description: `${selectedChannel.title} - ${caseTitle}`,
-        prefill: { name: clientName, email: session?.user.email || "" },
+        // Never prefill UPI VPA/contact — empty or invalid values make UPI apps show "Invalid UPI ID".
+        prefill: {
+          name: clientName || "Legal Connect Client",
+          ...(isValidEmail(email) ? { email } : {}),
+        },
         theme: { color: "#a87928" },
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true,
+        },
         handler: async (response: any) => {
           try {
             await completePayment(booking, response);
@@ -266,14 +354,18 @@ export function CounselIntake({
         <div>
           <span className="lc-kicker">LEGAL CONNECT MANAGED ASSIGNMENT</span>
           <h2>{heading}</h2>
-          <p>Share one clear brief, pay securely, and Legal Connect will assign verified counsel.</p>
+          <p>
+            {firstChatFree
+              ? "Your first Secure chat is free — try Legal Connect, then continue with paid counsel if you need more."
+              : "Share one clear brief, pay securely, and Legal Connect will assign verified counsel."}
+          </p>
         </div>
         {onClose && <button className="lc-icon-command" onClick={onClose} aria-label="Close counsel booking"><X /></button>}
       </header>
 
       <div className="lc-intake-steps" aria-label="Intake progress">
         <span className="active">1 Matter</span><i />
-        <span className={stage !== "intake" ? "active" : ""}>2 Payment</span><i />
+        <span className={stage !== "intake" ? "active" : ""}>2 {firstChatFree ? "Confirm" : "Payment"}</span><i />
         <span className={stage === "assignment" ? "active" : ""}>3 Assignment</span>
       </div>
 
@@ -285,9 +377,15 @@ export function CounselIntake({
               <div>
                 {availableChannels.map((value) => {
                   const option = channelOptions[value];
+                  const freeBadge = value === "chat" && paymentConfig?.first_chat_free_available;
                   return (
                     <button key={value} type="button" className={channel === value ? "active" : ""} onClick={() => setChannel(value)}>
-                      <option.icon /><span><strong>{option.title}</strong><small>{option.detail}</small></span><em>₹{option.amount.toLocaleString("en-IN")}</em>
+                      <option.icon />
+                      <span>
+                        <strong>{option.title}</strong>
+                        <small>{freeBadge ? "First chat free — see how Legal Connect works" : option.detail}</small>
+                      </span>
+                      <em>{freeBadge ? "FREE" : `₹${option.amount.toLocaleString("en-IN")}`}</em>
                     </button>
                   );
                 })}
@@ -321,7 +419,14 @@ export function CounselIntake({
               )}
             </div>
 
-            <label className="lc-consent-field"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>I authorise a confidential conflict check and secure storage of these case records. Counsel is assigned only after verified payment.</span></label>
+            <label className="lc-consent-field">
+              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+              <span>
+                {firstChatFree
+                  ? "I authorise a confidential conflict check and secure storage of these case records for my free first chat."
+                  : "I authorise a confidential conflict check and secure storage of these case records. Counsel is assigned only after verified payment."}
+              </span>
+            </label>
             {error && <div className="lc-form-error"><AlertTriangle /> {error}</div>}
             <button className="lc-button lc-button-primary" type="submit">{submitLabel} <ArrowRight /></button>
           </motion.form>
@@ -331,7 +436,13 @@ export function CounselIntake({
           <motion.section key="payment" className="lc-payment-review" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
             <button className="lc-back-command" onClick={() => setStage("intake")}><ArrowLeft /> Edit details</button>
             <div className="lc-operational-panel lc-payment-summary">
-              <header><div><span>Step 2</span><h2>Review and pay</h2></div><LockKeyhole /></header>
+              <header>
+                <div>
+                  <span>Step 2</span>
+                  <h2>{firstChatFree ? "Confirm free first chat" : "Review and pay"}</h2>
+                </div>
+                {firstChatFree ? <Gift /> : <LockKeyhole />}
+              </header>
               <dl>
                 <div><dt>Matter</dt><dd>{caseTitle}</dd></div>
                 <div><dt>Parties</dt><dd>{partyName} / {oppositeParty}</dd></div>
@@ -339,10 +450,45 @@ export function CounselIntake({
                 <div><dt>Files</dt><dd>{files.length ? `${files.length} secure attachment${files.length > 1 ? "s" : ""}` : "No files attached"}</dd></div>
                 <div><dt>Assignment</dt><dd>Verified counsel selected by Legal Connect</dd></div>
               </dl>
-              <div className="lc-payment-total"><span>Total payable</span><strong>₹{selectedChannel.amount.toLocaleString("en-IN")}</strong></div>
-              <p><ShieldCheck /> Payment is verified by the backend. Your request then appears as a separate matter in your workspace.</p>
+              <div className="lc-payment-total">
+                <span>Total payable</span>
+                <strong>{firstChatFree ? "FREE" : `₹${payableAmount.toLocaleString("en-IN")}`}</strong>
+              </div>
+              {firstChatFree ? (
+                <p><Gift /> Your first Secure chat is on us so you can see how Legal Connect works. Later chats are ₹{PAID_CHAT_AMOUNT}.</p>
+              ) : (
+                <p><ShieldCheck /> Payment is verified by the backend. Your request then appears as a separate matter in your workspace.</p>
+              )}
+
+              {!firstChatFree && paymentConfig?.mode === "test" && (
+                <div className="lc-form-error" role="status">
+                  <AlertTriangle />
+                  Razorpay TEST mode: PhonePe/GPay will show “Invalid UPI ID” on the test QR. In checkout, enter UPI ID <strong>{paymentConfig.test_upi_id || "success@razorpay"}</strong> or pay by card.
+                </div>
+              )}
+
+              {!firstChatFree && qrImageUrl && paymentConfig?.upi_vpa && (
+                <div className="lc-upi-panel" style={{ marginTop: "1rem", padding: "1rem", border: "1px solid rgba(26,35,50,0.12)", borderRadius: "1rem", textAlign: "center" }}>
+                  <p style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem", fontWeight: 700, marginBottom: "0.75rem" }}>
+                    <QrCode className="h-4 w-4" /> Scan to pay with UPI
+                  </p>
+                  <img src={qrImageUrl} alt={`UPI QR for ${paymentConfig.upi_vpa}`} width={180} height={180} style={{ margin: "0 auto", borderRadius: "0.75rem" }} />
+                  <p style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
+                    Payee: <strong>{paymentConfig.upi_payee_name || "Legal Connect"}</strong><br />
+                    UPI ID: <strong>{paymentConfig.upi_vpa}</strong><br />
+                    Amount: <strong>₹{payableAmount.toLocaleString("en-IN")}</strong>
+                  </p>
+                  <a className="lc-button lc-button-full" style={{ marginTop: "0.75rem" }} href={upiUri}>
+                    Open UPI app
+                  </a>
+                </div>
+              )}
+
               {error && <div className="lc-form-error"><AlertTriangle /> {error}</div>}
-              <button className="lc-button lc-button-primary lc-button-full" onClick={beginPayment} disabled={busy}>{busy ? <Loader2 className="lc-spin" /> : <IndianRupee />} Pay securely</button>
+              <button className="lc-button lc-button-primary lc-button-full" onClick={beginPayment} disabled={busy}>
+                {busy ? <Loader2 className="lc-spin" /> : firstChatFree ? <Gift /> : <IndianRupee />}
+                {firstChatFree ? "Start free chat" : "Pay securely"}
+              </button>
             </div>
           </motion.section>
         )}
@@ -350,11 +496,25 @@ export function CounselIntake({
         {stage === "assignment" && (
           <motion.section key="assignment" className="lc-assignment-confirmed" initial={{ opacity: 0, scale: .98 }} animate={{ opacity: 1, scale: 1 }}>
             <span><CheckCircle2 /></span>
-            <p className="lc-kicker">PAYMENT VERIFIED</p>
+            <p className="lc-kicker">{receipt?.amount === 0 ? "FREE FIRST CHAT" : "PAYMENT VERIFIED"}</p>
             <h2>Your request is now a separate matter.</h2>
-            <p>Legal Connect is completing the conflict check and assigning verified counsel. Its timeline, documents, payments and communications will remain inside this matter.</p>
-            <dl><div><dt>Intake reference</dt><dd>{receipt?.id}</dd></div><div><dt>Amount</dt><dd>₹{receipt?.amount.toLocaleString("en-IN")}</dd></div><div><dt>Status</dt><dd>Assignment pending</dd></div></dl>
-            {onClose ? <button className="lc-button lc-button-primary" onClick={onClose}>View dashboard <ArrowRight /></button> : <Link className="lc-button lc-button-primary" href="/client">View dashboard <ArrowRight /></Link>}
+            <p>
+              {receipt?.amount === 0
+                ? "Your free first chat is ready. Legal Connect will complete the conflict check and open the matter workspace so you can see how it works."
+                : "Legal Connect is completing the conflict check and assigning verified counsel. Its timeline, documents, payments and communications will remain inside this matter."}
+            </p>
+            <dl>
+              <div><dt>Intake reference</dt><dd>{receipt?.id}</dd></div>
+              <div><dt>Amount</dt><dd>{receipt?.amount === 0 ? "FREE" : `₹${receipt?.amount.toLocaleString("en-IN")}`}</dd></div>
+              <div><dt>Status</dt><dd>Assignment pending</dd></div>
+            </dl>
+            {onClose ? (
+              <button className="lc-button lc-button-primary" onClick={onClose}>View dashboard <ArrowRight /></button>
+            ) : (
+              <Link className="lc-button lc-button-primary" href={receipt?.caseId ? `/client/chat?caseId=${encodeURIComponent(receipt.caseId)}` : "/client"}>
+                {receipt?.caseId ? "Open chat" : "View dashboard"} <ArrowRight />
+              </Link>
+            )}
           </motion.section>
         )}
       </AnimatePresence>

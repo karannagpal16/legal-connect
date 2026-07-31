@@ -41,6 +41,7 @@ const ClientDIYDocs = lazyNamed(() => import("@/pages/client/ClientDIYDocs"), "C
 const ClientAIAssistant = lazyNamed(() => import("@/pages/client/ClientAIAssistant"), "ClientAIAssistant");
 const ClientLawBot = lazyNamed(() => import("@/pages/client/ClientLawBot"), "ClientLawBot");
 const ClientChat = lazyNamed(() => import("@/pages/client/ClientChat"), "ClientChat");
+const ClientConnectChat = lazyNamed(() => import("@/pages/client/ClientConnectChat"), "ClientConnectChat");
 const ClientWellness = lazyNamed(() => import("@/pages/client/ClientWellness"), "ClientWellness");
 const ClientRightsFeed = lazyNamed(() => import("@/pages/client/ClientRightsFeed"), "ClientRightsFeed");
 
@@ -140,7 +141,7 @@ function Router() {
         <Private role="client"><ClientLayout><ClientHome /></ClientLayout></Private>
       </Route>
       <Route path="/client/connect">
-        <Private role="client"><Redirect to="/client/book" /></Private>
+        <Private role="client"><ClientLayout><ClientConnectChat /></ClientLayout></Private>
       </Route>
       <Route path="/client/wellness">
         <Private role="client"><ClientLayout><ClientWellness /></ClientLayout></Private>

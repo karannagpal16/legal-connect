@@ -946,6 +946,8 @@ function razorpayKeyPrefix() {
 
 function paymentConfigStatus() {
   const mode = razorpayMode();
+  const upiVpa = String(config.upiVpa || "").trim().toLowerCase();
+  const upiValid = /^[a-z0-9.\-_]{2,256}@[a-z]{2,64}$/.test(upiVpa);
   return {
     payments_configured: Boolean(config.razorpayKeyId && config.razorpayKeySecret),
     key_id_present: Boolean(config.razorpayKeyId),
@@ -953,8 +955,92 @@ function paymentConfigStatus() {
     mode,
     webhook_secret_present: Boolean(config.razorpayWebhookSecret),
     checkout_script_url: "https://checkout.razorpay.com/v1/checkout.js",
-    warning: mode === "live" ? "Live key detected. Use small controlled pilot only after verification." : "",
+    upi_vpa: upiValid ? upiVpa : "",
+    upi_payee_name: config.upiPayeeName || "Legal Connect",
+    upi_configured: upiValid,
+    test_upi_id: mode === "test" ? "success@razorpay" : "",
+    warning: mode === "live"
+      ? "Live key detected. Use small controlled pilot only after verification."
+      : mode === "test"
+        ? "Razorpay is in TEST mode. Real UPI apps show Invalid UPI ID on the test QR — use success@razorpay or a card."
+        : "",
   };
+}
+
+async function userHasUsedFirstChat(userId) {
+  if (!userId) return true;
+  if (!db.dbAvailable) {
+    return (demoStore.bookings || []).some((booking) => {
+      if (String(booking.userId || booking.user_id) !== String(userId)) return false;
+      const channel = booking.consultationChannel || booking.payload?.consultationChannel;
+      const free = booking.firstChatFree || booking.payload?.firstChatFree;
+      const paid = ["paid", "demo-verified", "review-inspection"].includes(String(booking.paymentStatus || booking.payment_status || ""));
+      return Boolean(free) || (channel === "chat" && paid);
+    });
+  }
+  const result = await db.query(
+    `SELECT 1
+     FROM bookings
+     WHERE user_id = $1
+       AND (
+         COALESCE(payload->>'firstChatFree', '') = 'true'
+         OR (
+           COALESCE(payload->>'consultationChannel', '') = 'chat'
+           AND COALESCE(payment_status, '') IN ('paid', 'demo-verified', 'review-inspection')
+         )
+       )
+     LIMIT 1`,
+    [userId],
+  );
+  return Boolean(result.rows[0]);
+}
+
+async function activateBookingAsPaid(bookingId, authUser, meta = {}) {
+  let linkedCaseId = null;
+  if (db.dbAvailable && bookingId) {
+    const nextAmount = Object.prototype.hasOwnProperty.call(meta, "amount") ? Number(meta.amount) : null;
+    await db.query(
+      `UPDATE bookings
+       SET payment_status = 'paid',
+           work_hold_status = 'active',
+           failure_reason = NULL,
+           verified_at = now(),
+           amount = CASE WHEN $3::numeric IS NULL THEN amount ELSE $3::numeric END,
+           payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
+       WHERE id = $1`,
+      [
+        bookingId,
+        JSON.stringify({
+          work_hold_status: "active",
+          verified_at: new Date().toISOString(),
+          ...meta,
+        }),
+        Number.isFinite(nextAmount) ? nextAmount : null,
+      ],
+    );
+    linkedCaseId = await ensurePaidBookingCase(bookingId);
+  } else if (bookingId) {
+    const booking = demoStore.bookings.find((item) => item.id === bookingId);
+    if (booking) {
+      Object.assign(booking, {
+        paymentStatus: "paid",
+        workHoldStatus: "active",
+        verifiedAt: new Date().toISOString(),
+        firstChatFree: Boolean(meta.firstChatFree),
+        amount: meta.amount ?? booking.amount,
+        ...meta,
+      });
+    }
+  }
+  await writeAuditLog(
+    authUser || { role: "system" },
+    meta.firstChatFree ? "first_chat_free_claimed" : "payment_verified",
+    "booking",
+    bookingId,
+    meta.firstChatFree ? "First client chat claimed free." : "Payment verified.",
+    meta,
+  );
+  return linkedCaseId;
 }
 
 async function createRazorpayOrder({ amount, currency = "INR", receipt, notes = {} }) {
@@ -3816,12 +3902,78 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/payments/config" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    const status = paymentConfigStatus();
+    const firstChatUsed = authUser ? await userHasUsedFirstChat(authUser.id) : true;
+    sendJson(res, 200, {
+      ok: true,
+      ...status,
+      first_chat_free_available: Boolean(authUser) && !firstChatUsed,
+      first_chat_free_amount: 0,
+      chat_amount: 499,
+    });
+    return;
+  }
+
   if (url.pathname === "/api/payments/create-order" && req.method === "POST") {
     const authUser = getAuthUser(req);
     const body = await readBody(req);
     const amount = Number(body.amount || 0);
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
     const paymentStatus = paymentConfigStatus();
+    const wantsFirstChatFree = Boolean(body.firstChatFree || body.mode === "first_chat_free");
+    const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
+
+    if (wantsFirstChatFree) {
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Sign in required to claim the free first chat." });
+        return;
+      }
+      if (channel && channel !== "chat") {
+        sendJson(res, 400, { ok: false, error: "Free trial applies only to the Secure chat channel." });
+        return;
+      }
+      if (await userHasUsedFirstChat(authUser.id)) {
+        sendJson(res, 409, { ok: false, error: "Your free first chat has already been used. Please pay to continue." });
+        return;
+      }
+      const bookingId = body.bookingId || body.booking_id;
+      if (!bookingId) {
+        sendJson(res, 400, { ok: false, error: "Booking id is required for free first chat." });
+        return;
+      }
+      const linkedCaseId = await activateBookingAsPaid(bookingId, authUser, {
+        firstChatFree: true,
+        amount: 0,
+        paymentMode: "first_chat_free",
+      });
+      await recordPaymentEvent({
+        userId: authUser.id,
+        bookingId,
+        amount: 0,
+        currency: "INR",
+        status: "paid",
+        workHoldStatus: "active",
+        payload: { firstChatFree: true, caseId: linkedCaseId },
+      }).catch(() => undefined);
+      sendJson(res, 200, {
+        ok: true,
+        success: true,
+        mode: "first_chat_free",
+        provider: "legal-connect",
+        status: "free",
+        payment_status: "paid",
+        work_hold_status: "active",
+        amount: 0,
+        currency: "INR",
+        receipt: body.receiptNo || body.receipt_no || `LC-FREE-${Date.now()}`,
+        caseId: linkedCaseId,
+        message: "Your first chat is free. Explore Legal Connect — later chats are paid.",
+      });
+      return;
+    }
+
     if (!amount || amount <= 0) {
       sendJson(res, 400, { ok: false, error: "Valid amount is required." });
       return;

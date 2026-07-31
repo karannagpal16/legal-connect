@@ -59,6 +59,7 @@ const navigation: Record<AppRole, NavItem[]> = {
   ],
   client: [
     { label: "Home", href: "/client", icon: Home },
+    { label: "Free preview chat", href: "/client/connect", icon: MessageSquare },
     { label: "Get legal help", href: "/client/book", icon: Gavel },
     { label: "Messages", href: "/client/chat", icon: MessageSquare },
     { label: "LawBot", href: "/client/lawbot", icon: Sparkles },
