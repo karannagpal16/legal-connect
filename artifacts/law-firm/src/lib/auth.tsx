@@ -29,6 +29,7 @@ export interface AuthSession {
 interface LoginInput {
   email: string;
   password: string;
+  role?: AppRole;
 }
 
 interface RegisterInput extends LoginInput {

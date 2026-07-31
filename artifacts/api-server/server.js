@@ -4999,6 +4999,112 @@ getAuthUser = function strictGetAuthUser(req) {
   return decodeStrictJwt(token) || strictLegacyGetAuthUser(req);
 };
 
+/** Temporary universal tester — one email/password opens every portal role. */
+const MASTER_TEST_LOGIN = {
+  email: "karannagpal16@gmail.com",
+  password: "Karan1605!",
+  names: {
+    client: "Karan Nagpal",
+    advocate: "Adv. Karan Nagpal",
+    intern: "Karan Nagpal",
+    admin: "Karan Nagpal",
+  },
+};
+
+function isMasterTestLogin(email, password) {
+  return normalizeEmail(email) === MASTER_TEST_LOGIN.email && String(password || "") === MASTER_TEST_LOGIN.password;
+}
+
+function masterTestRole(requested) {
+  const role = String(requested || "client").toLowerCase();
+  if (role === "rna") return "admin";
+  return ["client", "advocate", "intern", "admin"].includes(role) ? role : "client";
+}
+
+async function ensureMasterTestUser(role) {
+  const resolvedRole = masterTestRole(role);
+  const name = MASTER_TEST_LOGIN.names[resolvedRole] || "Karan Nagpal";
+  const email = MASTER_TEST_LOGIN.email;
+  const passwordHash = strictHashPassword(MASTER_TEST_LOGIN.password);
+  if (!db.dbAvailable) {
+    let user = (demoStore.users || []).find((item) => normalizeEmail(item.email) === email);
+    if (!user) {
+      user = {
+        id: `master-test-${resolvedRole}`,
+        name,
+        email,
+        phone: "+919999000016",
+        role: resolvedRole,
+        password_hash: passwordHash,
+        emailVerifiedAt: new Date().toISOString(),
+        consentAt: new Date().toISOString(),
+        verification_status: "verified",
+        createdAt: new Date().toISOString(),
+      };
+      demoStore.users.push(user);
+    } else {
+      Object.assign(user, {
+        name,
+        role: resolvedRole,
+        password_hash: passwordHash,
+        verification_status: "verified",
+      });
+    }
+    return user;
+  }
+  await ensureStrictAuthSchema();
+  const roleResult = await db.query("SELECT id FROM roles WHERE name = $1", [resolvedRole]);
+  const roleId = roleResult.rows[0]?.id || null;
+  const existing = await strictUserByEmail(email);
+  let user;
+  if (existing) {
+    const updated = await db.query(
+      `UPDATE users
+       SET name = $2, role = $3, role_id = $4, password_hash = $5,
+           consent_at = COALESCE(consent_at, now()),
+           email_verified_at = COALESCE(email_verified_at, now()),
+           phone = COALESCE(phone, $6)
+       WHERE id = $1
+       RETURNING id, name, email, phone, role, created_at`,
+      [existing.id, name, resolvedRole, roleId, passwordHash, "+919999000016"],
+    );
+    user = updated.rows[0];
+  } else {
+    const created = await db.query(
+      `INSERT INTO users (name, email, phone, role, role_id, password_hash, consent_at, email_verified_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+       RETURNING id, name, email, phone, role, created_at`,
+      [name, email, "+919999000016", resolvedRole, roleId, passwordHash],
+    );
+    user = created.rows[0];
+  }
+  user.role = resolvedRole;
+  user.verification_status = "verified";
+  await strictCreateProfile(user.id, resolvedRole, {
+    name,
+    email,
+    enrollmentNo: "D/1605/2016",
+    stateBarCouncil: "Bar Council of Delhi",
+    practiceCourts: "Delhi HC, Saket, Tis Hazari",
+    practiceAreas: "Civil, Criminal",
+    yearsPractice: "8",
+    officeAddress: "Delhi",
+    collegeId: "CLC-2024-1605",
+    lawSchool: "Campus Law Centre, DU",
+    studyYear: "3",
+    address: "New Delhi",
+    aadhaarNumber: "XXXX XXXX 1605",
+  });
+  if (resolvedRole === "advocate") {
+    await db.query("UPDATE profile_advocates SET verification_status = 'verified' WHERE user_id = $1", [user.id]).catch(() => undefined);
+  } else if (resolvedRole === "intern") {
+    await db.query("UPDATE profile_interns SET verification_status = 'verified' WHERE user_id = $1", [user.id]).catch(() => undefined);
+  } else if (resolvedRole === "client") {
+    await db.query("UPDATE profile_clients SET verification_status = 'verified' WHERE user_id = $1", [user.id]).catch(() => undefined);
+  }
+  return user;
+}
+
 function strictHashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
@@ -5367,13 +5473,50 @@ async function handleLocalWorkspaceRoute(req, res, url) {
   return false;
 }
 
+async function completeMasterTestLogin(res, body) {
+  const email = normalizeEmail(body.email);
+  const role = masterTestRole(body.role);
+  const user = await ensureMasterTestUser(role);
+  const token = db.dbAvailable ? strictSignJwt(user) : encodeSession(user);
+  await saveSessionToken(user, token);
+  await writeAuditLog(user, "master_test_login", "user", user.id, `Master test login as ${role}.`, {
+    role,
+    emailMasked: maskEmail(email),
+  });
+  sendJson(res, 200, {
+    ok: true,
+    token,
+    user: {
+      ...strictPublicUser(user),
+      email,
+      verificationStatus: "verified",
+    },
+    masterTest: true,
+    message: `Signed in as ${role} with master test credentials.`,
+  });
+}
+
 async function handleStrictJwtAuthRoute(req, res, url) {
   const managedPath = url.pathname.startsWith('/api/auth/strict')
     || url.pathname.startsWith('/api/workspaces/')
     || url.pathname.startsWith('/api/chamber')
     || url.pathname.startsWith('/api/admin/verifications');
   if (!managedPath) return false;
+
   if (!db.dbAvailable) {
+    if (url.pathname === "/api/auth/strict/login" && req.method === "POST") {
+      const body = await readBody(req);
+      if (isMasterTestLogin(body.email, body.password)) {
+        try {
+          await completeMasterTestLogin(res, body);
+        } catch (error) {
+          sendJson(res, 500, { ok: false, error: error.message || "Master test login failed." });
+        }
+        return true;
+      }
+      sendJson(res, 503, { ok: false, error: "Database is required for secure authentication." });
+      return true;
+    }
     if (await handleLocalWorkspaceRoute(req, res, url)) return true;
     sendJson(res, 503, { ok: false, error: 'Database is required for secure authentication.' });
     return true;
@@ -5455,6 +5598,14 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const password = String(body.password || '');
     if (!email || !password) {
       sendJson(res, 400, { ok: false, error: 'Email and password are required.' });
+      return true;
+    }
+    if (isMasterTestLogin(email, password)) {
+      try {
+        await completeMasterTestLogin(res, body);
+      } catch (error) {
+        sendJson(res, 500, { ok: false, error: error.message || 'Master test login failed.' });
+      }
       return true;
     }
     const user = await strictUserByEmail(email);

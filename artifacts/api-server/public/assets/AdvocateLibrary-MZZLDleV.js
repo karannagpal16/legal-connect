@@ -1,1 +1,0 @@
-import{j as r}from"./index-CngIDVw1.js";import{LegalLibrary as o}from"./LegalLibrary-CjUSLOB3.js";import"./search-BK1uI5lY.js";import"./clock-D_tbPGr_.js";import"./external-link-CwGXZ1gY.js";import"./chevron-up-BclOCl1i.js";import"./chevron-down-D3SkxaVf.js";function s(){return r.jsx(o,{})}export{s as AdvocateLibrary};

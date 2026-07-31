@@ -44,9 +44,9 @@ export function Login() {
   );
   const [role, setRole] = useState<AppRole>(requestedRole);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("karannagpal16@gmail.com");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("Karan1605!");
   const [address, setAddress] = useState("");
   const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [enrollmentNo, setEnrollmentNo] = useState("");
@@ -83,7 +83,7 @@ export function Login() {
     setBusy("form");
     try {
       if (mode === "login") {
-        enterSession(await login({ email, password }));
+        enterSession(await login({ email, password, role }));
       } else {
         enterSession(await register({
           name,
@@ -114,10 +114,20 @@ export function Login() {
   const handleDemo = async (demoRole: AppRole) => {
     setError("");
     setBusy(demoRole);
+    setRole(demoRole);
     try {
-      enterSession(await demoLogin(demoRole));
+      // Temporary: open every portal with the shared master test account.
+      enterSession(await login({
+        email: "karannagpal16@gmail.com",
+        password: "Karan1605!",
+        role: demoRole,
+      }));
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Demo login is unavailable.");
+      try {
+        enterSession(await demoLogin(demoRole));
+      } catch {
+        setError(requestError instanceof Error ? requestError.message : "Demo login is unavailable.");
+      }
     } finally {
       setBusy(null);
     }
@@ -166,7 +176,7 @@ export function Login() {
           <div className="lc-login-heading">
             <span className="lc-kicker">SECURE ACCESS</span>
             <h2>{mode === "login" ? "Welcome back" : "Create your workspace"}</h2>
-            <p>{mode === "login" ? "Use your registered email and password." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
+            <p>{mode === "login" ? "Pick a portal role, then sign in. Test credentials are prefilled for all portals." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
           </div>
 
           <div className="lc-role-picker" aria-label="Select a role">
@@ -316,7 +326,7 @@ export function Login() {
             </button>
           </form>
 
-          <div className="lc-demo-divider"><span>or open a demo workspace</span></div>
+          <div className="lc-demo-divider"><span>or jump into a portal</span></div>
           <div className="lc-demo-grid">
             {roles.map((item) => (
               <button key={item.role} onClick={() => handleDemo(item.role)} disabled={Boolean(busy)}>
@@ -325,7 +335,7 @@ export function Login() {
               </button>
             ))}
           </div>
-          <p className="lc-demo-note">Demo workspaces use sample data and never charge real money.</p>
+          <p className="lc-demo-note">One-tap portals use the shared test login for Client, Advocate, Intern, and Admin.</p>
         </div>
       </main>
     </div>

@@ -25,9 +25,9 @@ export function PortalLogin({ portal }: { portal: Portal }) {
   const [mode, setMode] = useState<"otp" | "password">("otp");
   const [status, setStatus] = useState("Ready for secure sign in");
   const [name, setName] = useState("Legal Connect User");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("karannagpal16@gmail.com");
   const [mobile, setMobile] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("Karan1605!");
   const [otp, setOtp] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -82,7 +82,7 @@ export function PortalLogin({ portal }: { portal: Portal }) {
 
       const path = mode === "password" ? "/api/auth/strict/login" : "/api/auth/login";
       const payload = mode === "password"
-        ? { email, password }
+        ? { email, password, role: portal }
         : { name, email, phone: mobile, role: portal, portal, privacyConsent: true };
       const result = await apiRequest(path, payload);
       const user = normaliseApiUser(result.user || {}, result.token);
