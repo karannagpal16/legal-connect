@@ -290,6 +290,7 @@ function encodeSession(user) {
     id: user.id,
     name: user.name,
     role: user.role,
+    email: user.email || null,
     isReviewAccount: Boolean(user.isReviewAccount),
     reviewRoles: Array.isArray(user.reviewRoles) ? user.reviewRoles.filter((role) => REVIEW_ROLES.includes(role)) : undefined,
     iat: issuedAt,
@@ -1018,7 +1019,11 @@ async function activateBookingAsPaid(bookingId, authUser, meta = {}) {
         Number.isFinite(nextAmount) ? nextAmount : null,
       ],
     );
-    linkedCaseId = await ensurePaidBookingCase(bookingId);
+    try {
+      linkedCaseId = await ensurePaidBookingCase(bookingId);
+    } catch (error) {
+      console.warn("ensurePaidBookingCase failed after free/paid activation:", error.message || error);
+    }
   } else if (bookingId) {
     const booking = demoStore.bookings.find((item) => item.id === bookingId);
     if (booking) {
@@ -1034,12 +1039,16 @@ async function activateBookingAsPaid(bookingId, authUser, meta = {}) {
   }
   await writeAuditLog(
     authUser || { role: "system" },
-    meta.firstChatFree ? "first_chat_free_claimed" : "payment_verified",
+    meta.masterTestFree ? "master_test_free_claimed" : meta.firstChatFree ? "first_chat_free_claimed" : "payment_verified",
     "booking",
     bookingId,
-    meta.firstChatFree ? "First client chat claimed free." : "Payment verified.",
+    meta.masterTestFree
+      ? "Master test free booking activated."
+      : meta.firstChatFree
+        ? "First client chat claimed free."
+        : "Payment verified.",
     meta,
-  );
+  ).catch(() => undefined);
   return linkedCaseId;
 }
 
@@ -3942,90 +3951,40 @@ const server = http.createServer(async (req, res) => {
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
     const paymentStatus = paymentConfigStatus();
     const wantsFirstChatFree = Boolean(body.firstChatFree || body.mode === "first_chat_free");
+    const wantsMasterFree = Boolean(body.masterTestFree || body.mode === "master_test_free");
     const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
+    const masterFree = authUser ? await isMasterTestUser(authUser) : false;
 
-    if (authUser && await isMasterTestUser(authUser)) {
-      const bookingId = body.bookingId || body.booking_id;
-      let linkedCaseId = null;
-      if (bookingId) {
-        linkedCaseId = await activateBookingAsPaid(bookingId, authUser, {
-          masterTestFree: true,
-          amount: 0,
-          paymentMode: "master_test_free",
-        });
-        await recordPaymentEvent({
-          userId: authUser.id,
-          bookingId,
-          amount: 0,
-          currency: "INR",
-          status: "paid",
-          workHoldStatus: "active",
-          payload: { masterTestFree: true, caseId: linkedCaseId },
-        }).catch(() => undefined);
-      }
-      sendJson(res, 200, {
-        ok: true,
-        success: true,
-        mode: "master_test_free",
-        provider: "legal-connect",
-        status: "free",
-        payment_status: "paid",
-        work_hold_status: "active",
-        amount: 0,
-        currency: "INR",
-        receipt: body.receiptNo || body.receipt_no || `LC-MASTER-${Date.now()}`,
-        caseId: linkedCaseId,
-        message: "Master test account — all client payments are free.",
-      });
-      return;
-    }
-
-    if (wantsFirstChatFree) {
-      if (!authUser) {
-        sendJson(res, 401, { ok: false, error: "Sign in required to claim the free first chat." });
+    // Zero-amount / master / first-chat free — never call Razorpay.
+    if (authUser && (masterFree || wantsMasterFree || wantsFirstChatFree || amount === 0)) {
+      if (masterFree || wantsMasterFree) {
+        const claimed = await claimFreeBooking(authUser, body, "master_test_free");
+        sendJson(res, claimed.status, claimed.ok ? claimed.body : { ok: false, error: claimed.error });
         return;
       }
-      if (channel && channel !== "chat") {
-        sendJson(res, 400, { ok: false, error: "Free trial applies only to the Secure chat channel." });
+      if (wantsFirstChatFree || (amount === 0 && channel === "chat")) {
+        if (channel && channel !== "chat") {
+          sendJson(res, 400, { ok: false, error: "Free trial applies only to the Secure chat channel." });
+          return;
+        }
+        if (await userHasUsedFirstChat(authUser.id)) {
+          // Still allow zero-amount retry to complete an already-activated free booking.
+          const bookingId = body.bookingId || body.booking_id;
+          if (bookingId) {
+            const claimed = await claimFreeBooking(authUser, body, "first_chat_free");
+            if (claimed.ok) {
+              sendJson(res, 200, { ...claimed.body, message: "Free chat booking confirmed." });
+              return;
+            }
+          }
+          sendJson(res, 409, { ok: false, error: "Your free first chat has already been used. Please pay to continue." });
+          return;
+        }
+        const claimed = await claimFreeBooking(authUser, body, "first_chat_free");
+        sendJson(res, claimed.status, claimed.ok ? claimed.body : { ok: false, error: claimed.error });
         return;
       }
-      if (await userHasUsedFirstChat(authUser.id)) {
-        sendJson(res, 409, { ok: false, error: "Your free first chat has already been used. Please pay to continue." });
-        return;
-      }
-      const bookingId = body.bookingId || body.booking_id;
-      if (!bookingId) {
-        sendJson(res, 400, { ok: false, error: "Booking id is required for free first chat." });
-        return;
-      }
-      const linkedCaseId = await activateBookingAsPaid(bookingId, authUser, {
-        firstChatFree: true,
-        amount: 0,
-        paymentMode: "first_chat_free",
-      });
-      await recordPaymentEvent({
-        userId: authUser.id,
-        bookingId,
-        amount: 0,
-        currency: "INR",
-        status: "paid",
-        workHoldStatus: "active",
-        payload: { firstChatFree: true, caseId: linkedCaseId },
-      }).catch(() => undefined);
-      sendJson(res, 200, {
-        ok: true,
-        success: true,
-        mode: "first_chat_free",
-        provider: "legal-connect",
-        status: "free",
-        payment_status: "paid",
-        work_hold_status: "active",
-        amount: 0,
-        currency: "INR",
-        receipt: body.receiptNo || body.receipt_no || `LC-FREE-${Date.now()}`,
-        caseId: linkedCaseId,
-        message: "Your first chat is free. Explore Legal Connect — later chats are paid.",
-      });
+      sendJson(res, 400, { ok: false, error: "A free claim is not available for this booking." });
       return;
     }
 
@@ -5229,12 +5188,66 @@ function isMasterTestEmail(email) {
 async function isMasterTestUser(authUser) {
   if (!authUser) return false;
   if (isMasterTestEmail(authUser.email)) return true;
-  if (db.dbAvailable && authUser.id && isUuid(authUser.id)) {
-    const result = await db.query("SELECT email FROM users WHERE id = $1 LIMIT 1", [authUser.id]).catch(() => null);
-    if (isMasterTestEmail(result?.rows?.[0]?.email)) return true;
+  try {
+    if (db.dbAvailable && authUser.id) {
+      const userId = isUuid(authUser.id) ? authUser.id : await resolveDatabaseUserId(authUser);
+      if (userId) {
+        const result = await db.query("SELECT email FROM users WHERE id = $1 LIMIT 1", [userId]);
+        if (isMasterTestEmail(result.rows[0]?.email)) return true;
+      }
+    }
+  } catch {
+    /* fall through */
   }
   const demo = (demoStore.users || []).find((item) => String(item.id) === String(authUser.id));
   return isMasterTestEmail(demo?.email);
+}
+
+async function claimFreeBooking(authUser, body, reason = "free") {
+  const bookingId = body.bookingId || body.booking_id;
+  if (!bookingId) {
+    return { ok: false, status: 400, error: "Booking id is required for a free claim." };
+  }
+  try {
+    const linkedCaseId = await activateBookingAsPaid(bookingId, authUser, {
+      firstChatFree: reason === "first_chat_free",
+      masterTestFree: reason === "master_test_free",
+      amount: 0,
+      paymentMode: reason,
+    });
+    await recordPaymentEvent({
+      userId: authUser.id,
+      bookingId,
+      amount: 0,
+      currency: "INR",
+      provider: "legal-connect",
+      status: "paid",
+      workHoldStatus: "active",
+      payload: { reason, caseId: linkedCaseId },
+    }).catch(() => undefined);
+    return {
+      ok: true,
+      status: 200,
+      body: {
+        ok: true,
+        success: true,
+        mode: reason,
+        provider: "legal-connect",
+        status: "free",
+        payment_status: "paid",
+        work_hold_status: "active",
+        amount: 0,
+        currency: "INR",
+        receipt: body.receiptNo || body.receipt_no || `LC-FREE-${Date.now()}`,
+        caseId: linkedCaseId,
+        message: reason === "master_test_free"
+          ? "Master test account — all client payments are free."
+          : "Free booking activated.",
+      },
+    };
+  } catch (error) {
+    return { ok: false, status: 500, error: error.message || "Free booking could not be activated." };
+  }
 }
 
 function masterTestRole(requested) {
@@ -5550,6 +5563,7 @@ function strictPublicUser(row) {
   return {
     id: row.id,
     name: row.name || row.email || 'Legal Connect User',
+    email: row.email || null,
     emailMasked: maskEmail(row.email),
     phoneMasked: maskPhone(row.phone),
     role: row.role || 'client',

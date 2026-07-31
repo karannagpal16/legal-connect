@@ -1,0 +1,1 @@
+import{j as o}from"./index-C9X4W8IF.js";import{L as t}from"./LawBot-WfZ4Koya.js";import"./bot-DUuDRxJO.js";import"./lock-Dwu59Uj_.js";import"./send-BB4rxCYK.js";function p(){return o.jsx(t,{audience:"advocate"})}export{p as AdvocateLawBot};
