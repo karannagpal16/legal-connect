@@ -75,6 +75,36 @@ function ensureWebAssets() {
   throw new Error(`Frontend assets could not be built: ${lastError}`);
 }
 
+function createDemoBookings(createdAt = new Date().toISOString()) {
+  return [
+    {
+      id: "BK-9012",
+      userId: "demo-client",
+      clientName: "Priya Sharma",
+      clientEmail: "client@demo.legal-connect.in",
+      clientPhone: "+91 98765 43210",
+      serviceType: "Attorney Shield Consultation",
+      amount: 1999,
+      paymentStatus: "paid",
+      receiptNo: "LC-REC-9012",
+      caseTitle: "Property Title Dispute & Notice Reply",
+      caseNumber: "DL-HC/2026/8941",
+      courtName: "Delhi High Court",
+      caseType: "Property",
+      problemSummary: "Seller issued conflicting title notice. Require urgent advocate strategy review and legal reply notice.",
+      attachedFiles: [
+        { name: "Legal_Notice_2026.pdf", label: "Legal Notice", url: "#" },
+        { name: "Sale_Agreement_Draft.pdf", label: "Agreement Copy", url: "#" }
+      ],
+      stageStatus: "advocate_connected",
+      assignedAdvocateId: "demo-advocate",
+      assignedAdvocateName: "Adv. Rishika Nagpal",
+      workHoldStatus: "pending",
+      createdAt,
+    }
+  ];
+}
+
 function createLocalDemoStore() {
   const now = new Date().toISOString();
   return {
@@ -84,33 +114,7 @@ function createLocalDemoStore() {
       { id: "demo-advocate", name: "Demo Lawyer", email: "lawyer@demo.legal-connect.in", phone: "+919999900002", role: "advocate", createdAt: now },
       { id: "demo-intern", name: "Demo Intern", email: "intern@demo.legal-connect.in", phone: "+919999900003", role: "intern", createdAt: now },
     ],
-    bookings: [
-      {
-        id: "BK-9012",
-        userId: "demo-client",
-        clientName: "Priya Sharma",
-        clientEmail: "client@demo.legal-connect.in",
-        clientPhone: "+91 98765 43210",
-        serviceType: "Attorney Shield Consultation",
-        amount: 1999,
-        paymentStatus: "paid",
-        receiptNo: "LC-REC-9012",
-        caseTitle: "Property Title Dispute & Notice Reply",
-        caseNumber: "DL-HC/2026/8941",
-        courtName: "Delhi High Court",
-        caseType: "Property",
-        problemSummary: "Seller issued conflicting title notice. Require urgent advocate strategy review and legal reply notice.",
-        attachedFiles: [
-          { name: "Legal_Notice_2026.pdf", label: "Legal Notice", url: "#" },
-          { name: "Sale_Agreement_Draft.pdf", label: "Agreement Copy", url: "#" }
-        ],
-        stageStatus: "advocate_connected",
-        assignedAdvocateId: "demo-advocate",
-        assignedAdvocateName: "Adv. Rishika Nagpal",
-        workHoldStatus: "pending",
-        createdAt: now,
-      }
-    ],
+    bookings: createDemoBookings(now),
     cases: [
       {
         id: "case-demo-1",
@@ -5285,7 +5289,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
       },
       cases,
-      paidIntakes: useDemo ? demoStore.bookings.map(dashboardBooking) : bookingsResult.rows.map(mapBooking),
+      paidIntakes: useDemo ? createDemoBookings().map(dashboardBooking) : bookingsResult.rows.map(mapBooking),
       chamber: chamberResult.rows[0] ? { id: chamberId, name: chamberResult.rows[0].name, members: membersResult.rows, tasks: tasksResult.rows } : null,
       dataMode: useDemo ? 'sample' : 'live',
     });
