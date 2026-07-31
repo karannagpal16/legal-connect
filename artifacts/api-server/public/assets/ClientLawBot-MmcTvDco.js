@@ -1,1 +1,0 @@
-import{j as t}from"./index-BEsznLWA.js";import{L as o}from"./LawBot-BBH42qt7.js";import"./bot-CvThCWEJ.js";import"./lock-BuoHjSUN.js";import"./send-IU5Ugaq3.js";function p(){return t.jsx(o,{audience:"client"})}export{p as ClientLawBot};

@@ -1,8 +1,27 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BriefcaseBusiness, CheckCircle2, Clock3, Plus, RefreshCw, UserPlus, UsersRound } from "lucide-react";
+import {
+  AlertTriangle,
+  BriefcaseBusiness,
+  CheckCircle2,
+  Clock3,
+  IndianRupee,
+  Loader2,
+  LockKeyhole,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  UserPlus,
+  UsersRound,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
 
 interface ChamberMember {
   id: string;
@@ -23,9 +42,46 @@ interface ChamberTask {
   updated_at: string;
 }
 
+interface ChamberPlan {
+  id: string;
+  name: string;
+  amount: number;
+  periodDays: number;
+  seats: number;
+  maxOpenTasks: number | null;
+  tagline: string;
+  profitNote: string;
+  perks: string[];
+}
+
+interface ChamberSubscription {
+  active: boolean;
+  required: boolean;
+  planId?: string | null;
+  planName?: string | null;
+  status?: string;
+  paidUntil?: string | null;
+  seats?: number;
+  maxOpenTasks?: number | null;
+  masterTestFree?: boolean;
+  plans: ChamberPlan[];
+}
+
 interface ChamberResponse {
   ok: boolean;
   chamber: { id: string; name: string; members: ChamberMember[]; tasks: ChamberTask[] };
+  subscription: ChamberSubscription;
+}
+
+async function loadRazorpay() {
+  if (window.Razorpay) return true;
+  return new Promise<boolean>((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
 }
 
 export function ChamberVault() {
@@ -33,6 +89,9 @@ export function ChamberVault() {
   const queryClient = useQueryClient();
   const [member, setMember] = useState({ displayName: "", email: "", memberRole: "associate" });
   const [task, setTask] = useState({ title: "", details: "", assigneeName: "", priority: "normal", dueAt: "" });
+  const [buyingPlan, setBuyingPlan] = useState<string | null>(null);
+  const [payError, setPayError] = useState("");
+
   const query = useQuery({
     queryKey: ["chamber-vault", session?.user.id],
     queryFn: () => workspaceRequest<ChamberResponse>("/api/chamber", session?.token),
@@ -40,6 +99,7 @@ export function ChamberVault() {
     staleTime: 5_000,
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["chamber-vault", session?.user.id] });
+
   const memberMutation = useMutation({
     mutationFn: () => workspaceRequest("/api/chamber/members", session?.token, { method: "POST", body: JSON.stringify(member) }),
     onSuccess: () => { setMember({ displayName: "", email: "", memberRole: "associate" }); refresh(); },
@@ -68,22 +128,170 @@ export function ChamberVault() {
   const submitMember = (event: FormEvent) => { event.preventDefault(); memberMutation.mutate(); };
   const submitTask = (event: FormEvent) => { event.preventDefault(); taskMutation.mutate(); };
 
+  const activatePlan = async (planId: string) => {
+    setBuyingPlan(planId);
+    setPayError("");
+    try {
+      const order = await workspaceRequest<any>("/api/chamber/subscription/create-order", session?.token, {
+        method: "POST",
+        body: JSON.stringify({ planId }),
+      });
+      if (order.mode === "master_test_free" || order.mode === "demo") {
+        if (order.mode === "demo") {
+          await workspaceRequest("/api/chamber/subscription/verify", session?.token, {
+            method: "POST",
+            body: JSON.stringify({
+              planId,
+              order_id: order.order_id,
+              payment_id: `pay_demo_${Date.now()}`,
+              signature: "demo",
+            }),
+          });
+        }
+        await refresh();
+        return;
+      }
+      if (!order.order_id || !order.key_id) throw new Error("Subscription order could not be created.");
+      const loaded = await loadRazorpay();
+      if (!loaded || !window.Razorpay) throw new Error("Secure checkout could not be loaded.");
+      const checkout = new window.Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        order_id: order.order_id,
+        name: "Legal Connect",
+        description: `Chamber Vault — ${order.planName || planId}`,
+        prefill: {
+          name: session?.user.name || "Advocate",
+          ...(session?.user.email ? { email: session.user.email } : {}),
+        },
+        theme: { color: "#a87928" },
+        handler: async (response: any) => {
+          try {
+            await workspaceRequest("/api/chamber/subscription/verify", session?.token, {
+              method: "POST",
+              body: JSON.stringify({
+                planId,
+                order_id: response.razorpay_order_id,
+                payment_id: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              }),
+            });
+            await refresh();
+          } catch (error) {
+            setPayError(error instanceof Error ? error.message : "Subscription verification failed.");
+          } finally {
+            setBuyingPlan(null);
+          }
+        },
+        modal: { ondismiss: () => setBuyingPlan(null) },
+      });
+      checkout.open();
+    } catch (error) {
+      setPayError(error instanceof Error ? error.message : "Could not start subscription checkout.");
+      setBuyingPlan(null);
+    }
+  };
+
   if (query.isLoading) return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Unlocking Chamber Vault...</p></div>;
   if (query.isError) return <section className="lc-workspace-error"><AlertTriangle /><div><h2>Chamber Vault unavailable</h2><p>{query.error.message}</p></div><button className="lc-button lc-button-primary" onClick={() => query.refetch()}><RefreshCw /> Retry</button></section>;
   if (!query.data) return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Preparing the chamber ledger...</p></div>;
 
   const chamber = query.data.chamber;
+  const subscription = query.data.subscription;
   const openTasks = chamber.tasks.filter((item) => item.status !== "completed");
+  const plans = subscription.plans?.length
+    ? subscription.plans
+    : [
+        { id: "core", name: "Chamber Core", amount: 500, periodDays: 30, seats: 2, maxOpenTasks: 25, tagline: "Start the ledger", profitNote: "Base SaaS", perks: ["Owner + 2 members", "25 open tasks"] },
+        { id: "growth", name: "Chamber Growth", amount: 1499, periodDays: 30, seats: 8, maxOpenTasks: null, tagline: "Scale the practice", profitNote: "Higher ARPU", perks: ["Owner + 8 members", "Unlimited tasks"] },
+        { id: "chambers_plus", name: "Chambers+", amount: 2499, periodDays: 30, seats: 20, maxOpenTasks: null, tagline: "Maximum profit", profitNote: "Top margin", perks: ["Owner + 20 members", "Audit export"] },
+      ];
+
+  if (subscription.required) {
+    return (
+      <div className="lc-workspace-page">
+        <section className="lc-vault-heading">
+          <div>
+            <span className="lc-kicker">CHAMBER VAULT SUBSCRIPTION</span>
+            <h2>Unlock {chamber.name}</h2>
+            <p>Pay monthly for the private practice ledger. Start at ₹500 — upgrade packages that grow chamber profit.</p>
+          </div>
+          <span className="lc-live-badge"><LockKeyhole className="h-3.5 w-3.5" /> Paid access</span>
+        </section>
+
+        {payError && (
+          <div className="lc-form-error" role="alert" style={{ marginBottom: "1rem" }}>
+            <AlertTriangle /> {payError}
+          </div>
+        )}
+
+        <section className="lc-vault-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+          {plans.map((plan) => {
+            const featured = plan.id === "growth";
+            return (
+              <article
+                key={plan.id}
+                className="lc-operational-panel"
+                style={{
+                  borderColor: featured ? "rgba(168,121,40,0.55)" : undefined,
+                  boxShadow: featured ? "0 12px 40px rgba(168,121,40,0.12)" : undefined,
+                }}
+              >
+                <header>
+                  <div>
+                    <span>{plan.tagline}</span>
+                    <h2>{plan.name}</h2>
+                  </div>
+                  {featured ? <Sparkles /> : <IndianRupee />}
+                </header>
+                <p style={{ fontSize: "1.75rem", fontWeight: 800, margin: "0.5rem 0" }}>
+                  ₹{plan.amount.toLocaleString("en-IN")}
+                  <small style={{ fontSize: "0.85rem", fontWeight: 500, opacity: 0.6 }}> / month</small>
+                </p>
+                <p style={{ fontSize: "0.8rem", opacity: 0.65, marginBottom: "0.75rem" }}>{plan.profitNote}</p>
+                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 1.25rem", display: "grid", gap: "0.45rem" }}>
+                  {plan.perks.map((perk) => (
+                    <li key={perk} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", fontSize: "0.9rem" }}>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" style={{ marginTop: 2 }} />
+                      <span>{perk}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className={`lc-button ${featured ? "lc-button-primary" : "lc-button-secondary"} lc-button-full`}
+                  disabled={Boolean(buyingPlan)}
+                  onClick={() => activatePlan(plan.id)}
+                >
+                  {buyingPlan === plan.id ? <Loader2 className="lc-spin" /> : <IndianRupee />}
+                  {buyingPlan === plan.id ? "Opening checkout..." : `Activate ${plan.name}`}
+                </button>
+              </article>
+            );
+          })}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="lc-workspace-page">
       <section className="lc-vault-heading">
-        <div><span className="lc-kicker">PRIVATE PRACTICE OPERATIONS</span><h2>{chamber.name}</h2><p>Delegate work, record acceptance, and see who owns each next action.</p></div>
-        <span className="lc-live-badge"><i /> Live ledger</span>
+        <div>
+          <span className="lc-kicker">PRIVATE PRACTICE OPERATIONS</span>
+          <h2>{chamber.name}</h2>
+          <p>Delegate work, record acceptance, and see who owns each next action.</p>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          <span className="lc-live-badge"><i /> {subscription.masterTestFree ? "Master free · Chambers+" : `${subscription.planName || "Active"} · Live`}</span>
+          {subscription.paidUntil && !subscription.masterTestFree && (
+            <span className="lc-live-badge">Until {new Date(subscription.paidUntil).toLocaleDateString("en-IN")}</span>
+          )}
+        </div>
       </section>
 
       <section className="lc-workspace-metrics">
-        <div><UsersRound /><span><strong>{chamber.members.length}</strong><small>Members</small></span></div>
+        <div><UsersRound /><span><strong>{chamber.members.length}</strong><small>Members{subscription.seats ? ` / ${subscription.seats}` : ""}</small></span></div>
         <div><BriefcaseBusiness /><span><strong>{openTasks.length}</strong><small>Open tasks</small></span></div>
         <div><Clock3 /><span><strong>{openTasks.filter((item) => item.status === "in_progress").length}</strong><small>In progress</small></span></div>
         <div><CheckCircle2 /><span><strong>{chamber.tasks.filter((item) => item.status === "completed").length}</strong><small>Completed</small></span></div>

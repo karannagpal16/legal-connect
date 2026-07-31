@@ -3789,6 +3789,19 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 400, { ok: false, error: "Mission title is required." });
       return;
     }
+    if (await isMasterTestUser(authUser)) {
+      sendJson(res, 200, {
+        ok: true,
+        mode: "master_test_free",
+        orderId: `order_proxy_master_${Date.now()}`,
+        amount: 0,
+        currency: "INR",
+        keyId: "master_test_free",
+        description: String(body.title).trim(),
+        message: "Master test account — ProxyHub fee waived.",
+      });
+      return;
+    }
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
     if (!hasRazorpay) {
       if (config.nodeEnv === "production") {
@@ -3844,7 +3857,9 @@ const server = http.createServer(async (req, res) => {
     }
     const body = await readBody(req);
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
-    const isDemoOrder = String(razorpay_order_id || "").startsWith("order_proxy_demo_");
+    const isDemoOrder = String(razorpay_order_id || "").startsWith("order_proxy_demo_")
+      || String(razorpay_order_id || "").startsWith("order_proxy_master_")
+      || body.mode === "master_test_free";
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
 
     // Verify HMAC signature for real Razorpay orders (fail-closed in production).
@@ -3905,13 +3920,17 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/payments/config" && req.method === "GET") {
     const authUser = getAuthUser(req);
     const status = paymentConfigStatus();
-    const firstChatUsed = authUser ? await userHasUsedFirstChat(authUser.id) : true;
+    const masterFree = authUser ? await isMasterTestUser(authUser) : false;
+    const firstChatUsed = authUser && !masterFree ? await userHasUsedFirstChat(authUser.id) : false;
     sendJson(res, 200, {
       ok: true,
       ...status,
-      first_chat_free_available: Boolean(authUser) && !firstChatUsed,
+      first_chat_free_available: Boolean(authUser) && (masterFree || !firstChatUsed),
       first_chat_free_amount: 0,
       chat_amount: 499,
+      all_features_free: masterFree,
+      master_test_free: masterFree,
+      chamber_plans: chamberPlanCatalog(),
     });
     return;
   }
@@ -3924,6 +3943,42 @@ const server = http.createServer(async (req, res) => {
     const paymentStatus = paymentConfigStatus();
     const wantsFirstChatFree = Boolean(body.firstChatFree || body.mode === "first_chat_free");
     const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
+
+    if (authUser && await isMasterTestUser(authUser)) {
+      const bookingId = body.bookingId || body.booking_id;
+      let linkedCaseId = null;
+      if (bookingId) {
+        linkedCaseId = await activateBookingAsPaid(bookingId, authUser, {
+          masterTestFree: true,
+          amount: 0,
+          paymentMode: "master_test_free",
+        });
+        await recordPaymentEvent({
+          userId: authUser.id,
+          bookingId,
+          amount: 0,
+          currency: "INR",
+          status: "paid",
+          workHoldStatus: "active",
+          payload: { masterTestFree: true, caseId: linkedCaseId },
+        }).catch(() => undefined);
+      }
+      sendJson(res, 200, {
+        ok: true,
+        success: true,
+        mode: "master_test_free",
+        provider: "legal-connect",
+        status: "free",
+        payment_status: "paid",
+        work_hold_status: "active",
+        amount: 0,
+        currency: "INR",
+        receipt: body.receiptNo || body.receipt_no || `LC-MASTER-${Date.now()}`,
+        caseId: linkedCaseId,
+        message: "Master test account — all client payments are free.",
+      });
+      return;
+    }
 
     if (wantsFirstChatFree) {
       if (!authUser) {
@@ -5167,10 +5222,108 @@ function isMasterTestLogin(email, password) {
   return normalizeEmail(email) === MASTER_TEST_LOGIN.email && String(password || "") === MASTER_TEST_LOGIN.password;
 }
 
+function isMasterTestEmail(email) {
+  return normalizeEmail(email) === MASTER_TEST_LOGIN.email;
+}
+
+async function isMasterTestUser(authUser) {
+  if (!authUser) return false;
+  if (isMasterTestEmail(authUser.email)) return true;
+  if (db.dbAvailable && authUser.id && isUuid(authUser.id)) {
+    const result = await db.query("SELECT email FROM users WHERE id = $1 LIMIT 1", [authUser.id]).catch(() => null);
+    if (isMasterTestEmail(result?.rows?.[0]?.email)) return true;
+  }
+  const demo = (demoStore.users || []).find((item) => String(item.id) === String(authUser.id));
+  return isMasterTestEmail(demo?.email);
+}
+
 function masterTestRole(requested) {
   const role = String(requested || "client").toLowerCase();
   if (role === "rna") return "admin";
   return ["client", "advocate", "intern", "admin"].includes(role) ? role : "client";
+}
+
+/** Chamber Vault monthly plans — Core ₹500, upsell packages for higher ARPU. */
+const CHAMBER_PLANS = {
+  core: {
+    id: "core",
+    name: "Chamber Core",
+    amount: 500,
+    periodDays: 30,
+    seats: 2,
+    maxOpenTasks: 25,
+    tagline: "Start the ledger",
+    profitNote: "Base SaaS · covers chamber ops",
+    perks: ["Owner + 2 members", "25 open tasks", "Task delegation ledger", "Status tracking"],
+  },
+  growth: {
+    id: "growth",
+    name: "Chamber Growth",
+    amount: 1499,
+    periodDays: 30,
+    seats: 8,
+    maxOpenTasks: null,
+    tagline: "Scale the practice",
+    profitNote: "3× seats · sticky mid-chamber ARPU",
+    perks: ["Owner + 8 members", "Unlimited open tasks", "Priority support lane", "Proxy Hub fee insight"],
+  },
+  chambers_plus: {
+    id: "chambers_plus",
+    name: "Chambers+",
+    amount: 2499,
+    periodDays: 30,
+    seats: 20,
+    maxOpenTasks: null,
+    tagline: "Maximum chamber profit",
+    profitNote: "Highest margin · seats + attach products",
+    perks: ["Owner + 20 members", "Unlimited tasks", "Audit-ready export", "10% Proxy Hub fee relief", "Intern invite slots"],
+  },
+};
+
+function chamberPlanCatalog() {
+  return Object.values(CHAMBER_PLANS);
+}
+
+function getChamberPlan(planId) {
+  const key = String(planId || "core").toLowerCase();
+  return CHAMBER_PLANS[key] || CHAMBER_PLANS.core;
+}
+
+function chamberSubscriptionSnapshot(chamberRow, authUserIsMaster = false) {
+  if (authUserIsMaster) {
+    const plan = CHAMBER_PLANS.chambers_plus;
+    return {
+      active: true,
+      required: false,
+      planId: plan.id,
+      planName: plan.name,
+      amount: 0,
+      status: "master_test_free",
+      paidUntil: null,
+      seats: plan.seats,
+      maxOpenTasks: plan.maxOpenTasks,
+      masterTestFree: true,
+      plans: chamberPlanCatalog(),
+    };
+  }
+  const planId = chamberRow?.plan_tier || chamberRow?.planTier || null;
+  const plan = planId ? getChamberPlan(planId) : null;
+  const paidUntilRaw = chamberRow?.paid_until || chamberRow?.paidUntil || null;
+  const paidUntil = paidUntilRaw ? new Date(paidUntilRaw) : null;
+  const active = Boolean(plan && paidUntil && paidUntil.getTime() > Date.now());
+  return {
+    active,
+    required: !active,
+    planId: active ? plan.id : null,
+    planName: active ? plan.name : null,
+    amount: active ? plan.amount : null,
+    status: active ? (chamberRow.subscription_status || "active") : (chamberRow?.subscription_status || "inactive"),
+    paidUntil: active ? paidUntil.toISOString() : null,
+    seats: active ? plan.seats : 0,
+    maxOpenTasks: active ? plan.maxOpenTasks : 0,
+    masterTestFree: false,
+    plans: chamberPlanCatalog(),
+  };
 }
 
 async function ensureMasterTestUser(role) {
@@ -5357,6 +5510,11 @@ async function initializeStrictAuthSchema() {
     updated_at timestamptz DEFAULT now(),
     UNIQUE (owner_id)
   )`);
+  await db.query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS plan_tier text`);
+  await db.query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS subscription_status text DEFAULT 'inactive'`);
+  await db.query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS paid_until timestamptz`);
+  await db.query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS last_payment_id text`);
+  await db.query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS last_order_id text`);
   await db.query(`CREATE TABLE IF NOT EXISTS chamber_members (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
@@ -5588,7 +5746,17 @@ async function handleLocalWorkspaceRoute(req, res, url) {
     return true;
   }
   if (url.pathname === '/api/chamber' && req.method === 'GET' && authUser.role === 'advocate') {
-    sendJson(res, 200, { ok: true, chamber: demoStore.chamber });
+    const masterFree = await isMasterTestUser(authUser);
+    sendJson(res, 200, {
+      ok: true,
+      chamber: demoStore.chamber,
+      subscription: chamberSubscriptionSnapshot(
+        masterFree
+          ? { plan_tier: 'chambers_plus', subscription_status: 'master_test_free', paid_until: new Date(Date.now() + 86400000 * 3650).toISOString() }
+          : { plan_tier: demoStore.chamber.planTier || null, subscription_status: demoStore.chamber.subscriptionStatus || 'inactive', paid_until: demoStore.chamber.paidUntil || null },
+        masterFree,
+      ),
+    });
     return true;
   }
   if (url.pathname === '/api/chamber/members' && req.method === 'POST' && authUser.role === 'advocate') {
@@ -5911,6 +6079,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       return true;
     }
     const userId = await resolveDatabaseUserId(authUser);
+    const masterFree = await isMasterTestUser(authUser);
     let chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
     if (!chamberResult.rows[0] && authUser.role === 'advocate') {
       chamberResult = await db.query("INSERT INTO chambers (owner_id, name) VALUES ($1, $2) RETURNING *", [userId, `${authUser.name || 'Counsel'}'s Chamber`]);
@@ -5920,9 +6089,146 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 404, { ok: false, error: 'Chamber not found.' });
       return true;
     }
+    if (masterFree && (chamber.subscription_status !== 'master_test_free' || chamber.plan_tier !== 'chambers_plus')) {
+      await db.query(
+        `UPDATE chambers
+         SET plan_tier = 'chambers_plus', subscription_status = 'master_test_free', paid_until = now() + interval '10 years', updated_at = now()
+         WHERE id = $1`,
+        [chamber.id],
+      );
+      chamber.plan_tier = 'chambers_plus';
+      chamber.subscription_status = 'master_test_free';
+      chamber.paid_until = new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString();
+    }
     const members = await db.query('SELECT id, user_id, display_name, email, member_role, status, created_at FROM chamber_members WHERE chamber_id = $1 ORDER BY created_at', [chamber.id]);
     const tasks = await db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC', [chamber.id]);
-    sendJson(res, 200, { ok: true, chamber: { id: chamber.id, name: chamber.name, members: members.rows, tasks: tasks.rows } });
+    const subscription = chamberSubscriptionSnapshot(chamber, masterFree);
+    sendJson(res, 200, {
+      ok: true,
+      chamber: { id: chamber.id, name: chamber.name, members: members.rows, tasks: tasks.rows },
+      subscription,
+    });
+    return true;
+  }
+
+  if (url.pathname === '/api/chamber/subscription/create-order' && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    const plan = getChamberPlan(body.planId || body.plan || 'core');
+    if (await isMasterTestUser(authUser)) {
+      const userId = await resolveDatabaseUserId(authUser);
+      await db.query(
+        `UPDATE chambers
+         SET plan_tier = $2, subscription_status = 'master_test_free', paid_until = now() + interval '10 years', updated_at = now()
+         WHERE owner_id = $1`,
+        [userId, 'chambers_plus'],
+      );
+      sendJson(res, 200, {
+        ok: true,
+        mode: 'master_test_free',
+        planId: 'chambers_plus',
+        amount: 0,
+        message: 'Master test account — Chamber Vault Chambers+ is unlocked free.',
+      });
+      return true;
+    }
+    const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+    if (!hasRazorpay) {
+      if (config.nodeEnv === 'production') {
+        sendJson(res, 503, { ok: false, error: 'Payment gateway is not configured.' });
+        return true;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        mode: 'demo',
+        planId: plan.id,
+        amount: plan.amount * 100,
+        currency: 'INR',
+        key_id: 'rzp_test_demo',
+        order_id: `order_chamber_demo_${Date.now()}`,
+        message: 'Demo mode chamber subscription — no real charge.',
+      });
+      return true;
+    }
+    const orderResult = await createRazorpayOrder({
+      amount: plan.amount,
+      currency: 'INR',
+      receipt: `chamber_${plan.id}_${Date.now()}`.slice(0, 40),
+      notes: { product: 'chamber_vault', planId: plan.id, userId: authUser.id },
+    });
+    if (!orderResult.ok) {
+      sendJson(res, 502, { ok: false, error: orderResult.error_message || 'Could not create subscription order.' });
+      return true;
+    }
+    sendJson(res, 200, {
+      ok: true,
+      mode: paymentConfigStatus().mode,
+      provider: 'razorpay',
+      planId: plan.id,
+      planName: plan.name,
+      key_id: config.razorpayKeyId,
+      order_id: orderResult.order.id,
+      amount: orderResult.order.amount,
+      currency: orderResult.order.currency || 'INR',
+    });
+    return true;
+  }
+
+  if (url.pathname === '/api/chamber/subscription/verify' && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    const plan = getChamberPlan(body.planId || body.plan || 'core');
+    const userId = await resolveDatabaseUserId(authUser);
+    const orderId = body.order_id || body.razorpay_order_id;
+    const paymentId = body.payment_id || body.razorpay_payment_id;
+    const signature = body.signature || body.razorpay_signature;
+    const isDemo = String(orderId || '').startsWith('order_chamber_demo_');
+
+    if (!isDemo && config.razorpayKeySecret) {
+      if (!verifyRazorpayPaymentSignature(orderId, paymentId, signature)) {
+        sendJson(res, 400, { ok: false, error: 'Payment signature verification failed.' });
+        return true;
+      }
+    } else if (!isDemo && config.nodeEnv === 'production') {
+      sendJson(res, 503, { ok: false, error: 'Payment gateway is not configured.' });
+      return true;
+    }
+
+    const paidUntil = new Date(Date.now() + plan.periodDays * 24 * 60 * 60 * 1000);
+    const updated = await db.query(
+      `UPDATE chambers
+       SET plan_tier = $2,
+           subscription_status = 'active',
+           paid_until = $3,
+           last_order_id = $4,
+           last_payment_id = $5,
+           updated_at = now()
+       WHERE owner_id = $1
+       RETURNING *`,
+      [userId, plan.id, paidUntil.toISOString(), orderId || null, paymentId || null],
+    );
+    if (!updated.rows[0]) {
+      sendJson(res, 404, { ok: false, error: 'Chamber not found.' });
+      return true;
+    }
+    await writeAuditLog(authUser, 'chamber_subscription_activated', 'chamber', updated.rows[0].id, `Chamber Vault ${plan.name} activated for 30 days.`, {
+      planId: plan.id,
+      amount: plan.amount,
+      paidUntil: paidUntil.toISOString(),
+    });
+    sendJson(res, 200, {
+      ok: true,
+      subscription: chamberSubscriptionSnapshot(updated.rows[0], false),
+      message: `${plan.name} is active until ${paidUntil.toLocaleDateString('en-IN')}.`,
+    });
     return true;
   }
 
@@ -5940,9 +6246,24 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       return true;
     }
     const userId = await resolveDatabaseUserId(authUser);
-    const chamberResult = await db.query('SELECT id FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const chamber = chamberResult.rows[0];
+    if (!chamber) {
+      sendJson(res, 404, { ok: false, error: 'Chamber not found.' });
+      return true;
+    }
+    const subscription = chamberSubscriptionSnapshot(chamber, await isMasterTestUser(authUser));
+    if (subscription.required) {
+      sendJson(res, 402, { ok: false, error: 'Activate a Chamber Vault plan to invite members.', code: 'subscription_required', subscription });
+      return true;
+    }
+    const memberCount = await db.query('SELECT count(*)::int AS count FROM chamber_members WHERE chamber_id = $1', [chamber.id]);
+    if (subscription.seats && memberCount.rows[0].count >= subscription.seats) {
+      sendJson(res, 403, { ok: false, error: `Your ${subscription.planName} plan allows ${subscription.seats} members. Upgrade for more seats.` });
+      return true;
+    }
     const created = await db.query(`INSERT INTO chamber_members (chamber_id, display_name, email, member_role, status)
-      VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamberResult.rows[0].id, displayName, email, body.memberRole || 'associate']);
+      VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamber.id, displayName, email, body.memberRole || 'associate']);
     await writeAuditLog(authUser, 'chamber_member_invited', 'chamber_member', created.rows[0].id, 'A chamber member was invited.', { emailMasked: maskEmail(email) });
     sendJson(res, 201, { ok: true, member: created.rows[0] });
     return true;
@@ -5960,11 +6281,31 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       return true;
     }
     const userId = await resolveDatabaseUserId(authUser);
-    const chamberResult = await db.query('SELECT id FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const chamber = chamberResult.rows[0];
+    if (!chamber) {
+      sendJson(res, 404, { ok: false, error: 'Chamber not found.' });
+      return true;
+    }
+    const subscription = chamberSubscriptionSnapshot(chamber, await isMasterTestUser(authUser));
+    if (subscription.required) {
+      sendJson(res, 402, { ok: false, error: 'Activate a Chamber Vault plan to delegate tasks.', code: 'subscription_required', subscription });
+      return true;
+    }
+    if (subscription.maxOpenTasks) {
+      const openCount = await db.query(
+        `SELECT count(*)::int AS count FROM chamber_tasks WHERE chamber_id = $1 AND status <> 'completed'`,
+        [chamber.id],
+      );
+      if (openCount.rows[0].count >= subscription.maxOpenTasks) {
+        sendJson(res, 403, { ok: false, error: `Your ${subscription.planName} plan allows ${subscription.maxOpenTasks} open tasks. Upgrade for unlimited.` });
+        return true;
+      }
+    }
     const created = await db.query(`INSERT INTO chamber_tasks
       (chamber_id, case_id, title, details, assigned_to, assignee_name, status, priority, due_at, created_by)
       VALUES ($1, $2, $3, $4, $5, $6, 'assigned', $7, $8, $9) RETURNING *`, [
-      chamberResult.rows[0].id, isUuid(body.caseId) ? body.caseId : null, String(body.title).trim(), body.details || null,
+      chamber.id, isUuid(body.caseId) ? body.caseId : null, String(body.title).trim(), body.details || null,
       isUuid(body.assignedTo) ? body.assignedTo : null, body.assigneeName || 'Unassigned', body.priority || 'normal', body.dueAt || null, userId,
     ]);
     await writeAuditLog(authUser, 'chamber_task_created', 'chamber_task', created.rows[0].id, 'A chamber task was delegated.', { caseId: body.caseId || null });

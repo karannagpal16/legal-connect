@@ -52,6 +52,8 @@ interface PaymentConfig {
   warning?: string;
   first_chat_free_available?: boolean;
   chat_amount?: number;
+  all_features_free?: boolean;
+  master_test_free?: boolean;
 }
 
 const PAID_CHAT_AMOUNT = 499;
@@ -155,11 +157,19 @@ export function CounselIntake({
   const [receipt, setReceipt] = useState<{ id: string; receiptNo?: string; amount: number; caseId?: string } | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
 
-  const firstChatFree = channel === "chat" && Boolean(paymentConfig?.first_chat_free_available);
-  const payableAmount = firstChatFree ? 0 : channelOptions[channel].amount;
+  const masterFree = Boolean(paymentConfig?.all_features_free || paymentConfig?.master_test_free);
+  const firstChatFree = !masterFree && channel === "chat" && Boolean(paymentConfig?.first_chat_free_available);
+  const everythingFree = masterFree || firstChatFree;
+  const payableAmount = everythingFree ? 0 : channelOptions[channel].amount;
   const selectedChannel = channelOptions[channel];
   const heading = source === "sos" ? "Request urgent counsel" : "Book a counsel";
-  const submitLabel = firstChatFree ? "Continue — first chat free" : source === "sos" ? "Review urgent request" : "Review and pay";
+  const submitLabel = masterFree
+    ? "Continue — master test free"
+    : firstChatFree
+      ? "Continue — first chat free"
+      : source === "sos"
+        ? "Review urgent request"
+        : "Review and pay";
 
   const upiUri = useMemo(() => {
     if (!paymentConfig?.upi_configured || !paymentConfig.upi_vpa || payableAmount <= 0) return "";
@@ -250,7 +260,7 @@ export function CounselIntake({
       const booking = await workspaceRequest<any>("/api/bookings", session?.token, {
         method: "POST",
         body: JSON.stringify({
-          serviceType: `${selectedChannel.title}${source === "sos" ? " - Legal SOS" : ""}${firstChatFree ? " - First chat free" : ""}`,
+          serviceType: `${selectedChannel.title}${source === "sos" ? " - Legal SOS" : ""}${everythingFree ? " - Free" : ""}`,
           legalIssueType: caseType,
           amount: payableAmount,
           paymentStatus: "payment_pending",
@@ -270,7 +280,8 @@ export function CounselIntake({
           existingCaseId: initialCaseId || null,
           attachedFiles,
           assignmentPolicy: "legal-connect-managed",
-          firstChatFree,
+          firstChatFree: everythingFree,
+          masterTestFree: masterFree,
         }),
       });
 
@@ -284,13 +295,14 @@ export function CounselIntake({
           serviceType: selectedChannel.title,
           receiptNo: booking.receiptNo,
           consultationChannel: channel,
-          firstChatFree,
-          mode: firstChatFree ? "first_chat_free" : undefined,
+          firstChatFree: firstChatFree || masterFree,
+          mode: masterFree ? "master_test_free" : firstChatFree ? "first_chat_free" : undefined,
         }),
       });
 
       if (
-        order.mode === "first_chat_free"
+        order.mode === "master_test_free"
+        || order.mode === "first_chat_free"
         || order.mode === "google-play-review"
         || (order.mode === "demo" && order.status === "review_only")
       ) {
@@ -355,9 +367,11 @@ export function CounselIntake({
           <span className="lc-kicker">LEGAL CONNECT MANAGED ASSIGNMENT</span>
           <h2>{heading}</h2>
           <p>
-            {firstChatFree
-              ? "Your first Secure chat is free — try Legal Connect, then continue with paid counsel if you need more."
-              : "Share one clear brief, pay securely, and Legal Connect will assign verified counsel."}
+            {masterFree
+              ? "Master test account — every client booking is free on this login."
+              : firstChatFree
+                ? "Your first Secure chat is free — try Legal Connect, then continue with paid counsel if you need more."
+                : "Share one clear brief, pay securely, and Legal Connect will assign verified counsel."}
           </p>
         </div>
         {onClose && <button className="lc-icon-command" onClick={onClose} aria-label="Close counsel booking"><X /></button>}
@@ -365,7 +379,7 @@ export function CounselIntake({
 
       <div className="lc-intake-steps" aria-label="Intake progress">
         <span className="active">1 Matter</span><i />
-        <span className={stage !== "intake" ? "active" : ""}>2 {firstChatFree ? "Confirm" : "Payment"}</span><i />
+        <span className={stage !== "intake" ? "active" : ""}>2 {everythingFree ? "Confirm" : "Payment"}</span><i />
         <span className={stage === "assignment" ? "active" : ""}>3 Assignment</span>
       </div>
 
@@ -377,13 +391,19 @@ export function CounselIntake({
               <div>
                 {availableChannels.map((value) => {
                   const option = channelOptions[value];
-                  const freeBadge = value === "chat" && paymentConfig?.first_chat_free_available;
+                  const freeBadge = masterFree || (value === "chat" && paymentConfig?.first_chat_free_available);
                   return (
                     <button key={value} type="button" className={channel === value ? "active" : ""} onClick={() => setChannel(value)}>
                       <option.icon />
                       <span>
                         <strong>{option.title}</strong>
-                        <small>{freeBadge ? "First chat free — see how Legal Connect works" : option.detail}</small>
+                        <small>
+                          {masterFree
+                            ? "Free on master test login"
+                            : freeBadge
+                              ? "First chat free — see how Legal Connect works"
+                              : option.detail}
+                        </small>
                       </span>
                       <em>{freeBadge ? "FREE" : `₹${option.amount.toLocaleString("en-IN")}`}</em>
                     </button>
@@ -422,8 +442,8 @@ export function CounselIntake({
             <label className="lc-consent-field">
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
               <span>
-                {firstChatFree
-                  ? "I authorise a confidential conflict check and secure storage of these case records for my free first chat."
+                {everythingFree
+                  ? "I authorise a confidential conflict check and secure storage of these case records for this free booking."
                   : "I authorise a confidential conflict check and secure storage of these case records. Counsel is assigned only after verified payment."}
               </span>
             </label>
@@ -439,9 +459,9 @@ export function CounselIntake({
               <header>
                 <div>
                   <span>Step 2</span>
-                  <h2>{firstChatFree ? "Confirm free first chat" : "Review and pay"}</h2>
+                  <h2>{everythingFree ? "Confirm free booking" : "Review and pay"}</h2>
                 </div>
-                {firstChatFree ? <Gift /> : <LockKeyhole />}
+                {everythingFree ? <Gift /> : <LockKeyhole />}
               </header>
               <dl>
                 <div><dt>Matter</dt><dd>{caseTitle}</dd></div>
@@ -452,22 +472,24 @@ export function CounselIntake({
               </dl>
               <div className="lc-payment-total">
                 <span>Total payable</span>
-                <strong>{firstChatFree ? "FREE" : `₹${payableAmount.toLocaleString("en-IN")}`}</strong>
+                <strong>{everythingFree ? "FREE" : `₹${payableAmount.toLocaleString("en-IN")}`}</strong>
               </div>
-              {firstChatFree ? (
+              {masterFree ? (
+                <p><Gift /> Master test login — chat, call and video bookings are free for karannagpal16@gmail.com.</p>
+              ) : firstChatFree ? (
                 <p><Gift /> Your first Secure chat is on us so you can see how Legal Connect works. Later chats are ₹{PAID_CHAT_AMOUNT}.</p>
               ) : (
                 <p><ShieldCheck /> Payment is verified by the backend. Your request then appears as a separate matter in your workspace.</p>
               )}
 
-              {!firstChatFree && paymentConfig?.mode === "test" && (
+              {!everythingFree && paymentConfig?.mode === "test" && (
                 <div className="lc-form-error" role="status">
                   <AlertTriangle />
                   Razorpay TEST mode: PhonePe/GPay will show “Invalid UPI ID” on the test QR. In checkout, enter UPI ID <strong>{paymentConfig.test_upi_id || "success@razorpay"}</strong> or pay by card.
                 </div>
               )}
 
-              {!firstChatFree && qrImageUrl && paymentConfig?.upi_vpa && (
+              {!everythingFree && qrImageUrl && paymentConfig?.upi_vpa && (
                 <div className="lc-upi-panel" style={{ marginTop: "1rem", padding: "1rem", border: "1px solid rgba(26,35,50,0.12)", borderRadius: "1rem", textAlign: "center" }}>
                   <p style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem", fontWeight: 700, marginBottom: "0.75rem" }}>
                     <QrCode className="h-4 w-4" /> Scan to pay with UPI
@@ -486,8 +508,8 @@ export function CounselIntake({
 
               {error && <div className="lc-form-error"><AlertTriangle /> {error}</div>}
               <button className="lc-button lc-button-primary lc-button-full" onClick={beginPayment} disabled={busy}>
-                {busy ? <Loader2 className="lc-spin" /> : firstChatFree ? <Gift /> : <IndianRupee />}
-                {firstChatFree ? "Start free chat" : "Pay securely"}
+                {busy ? <Loader2 className="lc-spin" /> : everythingFree ? <Gift /> : <IndianRupee />}
+                {everythingFree ? "Start free booking" : "Pay securely"}
               </button>
             </div>
           </motion.section>
