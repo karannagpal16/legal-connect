@@ -82,7 +82,6 @@ export function Home() {
         <section className="lc-dharma-stage" aria-labelledby="legal-connect-title">
           <div className="lc-dharma-backdrop" aria-hidden="true" />
           <div className="lc-dharma-shade" aria-hidden="true" />
-          <div className="lc-dharma-orbit" aria-hidden="true"><span /></div>
 
           <div className="lc-dharma-stage-inner">
             <div className="lc-dharma-hero">
