@@ -69,6 +69,7 @@ export function Home() {
           <a href="#people">For People</a>
           <a href="#professionals">For Legal Professionals</a>
           <a href="#security">Security</a>
+          <Link href="/transparency">Transparency</Link>
         </nav>
 
         <Link className="lc-dharma-login" href={workspace}>

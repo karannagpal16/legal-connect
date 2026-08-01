@@ -7,6 +7,7 @@ const { spawnSync } = require("child_process");
 const config = require("./config");
 const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
+const { createStrategyFeatures } = require("./strategy-features");
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
@@ -1147,6 +1148,8 @@ function mapTask(row) {
     postedBy: row.posted_by,
     acceptedBy: row.accepted_by,
     proofUrl: row.proof_url,
+    proofHash: row.proof_hash,
+    proofStatus: row.proof_status || "none",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.payload || {}),
@@ -2364,12 +2367,40 @@ function serveStatic(req, res) {
   });
 }
 
+const strategyFeatures = createStrategyFeatures({
+  db,
+  config,
+  notify,
+  resolveRecipients,
+  resolveAdminRecipients,
+  portalUrl,
+  sendJson,
+  readBody,
+  readRawBody,
+  getAuthUser,
+  canSeeAll,
+  mapTask,
+  mapCase,
+  writeAuditLog,
+  createReceipt,
+  escapeHtml,
+  sendEmail,
+  demoStore,
+  isUuid,
+  safeAttachmentName,
+  dispatchSms,
+});
+
 const server = http.createServer(async (req, res) => {
   res.localsCorsOrigin = corsOriginFor(req);
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (req.method === "OPTIONS") {
     sendJson(res, 204, {});
+    return;
+  }
+
+  if (await strategyFeatures.handleStrategyRoutes(req, res, url)) {
     return;
   }
 
@@ -3713,6 +3744,10 @@ const server = http.createServer(async (req, res) => {
           ctaUrl: portalUrl(authUser.role === "advocate" ? "/advocate/cases" : authUser.role === "admin" || authUser.role === "rna" ? "/admin/cases" : "/client"),
           priority: "high",
         });
+        await strategyFeatures.scheduleNdohRemindersForCase(
+          { id: mapped.id, nextDate: upcomingDate, title: mapped.caseTitle || mapped.title },
+          mapped.userId || authUser.id,
+        );
       }
       sendJson(res, 200, mapped);
       return;
@@ -4064,9 +4099,47 @@ const server = http.createServer(async (req, res) => {
     };
     const nextStatus = body.status || statusMap[body.action] || "Updated";
     if (db.dbAvailable && body.taskId) {
+      const existingTask = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [body.taskId]);
+      const currentTask = existingTask.rows[0] ? mapTask(existingTask.rows[0]) : null;
+      if (body.action === "release_payment") {
+        const proofStatus = currentTask?.proofStatus || currentTask?.proof_status || "none";
+        if (!currentTask?.proofHash && proofStatus !== "approved") {
+          sendJson(res, 409, { ok: false, error: "Escrow cannot unlock until order-sheet proof is uploaded and approved." });
+          return;
+        }
+        if (proofStatus !== "approved") {
+          sendJson(res, 409, { ok: false, error: "Approve proof before releasing escrow." });
+          return;
+        }
+      }
+      let escrowStatus = body.paymentLockStatus || body.payment_lock_status || null;
+      let proofStatusUpdate = null;
+      if (body.action === "mark_proof_approved") {
+        proofStatusUpdate = "approved";
+        escrowStatus = escrowStatus || "Locked";
+      }
+      if (body.action === "release_payment") {
+        escrowStatus = "Released";
+      }
       const result = await db.query(
-        "UPDATE tasks SET status = $2, escrow_status = COALESCE($3, escrow_status), updated_at = now() WHERE id = $1 RETURNING *",
-        [body.taskId, nextStatus, body.paymentLockStatus || body.payment_lock_status || null],
+        `UPDATE tasks
+         SET status = $2,
+             escrow_status = COALESCE($3, escrow_status),
+             proof_status = COALESCE($4, proof_status),
+             payload = COALESCE(payload, '{}'::jsonb) || $5::jsonb,
+             updated_at = now()
+         WHERE id = $1 RETURNING *`,
+        [
+          body.taskId,
+          nextStatus,
+          escrowStatus,
+          proofStatusUpdate,
+          JSON.stringify({
+            lastAdminAction: body.action || null,
+            transparencyLayer: body.action === "release_payment" ? "escrow_release" : body.action === "mark_proof_approved" ? "proof_review" : "admin",
+            proofReviewedAt: body.action === "mark_proof_approved" ? new Date().toISOString() : undefined,
+          }),
+        ],
       );
       await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
       await createReceipt({
@@ -4081,6 +4154,18 @@ const server = http.createServer(async (req, res) => {
         visibility: "team",
         payload: { action: body.action, paymentLockStatus: body.paymentLockStatus || body.payment_lock_status || null },
       });
+      if (result.rows[0] && (body.action === "mark_proof_approved" || body.action === "release_payment")) {
+        const mapped = mapTask(result.rows[0]);
+        await strategyFeatures.notifyTaskLayer(mapped, {
+          eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
+          title: body.action === "release_payment" ? "Escrow released" : "Proof approved",
+          message: body.action === "release_payment"
+            ? `${mapped.title || "Proxy mission"} escrow has been released after proof review.`
+            : `${mapped.title || "Proxy mission"} proof was approved. Escrow can now be released.`,
+          priority: "high",
+          sendSms: body.action === "release_payment",
+        });
+      }
       sendJson(res, 200, { ok: true, task: result.rows[0] ? mapTask(result.rows[0]) : null });
       return;
     }
@@ -4433,29 +4518,46 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Payment is verified — create the proxy task
-    const taskTitle = String(body.title || body.missionTitle || "Proxy Mission").trim();
+    const posting = strategyFeatures.validateProxyPostingFields(body);
+    if (!posting.ok) {
+      sendJson(res, 400, { ok: false, error: posting.error });
+      return;
+    }
+    const taskTitle = String(body.title || body.missionTitle || `${posting.fields.appearanceType} · ${posting.fields.cnr}`).trim();
     const taskCourt = String(body.court || body.location || "").trim();
     const fee = numericAmount(body.fee || body.amount);
+    const rule36Title = strategyFeatures.assertRule36Safe(taskTitle);
+    if (!rule36Title.ok) {
+      sendJson(res, 422, { ok: false, error: rule36Title.error });
+      return;
+    }
     const task = {
       id: `task-${Date.now()}`,
       postedBy: authUser.id,
       title: taskTitle,
       court: taskCourt || null,
-      taskType: body.taskType || "Proxy Appearance",
+      taskType: posting.fields.appearanceType,
       amount: fee,
       escrowStatus: "Locked",
       status: "Open",
       paymentVerified: !isDemoOrder,
       razorpayOrderId: isDemoOrder ? null : razorpay_order_id,
       razorpayPaymentId: isDemoOrder ? null : razorpay_payment_id,
-      passoverInstructions: String(body.passoverInstructions || "").slice(0, 500),
-      hearingDate: body.hearingDate || body.date || null,
+      cnr: posting.fields.cnr,
+      roomNo: posting.fields.roomNo,
+      itemNo: posting.fields.itemNo,
+      passoverScript: posting.fields.passoverScript,
+      passoverInstructions: posting.fields.passoverScript.slice(0, 500),
+      appearanceType: posting.fields.appearanceType,
+      hearingDate: posting.fields.hearingDate,
+      proofStatus: "none",
+      transparencyLayer: "posting",
       createdAt: new Date().toISOString(),
     };
     if (db.dbAvailable) {
       const result = await db.query(
-        `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, proof_url, payload)
-         VALUES ($1, $2, $3, $4, $5, 'Open', $6, NULL, $7) RETURNING *`,
+        `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, proof_url, proof_status, payload)
+         VALUES ($1, $2, $3, $4, $5, 'Open', $6, NULL, 'none', $7) RETURNING *`,
         [task.title, task.court, task.taskType, task.amount, "Locked", authUser.id, JSON.stringify({ ...task, user_id: authUser.id })],
       );
       await writeAuditLog(authUser, "proxy_hub_task_posted", "task", result.rows[0].id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified });
@@ -5548,9 +5650,21 @@ const server = http.createServer(async (req, res) => {
     const isProxyPost = ["Pass-over", "Adjournment", "Evidence", "Arguments", "Other", "Proxy", "Mission"].includes(String(taskType))
       || body.kind === "proxy"
       || Boolean(body.proxyTask);
+    let proxyFields = null;
     if (isProxyPost && authUser.role === "advocate") {
       if (feeAmount < PROXY_MIN_FEE) {
         sendJson(res, 400, { ok: false, error: `Proxy fee must be at least ₹${PROXY_MIN_FEE}.` });
+        return;
+      }
+      const posting = strategyFeatures.validateProxyPostingFields(body);
+      if (!posting.ok) {
+        sendJson(res, 400, { ok: false, error: posting.error });
+        return;
+      }
+      proxyFields = posting.fields;
+      const rule36 = strategyFeatures.assertRule36Safe(body.title || body.taskDescription || "");
+      if (!rule36.ok) {
+        sendJson(res, 422, { ok: false, error: rule36.error });
         return;
       }
       if (!body.paymentConfirmed) {
@@ -5574,6 +5688,7 @@ const server = http.createServer(async (req, res) => {
       postedBy: actorId,
       createdAt: new Date().toISOString(),
       ...body,
+      ...(proxyFields || {}),
       status: initialStatus,
       escrowStatus,
       title: body.title || body.taskDescription || "Legal Connect mission",
@@ -5582,6 +5697,8 @@ const server = http.createServer(async (req, res) => {
       kind: isProxyPost ? "proxy" : body.kind || null,
       paymentStatus: isProxyPost && body.paymentConfirmed ? "Paid" : null,
       assignmentStatus: initialStatus,
+      proofStatus: "none",
+      transparencyLayer: isProxyPost ? "posting" : null,
     };
     if (db.dbAvailable) {
       const result = await db.query(
@@ -6413,6 +6530,11 @@ function clientWorkspaceDemo(name) {
 
 function enrichWorkspaceCase(item) {
   const payload = item || {};
+  const health = strategyFeatures.computeCaseHealthScore(payload, {
+    fees: Array.isArray(payload.fees) ? payload.fees : [],
+    documents: Array.isArray(payload.documents) ? payload.documents : [],
+    communications: Array.isArray(payload.communications) ? payload.communications : [],
+  });
   return {
     ...payload,
     id: payload.id,
@@ -6423,6 +6545,9 @@ function enrichWorkspaceCase(item) {
     appearanceRequired: Boolean(payload.appearanceRequired),
     nextAction: payload.nextAction || 'No action is due from you right now.',
     costRisk: payload.costRisk || '',
+    healthScore: payload.healthScore?.score || payload.health_score || health.score,
+    healthBand: payload.healthScore?.band || health.band,
+    health: payload.healthScore || health,
     counsel: payload.counsel || (payload.assignedTo ? { name: 'Legal Connect assigned counsel', contactPolicy: 'Contact through Legal Connect' } : null),
     documents: Array.isArray(payload.documents) ? payload.documents : [],
     communications: Array.isArray(payload.communications) ? payload.communications : [],

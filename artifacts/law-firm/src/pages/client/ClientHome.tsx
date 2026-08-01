@@ -215,6 +215,8 @@ export function ClientHome() {
                 <span><small>Next date of hearing</small><strong>{formatDate(selectedCase.nextDate)}</strong></span>
                 <i />
                 <span><small>Appearance</small><strong>{selectedCase.appearanceRequired ? "Required" : "Counsel appearing"}</strong></span>
+                <i />
+                <span><small>Case health</small><strong>{selectedCase.healthScore ?? selectedCase.health?.score ?? "—"}/100 · {selectedCase.healthBand || selectedCase.health?.band || "Pending"}</strong></span>
               </div>
 
               {selectedCase.appearanceRequired && (
@@ -254,6 +256,43 @@ export function ClientHome() {
 
               {tab === "documents" && (
                 <div className="lc-record-list">
+                  <div className="lc-doc-upload-row">
+                    <button
+                      className="lc-button lc-button-primary"
+                      type="button"
+                      onClick={() => {
+                        const input = window.document.createElement("input");
+                        input.type = "file";
+                        input.accept = ".pdf,.png,.jpg,.jpeg,.doc,.docx";
+                        input.onchange = async () => {
+                          const file = input.files?.[0];
+                          if (!file || !selectedCase) return;
+                          setDownloadingId(`upload-${file.name}`);
+                          try {
+                            const response = await fetch(`/api/cases/${selectedCase.id}/documents`, {
+                              method: "POST",
+                              headers: {
+                                Authorization: session?.token ? `Bearer ${session.token}` : "",
+                                "Content-Type": file.type || "application/octet-stream",
+                                "X-File-Name": file.name,
+                                "X-Doc-Category": "Client upload",
+                              },
+                              body: file,
+                            });
+                            const payload = await response.json().catch(() => ({}));
+                            if (!response.ok) throw new Error(payload.error || "Upload failed.");
+                            await query.refetch();
+                          } finally {
+                            setDownloadingId("");
+                          }
+                        };
+                        input.click();
+                      }}
+                    >
+                      <Download /> Upload document
+                    </button>
+                    <small>Stored via Cloudinary when configured; otherwise kept as a checksummed case record.</small>
+                  </div>
                   {selectedCase.documents.length ? selectedCase.documents.map((document) => (
                     <div key={document.id}><FileText /><span><strong>{document.name}</strong><small>{document.category} · uploaded {formatDate(document.uploadedAt)}</small></span>{document.downloadPath ? <button title="Download document" onClick={() => downloadDocument(document)} disabled={downloadingId === document.id}>{downloadingId === document.id ? "Opening..." : <><Download /> Download</>}</button> : <em className="lc-record-state">Sample record</em>}</div>
                   )) : <p className="lc-inline-empty">No documents have been uploaded for this matter.</p>}

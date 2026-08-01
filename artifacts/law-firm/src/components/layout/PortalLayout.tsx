@@ -77,6 +77,8 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "Messages", href: "/client/chat", icon: MessageSquare },
     { label: "LawBot", href: "/client/lawbot", icon: Sparkles },
     { label: "Documents", href: "/client/diy-docs", icon: ReceiptIndianRupee },
+    { label: "Engagement", href: "/client/engagement", icon: FileSearch },
+    { label: "Grievance", href: "/client/grievance", icon: ShieldCheck },
     { label: "Library", href: "/client/library", icon: Library },
   ],
   intern: [

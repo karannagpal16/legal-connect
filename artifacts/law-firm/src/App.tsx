@@ -22,6 +22,7 @@ function lazyNamed<T extends Record<string, ComponentType<any>>, K extends keyof
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Login = lazyNamed(() => import("@/pages/Login"), "Login");
 const Home = lazyNamed(() => import("@/pages/Home"), "Home");
+const TransparencyLedger = lazyNamed(() => import("@/pages/TransparencyLedger"), "TransparencyLedger");
 const Dashboard = lazyNamed(() => import("@/pages/Dashboard"), "Dashboard");
 const MyDiary = lazyNamed(() => import("@/pages/MyDiary"), "MyDiary");
 const ProxyHub = lazyNamed(() => import("@/pages/ProxyHub"), "ProxyHub");
@@ -33,6 +34,8 @@ const BookLawyer = lazyNamed(() => import("@/pages/BookLawyer"), "BookLawyer");
 const Bookings = lazyNamed(() => import("@/pages/Bookings"), "Bookings");
 
 const ClientHome = lazyNamed(() => import("@/pages/client/ClientHome"), "ClientHome");
+const ClientGrievance = lazyNamed(() => import("@/pages/client/ClientGrievance"), "ClientGrievance");
+const ClientEngagement = lazyNamed(() => import("@/pages/client/ClientEngagement"), "ClientEngagement");
 const ClientBookAdvocate = lazyNamed(() => import("@/pages/client/ClientBookAdvocate"), "ClientBookAdvocate");
 const ClientReminders = lazyNamed(() => import("@/pages/client/ClientReminders"), "ClientReminders");
 const ClientLibrary = lazyNamed(() => import("@/pages/client/ClientLibrary"), "ClientLibrary");
@@ -94,6 +97,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/transparency" component={TransparencyLedger} />
       <Route path="/login" component={Login} />
       <Route path="/app" component={WorkspaceRedirect} />
 
@@ -139,6 +143,12 @@ function Router() {
       {/* CLIENT PORTAL */}
       <Route path="/client">
         <Private role="client"><ClientLayout><ClientHome /></ClientLayout></Private>
+      </Route>
+      <Route path="/client/grievance">
+        <Private role="client"><ClientLayout><ClientGrievance /></ClientLayout></Private>
+      </Route>
+      <Route path="/client/engagement">
+        <Private role="client"><ClientLayout><ClientEngagement /></ClientLayout></Private>
       </Route>
       <Route path="/client/connect">
         <Private role="client"><ClientLayout><ClientConnectChat /></ClientLayout></Private>

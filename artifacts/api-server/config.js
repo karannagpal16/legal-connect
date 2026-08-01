@@ -95,6 +95,10 @@ const config = {
   twilioAccountSid: optionalString("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optionalString("TWILIO_AUTH_TOKEN"),
   twilioFromNumber: optionalString("TWILIO_FROM_NUMBER"),
+  twilioWhatsappFrom: optionalString("TWILIO_WHATSAPP_FROM") || optionalString("TWILIO_WHATSAPP_NUMBER"),
+  cloudinaryCloudName: optionalString("CLOUDINARY_CLOUD_NAME"),
+  cloudinaryApiKey: optionalString("CLOUDINARY_API_KEY"),
+  cloudinaryApiSecret: optionalString("CLOUDINARY_API_SECRET"),
 };
 
 if (config.nodeEnv === "production") {

@@ -318,6 +318,76 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS tasks_created_at_idx ON tasks (created_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS tasks_posted_by_idx ON tasks (posted_by) WHERE posted_by IS NOT NULL`);
     await query(`CREATE INDEX IF NOT EXISTS tasks_accepted_by_idx ON tasks (accepted_by) WHERE accepted_by IS NOT NULL`);
+    await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_hash text`);
+    await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_status text DEFAULT 'none'`);
+    await query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_score integer`);
+    await query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_scored_at timestamptz`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS grievances (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id text,
+        against_user_id text,
+        target_type text,
+        target_id text,
+        category text,
+        description text,
+        status text DEFAULT 'open',
+        sla_due_at timestamptz,
+        resolution text,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS grievances_status_idx ON grievances (status, created_at DESC)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS engagement_agreements (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        case_id text,
+        booking_id text,
+        client_user_id text,
+        advocate_user_id text,
+        html_body text,
+        content_hash text,
+        client_signed_at timestamptz,
+        advocate_signed_at timestamptz,
+        client_signature text,
+        advocate_signature text,
+        status text DEFAULT 'draft',
+        pdf_url text,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS reminder_jobs (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        case_id text,
+        user_id text,
+        channel text,
+        template_key text,
+        fire_at timestamptz,
+        status text DEFAULT 'pending',
+        last_error text,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        sent_at timestamptz
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS task_ratings (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        task_id text NOT NULL,
+        rater_id text NOT NULL,
+        ratee_id text,
+        rater_role text,
+        stars integer NOT NULL,
+        comment text,
+        created_at timestamptz DEFAULT now(),
+        UNIQUE (task_id, rater_id)
+      )
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS case_updates (
@@ -586,6 +656,10 @@ async function initDb() {
         created_at timestamptz DEFAULT now()
       )
     `);
+    await query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS category text`);
+    await query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS public_url text`);
+    await query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS provider text DEFAULT 'local'`);
+    await query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS checksum text`);
     await query(`CREATE INDEX IF NOT EXISTS case_documents_case_idx ON case_documents (case_id, created_at DESC)`);
     await query(`
       CREATE TABLE IF NOT EXISTS case_communications (

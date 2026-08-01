@@ -11,13 +11,14 @@ import { useEffect } from "react";
 const PROXY_MIN_FEE = 400;
 
 const taskSchema = z.object({
-  taskDescription: z.string().min(1, "Description required"),
-  taskType: z.enum(["Pass-over", "Adjournment", "Evidence", "Arguments", "Other"]).optional().nullable(),
+  taskDescription: z.string().min(12, "Passover script must be at least 12 characters"),
+  taskType: z.enum(["Pass-over", "Adjournment", "Evidence", "Arguments", "Other"]),
   fee: z.string().min(1, "Fee is required"),
   location: z.string().min(1, "Court / location is required"),
-  room: z.string().optional().nullable(),
+  cnr: z.string().min(8, "CNR number is required"),
+  room: z.string().min(1, "Room number is required"),
   itemNo: z.string().optional().nullable(),
-  hearingDate: z.string().optional().nullable(),
+  hearingDate: z.string().min(1, "Hearing date is required"),
   status: z.enum(["Open", "Accepted", "Completed", "Cancelled", "Awaiting Admin Assignment", "Assigned"]).optional(),
 });
 
@@ -37,6 +38,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
       taskType: "Pass-over" as CreateTaskRequestTaskType,
       fee: String(PROXY_MIN_FEE),
       location: "",
+      cnr: "",
       room: "",
       itemNo: "",
       hearingDate: "",
@@ -51,9 +53,10 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
       taskType: "Pass-over" as CreateTaskRequestTaskType,
       fee: String(PROXY_MIN_FEE),
       location: "",
-      room: "",
-      itemNo: "",
-      hearingDate: "",
+      cnr: editingTask?.cnr || "",
+      room: editingTask?.room || editingTask?.roomNo || "",
+      itemNo: editingTask?.itemNo || "",
+      hearingDate: editingTask?.hearingDate || "",
       status: "Awaiting Admin Assignment" as CreateTaskRequestStatus,
     });
   }, [editingTask, form, open]);
@@ -66,7 +69,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
         form.reset();
         toast({
           title: "Proxy task posted & paid",
-          description: "Legal Connect Admin will search and assign a proxy counsel.",
+          description: "Layer 1 complete. Legal Connect Admin will assign a proxy counsel.",
         });
       },
       onError: (error) => toast({ title: "Task could not be posted", description: error.message, variant: "destructive" }),
@@ -96,7 +99,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     }
     if (!editingTask) {
       const confirmed = window.confirm(
-        `Pay ₹${feeAmount} and post this proxy task?\n\nAfter payment, Legal Connect Admin will assign a proxy counsel. Peer accept is disabled.`,
+        `Pay ₹${feeAmount} and post this proxy task?\n\nCNR ${data.cnr} · Room ${data.room} · ${data.hearingDate}\nAfter payment, Legal Connect Admin assigns proxy counsel.`,
       );
       if (!confirmed) return;
     }
@@ -107,9 +110,17 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
       amount: feeAmount,
       proxyTask: true,
       paymentConfirmed: true,
+      cnr: String(data.cnr || "").trim().toUpperCase(),
+      roomNo: data.room,
+      room: data.room,
+      passoverScript: data.taskDescription,
+      passoverInstructions: data.taskDescription,
+      appearanceType: data.taskType,
+      hearingDate: data.hearingDate,
       status: editingTask ? data.status : "Awaiting Admin Assignment",
       taskDescription: [
         data.taskDescription,
+        data.cnr ? `CNR ${String(data.cnr).toUpperCase()}` : null,
         data.room ? `Room ${data.room}` : null,
         data.itemNo ? `Item ${data.itemNo}` : null,
         data.hearingDate ? `Date ${data.hearingDate}` : null,
@@ -127,22 +138,25 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] bg-card border-border">
+      <DialogContent className="sm:max-w-[560px] bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-2xl font-serif">{editingTask ? "Edit Proxy Task" : "Post Proxy Task"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+          <p className="text-xs text-muted-foreground">
+            Layer 1 requires CNR, room number, passover script, appearance type, and hearing date. Guaranteed-outcome wording is blocked under Bar Council Rule 36.
+          </p>
           <div className="space-y-2">
-            <label className="text-sm font-semibold">Task details / instructions</label>
+            <label className="text-sm font-semibold">Passover script / instructions</label>
             <textarea
               {...form.register("taskDescription")}
               className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none min-h-[100px]"
-              placeholder="Passover instructions, room notes. Do not add client secrets."
+              placeholder="Exact passover script for proxy counsel. Do not add client secrets."
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Task Type</label>
+              <label className="text-sm font-semibold">Appearance type</label>
               <select {...form.register("taskType")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none">
                 <option value="Pass-over">Pass-over</option>
                 <option value="Adjournment">Adjournment</option>
@@ -158,8 +172,8 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Court</label>
-              <input {...form.register("location")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="Saket / Tis Hazari / DHC" />
+              <label className="text-sm font-semibold">CNR number</label>
+              <input {...form.register("cnr")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="DLCT010012342023" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Hearing date</label>
@@ -168,17 +182,18 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
+              <label className="text-sm font-semibold">Court</label>
+              <input {...form.register("location")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="Saket / Tis Hazari / DHC" />
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-semibold">Room No.</label>
               <input {...form.register("room")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="204" />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Item No.</label>
-              <input {...form.register("itemNo")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="12" />
-            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Pay the fee to post. Legal Connect Admin searches panel counsel and assigns the task. Advocates cannot accept peer proxy tasks here.
-          </p>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold">Item No. (optional)</label>
+            <input {...form.register("itemNo")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="12" />
+          </div>
           {Object.values(form.formState.errors)[0]?.message && (
             <p className="text-sm text-destructive" role="alert">{String(Object.values(form.formState.errors)[0]?.message)}</p>
           )}
