@@ -1117,7 +1117,9 @@ function mapCase(row) {
 }
 
 function mapBooking(row) {
+  // Column fields must win over stale payload mirrors (e.g. paymentStatus after refund).
   return dashboardBooking({
+    ...(row.payload || {}),
     id: row.id,
     userId: row.user_id,
     serviceType: row.service_type,
@@ -1131,7 +1133,6 @@ function mapBooking(row) {
     failureReason: row.failure_reason,
     verifiedAt: row.verified_at,
     createdAt: row.created_at,
-    ...(row.payload || {}),
   });
 }
 
@@ -3138,9 +3139,10 @@ const server = http.createServer(async (req, res) => {
           (SELECT COUNT(*) FROM cases WHERE payload->>'assignedTo' = u.id::text AND status = 'Active') AS "activeCasesCount"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
-        WHERE u.role = 'advocate' AND pa.verification_status = 'approved'
+        WHERE pa.verification_status IN ('approved', 'verified')
+          AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = lower($1))
         ORDER BY pa.enrollment_no ASC
-      `);
+      `, [MASTER_TEST_LOGIN.email]);
       sendJson(res, 200, result.rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -3549,9 +3551,10 @@ const server = http.createServer(async (req, res) => {
                pa.verification_status AS "verificationStatus"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
-        WHERE u.role = 'advocate' AND pa.verification_status = 'approved'
+        WHERE pa.verification_status IN ('approved', 'verified')
+          AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = $1)
         ORDER BY u.name ASC
-      `).catch(() => db.query(`SELECT id, name, email, phone FROM users WHERE role = 'advocate' ORDER BY name ASC`)),
+      `, [MASTER_TEST_LOGIN.email]).catch(() => db.query(`SELECT id, name, email, phone FROM users WHERE role = 'advocate' ORDER BY name ASC`)),
     ]);
     sendJson(res, 200, {
       ok: true,
@@ -3610,16 +3613,25 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, { ok: true, intake: dashboardBooking(loaded.raw), action: "assign" });
         return;
       }
-      const advocateResult = await db.query("SELECT id, name, role FROM users WHERE id = $1 LIMIT 1", [advocateId]);
-      if (!advocateResult.rows[0] || advocateResult.rows[0].role !== "advocate") {
-        sendJson(res, 404, { ok: false, error: "Advocate not found." });
+      const advocateResult = await db.query(
+        `SELECT u.id, u.name, u.role, u.email,
+                pa.enrollment_no,
+                pa.verification_status
+         FROM users u
+         LEFT JOIN profile_advocates pa ON pa.user_id = u.id
+         WHERE u.id = $1
+         LIMIT 1`,
+        [advocateId],
+      );
+      const advocate = advocateResult.rows[0];
+      const barVerified = ["approved", "verified"].includes(String(advocate?.verification_status || "").toLowerCase());
+      const isPanelLawyer = advocate
+        && (advocate.role === "advocate" || (isMasterTestEmail(advocate.email) && barVerified));
+      if (!advocate || !isPanelLawyer || !barVerified) {
+        sendJson(res, 404, { ok: false, error: "Bar-verified panel lawyer not found." });
         return;
       }
-      const advocate = advocateResult.rows[0];
-      const enrollment = await db.query(
-        "SELECT enrollment_no FROM profile_advocates WHERE user_id = $1 LIMIT 1",
-        [advocateId],
-      ).catch(() => ({ rows: [] }));
+      const enrollment = { rows: advocate.enrollment_no ? [{ enrollment_no: advocate.enrollment_no }] : [] };
       const updated = await db.query(
         `UPDATE bookings
          SET assigned_advocate_id = $2,
@@ -7046,9 +7058,12 @@ async function ensureMasterTestUser(role) {
     address: "New Delhi",
     aadhaarNumber: "XXXX XXXX 1605",
   });
-  if (resolvedRole === "advocate") {
-    await db.query("UPDATE profile_advocates SET verification_status = 'verified' WHERE user_id = $1", [user.id]).catch(() => undefined);
-  } else if (resolvedRole === "intern") {
+  // Keep Bar-verified panel eligibility even when the developer account switches role.
+  await db.query(
+    "UPDATE profile_advocates SET verification_status = 'approved' WHERE user_id = $1",
+    [user.id],
+  ).catch(() => undefined);
+  if (resolvedRole === "intern") {
     await db.query("UPDATE profile_interns SET verification_status = 'verified' WHERE user_id = $1", [user.id]).catch(() => undefined);
   } else if (resolvedRole === "client") {
     await db.query("UPDATE profile_clients SET verification_status = 'verified' WHERE user_id = $1", [user.id]).catch(() => undefined);
