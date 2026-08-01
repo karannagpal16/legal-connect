@@ -1356,7 +1356,8 @@ function createStrategyFeatures(deps) {
       const updateId = adminUpdateAction[1];
       const action = adminUpdateAction[2];
       const body = await readBody(req);
-      const kind = String(body.kind || "update").toLowerCase() === "reply" ? "reply" : "update";
+      const requestedKind = String(body.kind || "").toLowerCase();
+      let kind = requestedKind === "reply" ? "reply" : requestedKind === "update" ? "update" : null;
       const nextStatus = action === "approve" ? "approved" : "returned";
       const returnReason = action === "return" ? String(body.reason || body.returnReason || "").trim() : null;
       if (action === "return" && (!returnReason || returnReason.length < 4)) {
@@ -1364,6 +1365,19 @@ function createStrategyFeatures(deps) {
         return true;
       }
       if (db.dbAvailable) {
+        // When kind is omitted (plan alias /api/admin/updates/:id/approve), detect update vs reply.
+        if (!kind) {
+          const [asUpdate, asReply] = await Promise.all([
+            db.query("SELECT id FROM case_updates WHERE id = $1 LIMIT 1", [updateId]).catch(() => ({ rows: [] })),
+            db.query("SELECT id FROM case_update_replies WHERE id = $1 LIMIT 1", [updateId]).catch(() => ({ rows: [] })),
+          ]);
+          if (asUpdate.rows[0]) kind = "update";
+          else if (asReply.rows[0]) kind = "reply";
+          else {
+            sendJson(res, 404, { ok: false, error: "Update not found." });
+            return true;
+          }
+        }
         if (kind === "reply") {
           const updated = await db.query(
             `UPDATE case_update_replies
