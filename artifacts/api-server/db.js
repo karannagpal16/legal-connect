@@ -396,10 +396,41 @@ async function initDb() {
         update_type text,
         message text,
         payload jsonb,
+        status text DEFAULT 'visible',
+        author_id text,
+        author_role text,
+        reviewed_by text,
+        reviewed_at timestamptz,
+        return_reason text,
         created_at timestamptz DEFAULT now()
       )
     `);
+    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS status text DEFAULT 'visible'`);
+    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_id text`);
+    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_role text`);
+    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS reviewed_by text`);
+    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS reviewed_at timestamptz`);
+    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS return_reason text`);
     await query(`CREATE INDEX IF NOT EXISTS case_updates_case_created_idx ON case_updates (case_id, created_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS case_updates_status_idx ON case_updates (status, created_at DESC)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS case_update_replies (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        update_id uuid NOT NULL,
+        case_id uuid,
+        author_id text,
+        author_role text,
+        message text NOT NULL,
+        status text DEFAULT 'pending_lc_review',
+        reviewed_by text,
+        reviewed_at timestamptz,
+        return_reason text,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS case_update_replies_status_idx ON case_update_replies (status, created_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS case_update_replies_update_idx ON case_update_replies (update_id, created_at DESC)`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS lawbot_chats (

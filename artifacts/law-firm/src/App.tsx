@@ -23,6 +23,9 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const Login = lazyNamed(() => import("@/pages/Login"), "Login");
 const Home = lazyNamed(() => import("@/pages/Home"), "Home");
 const TransparencyLedger = lazyNamed(() => import("@/pages/TransparencyLedger"), "TransparencyLedger");
+const PrivacyPage = lazyNamed(() => import("@/pages/LegalDocPage"), "PrivacyPage");
+const TermsPage = lazyNamed(() => import("@/pages/LegalDocPage"), "TermsPage");
+const RefundPage = lazyNamed(() => import("@/pages/LegalDocPage"), "RefundPage");
 const Dashboard = lazyNamed(() => import("@/pages/Dashboard"), "Dashboard");
 const MyDiary = lazyNamed(() => import("@/pages/MyDiary"), "MyDiary");
 const ProxyHub = lazyNamed(() => import("@/pages/ProxyHub"), "ProxyHub");
@@ -63,6 +66,8 @@ const AdvocateJudges = lazyNamed(() => import("@/pages/advocate/AdvocateJudges")
 const ChamberVault = lazyNamed(() => import("@/pages/advocate/ChamberVault"), "ChamberVault");
 const AdvocateCaseTracker = lazyNamed(() => import("@/pages/advocate/AdvocateCaseTracker"), "AdvocateCaseTracker");
 const AdminVerifications = lazyNamed(() => import("@/pages/admin/AdminVerifications"), "AdminVerifications");
+const AdminPendingUpdates = lazyNamed(() => import("@/pages/admin/AdminPendingUpdates"), "AdminPendingUpdates");
+const CaseUpdatesBoard = lazyNamed(() => import("@/pages/CaseUpdatesBoard"), "CaseUpdatesBoard");
 
 const InternDashboard = lazyNamed(() => import("@/pages/intern/InternDashboard"), "InternDashboard");
 const InternQuestsPage = lazyNamed(() => import("@/pages/intern/InternQuestsPage"), "InternQuestsPage");
@@ -98,6 +103,9 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/transparency" component={TransparencyLedger} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/refund" component={RefundPage} />
       <Route path="/login" component={Login} />
       <Route path="/app" component={WorkspaceRedirect} />
 
@@ -108,6 +116,7 @@ function Router() {
       <Route path="/admin"><Private role="admin"><Layout><Dashboard /></Layout></Private></Route>
       <Route path="/admin/users"><Private role="admin"><Layout><Users /></Layout></Private></Route>
       <Route path="/admin/verifications"><Private role="admin"><Layout><AdminVerifications /></Layout></Private></Route>
+      <Route path="/admin/pending-updates"><Private role="admin"><Layout><AdminPendingUpdates /></Layout></Private></Route>
       <Route path="/admin/cases"><Private role="admin"><Layout><MyDiary /></Layout></Private></Route>
       <Route path="/admin/bookings"><Private role="admin"><Layout><Bookings /></Layout></Private></Route>
       <Route path="/admin/missions"><Private role="admin"><Layout><ProxyHub /></Layout></Private></Route>
@@ -149,6 +158,9 @@ function Router() {
       </Route>
       <Route path="/client/engagement">
         <Private role="client"><ClientLayout><ClientEngagement /></ClientLayout></Private>
+      </Route>
+      <Route path="/client/updates">
+        <Private role="client"><ClientLayout><CaseUpdatesBoard /></ClientLayout></Private>
       </Route>
       <Route path="/client/connect">
         <Private role="client"><ClientLayout><ClientConnectChat /></ClientLayout></Private>
@@ -229,6 +241,9 @@ function Router() {
       </Route>
       <Route path="/advocate/cases">
         <Private role="advocate"><AdvocateLayout><AdvocateCaseTracker /></AdvocateLayout></Private>
+      </Route>
+      <Route path="/advocate/updates">
+        <Private role="advocate"><AdvocateLayout><CaseUpdatesBoard /></AdvocateLayout></Private>
       </Route>
 
       {/* INTERN PORTAL */}

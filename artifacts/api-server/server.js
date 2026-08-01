@@ -4433,7 +4433,8 @@ const server = http.createServer(async (req, res) => {
         currency: "INR",
         keyId: "master_test_free",
         description: String(body.title).trim(),
-        message: "Master test account — ProxyHub fee waived.",
+        message: "Developer account — ProxyHub fee waived.",
+        developerAccount: true,
       });
       return;
     }
@@ -4630,11 +4631,16 @@ const server = http.createServer(async (req, res) => {
     const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
     const masterFree = authUser ? await isMasterTestUser(authUser) : false;
 
-    // Zero-amount / master / first-chat free — never call Razorpay.
-    if (authUser && (masterFree || wantsMasterFree || wantsFirstChatFree || amount === 0)) {
-      if (masterFree || wantsMasterFree) {
+    // Zero-amount / developer / first-chat free — never call Razorpay.
+    // Client-supplied masterTestFree flags are ignored unless the signed-in user is the developer account.
+    if (authUser && (masterFree || wantsFirstChatFree || amount === 0)) {
+      if (masterFree) {
         const claimed = await claimFreeBooking(authUser, body, "master_test_free");
         sendJson(res, claimed.status, claimed.ok ? claimed.body : { ok: false, error: claimed.error });
+        return;
+      }
+      if (wantsMasterFree && !masterFree) {
+        sendJson(res, 403, { ok: false, error: "Developer free unlock is limited to the authorised developer account." });
         return;
       }
       if (wantsFirstChatFree || (amount === 0 && channel === "chat")) {
@@ -5675,6 +5681,17 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
+      // Public launch: never trust client-side paymentConfirmed except for the developer account.
+      const masterFree = await isMasterTestUser(authUser);
+      if (!masterFree) {
+        sendJson(res, 402, {
+          ok: false,
+          needsPayment: true,
+          useProxyCheckout: true,
+          error: "Pay via ProxyHub checkout (/api/proxy-hub/create-order + verify-payment). Client-side paymentConfirmed is not accepted.",
+        });
+        return;
+      }
     }
     const actorId = userIdForWrite(body, authUser);
     const initialStatus = isProxyPost && authUser.role === "advocate"
@@ -6025,7 +6042,7 @@ getAuthUser = function strictGetAuthUser(req) {
   return decodeStrictJwt(token) || strictLegacyGetAuthUser(req);
 };
 
-/** Temporary universal tester — one email/password opens every portal role. */
+/** Developer account — one email/password opens every portal role with all paid features free. */
 const MASTER_TEST_LOGIN = {
   email: "karannagpal16@gmail.com",
   password: "Karan1605!",
@@ -6035,6 +6052,7 @@ const MASTER_TEST_LOGIN = {
     intern: "Karan Nagpal",
     admin: "Karan Nagpal",
   },
+  label: "developer",
 };
 
 function isMasterTestLogin(email, password) {
@@ -6101,7 +6119,7 @@ async function claimFreeBooking(authUser, body, reason = "free") {
         receipt: body.receiptNo || body.receipt_no || `LC-FREE-${Date.now()}`,
         caseId: linkedCaseId,
         message: reason === "master_test_free"
-          ? "Master test account — all client payments are free."
+          ? "Developer account — all client payments are free."
           : "Free booking activated.",
       },
     };
@@ -6176,6 +6194,7 @@ function chamberSubscriptionSnapshot(chamberRow, authUserIsMaster = false) {
       seats: plan.seats,
       maxOpenTasks: plan.maxOpenTasks,
       masterTestFree: true,
+      developerAccount: true,
       plans: chamberPlanCatalog(),
     };
   }
@@ -6724,9 +6743,10 @@ async function completeMasterTestLogin(res, body) {
   const user = await ensureMasterTestUser(role);
   const token = db.dbAvailable ? strictSignJwt(user) : encodeSession(user);
   await saveSessionToken(user, token);
-  await writeAuditLog(user, "master_test_login", "user", user.id, `Master test login as ${role}.`, {
+  await writeAuditLog(user, "developer_login", "user", user.id, `Developer account login as ${role}.`, {
     role,
     emailMasked: maskEmail(email),
+    developerAccount: true,
   });
   sendJson(res, 200, {
     ok: true,
@@ -6735,9 +6755,11 @@ async function completeMasterTestLogin(res, body) {
       ...strictPublicUser(user),
       email,
       verificationStatus: "verified",
+      developerAccount: true,
     },
     masterTest: true,
-    message: `Signed in as ${role} with master test credentials.`,
+    developerAccount: true,
+    message: `Signed in as ${role} with developer credentials. All paid features are free for this account.`,
   });
 }
 

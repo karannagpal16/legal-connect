@@ -170,7 +170,15 @@ export function Home() {
 
       <footer className="lc-dharma-footer">
         <span><LockKeyhole aria-hidden="true" /> Role-protected access</span>
-        <p>© 2026 Legal Connect · UDYAM-DL-11-0164811</p>
+        <p>
+          © 2026 Legal Connect · UDYAM-DL-11-0164811
+          {" · "}
+          <Link href="/privacy">Privacy</Link>
+          {" · "}
+          <Link href="/terms">Terms</Link>
+          {" · "}
+          <Link href="/refund">Refunds</Link>
+        </p>
         <Link href="/login?mode=register">Create an account <ArrowRight aria-hidden="true" /></Link>
       </footer>
     </div>

@@ -17,6 +17,9 @@ Source brief summarized for the engineering repo. Full narrative lives with prod
 | 1 | ProxyHub proof gate + client visibility | `strategy-features.js` task lifecycle + ProxyHub UI |
 | 2 | 360° Notification Engine | `notify()` + PortalLayout bell |
 | 3 | Transparency Ledger | `GET /api/public/transparency` + `/transparency` |
+| — | LC-supervised case updates | `POST/GET /api/cases/:id/updates`, admin approve/return desk |
+| — | Public legal pages | `/privacy`, `/terms`, `/refund` |
+| — | Developer account | `karannagpal16@gmail.com` — free unlock on all portals |
 | 4 | Case Health Score | computed in workspace enrichment + `/api/cases/:id/health` |
 | 5 | Cloudinary documents | `POST /api/cases/:id/documents` with Cloudinary when configured |
 | 6 | Grievance Redressal | `/api/grievances` + `/client/grievance` |

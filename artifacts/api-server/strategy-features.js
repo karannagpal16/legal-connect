@@ -227,6 +227,31 @@ function createStrategyFeatures(deps) {
       )
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS task_ratings_task_idx ON task_ratings (task_id)`);
+    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS status text DEFAULT 'visible'`);
+    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_id text`);
+    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_role text`);
+    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS reviewed_by text`);
+    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS reviewed_at timestamptz`);
+    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS return_reason text`);
+    await db.query(`CREATE INDEX IF NOT EXISTS case_updates_status_idx ON case_updates (status, created_at DESC)`);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS case_update_replies (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        update_id uuid NOT NULL,
+        case_id uuid,
+        author_id text,
+        author_role text,
+        message text NOT NULL,
+        status text DEFAULT 'pending_lc_review',
+        reviewed_by text,
+        reviewed_at timestamptz,
+        return_reason text,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS case_update_replies_status_idx ON case_update_replies (status, created_at DESC)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS case_update_replies_update_idx ON case_update_replies (update_id, created_at DESC)`);
     schemaReady = true;
   }
 
@@ -1164,6 +1189,308 @@ function createStrategyFeatures(deps) {
       }
       const alerts = await scanMissingProxyAppearances();
       sendJson(res, 200, { ok: true, alerts: alerts.length, taskIds: alerts });
+      return true;
+    }
+
+    // ── LC-supervised case update pipeline ──────────────────────────────────
+    const caseUpdatesMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/updates$/);
+    if (caseUpdatesMatch && req.method === "GET") {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Login is required." });
+        return true;
+      }
+      const caseId = caseUpdatesMatch[1];
+      const isAdmin = canSeeAll(authUser);
+      const isClient = String(authUser.role || "").toLowerCase() === "client";
+      if (db.dbAvailable && isUuid(caseId)) {
+        const updates = isAdmin || !isClient
+          ? await db.query(
+              `SELECT * FROM case_updates WHERE case_id = $1 ORDER BY created_at DESC LIMIT 100`,
+              [caseId],
+            )
+          : await db.query(
+              `SELECT * FROM case_updates WHERE case_id = $1 AND status = 'approved' ORDER BY created_at DESC LIMIT 100`,
+              [caseId],
+            );
+        const replies = await db.query(
+          `SELECT * FROM case_update_replies WHERE case_id = $1 ORDER BY created_at ASC LIMIT 200`,
+          [caseId],
+        );
+        const visibleReplies = (replies.rows || []).filter((row) => {
+          if (isAdmin) return true;
+          if (String(row.author_id) === String(authUser.id)) return true;
+          return row.status === "approved";
+        });
+        sendJson(res, 200, {
+          ok: true,
+          updates: updates.rows.map((row) => ({
+            ...row,
+            replies: visibleReplies.filter((reply) => String(reply.update_id) === String(row.id)),
+          })),
+        });
+        return true;
+      }
+      const demoUpdates = (demoStore.caseUpdates || []).filter((item) => String(item.caseId) === String(caseId));
+      sendJson(res, 200, {
+        ok: true,
+        updates: demoUpdates.filter((item) => isAdmin || !isClient || item.status === "approved"),
+        mode: "demo",
+      });
+      return true;
+    }
+
+    if (caseUpdatesMatch && req.method === "POST") {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Login is required." });
+        return true;
+      }
+      const role = String(authUser.role || "").toLowerCase();
+      if (!["advocate", "intern", "admin"].includes(role) && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only counsel or Legal Connect staff can post case updates." });
+        return true;
+      }
+      const caseId = caseUpdatesMatch[1];
+      const body = await readBody(req);
+      const message = String(body.message || body.update || "").trim();
+      const updateType = String(body.updateType || body.type || "progress").trim();
+      if (message.length < 12) {
+        sendJson(res, 400, { ok: false, error: "Case update must be at least 12 characters." });
+        return true;
+      }
+      const rule36 = assertRule36Safe(message);
+      if (!rule36.ok) {
+        sendJson(res, 422, { ok: false, error: rule36.error });
+        return true;
+      }
+      const status = canSeeAll(authUser) && body.publishImmediately ? "approved" : "pending_lc_review";
+      const record = {
+        id: `update-${Date.now()}`,
+        caseId,
+        updateType,
+        message,
+        status,
+        authorId: authUser.id,
+        authorRole: role,
+        createdAt: new Date().toISOString(),
+        payload: body.payload || {},
+      };
+      if (db.dbAvailable && isUuid(caseId)) {
+        const created = await db.query(
+          `INSERT INTO case_updates (case_id, update_type, message, payload, status, author_id, author_role, reviewed_by, reviewed_at)
+           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9)
+           RETURNING *`,
+          [
+            caseId,
+            updateType,
+            message,
+            JSON.stringify(record.payload),
+            status,
+            String(authUser.id),
+            role,
+            status === "approved" ? String(authUser.id) : null,
+            status === "approved" ? new Date().toISOString() : null,
+          ],
+        );
+        await notify({
+          eventType: status === "approved" ? "case_update_published" : "case_update_pending_review",
+          title: status === "approved" ? "Case update published" : "Case update awaiting LC review",
+          message: status === "approved"
+            ? `An update was published on your matter.`
+            : `${authUser.name || "Counsel"} submitted a case update for Legal Connect review.`,
+          recipients: status === "approved"
+            ? await resolveRecipients([authUser.id])
+            : await resolveAdminRecipients(),
+          payload: { caseId, updateId: created.rows[0].id, status },
+          sendEmail: true,
+          ctaLabel: status === "approved" ? "Open case" : "Review updates",
+          ctaUrl: portalUrl(status === "approved" ? `/advocate/cases` : `/admin/pending-updates`),
+        });
+        sendJson(res, 201, { ok: true, update: created.rows[0] });
+        return true;
+      }
+      demoStore.caseUpdates = demoStore.caseUpdates || [];
+      demoStore.caseUpdates.unshift(record);
+      sendJson(res, 201, { ok: true, update: record, mode: "demo" });
+      return true;
+    }
+
+    if (url.pathname === "/api/admin/pending-updates" && req.method === "GET") {
+      const authUser = getAuthUser(req);
+      if (!authUser || !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Admin access required." });
+        return true;
+      }
+      if (db.dbAvailable) {
+        const [updates, replies] = await Promise.all([
+          db.query(`SELECT * FROM case_updates WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 100`),
+          db.query(`SELECT * FROM case_update_replies WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 100`),
+        ]);
+        sendJson(res, 200, {
+          ok: true,
+          pendingUpdates: updates.rows,
+          pendingReplies: replies.rows,
+        });
+        return true;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        pendingUpdates: (demoStore.caseUpdates || []).filter((item) => item.status === "pending_lc_review"),
+        pendingReplies: (demoStore.caseUpdateReplies || []).filter((item) => item.status === "pending_lc_review"),
+        mode: "demo",
+      });
+      return true;
+    }
+
+    const adminUpdateAction = url.pathname.match(/^\/api\/admin\/pending-updates\/([^/]+)\/(approve|return)$/);
+    if (adminUpdateAction && req.method === "POST") {
+      const authUser = getAuthUser(req);
+      if (!authUser || !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Admin access required." });
+        return true;
+      }
+      const updateId = adminUpdateAction[1];
+      const action = adminUpdateAction[2];
+      const body = await readBody(req);
+      const kind = String(body.kind || "update").toLowerCase() === "reply" ? "reply" : "update";
+      const nextStatus = action === "approve" ? "approved" : "returned";
+      const returnReason = action === "return" ? String(body.reason || body.returnReason || "").trim() : null;
+      if (action === "return" && (!returnReason || returnReason.length < 4)) {
+        sendJson(res, 400, { ok: false, error: "A return reason is required." });
+        return true;
+      }
+      if (db.dbAvailable) {
+        if (kind === "reply") {
+          const updated = await db.query(
+            `UPDATE case_update_replies
+             SET status = $2, reviewed_by = $3, reviewed_at = now(), return_reason = $4
+             WHERE id = $1
+             RETURNING *`,
+            [updateId, nextStatus, String(authUser.id), returnReason],
+          );
+          if (!updated.rows[0]) {
+            sendJson(res, 404, { ok: false, error: "Reply not found." });
+            return true;
+          }
+          await notify({
+            eventType: action === "approve" ? "case_reply_approved" : "case_reply_returned",
+            title: action === "approve" ? "Client reply published" : "Client reply returned",
+            message: action === "approve"
+              ? "Legal Connect approved a client reply on the case thread."
+              : `Legal Connect returned a client reply: ${returnReason}`,
+            recipients: await resolveRecipients([updated.rows[0].author_id].filter(Boolean)),
+            payload: { replyId: updateId, status: nextStatus, caseId: updated.rows[0].case_id },
+            sendEmail: true,
+            ctaLabel: "Open updates",
+            ctaUrl: portalUrl("/client"),
+          });
+          sendJson(res, 200, { ok: true, reply: updated.rows[0] });
+          return true;
+        }
+        const updated = await db.query(
+          `UPDATE case_updates
+           SET status = $2, reviewed_by = $3, reviewed_at = now(), return_reason = $4
+           WHERE id = $1
+           RETURNING *`,
+          [updateId, nextStatus, String(authUser.id), returnReason],
+        );
+        if (!updated.rows[0]) {
+          sendJson(res, 404, { ok: false, error: "Update not found." });
+          return true;
+        }
+        await notify({
+          eventType: action === "approve" ? "case_update_approved" : "case_update_returned",
+          title: action === "approve" ? "Case update approved" : "Case update returned",
+          message: action === "approve"
+            ? "Legal Connect approved your case update for the client."
+            : `Legal Connect returned your case update: ${returnReason}`,
+          recipients: await resolveRecipients([updated.rows[0].author_id].filter(Boolean)),
+          payload: { updateId, status: nextStatus, caseId: updated.rows[0].case_id },
+          sendEmail: true,
+          ctaLabel: "Open cases",
+          ctaUrl: portalUrl("/advocate/cases"),
+        });
+        sendJson(res, 200, { ok: true, update: updated.rows[0] });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, id: updateId, status: nextStatus, mode: "demo" });
+      return true;
+    }
+
+    const caseReplyMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/updates\/([^/]+)\/replies$/);
+    if (caseReplyMatch && req.method === "POST") {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Login is required." });
+        return true;
+      }
+      const caseId = caseReplyMatch[1];
+      const updateId = caseReplyMatch[2];
+      const body = await readBody(req);
+      const message = String(body.message || "").trim();
+      if (message.length < 4) {
+        sendJson(res, 400, { ok: false, error: "Reply must be at least 4 characters." });
+        return true;
+      }
+      const rule36 = assertRule36Safe(message);
+      if (!rule36.ok) {
+        sendJson(res, 422, { ok: false, error: rule36.error });
+        return true;
+      }
+      const role = String(authUser.role || "").toLowerCase();
+      const status = canSeeAll(authUser) ? "approved" : "pending_lc_review";
+      if (db.dbAvailable && isUuid(caseId) && isUuid(updateId)) {
+        const parent = await db.query(`SELECT id, status FROM case_updates WHERE id = $1 AND case_id = $2 LIMIT 1`, [updateId, caseId]);
+        if (!parent.rows[0]) {
+          sendJson(res, 404, { ok: false, error: "Parent update not found." });
+          return true;
+        }
+        if (role === "client" && parent.rows[0].status !== "approved") {
+          sendJson(res, 403, { ok: false, error: "You can only reply to approved case updates." });
+          return true;
+        }
+        const created = await db.query(
+          `INSERT INTO case_update_replies (update_id, case_id, author_id, author_role, message, status, reviewed_by, reviewed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING *`,
+          [
+            updateId,
+            caseId,
+            String(authUser.id),
+            role,
+            message,
+            status,
+            status === "approved" ? String(authUser.id) : null,
+            status === "approved" ? new Date().toISOString() : null,
+          ],
+        );
+        await notify({
+          eventType: "case_reply_pending_review",
+          title: status === "approved" ? "Case reply posted" : "Case reply awaiting LC review",
+          message: `${authUser.name || "A user"} replied on a case update.`,
+          recipients: status === "approved" ? await resolveRecipients([authUser.id]) : await resolveAdminRecipients(),
+          payload: { caseId, updateId, replyId: created.rows[0].id, status },
+          sendEmail: true,
+          ctaLabel: "Review replies",
+          ctaUrl: portalUrl("/admin/pending-updates"),
+        });
+        sendJson(res, 201, { ok: true, reply: created.rows[0] });
+        return true;
+      }
+      const reply = {
+        id: `reply-${Date.now()}`,
+        updateId,
+        caseId,
+        authorId: authUser.id,
+        authorRole: role,
+        message,
+        status,
+        createdAt: new Date().toISOString(),
+      };
+      demoStore.caseUpdateReplies = demoStore.caseUpdateReplies || [];
+      demoStore.caseUpdateReplies.unshift(reply);
+      sendJson(res, 201, { ok: true, reply, mode: "demo" });
       return true;
     }
 

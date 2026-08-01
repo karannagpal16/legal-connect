@@ -52,6 +52,7 @@ const navigation: Record<AppRole, NavItem[]> = {
   admin: [
     { label: "Overview", href: "/admin", icon: LayoutDashboard },
     { label: "Verifications", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "LC review", href: "/admin/pending-updates", icon: MessageSquare },
     { label: "Users", href: "/admin/users", icon: Users },
     { label: "Cases", href: "/admin/cases", icon: FileSearch },
     { label: "Bookings", href: "/admin/bookings", icon: CalendarDays },
@@ -62,6 +63,7 @@ const navigation: Record<AppRole, NavItem[]> = {
   advocate: [
     { label: "Dashboard", href: "/advocate", icon: Home },
     { label: "My cases", href: "/advocate/cases", icon: FileSearch },
+    { label: "Case updates", href: "/advocate/updates", icon: MessageSquare },
     { label: "Chamber Vault", href: "/advocate/chamber", icon: Vault },
     { label: "Court diary", href: "/advocate/diary", icon: BookOpen },
     { label: "Proxy Hub", href: "/advocate/proxy", icon: BriefcaseBusiness },
@@ -74,6 +76,7 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "Home", href: "/client", icon: Home },
     { label: "Free preview chat", href: "/client/connect", icon: MessageSquare },
     { label: "Get legal help", href: "/client/book", icon: Gavel },
+    { label: "Case updates", href: "/client/updates", icon: FileSearch },
     { label: "Messages", href: "/client/chat", icon: MessageSquare },
     { label: "LawBot", href: "/client/lawbot", icon: Sparkles },
     { label: "Documents", href: "/client/diy-docs", icon: ReceiptIndianRupee },
