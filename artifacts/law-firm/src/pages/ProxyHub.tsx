@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { useListTasks, useDeleteTask } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
-import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch, ShieldCheck, Camera, Star } from "lucide-react";
+import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch, ShieldCheck, Camera, Star, MessageSquareText, CheckCircle2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge, TaskTypeBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { TaskDialog } from "@/components/forms/TaskDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth, normaliseRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
+
+const COMPLETION_TIMES = [
+  "Within 24 hours",
+  "1–2 days",
+  "3–5 days",
+  "1 week",
+  "2 weeks",
+];
 
 type ProxyTask = Task & {
   cnr?: string;
@@ -21,6 +30,9 @@ type ProxyTask = Task & {
   acceptedBy?: string | number;
   postedBy?: string | number;
   escrowStatus?: string;
+  adminQuery?: string;
+  barEnrollment?: string;
+  completionEta?: string;
 };
 
 export function ProxyHub() {
@@ -30,9 +42,15 @@ export function ProxyHub() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [busyId, setBusyId] = useState<string>("");
   const [proxyByTask, setProxyByTask] = useState<Record<string, string>>({});
+  const [acceptTask, setAcceptTask] = useState<ProxyTask | null>(null);
+  const [enrollmentNo, setEnrollmentNo] = useState("");
+  const [completionEta, setCompletionEta] = useState(COMPLETION_TIMES[0]);
+  const [queryNote, setQueryNote] = useState<Record<string, string>>({});
+  const [respondNote, setRespondNote] = useState<Record<string, string>>({});
   const { session } = useAuth();
   const role = normaliseRole(session?.user?.role);
   const isAdmin = role === "admin";
+  const isAdvocate = role === "advocate" || isAdmin;
   const userId = session?.user?.id;
 
   const queryClient = useQueryClient();
@@ -58,7 +76,13 @@ export function ProxyHub() {
 
   const filteredTasks = (tasks as ProxyTask[] | undefined)?.filter((t) => {
     if (filter === "All") return true;
-    if (filter === "Pending Admin") return t.status === "Awaiting Admin Assignment" || t.status === "Open";
+    if (filter === "Pending Admin") {
+      return ["pending_admin_review", "query_raised", "Awaiting Admin Assignment"].includes(String(t.status));
+    }
+    if (filter === "Open") return t.status === "Open";
+    if (filter === "Accepted") return t.status === "Accepted" || t.status === "Assigned";
+    if (filter === "Proof Uploaded") return t.status === "Proof Uploaded" || t.status === "Proof Submitted" || t.proofStatus === "submitted";
+    if (filter === "Completed") return t.status === "Completed" || /payment released|closed/i.test(String(t.status));
     return t.status === filter;
   });
 
@@ -178,10 +202,10 @@ export function ProxyHub() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">
-            {isAdmin ? "Proxy Desk · Assign Counsel" : "ProxyHub · 5-Layer Transparency"}
+            {isAdmin ? "Proxy Desk · Review → Marketplace → Escrow" : "ProxyHub · Status Progression"}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Posting → Conflict declaration → Check-in → Hash-checked proof → Admin escrow release. Clients are notified at every layer.
+            pending_admin_review → Open marketplace → Counsel accept → Proof Uploaded → Completed & escrow released.
           </p>
         </div>
         {!isAdmin && (
@@ -199,7 +223,7 @@ export function ProxyHub() {
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {["All", "Pending Admin", "Assigned", "Checked In", "Proof Submitted", "Completed"].map((status) => (
+        {["All", "Pending Admin", "Open", "Accepted", "Checked In", "Proof Uploaded", "Completed"].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -231,20 +255,22 @@ export function ProxyHub() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTasks?.map((t) => {
-            const pending = t.status === "Open" || t.status === "Awaiting Admin Assignment";
+            const pendingAdmin = ["pending_admin_review", "query_raised", "Awaiting Admin Assignment"].includes(String(t.status));
+            const marketplaceOpen = t.status === "Open";
             const isProxy = String(t.acceptedBy || "") === String(userId || "");
             const isPoster = String(t.postedBy || "") === String(userId || "");
+            const acceptedLike = t.status === "Accepted" || t.status === "Assigned" || t.status === "Checked In" || t.status === "Proof Uploaded" || t.status === "Proof Submitted";
             const canLifecycle = isProxy || isAdmin;
             return (
               <div
                 key={t.id}
                 className="bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-all shadow-sm flex flex-col group relative overflow-hidden"
               >
-                {pending && <div className="absolute top-0 right-0 w-16 h-16 bg-primary/10 rounded-bl-[100%] z-0" />}
+                {pendingAdmin && <div className="absolute top-0 right-0 w-16 h-16 bg-primary/10 rounded-bl-[100%] z-0" />}
 
                 <div className="flex justify-between items-start mb-3 relative z-10">
                   <TaskTypeBadge type={t.taskType || "Other"} />
-                  <StatusBadge status={t.status === "Open" ? "Awaiting Admin Assignment" : t.status} />
+                  <StatusBadge status={t.status} />
                 </div>
 
                 <h3 className="text-lg font-bold text-foreground mb-2 relative z-10 leading-snug">{t.taskDescription || t.title}</h3>
@@ -269,14 +295,37 @@ export function ProxyHub() {
                 </div>
 
                 <div className="flex flex-col gap-2 pt-4 border-t border-border mt-auto relative z-10">
-                  {isAdmin && pending ? (
+                  {isAdmin && pendingAdmin ? (
                     <div className="space-y-2">
+                      <button
+                        className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl flex items-center justify-center gap-2"
+                        disabled={busyId === String(t.id)}
+                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/admin-approve`, { method: "POST", body: "{}" }, "Marketplace Open")}
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Approve → Open marketplace
+                      </button>
+                      <textarea
+                        value={queryNote[String(t.id)] || ""}
+                        onChange={(e) => setQueryNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
+                        placeholder="Raise query for poster…"
+                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
+                      />
+                      <button
+                        className="w-full border border-border font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2"
+                        disabled={busyId === String(t.id) || (queryNote[String(t.id)] || "").trim().length < 8}
+                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/raise-query`, {
+                          method: "POST",
+                          body: JSON.stringify({ query: queryNote[String(t.id)] }),
+                        }, "Query raised")}
+                      >
+                        <MessageSquareText className="w-4 h-4" /> Raise query
+                      </button>
                       <select
                         value={proxyByTask[String(t.id)] || ""}
                         onChange={(event) => setProxyByTask((current) => ({ ...current, [String(t.id)]: event.target.value }))}
                         className="w-full p-3 rounded-xl bg-background border border-border outline-none"
                       >
-                        <option value="">Select proxy counsel</option>
+                        <option value="">Or assign proxy directly</option>
                         {advocateList.map((advocate) => (
                           <option key={advocate.id} value={advocate.id}>
                             {advocate.name}{advocate.enrollmentNo ? ` · ${advocate.enrollmentNo}` : ""}
@@ -286,7 +335,7 @@ export function ProxyHub() {
                       <button
                         onClick={() => handleAssign(t.id)}
                         disabled={isAssigning || busyId === String(t.id) || !proxyByTask[String(t.id)]}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 min-h-[48px]"
+                        className="w-full border border-border font-bold py-2.5 rounded-xl flex items-center justify-center gap-2"
                       >
                         <UserRoundSearch className="w-5 h-5" />
                         Assign Proxy
@@ -294,7 +343,42 @@ export function ProxyHub() {
                     </div>
                   ) : null}
 
-                  {canLifecycle && !t.conflictDeclaredAt ? (
+                  {isPoster && t.status === "query_raised" ? (
+                    <div className="space-y-2">
+                      {t.adminQuery ? <p className="text-xs text-muted-foreground">Admin query: {t.adminQuery}</p> : null}
+                      <textarea
+                        value={respondNote[String(t.id)] || ""}
+                        onChange={(e) => setRespondNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
+                        placeholder="Update info for Admin…"
+                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
+                      />
+                      <button
+                        className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl"
+                        disabled={busyId === String(t.id) || (respondNote[String(t.id)] || "").trim().length < 4}
+                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/respond-query`, {
+                          method: "POST",
+                          body: JSON.stringify({ response: respondNote[String(t.id)] }),
+                        }, "Returned to Open marketplace")}
+                      >
+                        Respond & reopen
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {isAdvocate && marketplaceOpen && !isPoster ? (
+                    <button
+                      className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl"
+                      onClick={() => {
+                        setAcceptTask(t);
+                        setEnrollmentNo("");
+                        setCompletionEta(COMPLETION_TIMES[0]);
+                      }}
+                    >
+                      Accept mission
+                    </button>
+                  ) : null}
+
+                  {canLifecycle && acceptedLike && !t.conflictDeclaredAt ? (
                     <button
                       className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
@@ -347,7 +431,7 @@ export function ProxyHub() {
                       onClick={() => runAction(t.id, "/api/admin/task-action", {
                         method: "POST",
                         body: JSON.stringify({ taskId: t.id, action: "release_payment" }),
-                      }, "Escrow released")}
+                      }, "Completed · escrow released")}
                     >
                       Release escrow
                     </button>
@@ -364,7 +448,7 @@ export function ProxyHub() {
                   ) : null}
 
                   <div className="flex items-center gap-2">
-                    {(isAdmin || pending) && (
+                    {(isAdmin || pendingAdmin || marketplaceOpen) && (
                       <>
                         <button onClick={() => openEdit(t)} className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors">
                           <Edit2 className="w-5 h-5" />
@@ -383,6 +467,52 @@ export function ProxyHub() {
       )}
 
       <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} editingTask={editingTask} />
+
+      <Dialog open={Boolean(acceptTask)} onOpenChange={(open) => !open && setAcceptTask(null)}>
+        <DialogContent className="sm:max-w-[480px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-serif">Counsel acceptance</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{acceptTask?.title}</p>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Bar enrollment number</label>
+              <input
+                value={enrollmentNo}
+                onChange={(e) => setEnrollmentNo(e.target.value)}
+                placeholder="e.g. D/1234/2018"
+                className="w-full p-3 rounded-xl bg-background border border-border outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Estimated completion time</label>
+              <select
+                value={completionEta}
+                onChange={(e) => setCompletionEta(e.target.value)}
+                className="w-full p-3 rounded-xl bg-background border border-border outline-none"
+              >
+                {COMPLETION_TIMES.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl"
+              disabled={!acceptTask || enrollmentNo.trim().length < 3 || busyId === String(acceptTask?.id || "")}
+              onClick={async () => {
+                if (!acceptTask) return;
+                await runAction(acceptTask.id, `/api/tasks/${acceptTask.id}/counsel-accept`, {
+                  method: "POST",
+                  body: JSON.stringify({ enrollmentNo, completionEta }),
+                }, "Mission accepted");
+                setAcceptTask(null);
+              }}
+            >
+              Confirm acceptance
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

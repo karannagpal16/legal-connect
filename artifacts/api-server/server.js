@@ -8,6 +8,7 @@ const config = require("./config");
 const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
 const { createStrategyFeatures } = require("./strategy-features");
+const { createWorkflowProgressions } = require("./workflow-progressions");
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
@@ -1015,11 +1016,20 @@ async function activateBookingAsPaid(bookingId, authUser, meta = {}) {
         JSON.stringify({
           work_hold_status: "active",
           verified_at: new Date().toISOString(),
+          intakeStatus: "intake_submitted",
+          stageStatus: "intake_submitted",
           ...meta,
         }),
         Number.isFinite(nextAmount) ? nextAmount : null,
       ],
     );
+    await db.query(
+      `UPDATE bookings
+       SET stage_status = COALESCE(NULLIF(stage_status, ''), 'intake_submitted'),
+           payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
+       WHERE id = $1`,
+      [bookingId, JSON.stringify({ intakeStatus: "intake_submitted", stageStatus: "intake_submitted" })],
+    ).catch(() => undefined);
     try {
       linkedCaseId = await ensurePaidBookingCase(bookingId);
     } catch (error) {
@@ -1034,6 +1044,8 @@ async function activateBookingAsPaid(bookingId, authUser, meta = {}) {
         verifiedAt: new Date().toISOString(),
         firstChatFree: Boolean(meta.firstChatFree),
         amount: meta.amount ?? booking.amount,
+        intakeStatus: "intake_submitted",
+        stageStatus: "intake_submitted",
         ...meta,
       });
     }
@@ -1349,6 +1361,9 @@ function revenueAnalytics(cases, tasks, users) {
 }
 
 function mapInternQuest(item) {
+  const payload = item.payload && typeof item.payload === "object" && !Array.isArray(item.payload)
+    ? item.payload
+    : {};
   return {
     id: item.id,
     title: item.title,
@@ -1356,7 +1371,16 @@ function mapInternQuest(item) {
     xpPoints: Number(item.xpPoints ?? item.xp_points ?? 0),
     deadline: item.deadline || null,
     status: item.status || "Open",
+    assignedTo: item.assignedTo ?? item.assigned_to ?? null,
+    studentId: item.studentId ?? item.student_id ?? null,
+    completionEta: item.completionEta ?? item.completion_eta ?? null,
+    submissionUrl: item.submissionUrl ?? item.submission_url ?? null,
+    submissionNotes: item.submissionNotes ?? item.submission_notes ?? null,
+    awardedXp: item.awardedXp ?? item.awarded_xp ?? null,
+    reviewedBy: item.reviewedBy ?? item.reviewed_by ?? null,
+    reviewedAt: item.reviewedAt ?? item.reviewed_at ?? null,
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+    ...payload,
   };
 }
 
@@ -1372,6 +1396,15 @@ async function ensureInternQuestsTable() {
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
   )`);
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS assigned_to text");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS student_id text");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS completion_eta text");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS submission_url text");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS submission_notes text");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS awarded_xp integer");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS reviewed_by text");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS reviewed_at timestamptz");
+  await db.query("ALTER TABLE intern_quests ADD COLUMN IF NOT EXISTS payload jsonb DEFAULT '{}'::jsonb");
 }
 
 function mapUser(row) {
@@ -2393,6 +2426,24 @@ const strategyFeatures = createStrategyFeatures({
   dispatchSms,
 });
 
+const workflowProgressions = createWorkflowProgressions({
+  db,
+  notify,
+  resolveRecipients,
+  resolveAdminRecipients,
+  portalUrl,
+  sendJson,
+  readBody,
+  getAuthUser: (req) => getAuthUser(req),
+  canSeeAll: (user) => canSeeAll(user),
+  mapTask,
+  mapInternQuest,
+  mapBooking,
+  writeAuditLog,
+  demoStore,
+  ensureInternQuestsTable,
+});
+
 const server = http.createServer(async (req, res) => {
   res.localsCorsOrigin = corsOriginFor(req);
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -2403,6 +2454,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (await strategyFeatures.handleStrategyRoutes(req, res, url)) {
+    return;
+  }
+
+  if (await workflowProgressions.handleWorkflowRoutes(req, res, url)) {
     return;
   }
 
@@ -3564,7 +3619,12 @@ const server = http.createServer(async (req, res) => {
         const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
         return {
           ...mapped,
-          intakeStatus: payload.intakeStatus || row.stage_status || mapped.stageStatus || mapped.paymentStatus || "pending",
+          intakeStatus: payload.intakeStatus
+            || row.stage_status
+            || mapped.stageStatus
+            || (["payment_pending", "Pending", "pending"].includes(String(mapped.paymentStatus || "")) ? "draft" : null)
+            || mapped.paymentStatus
+            || "draft",
           missingDocuments: payload.missingDocuments || [],
           lastLcNote: payload.lastLcNote || null,
           rejectionReason: payload.rejectionReason || null,
@@ -3608,8 +3668,8 @@ const server = http.createServer(async (req, res) => {
         Object.assign(loaded.raw, {
           assignedAdvocateId: advocateId,
           assignedAdvocateName: body.advocateName || "Panel counsel",
-          stageStatus: "acknowledged_and_assigned",
-          intakeStatus: "assigned",
+          stageStatus: "advocate_assigned",
+          intakeStatus: "advocate_assigned",
         });
         sendJson(res, 200, { ok: true, intake: dashboardBooking(loaded.raw), action: "assign" });
         return;
@@ -3638,7 +3698,7 @@ const server = http.createServer(async (req, res) => {
          SET assigned_advocate_id = $2,
              assigned_advocate_name = $3,
              assigned_advocate_enrollment = $4,
-             stage_status = 'acknowledged_and_assigned',
+             stage_status = 'advocate_assigned',
              payload = COALESCE(payload, '{}'::jsonb) || $5::jsonb
          WHERE id = $1
          RETURNING *`,
@@ -3648,8 +3708,8 @@ const server = http.createServer(async (req, res) => {
           advocate.name,
           enrollment.rows[0]?.enrollment_no || null,
           JSON.stringify({
-            intakeStatus: "assigned",
-            stageStatus: "acknowledged_and_assigned",
+            intakeStatus: "advocate_assigned",
+            stageStatus: "advocate_assigned",
             assignedAdvocateId: advocateId,
             assignedAdvocateName: advocate.name,
             assignmentNote: note || null,
@@ -4836,8 +4896,8 @@ const server = http.createServer(async (req, res) => {
       assign_lawyer: "Assigned",
       assign_intern: "Assigned",
       mark_payment_locked: "Payment locked",
-      mark_proof_approved: "Proof approved",
-      release_payment: "Payment released",
+      mark_proof_approved: "Proof Uploaded",
+      release_payment: "Completed",
       refund: "Refunded",
       close_task: "Closed",
     };
@@ -5294,7 +5354,7 @@ const server = http.createServer(async (req, res) => {
       taskType: posting.fields.appearanceType,
       amount: fee,
       escrowStatus: "Locked",
-      status: "Open",
+      status: "pending_admin_review",
       paymentVerified: !isDemoOrder,
       razorpayOrderId: isDemoOrder ? null : razorpay_order_id,
       razorpayPaymentId: isDemoOrder ? null : razorpay_payment_id,
@@ -5307,12 +5367,13 @@ const server = http.createServer(async (req, res) => {
       hearingDate: posting.fields.hearingDate,
       proofStatus: "none",
       transparencyLayer: "posting",
+      workflowStatus: "pending_admin_review",
       createdAt: new Date().toISOString(),
     };
     if (db.dbAvailable) {
       const result = await db.query(
         `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, proof_url, proof_status, payload)
-         VALUES ($1, $2, $3, $4, $5, 'Open', $6, NULL, 'none', $7) RETURNING *`,
+         VALUES ($1, $2, $3, $4, $5, 'pending_admin_review', $6, NULL, 'none', $7) RETURNING *`,
         [task.title, task.court, task.taskType, task.amount, "Locked", authUser.id, JSON.stringify({ ...task, user_id: authUser.id })],
       );
       await writeAuditLog(authUser, "proxy_hub_task_posted", "task", result.rows[0].id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified });
@@ -5323,10 +5384,10 @@ const server = http.createServer(async (req, res) => {
         ];
         await notify({
           eventType: "proxy_mission_posted",
-          title: "Proxy mission live",
-          message: `${task.title} is live and awaiting Admin proxy assignment.`,
+          title: "Proxy mission awaiting Admin review",
+          message: `${task.title} is pending_admin_review before the marketplace opens.`,
           recipients,
-          payload: { taskId: result.rows[0].id, fee: task.amount },
+          payload: { taskId: result.rows[0].id, fee: task.amount, status: "pending_admin_review" },
           sendEmail: true,
           ctaLabel: "Open ProxyHub",
           ctaUrl: portalUrl("/advocate/proxy"),
@@ -5858,7 +5919,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const current = mapTask(existing.rows[0]);
-      if (!["Open", "Awaiting Admin Assignment"].includes(current.status) && current.acceptedBy !== proxyId) {
+      if (!["Open", "Awaiting Admin Assignment", "pending_admin_review", "query_raised"].includes(current.status) && current.acceptedBy !== proxyId) {
         sendJson(res, 409, { error: "This task is no longer available for assignment." });
         return;
       }
@@ -5869,7 +5930,7 @@ const server = http.createServer(async (req, res) => {
              updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, "Assigned", proxyId, JSON.stringify({ assignedProxyName: proxyName, assignmentStatus: "Assigned", assignedByAdmin: true })],
+        [id, "Accepted", proxyId, JSON.stringify({ assignedProxyName: proxyName, assignmentStatus: "Accepted", assignedByAdmin: true, workflowStatus: "Accepted" })],
       );
       await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });
       {
@@ -5896,15 +5957,16 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 404, { error: "Task not found" });
       return;
     }
-    if (!["Open", "Awaiting Admin Assignment"].includes(task.status) && task.acceptedBy !== proxyId) {
+    if (!["Open", "Awaiting Admin Assignment", "pending_admin_review", "query_raised"].includes(task.status) && task.acceptedBy !== proxyId) {
       sendJson(res, 409, { error: "This task is no longer available for assignment." });
       return;
     }
     Object.assign(task, {
-      status: "Assigned",
+      status: "Accepted",
       acceptedBy: proxyId,
       assignedToId: proxyId,
       assignedProxyName: proxyName,
+      workflowStatus: "Accepted",
       updatedAt: new Date().toISOString(),
     });
     await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });

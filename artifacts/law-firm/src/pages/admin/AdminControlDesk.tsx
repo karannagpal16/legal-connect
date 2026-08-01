@@ -66,8 +66,10 @@ type DeskTask = {
 
 function needsSupervision(item: Intake) {
   const status = String(item.intakeStatus || item.stageStatus || item.paymentStatus || item.status || "").toLowerCase();
-  if (status.includes("refund") || status.includes("rejected")) return false;
-  if (item.assignedAdvocateId && status === "assigned") return false;
+  if (status.includes("refund") || status.includes("rejected") || status.includes("concluded") || status === "closed") return false;
+  if (item.assignedAdvocateId && ["advocate_assigned", "assigned", "advocate_accepted", "work_in_progress"].includes(status)) {
+    return status === "advocate_assigned"; // still needs advocate accept visibility via desk
+  }
   return true;
 }
 
@@ -115,10 +117,12 @@ export function AdminControlDesk() {
       }),
     onSuccess: (_data, variables) => {
       const labels: Record<string, string> = {
-        assign: "Panel lawyer assigned.",
+        assign: "Panel lawyer assigned (advocate_assigned).",
         "request-info": "Document / info request sent to client.",
         guidance: "Official LC guidance published.",
         refund: "Intake rejected and escrow refund released.",
+        "start-review": "Intake marked lc_under_review.",
+        conclude: "Intake concluded — escrow released, rating unlocked.",
       };
       setSuccess(labels[variables.action] || "Intake action saved.");
       setError("");
@@ -160,7 +164,12 @@ export function AdminControlDesk() {
   const queue = useMemo(() => intakes.filter(needsSupervision), [intakes]);
   const tasks = (controlDesk.data?.tasks || []).filter((task) => {
     const status = String(task.status || "").toLowerCase();
-    return status.includes("awaiting") || status === "open" || task.proofStatus === "submitted"
+    return status.includes("awaiting")
+      || status === "pending_admin_review"
+      || status === "query_raised"
+      || status === "open"
+      || status.includes("proof")
+      || task.proofStatus === "submitted"
       || (task.proofStatus === "approved" && String(task.escrowStatus || "").toLowerCase() !== "released");
   });
 
@@ -251,6 +260,26 @@ export function AdminControlDesk() {
 
               {open ? (
                 <div style={{ marginTop: "1rem", display: "grid", gap: "1rem" }}>
+                  <div style={{ padding: "0.85rem", borderRadius: 10, background: "rgba(0,0,0,0.03)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <button
+                      className="lc-button"
+                      disabled={runIntake.isPending}
+                      onClick={() => runIntake.mutate({ id: intake.id, action: "start-review", body: {} })}
+                    >
+                      Mark lc_under_review
+                    </button>
+                    <button
+                      className="lc-button"
+                      disabled={runIntake.isPending}
+                      onClick={() => runIntake.mutate({
+                        id: intake.id,
+                        action: "conclude",
+                        body: { note: "Matter concluded after LC-supervised engagement." },
+                      })}
+                    >
+                      Conclude / close
+                    </button>
+                  </div>
                   {/* Action 1 */}
                   <div style={{ padding: "0.85rem", borderRadius: 10, background: "rgba(0,0,0,0.03)" }}>
                     <h4 style={{ margin: "0 0 0.5rem", display: "flex", gap: "0.4rem", alignItems: "center" }}>

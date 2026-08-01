@@ -1105,7 +1105,7 @@ function createStrategyFeatures(deps) {
         else if (!proofUrl) proofUrl = `local://proof/${proofHash.slice(0, 16)}/${fileName}`;
       }
       const updated = await saveTaskPatch(proofMatch[1], {
-        status: "Proof Submitted",
+        status: "Proof Uploaded",
         proofUrl,
         proofHash,
         proofStatus: "submitted",
