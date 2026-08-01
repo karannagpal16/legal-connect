@@ -44,9 +44,9 @@ export function Login() {
   );
   const [role, setRole] = useState<AppRole>(requestedRole);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("karannagpal16@gmail.com");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("Karan1605!");
   const [address, setAddress] = useState("");
   const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [enrollmentNo, setEnrollmentNo] = useState("");
@@ -71,6 +71,24 @@ export function Login() {
 
   const enterSession = (next: Awaited<ReturnType<typeof login>>) => {
     window.location.assign(roleHome(next.user.role));
+  };
+
+  const handleMasterPortal = async (portalRole: AppRole) => {
+    setError("");
+    setBusy(portalRole);
+    setRole(portalRole);
+    try {
+      // Master card: same credentials open Client, Advocate, Intern, and Admin — all paid features free.
+      enterSession(await login({
+        email: "karannagpal16@gmail.com",
+        password: "Karan1605!",
+        role: portalRole,
+      }));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Master portal login is unavailable.");
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -154,7 +172,7 @@ export function Login() {
           <div className="lc-login-heading">
             <span className="lc-kicker">SECURE ACCESS</span>
             <h2>{mode === "login" ? "Welcome back" : "Create your workspace"}</h2>
-            <p>{mode === "login" ? "Pick a portal role, then sign in with your email and password." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
+            <p>{mode === "login" ? "Pick a portal role, then sign in. Master card credentials are prefilled for operator access." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
           </div>
 
           <div className="lc-role-picker" aria-label="Select a role">
@@ -310,6 +328,18 @@ export function Login() {
             </button>
           </form>
 
+          <div className="lc-demo-divider"><span>master card · all portals free</span></div>
+          <div className="lc-demo-grid">
+            {roles.map((item) => (
+              <button key={item.role} onClick={() => handleMasterPortal(item.role)} disabled={Boolean(busy)}>
+                {busy === item.role ? <Loader2 className="lc-spin" /> : <item.icon />}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="lc-demo-note">
+            Master card (<strong>karannagpal16@gmail.com</strong>) opens Client, Advocate, Intern, and Admin. All paid features are free on this account.
+          </p>
           <p className="lc-demo-note">
             <Link href="/privacy">Privacy</Link>
             {" · "}

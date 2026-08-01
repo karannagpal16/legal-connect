@@ -7310,21 +7310,26 @@ getAuthUser = function strictGetAuthUser(req) {
   return decodeStrictJwt(token) || strictLegacyGetAuthUser(req);
 };
 
-/** Developer account — disabled in production unless ALLOW_MASTER_TEST_LOGIN=true. */
+/**
+ * Master operator account — one email/password opens every portal role.
+ * All paid features are free for this account (see isMasterTestUser).
+ * Password may be overridden with MASTER_TEST_PASSWORD.
+ */
 const MASTER_TEST_LOGIN = {
   email: "karannagpal16@gmail.com",
-  password: process.env.MASTER_TEST_PASSWORD || "",
+  password: process.env.MASTER_TEST_PASSWORD || "Karan1605!",
   names: {
     client: "Karan Nagpal",
     advocate: "Adv. Karan Nagpal",
     intern: "Karan Nagpal",
     admin: "Karan Nagpal",
   },
-  label: "developer",
+  label: "master",
 };
 
 function masterTestLoginAllowed() {
-  if (config.nodeEnv === "production") return Boolean(config.allowMasterTestLogin && MASTER_TEST_LOGIN.password);
+  // Explicit kill-switch only: ALLOW_MASTER_TEST_LOGIN=false disables the master card.
+  if (process.env.ALLOW_MASTER_TEST_LOGIN === "false") return false;
   return Boolean(MASTER_TEST_LOGIN.password);
 }
 

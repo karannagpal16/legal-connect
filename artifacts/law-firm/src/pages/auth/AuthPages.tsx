@@ -24,10 +24,10 @@ export function PortalLogin({ portal }: { portal: Portal }) {
   const copy = portalCopy[portal];
   const [mode, setMode] = useState<"otp" | "password">("otp");
   const [status, setStatus] = useState("Ready for secure email OTP sign in");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState("Karan Nagpal");
+  const [email, setEmail] = useState("karannagpal16@gmail.com");
   const [mobile, setMobile] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("Karan1605!");
   const [otp, setOtp] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);

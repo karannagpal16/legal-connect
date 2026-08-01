@@ -61,8 +61,9 @@ async function main() {
   let admin;
   try {
     admin = await login("admin");
+    console.log("[OK] master card admin login");
   } catch (error) {
-    console.log("[SKIP] admin login unavailable (master multi-role may be disabled):", error.message);
+    console.log("[SKIP] admin login unavailable:", error.message);
     admin = null;
   }
 

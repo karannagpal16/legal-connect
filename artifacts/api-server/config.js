@@ -98,8 +98,11 @@ const config = {
   playReviewExpiresAt: optionalString("PLAY_REVIEW_EXPIRES_AT"),
   /** Production wipe kill-switch. Must be exactly "true" to allow POST /api/admin/reset-operational-data. */
   allowOperationalReset: optionalString("ALLOW_OPERATIONAL_RESET", "false").toLowerCase() === "true",
-  /** Production master-login kill-switch. Default off in production. */
-  allowMasterTestLogin: optionalString("ALLOW_MASTER_TEST_LOGIN", "false").toLowerCase() === "true",
+  /**
+   * Master card (karannagpal16@gmail.com) multi-portal login.
+   * Default on. Set ALLOW_MASTER_TEST_LOGIN=false to disable.
+   */
+  allowMasterTestLogin: optionalString("ALLOW_MASTER_TEST_LOGIN", "true").toLowerCase() !== "false",
   twilioAccountSid: optionalString("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optionalString("TWILIO_AUTH_TOKEN"),
   twilioFromNumber: optionalString("TWILIO_FROM_NUMBER"),
