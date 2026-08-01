@@ -3435,7 +3435,10 @@ const server = http.createServer(async (req, res) => {
       }
       const result = canSeeAll(authUser)
         ? await db.query("SELECT * FROM cases ORDER BY created_at DESC")
-        : await db.query("SELECT * FROM cases WHERE user_id = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC", [databaseUserId]);
+        : await db.query(
+            "SELECT * FROM cases WHERE user_id::text = $1 OR COALESCE(payload->>'assignedTo', '') = $1 ORDER BY created_at DESC",
+            [String(databaseUserId)],
+          );
       sendJson(res, 200, result.rows.map(mapCase));
       return;
     }
