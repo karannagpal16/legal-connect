@@ -83,7 +83,6 @@ export function Home() {
           <div className="lc-dharma-backdrop" aria-hidden="true" />
           <div className="lc-dharma-shade" aria-hidden="true" />
           <div className="lc-dharma-orbit" aria-hidden="true"><span /></div>
-          <div className="lc-dharma-chakra" aria-hidden="true"><span /></div>
 
           <div className="lc-dharma-stage-inner">
             <div className="lc-dharma-hero">
