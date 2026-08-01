@@ -1,25 +1,19 @@
-import { lazy, Suspense, type ComponentType } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, RequireAuth, roleHome, useAuth, type AppRole } from "@/lib/auth";
+import { lazyDefault, lazyNamed } from "@/lib/lazyRoute";
 
 import { Layout } from "@/components/layout/Layout";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 import { AdvocateLayout } from "@/components/layout/AdvocateLayout";
 import { InternLayout } from "@/components/layout/InternLayout";
 
-import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+import { RouteErrorBoundary } from "@/components/AppErrorBoundary";
 
-function lazyNamed<T extends Record<string, ComponentType<any>>, K extends keyof T>(
-  loader: () => Promise<T>,
-  name: K,
-) {
-  return lazy(async () => ({ default: (await loader())[name] }));
-}
-
-const NotFound = lazy(() => import("@/pages/not-found"));
+const NotFound = lazyDefault(() => import("@/pages/not-found"));
 const Login = lazyNamed(() => import("@/pages/Login"), "Login");
 const Home = lazyNamed(() => import("@/pages/Home"), "Home");
 const TransparencyLedger = lazyNamed(() => import("@/pages/TransparencyLedger"), "TransparencyLedger");
@@ -83,9 +77,11 @@ const InternCaseTracker = lazyNamed(() => import("@/pages/intern/InternCaseTrack
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false,
+      // Soft nav can race auth/token hydration; one retry avoids "blank until refresh".
+      retry: 1,
+      refetchOnMount: "always",
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5,
+      staleTime: 1000 * 30,
     },
   },
 });
@@ -95,8 +91,39 @@ function Private({ role, children }: { role: AppRole; children: React.ReactNode 
 }
 
 function WorkspaceRedirect() {
-  const { session } = useAuth();
+  const { session, ready } = useAuth();
+  if (!ready) {
+    return (
+      <div className="lc-auth-loading" role="status">
+        <span className="lc-spinner" />
+        <p>Opening your workspace...</p>
+      </div>
+    );
+  }
   return <Redirect to={session ? roleHome(session.user.role) : "/login"} />;
+}
+
+function RouteFallback() {
+  return (
+    <div className="lc-route-loading" role="status">
+      <span className="lc-spinner" />
+      <p>Opening workspace...</p>
+    </div>
+  );
+}
+
+function PageFallback() {
+  return (
+    <div className="lc-workspace-loading" role="status">
+      <span className="lc-spinner" />
+      <p>Loading this screen...</p>
+    </div>
+  );
+}
+
+/** Keep portal chrome mounted; only the page panel suspends on lazy import. */
+function PortalPages({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
 }
 
 function Router() {
@@ -111,170 +138,134 @@ function Router() {
       <Route path="/app" component={WorkspaceRedirect} />
 
       {/* Legacy public pages */}
-      <Route path="/book"><Private role="client"><BookLawyer /></Private></Route>
+      <Route path="/book"><Private role="client"><Suspense fallback={<RouteFallback />}><BookLawyer /></Suspense></Private></Route>
 
-      {/* ADMIN PORTAL */}
-      <Route path="/admin"><Private role="admin"><Layout><Dashboard /></Layout></Private></Route>
-      <Route path="/admin/control"><Private role="admin"><Layout><AdminControlDesk /></Layout></Private></Route>
-      <Route path="/admin/users"><Private role="admin"><Layout><Users /></Layout></Private></Route>
-      <Route path="/admin/verifications"><Private role="admin"><Layout><AdminVerifications /></Layout></Private></Route>
-      <Route path="/admin/pending-updates"><Private role="admin"><Layout><AdminPendingUpdates /></Layout></Private></Route>
-      <Route path="/admin/cases"><Private role="admin"><Layout><MyDiary /></Layout></Private></Route>
-      <Route path="/admin/bookings"><Private role="admin"><Layout><Bookings /></Layout></Private></Route>
-      <Route path="/admin/missions"><Private role="admin"><Layout><ProxyHub /></Layout></Private></Route>
-      <Route path="/admin/revenue"><Private role="admin"><Layout><RevenueTracker /></Layout></Private></Route>
-      <Route path="/admin/library"><Private role="admin"><Layout><LegalLibrary /></Layout></Private></Route>
+      {/* ADMIN PORTAL — nested so sidebar stays while pages lazy-load */}
+      <Route path="/admin" nest>
+        <Private role="admin">
+          <Layout>
+            <PortalPages>
+              <Switch>
+                <Route path="/" component={Dashboard} />
+                <Route path="/control" component={AdminControlDesk} />
+                <Route path="/users" component={Users} />
+                <Route path="/verifications" component={AdminVerifications} />
+                <Route path="/pending-updates" component={AdminPendingUpdates} />
+                <Route path="/cases" component={MyDiary} />
+                <Route path="/bookings" component={Bookings} />
+                <Route path="/missions" component={ProxyHub} />
+                <Route path="/revenue" component={RevenueTracker} />
+                <Route path="/library" component={LegalLibrary} />
+                <Route component={NotFound} />
+              </Switch>
+            </PortalPages>
+          </Layout>
+        </Private>
+      </Route>
 
       {/* Legacy admin routes */}
       <Route path="/dashboard">
-        <Private role="admin"><Layout><Dashboard /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><Dashboard /></PortalPages></Layout></Private>
       </Route>
       <Route path="/diary">
-        <Private role="admin"><Layout><MyDiary /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><MyDiary /></PortalPages></Layout></Private>
       </Route>
       <Route path="/proxy-hub">
-        <Private role="admin"><Layout><ProxyHub /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><ProxyHub /></PortalPages></Layout></Private>
       </Route>
       <Route path="/intern-quests">
-        <Private role="admin"><Layout><InternQuests /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><InternQuests /></PortalPages></Layout></Private>
       </Route>
       <Route path="/revenue-tracker">
-        <Private role="admin"><Layout><RevenueTracker /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><RevenueTracker /></PortalPages></Layout></Private>
       </Route>
       <Route path="/bookings">
-        <Private role="admin"><Layout><Bookings /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><Bookings /></PortalPages></Layout></Private>
       </Route>
       <Route path="/users">
-        <Private role="admin"><Layout><Users /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><Users /></PortalPages></Layout></Private>
       </Route>
       <Route path="/legal-library">
-        <Private role="admin"><Layout><LegalLibrary /></Layout></Private>
+        <Private role="admin"><Layout><PortalPages><LegalLibrary /></PortalPages></Layout></Private>
       </Route>
 
       {/* CLIENT PORTAL */}
-      <Route path="/client">
-        <Private role="client"><ClientLayout><ClientHome /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/grievance">
-        <Private role="client"><ClientLayout><ClientGrievance /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/engagement">
-        <Private role="client"><ClientLayout><ClientEngagement /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/updates">
-        <Private role="client"><ClientLayout><CaseUpdatesBoard /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/connect">
-        <Private role="client"><ClientLayout><ClientConnectChat /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/wellness">
-        <Private role="client"><ClientLayout><ClientWellness /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/rights">
-        <Private role="client"><ClientLayout><ClientRightsFeed /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/cases">
-        <Private role="client"><Redirect to="/client" /></Private>
-      </Route>
-      <Route path="/client/book">
-        <Private role="client"><ClientLayout><ClientBookAdvocate /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/reminders">
-        <Private role="client"><ClientLayout><ClientReminders /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/legal-guide">
-        <Private role="client"><ClientLayout><ClientLegalGuide /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/diy-docs">
-        <Private role="client"><ClientLayout><ClientDIYDocs /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/ai-assistant">
-        <Private role="client"><ClientLayout><ClientAIAssistant /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/lawbot">
-        <Private role="client"><ClientLayout><ClientLawBot /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/chat">
-        <Private role="client"><ClientLayout><ClientChat /></ClientLayout></Private>
-      </Route>
-      <Route path="/client/library">
-        <Private role="client"><ClientLayout><ClientLibrary /></ClientLayout></Private>
+      <Route path="/client" nest>
+        <Private role="client">
+          <ClientLayout>
+            <PortalPages>
+              <Switch>
+                <Route path="/" component={ClientHome} />
+                <Route path="/grievance" component={ClientGrievance} />
+                <Route path="/engagement" component={ClientEngagement} />
+                <Route path="/updates" component={CaseUpdatesBoard} />
+                <Route path="/connect" component={ClientConnectChat} />
+                <Route path="/wellness" component={ClientWellness} />
+                <Route path="/rights" component={ClientRightsFeed} />
+                <Route path="/cases"><Redirect to="/client" /></Route>
+                <Route path="/book" component={ClientBookAdvocate} />
+                <Route path="/reminders" component={ClientReminders} />
+                <Route path="/legal-guide" component={ClientLegalGuide} />
+                <Route path="/diy-docs" component={ClientDIYDocs} />
+                <Route path="/ai-assistant" component={ClientAIAssistant} />
+                <Route path="/lawbot" component={ClientLawBot} />
+                <Route path="/chat" component={ClientChat} />
+                <Route path="/library" component={ClientLibrary} />
+                <Route component={NotFound} />
+              </Switch>
+            </PortalPages>
+          </ClientLayout>
+        </Private>
       </Route>
 
       {/* ADVOCATE PORTAL */}
-      <Route path="/advocate">
-        <Private role="advocate"><AdvocateLayout><AdvocateDashboard /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/calls">
-        <Private role="advocate"><AdvocateLayout><AdvocateCalls /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/diary">
-        <Private role="advocate"><AdvocateLayout><AdvocateDiary /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/proxy">
-        <Private role="advocate"><AdvocateLayout><AdvocateProxy /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/reminders">
-        <Private role="advocate"><AdvocateLayout><AdvocateReminders /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/bookings">
-        <Private role="advocate"><AdvocateLayout><AdvocateBookings /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/library">
-        <Private role="advocate"><AdvocateLayout><AdvocateLibrary /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/revenue">
-        <Private role="advocate"><AdvocateLayout><AdvocateRevenue /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/team">
-        <Private role="advocate"><AdvocateLayout><AdvocateTeam /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/chamber">
-        <Private role="advocate"><AdvocateLayout><ChamberVault /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/chat">
-        <Private role="advocate"><AdvocateLayout><AdvocateChat /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/lawbot">
-        <Private role="advocate"><AdvocateLayout><AdvocateLawBot /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/judges">
-        <Private role="advocate"><AdvocateLayout><AdvocateJudges /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/cases">
-        <Private role="advocate"><AdvocateLayout><AdvocateCaseTracker /></AdvocateLayout></Private>
-      </Route>
-      <Route path="/advocate/updates">
-        <Private role="advocate"><AdvocateLayout><CaseUpdatesBoard /></AdvocateLayout></Private>
+      <Route path="/advocate" nest>
+        <Private role="advocate">
+          <AdvocateLayout>
+            <PortalPages>
+              <Switch>
+                <Route path="/" component={AdvocateDashboard} />
+                <Route path="/calls" component={AdvocateCalls} />
+                <Route path="/diary" component={AdvocateDiary} />
+                <Route path="/proxy" component={AdvocateProxy} />
+                <Route path="/reminders" component={AdvocateReminders} />
+                <Route path="/bookings" component={AdvocateBookings} />
+                <Route path="/library" component={AdvocateLibrary} />
+                <Route path="/revenue" component={AdvocateRevenue} />
+                <Route path="/team" component={AdvocateTeam} />
+                <Route path="/chamber" component={ChamberVault} />
+                <Route path="/chat" component={AdvocateChat} />
+                <Route path="/lawbot" component={AdvocateLawBot} />
+                <Route path="/judges" component={AdvocateJudges} />
+                <Route path="/cases" component={AdvocateCaseTracker} />
+                <Route path="/updates" component={CaseUpdatesBoard} />
+                <Route component={NotFound} />
+              </Switch>
+            </PortalPages>
+          </AdvocateLayout>
+        </Private>
       </Route>
 
       {/* INTERN PORTAL */}
-      <Route path="/intern">
-        <Private role="intern"><InternLayout><InternDashboard /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/quests">
-        <Private role="intern"><InternLayout><InternQuestsPage /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/xp">
-        <Private role="intern"><InternLayout><InternXP /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/leaderboard">
-        <Private role="intern"><InternLayout><InternLeaderboard /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/badges">
-        <Private role="intern"><InternLayout><InternBadges /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/doubts">
-        <Private role="intern"><InternLayout><InternDoubtPortal /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/ai-assistant">
-        <Private role="intern"><InternLayout><InternAIAssistant /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/library">
-        <Private role="intern"><InternLayout><InternLibrary /></InternLayout></Private>
-      </Route>
-      <Route path="/intern/cases">
-        <Private role="intern"><InternLayout><InternCaseTracker /></InternLayout></Private>
+      <Route path="/intern" nest>
+        <Private role="intern">
+          <InternLayout>
+            <PortalPages>
+              <Switch>
+                <Route path="/" component={InternDashboard} />
+                <Route path="/quests" component={InternQuestsPage} />
+                <Route path="/xp" component={InternXP} />
+                <Route path="/leaderboard" component={InternLeaderboard} />
+                <Route path="/badges" component={InternBadges} />
+                <Route path="/doubts" component={InternDoubtPortal} />
+                <Route path="/ai-assistant" component={InternAIAssistant} />
+                <Route path="/library" component={InternLibrary} />
+                <Route path="/cases" component={InternCaseTracker} />
+                <Route component={NotFound} />
+              </Switch>
+            </PortalPages>
+          </InternLayout>
+        </Private>
       </Route>
 
       <Route component={NotFound} />
@@ -288,11 +279,11 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <AppErrorBoundary>
-              <Suspense fallback={<div className="lc-route-loading"><span className="lc-spinner" /><p>Opening workspace...</p></div>}>
+            <RouteErrorBoundary>
+              <Suspense fallback={<RouteFallback />}>
                 <Router />
               </Suspense>
-            </AppErrorBoundary>
+            </RouteErrorBoundary>
           </WouterRouter>
           <Toaster />
         </TooltipProvider>

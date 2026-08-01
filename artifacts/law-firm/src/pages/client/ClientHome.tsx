@@ -129,7 +129,7 @@ export function ClientHome() {
     }
   };
 
-  if (query.isLoading) {
+  if (query.isLoading || (query.isFetching && !query.data)) {
     return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Preparing your private case workspace...</p></div>;
   }
 

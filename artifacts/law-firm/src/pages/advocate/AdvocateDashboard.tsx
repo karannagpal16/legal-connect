@@ -86,7 +86,9 @@ export function AdvocateDashboard() {
   const upcoming = activeCases.filter((matter) => matter.nextDate).length;
   const openTasks = query.data?.chamber?.tasks.filter((task) => task.status !== "completed") || [];
 
-  if (query.isLoading) return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Opening your practice workspace...</p></div>;
+  if (query.isLoading || (query.isFetching && !query.data)) {
+    return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Opening your practice workspace...</p></div>;
+  }
   if (query.isError) return <section className="lc-workspace-error"><AlertTriangle /><div><h2>Practice workspace unavailable</h2><p>{query.error.message}</p></div><button className="lc-button lc-button-primary" onClick={() => query.refetch()}><RefreshCw /> Retry</button></section>;
 
   const name = query.data?.profile.name || session?.user.name || "Counsel";

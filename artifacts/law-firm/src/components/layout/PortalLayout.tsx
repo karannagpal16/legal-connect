@@ -327,7 +327,8 @@ export function PortalLayout({
           </div>
         </header>
         <main className="lc-portal-content">
-          <motion.div key={location} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+          {/* Avoid remounting the whole page tree on every location tick — that forced blank states until refresh. */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
             {children}
           </motion.div>
         </main>
