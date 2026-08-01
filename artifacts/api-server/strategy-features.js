@@ -5,6 +5,7 @@
  * Bar Council Rule 36 guard, ProxyHub bi-directional ratings.
  */
 const crypto = require("crypto");
+const { createSupervisedPipeline } = require("./supervised-pipeline");
 
 const RULE36_PATTERNS = [
   /\bguarantee(?:d)?\s+(?:win|success|acquittal)\b/i,
@@ -42,6 +43,7 @@ function createStrategyFeatures(deps) {
     dispatchSms,
   } = deps;
 
+  const supervised = createSupervisedPipeline({ db });
   let schemaReady = false;
 
   function assertRule36Safe(text) {
@@ -227,12 +229,13 @@ function createStrategyFeatures(deps) {
       )
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS task_ratings_task_idx ON task_ratings (task_id)`);
-    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS status text DEFAULT 'visible'`);
+    await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending_lc_review'`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_id text`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_role text`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS reviewed_by text`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS reviewed_at timestamptz`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS return_reason text`);
+    await db.query(`UPDATE case_updates SET status = 'pending_lc_review' WHERE status IS NULL OR status = 'visible'`);
     await db.query(`CREATE INDEX IF NOT EXISTS case_updates_status_idx ON case_updates (status, created_at DESC)`);
     await db.query(`
       CREATE TABLE IF NOT EXISTS case_update_replies (
@@ -1210,7 +1213,9 @@ function createStrategyFeatures(deps) {
               [caseId],
             )
           : await db.query(
-              `SELECT * FROM case_updates WHERE case_id = $1 AND status = 'approved' ORDER BY created_at DESC LIMIT 100`,
+              `SELECT * FROM case_updates
+               WHERE case_id = $1 AND status IN ('approved', 'approved_and_released')
+               ORDER BY created_at DESC LIMIT 100`,
               [caseId],
             );
         const replies = await db.query(
@@ -1293,21 +1298,60 @@ function createStrategyFeatures(deps) {
             status === "approved" ? new Date().toISOString() : null,
           ],
         );
+        const parties = await supervised.caseClientAndAdvocate(caseId);
+        if (status === "pending_lc_review") {
+          const bookingId = parties.bookingId || await supervised.bookingIdForCase(caseId);
+          if (bookingId) {
+            await supervised.syncBookingPipelineStage(bookingId, "advocate_update_pending", {
+              lastUpdateId: created.rows[0].id,
+              lastUpdateAt: new Date().toISOString(),
+            });
+          }
+          await supervised.syncCasePipelineStage(caseId, "advocate_update_pending", {
+            lastUpdateId: created.rows[0].id,
+          });
+        }
+        if (status === "approved") {
+          await supervised.mirrorApprovedUpdateToCommunications(caseId, created.rows[0], authUser.id);
+          const bookingId = parties.bookingId || await supervised.bookingIdForCase(caseId);
+          if (bookingId) await supervised.syncBookingPipelineStage(bookingId, "lc_update_approved");
+          await supervised.syncCasePipelineStage(caseId, "lc_update_approved");
+        }
         await notify({
           eventType: status === "approved" ? "case_update_published" : "case_update_pending_review",
-          title: status === "approved" ? "Case update published" : "Case update awaiting LC review",
+          title: status === "approved" ? "Case update released" : "Advocate update awaiting LC review",
           message: status === "approved"
-            ? `An update was published on your matter.`
-            : `${authUser.name || "Counsel"} submitted a case update for Legal Connect review.`,
+            ? `Legal Connect released a counsel update on ${parties.caseTitle || "your matter"}.`
+            : `${authUser.name || "Counsel"} submitted an update for Legal Connect review before client release.`,
           recipients: status === "approved"
-            ? await resolveRecipients([authUser.id])
+            ? await resolveRecipients([parties.clientId, authUser.id].filter(Boolean))
             : await resolveAdminRecipients(),
-          payload: { caseId, updateId: created.rows[0].id, status },
+          payload: {
+            caseId,
+            updateId: created.rows[0].id,
+            status,
+            bookingId: parties.bookingId || null,
+            clientId: parties.clientId,
+            advocateId: parties.advocateId || authUser.id,
+          },
           sendEmail: true,
-          ctaLabel: status === "approved" ? "Open case" : "Review updates",
-          ctaUrl: portalUrl(status === "approved" ? `/advocate/cases` : `/admin/pending-updates`),
+          priority: "high",
+          ctaLabel: status === "approved" ? "Open case updates" : "Review updates",
+          ctaUrl: portalUrl(status === "approved" ? "/client/updates" : "/admin/pending-updates"),
         });
-        sendJson(res, 201, { ok: true, update: created.rows[0] });
+        if (status === "pending_lc_review") {
+          await notify({
+            eventType: "case_update_held_for_lc",
+            title: "Update submitted to Legal Connect",
+            message: "Your update is held for LC review. It will reach the client only after approval.",
+            recipients: await resolveRecipients([authUser.id]),
+            payload: { caseId, updateId: created.rows[0].id, status },
+            sendEmail: true,
+            ctaLabel: "Open case updates",
+            ctaUrl: portalUrl("/advocate/updates"),
+          });
+        }
+        sendJson(res, 201, { ok: true, update: created.rows[0], supervised: true });
         return true;
       }
       demoStore.caseUpdates = demoStore.caseUpdates || [];
@@ -1390,19 +1434,36 @@ function createStrategyFeatures(deps) {
             sendJson(res, 404, { ok: false, error: "Reply not found." });
             return true;
           }
+          const parties = await supervised.caseClientAndAdvocate(updated.rows[0].case_id);
+          const parentUpdate = await db.query(
+            `SELECT author_id FROM case_updates WHERE id = $1 LIMIT 1`,
+            [updated.rows[0].update_id],
+          ).catch(() => ({ rows: [] }));
+          const advocateId = parentUpdate.rows[0]?.author_id || parties.advocateId;
           await notify({
             eventType: action === "approve" ? "case_reply_approved" : "case_reply_returned",
-            title: action === "approve" ? "Client reply published" : "Client reply returned",
+            title: action === "approve" ? "Client reply forwarded by Legal Connect" : "Client reply returned",
             message: action === "approve"
-              ? "Legal Connect approved a client reply on the case thread."
+              ? "Legal Connect reviewed and forwarded a client reply to counsel."
               : `Legal Connect returned a client reply: ${returnReason}`,
-            recipients: await resolveRecipients([updated.rows[0].author_id].filter(Boolean)),
-            payload: { replyId: updateId, status: nextStatus, caseId: updated.rows[0].case_id },
+            recipients: await resolveRecipients(
+              action === "approve"
+                ? [updated.rows[0].author_id, advocateId].filter(Boolean)
+                : [updated.rows[0].author_id].filter(Boolean),
+            ),
+            payload: {
+              replyId: updateId,
+              status: nextStatus,
+              caseId: updated.rows[0].case_id,
+              clientId: parties.clientId,
+              advocateId,
+            },
             sendEmail: true,
+            priority: "high",
             ctaLabel: "Open updates",
-            ctaUrl: portalUrl("/client"),
+            ctaUrl: portalUrl(action === "approve" ? "/advocate/updates" : "/client/updates"),
           });
-          sendJson(res, 200, { ok: true, reply: updated.rows[0] });
+          sendJson(res, 200, { ok: true, reply: updated.rows[0], supervised: true });
           return true;
         }
         const updated = await db.query(
@@ -1416,22 +1477,101 @@ function createStrategyFeatures(deps) {
           sendJson(res, 404, { ok: false, error: "Update not found." });
           return true;
         }
+        const parties = await supervised.caseClientAndAdvocate(updated.rows[0].case_id);
+        if (action === "approve") {
+          await supervised.mirrorApprovedUpdateToCommunications(updated.rows[0].case_id, updated.rows[0], authUser.id);
+          const bookingId = parties.bookingId || await supervised.bookingIdForCase(updated.rows[0].case_id);
+          if (bookingId) {
+            await supervised.syncBookingPipelineStage(bookingId, "lc_update_approved", {
+              lastReleasedUpdateId: updated.rows[0].id,
+              lastReleasedAt: new Date().toISOString(),
+            });
+          }
+          await supervised.syncCasePipelineStage(updated.rows[0].case_id, "lc_update_approved", {
+            lastReleasedUpdateId: updated.rows[0].id,
+          });
+        }
         await notify({
           eventType: action === "approve" ? "case_update_approved" : "case_update_returned",
-          title: action === "approve" ? "Case update approved" : "Case update returned",
+          title: action === "approve" ? "Update released to client" : "Case update returned to advocate",
           message: action === "approve"
-            ? "Legal Connect approved your case update for the client."
+            ? `Legal Connect approved and released counsel's update on ${parties.caseTitle || "your matter"}.`
             : `Legal Connect returned your case update: ${returnReason}`,
-          recipients: await resolveRecipients([updated.rows[0].author_id].filter(Boolean)),
-          payload: { updateId, status: nextStatus, caseId: updated.rows[0].case_id },
+          recipients: await resolveRecipients(
+            action === "approve"
+              ? [parties.clientId, updated.rows[0].author_id].filter(Boolean)
+              : [updated.rows[0].author_id].filter(Boolean),
+          ),
+          payload: {
+            updateId,
+            status: nextStatus,
+            caseId: updated.rows[0].case_id,
+            clientId: parties.clientId,
+            advocateId: updated.rows[0].author_id,
+            bookingId: parties.bookingId,
+          },
           sendEmail: true,
-          ctaLabel: "Open cases",
-          ctaUrl: portalUrl("/advocate/cases"),
+          sendSms: action === "approve",
+          priority: "high",
+          ctaLabel: action === "approve" ? "Read update" : "Revise update",
+          ctaUrl: portalUrl(action === "approve" ? "/client/updates" : "/advocate/updates"),
         });
-        sendJson(res, 200, { ok: true, update: updated.rows[0] });
+        sendJson(res, 200, { ok: true, update: updated.rows[0], supervised: true });
         return true;
       }
-      sendJson(res, 200, { ok: true, id: updateId, status: nextStatus, mode: "demo" });
+
+      // Demo / memory fallback — mutate in-memory queues so LC gate smoke works offline.
+      if (!kind) {
+        const asUpdate = (demoStore.caseUpdates || []).find((item) => String(item.id) === String(updateId));
+        const asReply = (demoStore.caseUpdateReplies || []).find((item) => String(item.id) === String(updateId));
+        if (asUpdate) kind = "update";
+        else if (asReply) kind = "reply";
+        else {
+          sendJson(res, 404, { ok: false, error: "Update not found." });
+          return true;
+        }
+      }
+      if (kind === "reply") {
+        const reply = (demoStore.caseUpdateReplies || []).find((item) => String(item.id) === String(updateId));
+        if (!reply) {
+          sendJson(res, 404, { ok: false, error: "Reply not found." });
+          return true;
+        }
+        Object.assign(reply, {
+          status: nextStatus,
+          reviewedBy: authUser.id,
+          reviewedAt: new Date().toISOString(),
+          returnReason: returnReason,
+        });
+        sendJson(res, 200, { ok: true, reply, supervised: true, mode: "demo" });
+        return true;
+      }
+      const demoUpdate = (demoStore.caseUpdates || []).find((item) => String(item.id) === String(updateId));
+      if (!demoUpdate) {
+        sendJson(res, 404, { ok: false, error: "Update not found." });
+        return true;
+      }
+      Object.assign(demoUpdate, {
+        status: nextStatus,
+        reviewedBy: authUser.id,
+        reviewedAt: new Date().toISOString(),
+        returnReason: returnReason,
+      });
+      if (action === "approve") {
+        const linkedCase = (demoStore.cases || []).find((item) => String(item.id) === String(demoUpdate.caseId));
+        if (linkedCase) {
+          linkedCase.stage = "lc_update_approved";
+          linkedCase.pipelineStage = "lc_update_approved";
+          linkedCase.intakeStatus = "lc_update_approved";
+        }
+        const bookingId = linkedCase?.bookingId || linkedCase?.payload?.bookingId;
+        const linkedBooking = (demoStore.bookings || []).find((item) => String(item.id) === String(bookingId));
+        if (linkedBooking) {
+          linkedBooking.intakeStatus = "lc_update_approved";
+          linkedBooking.stageStatus = "lc_update_approved";
+        }
+      }
+      sendJson(res, 200, { ok: true, update: demoUpdate, supervised: true, mode: "demo" });
       return true;
     }
 
@@ -1463,7 +1603,7 @@ function createStrategyFeatures(deps) {
           sendJson(res, 404, { ok: false, error: "Parent update not found." });
           return true;
         }
-        if (role === "client" && parent.rows[0].status !== "approved") {
+        if (role === "client" && !["approved", "approved_and_released"].includes(String(parent.rows[0].status || ""))) {
           sendJson(res, 403, { ok: false, error: "You can only reply to approved case updates." });
           return true;
         }
