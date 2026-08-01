@@ -9,6 +9,9 @@ const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
 const { createStrategyFeatures } = require("./strategy-features");
 const { createWorkflowProgressions } = require("./workflow-progressions");
+const { createPlatformEvents } = require("./platform-events");
+
+const platformEvents = createPlatformEvents({ db, config });
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
@@ -1530,6 +1533,11 @@ async function writeAuditLog(actor, action, targetType, targetId, message, paylo
   } else {
     demoStore.auditLogs.unshift(audit);
   }
+  try {
+    await platformEvents.emitFromAudit(actor, action, targetType, targetId, message, payload || {});
+  } catch (_error) {
+    // Live bus must never break audit writes.
+  }
   return audit;
 }
 
@@ -1799,6 +1807,18 @@ async function notify({
   }
 
   await Promise.allSettled(jobs);
+  try {
+    await platformEvents.emitFromNotify({
+      eventType,
+      title,
+      message,
+      payload,
+      actor: payload?.actor || null,
+      recipients: list,
+    });
+  } catch (_error) {
+    // Live bus must never break notification delivery.
+  }
   return channelLog;
 }
 
@@ -2628,6 +2648,7 @@ const server = http.createServer(async (req, res) => {
       "login_verifications",
       "password_reset_tokens",
       "sessions",
+      "platform_events",
     ];
 
     if (!db.dbAvailable) {
@@ -2680,6 +2701,7 @@ const server = http.createServer(async (req, res) => {
       // Identifiers come from the allow-list above, never from request input.
       await db.query(`TRUNCATE TABLE ${present.join(", ")} RESTART IDENTITY CASCADE`);
     }
+    platformEvents.clearRing();
 
     let removedUsers = [];
     if (removeOtherUsers) {
@@ -6315,13 +6337,18 @@ const server = http.createServer(async (req, res) => {
         ];
         await notify({
           eventType: "booking_confirmed",
-          title: "Booking received",
-          message: "Your Legal Connect booking has been recorded.",
+          title: "New Intake Pending Lawyer Assignment",
+          message: "Client fee and intake received. Legal Connect Control Desk should assign a Bar-verified panel lawyer.",
           recipients,
-          payload: { bookingId: savedBooking.id },
+          payload: {
+            bookingId: savedBooking.id,
+            clientId: bookingUserId,
+            actor: authUser || { role: userRole(authUser), id: bookingUserId },
+          },
           sendEmail: true,
-          ctaLabel: "View booking",
-          ctaUrl: portalUrl("/client"),
+          ctaLabel: "Open intake desk",
+          ctaUrl: portalUrl("/admin/control"),
+          priority: "high",
         });
       }
       const receipt = await createReceipt({
@@ -6593,14 +6620,18 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/events/live" && req.method === "GET") {
     const authUser = getAuthUser(req);
-    const events = (demoStore.auditLogs || []).slice(0, 20).map(log => ({
-      eventId: log.id || `EVT-${Date.now()}`,
-      timestamp: log.createdAt || new Date().toISOString(),
-      eventType: log.eventType || "STATUS_UPDATE",
-      actor: log.actor || { name: "System", role: "system" },
-      payload: log.payload || log
-    }));
-    sendJson(res, 200, { ok: true, events, timestamp: new Date().toISOString() });
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    const feed = await platformEvents.listLiveEvents(authUser, {
+      since: url.searchParams.get("since"),
+      limit: url.searchParams.get("limit"),
+      caseId: url.searchParams.get("caseId"),
+      taskId: url.searchParams.get("taskId"),
+      bookingId: url.searchParams.get("bookingId"),
+    });
+    sendJson(res, 200, feed);
     return;
   }
 
@@ -6932,6 +6963,7 @@ async function initializeDatabase() {
       throw new Error("PostgreSQL migrations did not complete.");
     }
     await ensureStrictAuthSchema();
+    await platformEvents.ensureSchema();
     console.log(`Database initialized. Migration status: ${db.migrationStatus}`);
   } catch (error) {
     console.error(`Database initialization failed: ${error.message}`);

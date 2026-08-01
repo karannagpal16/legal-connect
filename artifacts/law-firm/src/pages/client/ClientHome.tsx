@@ -23,6 +23,7 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { CounselIntake, type ConsultationChannel } from "@/components/client/CounselIntake";
+import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import {
   dailyQuote,
   greetingFor,
@@ -173,12 +174,18 @@ export function ClientHome() {
       </section>
 
       {!cases.length ? (
-        <section className="lc-workspace-empty">
-          <Gavel />
-          <h2>No matters in your workspace</h2>
-          <p>Start a paid intake. Legal Connect will review the issue and assign suitable verified counsel.</p>
-          <button className="lc-button lc-button-primary" onClick={() => openBooking()}>Book a counsel</button>
-        </section>
+        <>
+          <section className="lc-workspace-empty">
+            <Gavel />
+            <h2>No matters in your workspace</h2>
+            <p>Start a paid intake. Legal Connect will review the issue and assign suitable verified counsel.</p>
+            <button className="lc-button lc-button-primary" onClick={() => openBooking()}>Book a counsel</button>
+          </section>
+          <ActivityAuditTimeline
+            title="Minute-by-Minute Activity Audit"
+            emptyText="After you submit an intake, assignment and stage updates will stream here across all portals."
+          />
+        </>
       ) : (
         <section className="lc-matter-workspace" id="client-matters">
           <aside className="lc-matter-switcher">
@@ -238,20 +245,27 @@ export function ClientHome() {
               </div>
 
               {tab === "overview" && (
-                <div className="lc-matter-overview">
-                  <section>
-                    <span className="lc-section-icon"><Clock3 /></span>
-                    <div><small>Next action</small><h3>{selectedCase.nextAction}</h3><p>Last synced with your case record.</p></div>
-                  </section>
-                  <section>
-                    <span className="lc-section-icon"><UserRoundCheck /></span>
-                    <div><small>Assigned counsel</small><h3>{selectedCase.counsel?.name || "Assignment pending"}</h3><p>{selectedCase.counsel?.enrollment || selectedCase.counsel?.contactPolicy || "Legal Connect will assign verified counsel after intake payment."}</p>{selectedCase.counsel && <div className="lc-counsel-actions"><Link href={`/client/chat?caseId=${encodeURIComponent(selectedCase.id)}`}><MessageSquareText /> Chat</Link><button onClick={() => openBooking("call", selectedCase)}><Phone /> Call</button><button onClick={() => openBooking("video", selectedCase)}><Video /> Video</button></div>}</div>
-                  </section>
-                  <section>
-                    <span className="lc-section-icon"><CheckCircle2 /></span>
-                    <div><small>Case record</small><h3>{selectedCase.documents.length} documents, {selectedCase.communications.length} communications</h3><p>Every item remains separated by matter to avoid cross-case disclosure.</p></div>
-                  </section>
-                </div>
+                <>
+                  <div className="lc-matter-overview">
+                    <section>
+                      <span className="lc-section-icon"><Clock3 /></span>
+                      <div><small>Next action</small><h3>{selectedCase.nextAction}</h3><p>Last synced with your case record.</p></div>
+                    </section>
+                    <section>
+                      <span className="lc-section-icon"><UserRoundCheck /></span>
+                      <div><small>Assigned counsel</small><h3>{selectedCase.counsel?.name || "Assignment pending"}</h3><p>{selectedCase.counsel?.enrollment || selectedCase.counsel?.contactPolicy || "Legal Connect will assign verified counsel after intake payment."}</p>{selectedCase.counsel && <div className="lc-counsel-actions"><Link href={`/client/chat?caseId=${encodeURIComponent(selectedCase.id)}`}><MessageSquareText /> Chat</Link><button onClick={() => openBooking("call", selectedCase)}><Phone /> Call</button><button onClick={() => openBooking("video", selectedCase)}><Video /> Video</button></div>}</div>
+                    </section>
+                    <section>
+                      <span className="lc-section-icon"><CheckCircle2 /></span>
+                      <div><small>Case record</small><h3>{selectedCase.documents.length} documents, {selectedCase.communications.length} communications</h3><p>Every item remains separated by matter to avoid cross-case disclosure.</p></div>
+                    </section>
+                  </div>
+                  <ActivityAuditTimeline
+                    caseId={selectedCase.id}
+                    title="Minute-by-Minute Activity Audit"
+                    emptyText="Intake, assignment, stage and order updates for this matter will stream here in real time."
+                  />
+                </>
               )}
 
               {tab === "documents" && (

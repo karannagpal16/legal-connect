@@ -32,6 +32,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { normaliseRole, useAuth, type AppRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { SOSButton } from "@/components/SOSButton";
+import { usePlatformLiveSync } from "@/hooks/usePlatformEvents";
 
 interface NavItem {
   label: string;
@@ -247,6 +248,7 @@ export function PortalLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { session, logout } = useAuth();
+  usePlatformLiveSync(2500);
   const role = normaliseRole(session?.user.role || requiredRole);
   const items = navigation[role];
   const home = `/${role}`;

@@ -14,6 +14,7 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { dailyQuote, greetingFor, workspaceRequest, type WorkspaceCase } from "@/lib/workspace";
+import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 
 interface ChamberTask {
   id: string;
@@ -198,6 +199,12 @@ export function AdvocateDashboard() {
           </div>
         </div>
       </section>
+
+      <ActivityAuditTimeline
+        title="Assigned Matters · Live Broadcast"
+        emptyText="New assignments, stage syncs, chamber tasks and proxy accepts will appear here in real time."
+        limit={18}
+      />
 
       <section className="lc-practice-grid" style={{ marginTop: 20 }}>
         <div className="lc-operational-panel">
