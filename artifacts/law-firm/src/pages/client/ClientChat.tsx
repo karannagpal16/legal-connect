@@ -76,15 +76,15 @@ export function ClientChat() {
     }
   };
 
-  if (workspace.isLoading) return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Opening private matter conversations...</p></div>;
+  if (workspace.isLoading) return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Opening Legal Connect matter messages...</p></div>;
   if (workspace.isError) return <section className="lc-workspace-error"><AlertTriangle /><div><h2>Messages could not be opened</h2><p>{workspace.error.message}</p></div><button className="lc-button lc-button-primary" onClick={() => workspace.refetch()}><RefreshCw /> Retry</button></section>;
-  if (!cases.length) return <section className="lc-workspace-empty"><MessageSquareText /><h2>No matter room yet</h2><p>Book counsel first. Messages, consultation records and documents will then remain inside that matter.</p><Link className="lc-button lc-button-primary" href="/client/book">Book a counsel</Link></section>;
+  if (!cases.length) return <section className="lc-workspace-empty"><MessageSquareText /><h2>No matter room yet</h2><p>Submit an intake first. Supervised messages stay inside that matter — there is no direct advocate chat.</p><Link className="lc-button lc-button-primary" href="/client/book">Submit intake</Link></section>;
 
   return (
     <div className="lc-case-chat">
       <header className="lc-case-chat-head">
-        <div><span className="lc-kicker">MATTER COMMUNICATIONS</span><h2>Private counsel messages</h2><p>Select a matter before writing. Every message is stored only in that matter record.</p></div>
-        <span><ShieldCheck /> Access controlled</span>
+        <div><span className="lc-kicker">SUPERVISED BY LEGAL CONNECT</span><h2>Message Legal Connect</h2><p>Select a matter before writing. Messages stay on the LC record — counsel is not contacted directly.</p></div>
+        <span><ShieldCheck /> LC gate active</span>
       </header>
 
       <div className="lc-case-chat-grid">
@@ -103,7 +103,7 @@ export function ClientChat() {
               <div><small>{selectedCase.caseNumber}</small><h2>{selectedCase.caseTitle}</h2><p>{selectedCase.counsel?.name || "Counsel assignment pending"}</p></div>
               {selectedCase.counsel && <div className="lc-message-actions"><Link href={`/client/book?mode=call&caseId=${encodeURIComponent(selectedCase.id)}&caseTitle=${encodeURIComponent(selectedCase.caseTitle)}`}><Phone /> Book call</Link><Link href={`/client/book?mode=video&caseId=${encodeURIComponent(selectedCase.id)}&caseTitle=${encodeURIComponent(selectedCase.caseTitle)}`}><Video /> Book video</Link></div>}
             </header>
-            <div className="lc-message-privacy"><LockKeyhole /><span><strong>Private matter record</strong><small>Visible only to you, assigned counsel and authorised Legal Connect administrators. This interface does not claim end-to-end encryption.</small></span></div>
+            <div className="lc-message-privacy"><LockKeyhole /><span><strong>Supervised matter record</strong><small>Visible to you and authorised Legal Connect staff. Counsel receives material only through LC-reviewed updates — not via direct chat.</small></span></div>
             <div className="lc-message-history">
               {communications.isLoading ? <p className="lc-inline-empty">Loading matter history...</p> : communications.data?.communications.length ? communications.data.communications.map((item) => {
                 const fromCurrentUser = item.senderId && item.senderId === session?.user.id;
@@ -117,8 +117,8 @@ export function ClientChat() {
             </div>
             <div className="lc-message-compose">
               {error && <div className="lc-form-error"><AlertTriangle /> {error}</div>}
-              <div><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={`Message counsel about ${selectedCase.caseTitle}`} rows={2} maxLength={4000} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><button onClick={sendMessage} disabled={!message.trim() || sending} aria-label="Send matter message"><Send /></button></div>
-              <small>Messages become part of this matter's authorised activity record.</small>
+              <div><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={`Message Legal Connect about ${selectedCase.caseTitle}`} rows={2} maxLength={4000} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><button onClick={sendMessage} disabled={!message.trim() || sending} aria-label="Send matter message"><Send /></button></div>
+              <small>Messages become part of this matter's LC-supervised activity record.</small>
             </div>
           </section>
         )}

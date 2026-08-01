@@ -265,7 +265,7 @@ export function ClientWellness() {
               <p className="text-[#1A2332]/50 text-sm leading-relaxed max-w-md mx-auto">{personality.desc}</p>
 
               {personality.cta && (
-                <Link href="/client/connect">
+                <Link href="/client/book">
                   <button className="mt-5 flex items-center gap-2 bg-primary hover:bg-primary/90 text-background px-6 py-3 rounded-xl font-bold text-sm mx-auto transition-all">
                     {personality.cta} <ArrowRight className="w-4 h-4" />
                   </button>
@@ -316,9 +316,9 @@ export function ClientWellness() {
 
             {/* Action buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Link href="/client/connect">
+              <Link href="/client/book">
                 <button className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-background py-3 rounded-xl font-bold text-sm transition-all">
-                  <Phone className="w-4 h-4" /> Consult Legal Connect
+                  <Phone className="w-4 h-4" /> Submit intake to Legal Connect
                 </button>
               </Link>
               <Link href="/client/diy-docs">
