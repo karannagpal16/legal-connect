@@ -67,6 +67,7 @@ const ChamberVault = lazyNamed(() => import("@/pages/advocate/ChamberVault"), "C
 const AdvocateCaseTracker = lazyNamed(() => import("@/pages/advocate/AdvocateCaseTracker"), "AdvocateCaseTracker");
 const AdminVerifications = lazyNamed(() => import("@/pages/admin/AdminVerifications"), "AdminVerifications");
 const AdminPendingUpdates = lazyNamed(() => import("@/pages/admin/AdminPendingUpdates"), "AdminPendingUpdates");
+const AdminControlDesk = lazyNamed(() => import("@/pages/admin/AdminControlDesk"), "AdminControlDesk");
 const CaseUpdatesBoard = lazyNamed(() => import("@/pages/CaseUpdatesBoard"), "CaseUpdatesBoard");
 
 const InternDashboard = lazyNamed(() => import("@/pages/intern/InternDashboard"), "InternDashboard");
@@ -114,6 +115,7 @@ function Router() {
 
       {/* ADMIN PORTAL */}
       <Route path="/admin"><Private role="admin"><Layout><Dashboard /></Layout></Private></Route>
+      <Route path="/admin/control"><Private role="admin"><Layout><AdminControlDesk /></Layout></Private></Route>
       <Route path="/admin/users"><Private role="admin"><Layout><Users /></Layout></Private></Route>
       <Route path="/admin/verifications"><Private role="admin"><Layout><AdminVerifications /></Layout></Private></Route>
       <Route path="/admin/pending-updates"><Private role="admin"><Layout><AdminPendingUpdates /></Layout></Private></Route>

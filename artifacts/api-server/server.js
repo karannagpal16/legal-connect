@@ -3163,6 +3163,733 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Admin Control Desk — aggregated supervision snapshot.
+  if (url.pathname === "/api/admin/control-desk" && req.method === "GET") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    if (!db.dbAvailable) {
+      sendJson(res, 200, {
+        ok: true,
+        mode: "demo",
+        cases: (demoStore.cases || []).slice(0, 40).map(dashboardCase),
+        bookings: (demoStore.bookings || []).slice(0, 40).map(dashboardBooking),
+        tasks: (demoStore.tasks || []).slice(0, 40).map(dashboardTask),
+        advocates: [],
+        pendingUpdates: (demoStore.caseUpdates || []).filter((item) => item.status === "pending_lc_review"),
+      });
+      return;
+    }
+    const [cases, bookings, tasks, advocates, pendingUpdates, pendingReplies] = await Promise.all([
+      db.query("SELECT * FROM cases ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 80"),
+      db.query("SELECT * FROM bookings ORDER BY created_at DESC LIMIT 80"),
+      db.query("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 80"),
+      db.query(`
+        SELECT u.id, u.name, u.email, u.phone,
+               pa.enrollment_no AS "enrollmentNo",
+               pa.verification_status AS "verificationStatus"
+        FROM users u
+        LEFT JOIN profile_advocates pa ON pa.user_id = u.id
+        WHERE u.role = 'advocate'
+        ORDER BY u.name ASC
+        LIMIT 100
+      `),
+      db.query(`SELECT * FROM case_updates WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 50`).catch(() => ({ rows: [] })),
+      db.query(`SELECT * FROM case_update_replies WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 50`).catch(() => ({ rows: [] })),
+    ]);
+    sendJson(res, 200, {
+      ok: true,
+      cases: cases.rows.map(mapCase),
+      bookings: bookings.rows.map(mapBooking),
+      tasks: tasks.rows.map(mapTask),
+      advocates: advocates.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        emailMasked: maskEmail(row.email),
+        phoneMasked: maskPhone(row.phone),
+        enrollmentNo: row.enrollmentNo || null,
+        verificationStatus: row.verificationStatus || "pending",
+      })),
+      pendingUpdates: pendingUpdates.rows || [],
+      pendingReplies: pendingReplies.rows || [],
+    });
+    return;
+  }
+
+  // Assign a matter to verified counsel and notify both sides.
+  const adminCaseAssignMatch = url.pathname.match(/^\/api\/admin\/cases\/([^/]+)\/assign$/);
+  if (adminCaseAssignMatch && req.method === "POST") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const caseId = adminCaseAssignMatch[1];
+    const body = await readBody(req);
+    const advocateId = String(body.advocateId || body.assignedAdvocateId || body.assignedTo || "").trim();
+    const note = String(body.note || body.message || "").trim();
+    if (!advocateId) {
+      sendJson(res, 400, { ok: false, error: "Select an advocate to assign." });
+      return;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 200, { ok: true, mode: "demo", caseId, advocateId, note });
+      return;
+    }
+    if (!isUuid(caseId) || !isUuid(advocateId)) {
+      sendJson(res, 400, { ok: false, error: "Valid case and advocate ids are required." });
+      return;
+    }
+    const [matterResult, advocateResult] = await Promise.all([
+      db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]),
+      db.query("SELECT id, name, email, role FROM users WHERE id = $1 LIMIT 1", [advocateId]),
+    ]);
+    if (!matterResult.rows[0]) {
+      sendJson(res, 404, { ok: false, error: "Case not found." });
+      return;
+    }
+    if (!advocateResult.rows[0] || advocateResult.rows[0].role !== "advocate") {
+      sendJson(res, 404, { ok: false, error: "Advocate not found." });
+      return;
+    }
+    const advocate = advocateResult.rows[0];
+    const matter = mapCase(matterResult.rows[0]);
+    const enrollment = await db.query(
+      "SELECT enrollment_no FROM profile_advocates WHERE user_id = $1 LIMIT 1",
+      [advocateId],
+    ).catch(() => ({ rows: [] }));
+    await db.query(
+      `INSERT INTO case_assignments (case_id, advocate_id, assigned_by, status, assigned_at)
+       VALUES ($1, $2, $3, 'active', now())
+       ON CONFLICT (case_id, advocate_id)
+       DO UPDATE SET status = 'active', assigned_by = EXCLUDED.assigned_by, assigned_at = now(), ended_at = NULL`,
+      [caseId, advocateId, isUuid(authUser.id) ? authUser.id : null],
+    );
+    await db.query(
+      `UPDATE case_assignments
+       SET status = 'ended', ended_at = now()
+       WHERE case_id = $1 AND advocate_id <> $2 AND status = 'active'`,
+      [caseId, advocateId],
+    ).catch(() => undefined);
+    const counsel = {
+      name: advocate.name,
+      enrollment: enrollment.rows[0]?.enrollment_no || null,
+      assignedAt: new Date().toISOString(),
+      contactPolicy: "Coordinate through Legal Connect Admin.",
+    };
+    const updated = await db.query(
+      `UPDATE cases
+       SET status = CASE WHEN COALESCE(status, '') IN ('', 'Intake', 'Pending') THEN 'Active' ELSE status END,
+           payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb,
+           updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [caseId, JSON.stringify({
+        assignedTo: advocateId,
+        assignedAdvocateId: advocateId,
+        assignedAdvocateName: advocate.name,
+        counsel,
+        assignmentNote: note || null,
+        assignedByAdmin: authUser.id,
+        assignedAt: new Date().toISOString(),
+        nextAction: `Counsel assigned: ${advocate.name}. Legal Connect continues to supervise communications.`,
+      })],
+    );
+    const bookingId = matter.bookingId || matterResult.rows[0].payload?.bookingId || null;
+    if (bookingId) {
+      await db.query(
+        `UPDATE bookings
+         SET assigned_advocate_id = $2,
+             assigned_advocate_name = $3,
+             assigned_advocate_enrollment = $4,
+             stage_status = COALESCE(stage_status, 'acknowledged_and_assigned'),
+             payload = COALESCE(payload, '{}'::jsonb) || $5::jsonb
+         WHERE id::text = $1 OR id = CASE WHEN $1 ~* '^[0-9a-f-]{36}$' THEN $1::uuid ELSE NULL END`,
+        [
+          String(bookingId),
+          advocateId,
+          advocate.name,
+          enrollment.rows[0]?.enrollment_no || null,
+          JSON.stringify({
+            stageStatus: "acknowledged_and_assigned",
+            assignedAdvocateId: advocateId,
+            assignedAdvocateName: advocate.name,
+          }),
+        ],
+      ).catch(() => undefined);
+    }
+    await writeAuditLog(authUser, "case_assigned", "case", caseId, `Assigned ${advocate.name} to matter`, {
+      advocateId,
+      note: note || null,
+    });
+    const recipients = await resolveRecipients([matter.userId, advocateId].filter(Boolean));
+    await notify({
+      eventType: "case_assigned",
+      title: "Counsel assigned",
+      message: note
+        ? `${advocate.name} has been assigned. LC note: ${note}`
+        : `${advocate.name} has been assigned to ${matter.title || matter.caseTitle || "your matter"}. Legal Connect remains the supervisor.`,
+      recipients,
+      payload: { caseId, advocateId, advocateName: advocate.name },
+      sendEmail: true,
+      sendSms: true,
+      ctaLabel: "Open matter",
+      ctaUrl: portalUrl("/client"),
+      priority: "high",
+    });
+    sendJson(res, 200, { ok: true, case: mapCase(updated.rows[0]), advocate: { id: advocate.id, name: advocate.name } });
+    return;
+  }
+
+  // Assign counsel from a booking (intake desk) and sync the linked case.
+  const adminBookingAssignMatch = url.pathname.match(/^\/api\/admin\/bookings\/([^/]+)\/assign$/);
+  if (adminBookingAssignMatch && req.method === "POST") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const bookingId = adminBookingAssignMatch[1];
+    const body = await readBody(req);
+    const advocateId = String(body.advocateId || body.assignedAdvocateId || "").trim();
+    const note = String(body.note || "").trim();
+    if (!advocateId) {
+      sendJson(res, 400, { ok: false, error: "Select an advocate to assign." });
+      return;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 200, { ok: true, mode: "demo", bookingId, advocateId });
+      return;
+    }
+    const bookingResult = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingId]);
+    if (!bookingResult.rows[0]) {
+      sendJson(res, 404, { ok: false, error: "Booking not found." });
+      return;
+    }
+    const advocateResult = await db.query("SELECT id, name, role FROM users WHERE id = $1 LIMIT 1", [advocateId]);
+    if (!advocateResult.rows[0] || advocateResult.rows[0].role !== "advocate") {
+      sendJson(res, 404, { ok: false, error: "Advocate not found." });
+      return;
+    }
+    const advocate = advocateResult.rows[0];
+    const enrollment = await db.query(
+      "SELECT enrollment_no FROM profile_advocates WHERE user_id = $1 LIMIT 1",
+      [advocateId],
+    ).catch(() => ({ rows: [] }));
+    const updatedBooking = await db.query(
+      `UPDATE bookings
+       SET assigned_advocate_id = $2,
+           assigned_advocate_name = $3,
+           assigned_advocate_enrollment = $4,
+           stage_status = 'acknowledged_and_assigned',
+           payload = COALESCE(payload, '{}'::jsonb) || $5::jsonb
+       WHERE id = $1
+       RETURNING *`,
+      [
+        bookingId,
+        advocateId,
+        advocate.name,
+        enrollment.rows[0]?.enrollment_no || null,
+        JSON.stringify({
+          stageStatus: "acknowledged_and_assigned",
+          assignedAdvocateId: advocateId,
+          assignedAdvocateName: advocate.name,
+          assignmentNote: note || null,
+        }),
+      ],
+    );
+    let linkedCase = null;
+    const linked = await db.query(
+      `SELECT * FROM cases WHERE payload->>'bookingId' = $1 ORDER BY created_at DESC LIMIT 1`,
+      [String(bookingId)],
+    ).catch(() => ({ rows: [] }));
+    if (linked.rows[0]) {
+      const caseId = linked.rows[0].id;
+      await db.query(
+        `INSERT INTO case_assignments (case_id, advocate_id, assigned_by, status, assigned_at)
+         VALUES ($1, $2, $3, 'active', now())
+         ON CONFLICT (case_id, advocate_id)
+         DO UPDATE SET status = 'active', assigned_by = EXCLUDED.assigned_by, assigned_at = now(), ended_at = NULL`,
+        [caseId, advocateId, isUuid(authUser.id) ? authUser.id : null],
+      );
+      const caseUpdated = await db.query(
+        `UPDATE cases
+         SET status = CASE WHEN COALESCE(status, '') IN ('', 'Intake', 'Pending') THEN 'Active' ELSE status END,
+             payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb,
+             updated_at = now()
+         WHERE id = $1 RETURNING *`,
+        [caseId, JSON.stringify({
+          assignedTo: advocateId,
+          assignedAdvocateId: advocateId,
+          assignedAdvocateName: advocate.name,
+          counsel: {
+            name: advocate.name,
+            enrollment: enrollment.rows[0]?.enrollment_no || null,
+            assignedAt: new Date().toISOString(),
+          },
+          nextAction: `Counsel assigned: ${advocate.name}.`,
+        })],
+      );
+      linkedCase = mapCase(caseUpdated.rows[0]);
+    }
+    const booking = mapBooking(updatedBooking.rows[0]);
+    await writeAuditLog(authUser, "booking_assigned", "booking", bookingId, `Assigned ${advocate.name} to booking`, { advocateId });
+    await notify({
+      eventType: "booking_assigned",
+      title: "Legal Connect assigned your counsel",
+      message: `${advocate.name} has been assigned to your booking. Legal Connect will supervise the engagement.`,
+      recipients: await resolveRecipients([booking.userId, advocateId].filter(Boolean)),
+      payload: { bookingId, advocateId, caseId: linkedCase?.id || null },
+      sendEmail: true,
+      sendSms: true,
+      ctaLabel: "Open workspace",
+      ctaUrl: portalUrl("/client"),
+      priority: "high",
+    });
+    sendJson(res, 200, { ok: true, booking, case: linkedCase, advocate: { id: advocate.id, name: advocate.name } });
+    return;
+  }
+
+  // LC-authored client update (published immediately as supervisor message).
+  const adminLcMessageMatch = url.pathname.match(/^\/api\/admin\/cases\/([^/]+)\/lc-message$/);
+  if (adminLcMessageMatch && req.method === "POST") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const caseId = adminLcMessageMatch[1];
+    const body = await readBody(req);
+    const message = String(body.message || body.update || "").trim();
+    if (message.length < 8) {
+      sendJson(res, 400, { ok: false, error: "LC update must be at least 8 characters." });
+      return;
+    }
+    const rule36 = strategyFeatures.assertRule36Safe(message);
+    if (!rule36.ok) {
+      sendJson(res, 422, { ok: false, error: rule36.error });
+      return;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 201, {
+        ok: true,
+        mode: "demo",
+        update: {
+          id: `update-${Date.now()}`,
+          caseId,
+          message,
+          status: "approved",
+          authorRole: "admin",
+        },
+      });
+      return;
+    }
+    if (!isUuid(caseId)) {
+      sendJson(res, 400, { ok: false, error: "Valid case id is required." });
+      return;
+    }
+    const matterResult = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]);
+    if (!matterResult.rows[0]) {
+      sendJson(res, 404, { ok: false, error: "Case not found." });
+      return;
+    }
+    const matter = mapCase(matterResult.rows[0]);
+    const created = await db.query(
+      `INSERT INTO case_updates (case_id, update_type, message, payload, status, author_id, author_role, reviewed_by, reviewed_at)
+       VALUES ($1, $2, $3, $4::jsonb, 'approved', $5, 'admin', $5, now())
+       RETURNING *`,
+      [
+        caseId,
+        body.updateType || "lc_supervisor",
+        message,
+        JSON.stringify({ source: "admin_control_desk", publishImmediately: true }),
+        String(authUser.id),
+      ],
+    );
+    const assignedId = matter.assignedTo || matter.assignedAdvocateId || null;
+    await notify({
+      eventType: "lc_supervisor_update",
+      title: "Update from Legal Connect",
+      message,
+      recipients: await resolveRecipients([matter.userId, assignedId].filter(Boolean)),
+      payload: { caseId, updateId: created.rows[0].id },
+      sendEmail: true,
+      sendSms: Boolean(body.sendSms),
+      ctaLabel: "View update",
+      ctaUrl: portalUrl("/client/updates"),
+      priority: "high",
+    });
+    await writeAuditLog(authUser, "lc_client_update", "case", caseId, "LC supervisor update published to client", {
+      updateId: created.rows[0].id,
+    });
+    sendJson(res, 201, { ok: true, update: created.rows[0] });
+    return;
+  }
+
+  // ── Admin Master Intake Supervision Deck ──────────────────────────────────
+  async function loadIntakeBooking(intakeId) {
+    if (!db.dbAvailable) {
+      const row = (demoStore.bookings || []).find((item) => String(item.id) === String(intakeId));
+      return row ? { mode: "demo", booking: dashboardBooking(row), raw: row } : null;
+    }
+    const result = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [intakeId]);
+    if (!result.rows[0]) return null;
+    return { mode: "db", booking: mapBooking(result.rows[0]), raw: result.rows[0] };
+  }
+
+  if (url.pathname === "/api/admin/intakes" && req.method === "GET") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    if (!db.dbAvailable) {
+      sendJson(res, 200, {
+        ok: true,
+        intakes: (demoStore.bookings || []).map((row) => ({
+          ...dashboardBooking(row),
+          intakeStatus: row.intakeStatus || row.stageStatus || row.paymentStatus || "pending",
+        })),
+        advocates: [],
+      });
+      return;
+    }
+    const [bookings, advocates] = await Promise.all([
+      db.query("SELECT * FROM bookings ORDER BY created_at DESC LIMIT 120"),
+      db.query(`
+        SELECT u.id, u.name, u.email, u.phone,
+               pa.enrollment_no AS "enrollmentNo",
+               pa.verification_status AS "verificationStatus"
+        FROM users u
+        JOIN profile_advocates pa ON pa.user_id = u.id
+        WHERE u.role = 'advocate' AND pa.verification_status = 'approved'
+        ORDER BY u.name ASC
+      `).catch(() => db.query(`SELECT id, name, email, phone FROM users WHERE role = 'advocate' ORDER BY name ASC`)),
+    ]);
+    sendJson(res, 200, {
+      ok: true,
+      intakes: bookings.rows.map((row) => {
+        const mapped = mapBooking(row);
+        const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
+        return {
+          ...mapped,
+          intakeStatus: payload.intakeStatus || row.stage_status || mapped.stageStatus || mapped.paymentStatus || "pending",
+          missingDocuments: payload.missingDocuments || [],
+          lastLcNote: payload.lastLcNote || null,
+          rejectionReason: payload.rejectionReason || null,
+        };
+      }),
+      advocates: (advocates.rows || []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        emailMasked: maskEmail(row.email),
+        phoneMasked: maskPhone(row.phone),
+        enrollmentNo: row.enrollmentNo || null,
+        verificationStatus: row.verificationStatus || "approved",
+      })),
+    });
+    return;
+  }
+
+  const intakeActionMatch = url.pathname.match(/^\/api\/admin\/intakes\/([^/]+)\/(assign|request-info|guidance|refund)$/);
+  if (intakeActionMatch && req.method === "POST") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const intakeId = intakeActionMatch[1];
+    const action = intakeActionMatch[2];
+    const body = await readBody(req);
+    const loaded = await loadIntakeBooking(intakeId);
+    if (!loaded) {
+      sendJson(res, 404, { ok: false, error: "Intake booking not found." });
+      return;
+    }
+    const booking = loaded.booking;
+    const clientId = booking.userId || booking.user_id || null;
+
+    if (action === "assign") {
+      const advocateId = String(body.advocateId || body.assignedAdvocateId || body.lawyerId || "").trim();
+      const note = String(body.note || body.message || "").trim();
+      if (!advocateId) {
+        sendJson(res, 400, { ok: false, error: "Select a Bar-verified panel lawyer." });
+        return;
+      }
+      if (loaded.mode === "demo") {
+        Object.assign(loaded.raw, {
+          assignedAdvocateId: advocateId,
+          assignedAdvocateName: body.advocateName || "Panel counsel",
+          stageStatus: "acknowledged_and_assigned",
+          intakeStatus: "assigned",
+        });
+        sendJson(res, 200, { ok: true, intake: dashboardBooking(loaded.raw), action: "assign" });
+        return;
+      }
+      const advocateResult = await db.query("SELECT id, name, role FROM users WHERE id = $1 LIMIT 1", [advocateId]);
+      if (!advocateResult.rows[0] || advocateResult.rows[0].role !== "advocate") {
+        sendJson(res, 404, { ok: false, error: "Advocate not found." });
+        return;
+      }
+      const advocate = advocateResult.rows[0];
+      const enrollment = await db.query(
+        "SELECT enrollment_no FROM profile_advocates WHERE user_id = $1 LIMIT 1",
+        [advocateId],
+      ).catch(() => ({ rows: [] }));
+      const updated = await db.query(
+        `UPDATE bookings
+         SET assigned_advocate_id = $2,
+             assigned_advocate_name = $3,
+             assigned_advocate_enrollment = $4,
+             stage_status = 'acknowledged_and_assigned',
+             payload = COALESCE(payload, '{}'::jsonb) || $5::jsonb
+         WHERE id = $1
+         RETURNING *`,
+        [
+          intakeId,
+          advocateId,
+          advocate.name,
+          enrollment.rows[0]?.enrollment_no || null,
+          JSON.stringify({
+            intakeStatus: "assigned",
+            stageStatus: "acknowledged_and_assigned",
+            assignedAdvocateId: advocateId,
+            assignedAdvocateName: advocate.name,
+            assignmentNote: note || null,
+            assignedByAdmin: authUser.id,
+            assignedAt: new Date().toISOString(),
+          }),
+        ],
+      );
+      const linked = await db.query(
+        `SELECT id FROM cases WHERE payload->>'bookingId' = $1 ORDER BY created_at DESC LIMIT 1`,
+        [String(intakeId)],
+      ).catch(() => ({ rows: [] }));
+      if (linked.rows[0]) {
+        await db.query(
+          `INSERT INTO case_assignments (case_id, advocate_id, assigned_by, status, assigned_at)
+           VALUES ($1, $2, $3, 'active', now())
+           ON CONFLICT (case_id, advocate_id)
+           DO UPDATE SET status = 'active', assigned_by = EXCLUDED.assigned_by, assigned_at = now(), ended_at = NULL`,
+          [linked.rows[0].id, advocateId, isUuid(authUser.id) ? authUser.id : null],
+        ).catch(() => undefined);
+        await db.query(
+          `UPDATE cases
+           SET status = CASE WHEN COALESCE(status, '') IN ('', 'Intake', 'Pending') THEN 'Active' ELSE status END,
+               payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb,
+               updated_at = now()
+           WHERE id = $1`,
+          [linked.rows[0].id, JSON.stringify({
+            assignedTo: advocateId,
+            assignedAdvocateId: advocateId,
+            assignedAdvocateName: advocate.name,
+            counsel: { name: advocate.name, enrollment: enrollment.rows[0]?.enrollment_no || null, assignedAt: new Date().toISOString() },
+            nextAction: `Panel counsel assigned: ${advocate.name}.`,
+          })],
+        ).catch(() => undefined);
+      }
+      await writeAuditLog(authUser, "intake_assign", "booking", intakeId, `Assigned panel lawyer ${advocate.name}`, { advocateId, note });
+      await notify({
+        eventType: "intake_assigned",
+        title: "Panel lawyer assigned",
+        message: note
+          ? `${advocate.name} has been assigned to your intake. LC note: ${note}`
+          : `${advocate.name} has been assigned by Legal Connect. We continue to supervise the engagement.`,
+        recipients: await resolveRecipients([clientId, advocateId].filter(Boolean)),
+        payload: { intakeId, advocateId, advocateName: advocate.name },
+        sendEmail: true,
+        sendSms: true,
+        ctaLabel: "Open workspace",
+        ctaUrl: portalUrl("/client"),
+        priority: "high",
+      });
+      sendJson(res, 200, { ok: true, action: "assign", intake: mapBooking(updated.rows[0]), advocate: { id: advocate.id, name: advocate.name } });
+      return;
+    }
+
+    if (action === "request-info") {
+      const message = String(body.message || body.note || body.update || "").trim();
+      const docs = Array.isArray(body.missingDocuments)
+        ? body.missingDocuments.map((item) => String(item || "").trim()).filter(Boolean)
+        : String(body.missingDocument || body.document || "")
+          .split(/[,;\n]/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      if (!message && !docs.length) {
+        sendJson(res, 400, { ok: false, error: "Specify missing documents or a direct LC status note." });
+        return;
+      }
+      const composed = [
+        docs.length ? `Legal Connect requires the following document(s): ${docs.join(", ")}.` : null,
+        message || null,
+      ].filter(Boolean).join(" ");
+      if (loaded.mode === "demo") {
+        Object.assign(loaded.raw, { intakeStatus: "info_requested", missingDocuments: docs, lastLcNote: composed });
+        sendJson(res, 200, { ok: true, action: "request-info", intake: dashboardBooking(loaded.raw) });
+        return;
+      }
+      const updated = await db.query(
+        `UPDATE bookings
+         SET stage_status = 'info_requested',
+             payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
+         WHERE id = $1
+         RETURNING *`,
+        [intakeId, JSON.stringify({
+          intakeStatus: "info_requested",
+          missingDocuments: docs,
+          lastLcNote: composed,
+          infoRequestedAt: new Date().toISOString(),
+          infoRequestedBy: authUser.id,
+        })],
+      );
+      const linked = await db.query(
+        `SELECT id, payload FROM cases WHERE payload->>'bookingId' = $1 ORDER BY created_at DESC LIMIT 1`,
+        [String(intakeId)],
+      ).catch(() => ({ rows: [] }));
+      if (linked.rows[0]) {
+        await db.query(
+          `INSERT INTO case_updates (case_id, update_type, message, payload, status, author_id, author_role, reviewed_by, reviewed_at)
+           VALUES ($1, 'lc_request_info', $2, $3::jsonb, 'approved', $4, 'admin', $4, now())`,
+          [
+            linked.rows[0].id,
+            composed,
+            JSON.stringify({ source: "intake_request_info", missingDocuments: docs }),
+            String(authUser.id),
+          ],
+        ).catch(() => undefined);
+      }
+      await writeAuditLog(authUser, "intake_request_info", "booking", intakeId, composed, { missingDocuments: docs });
+      await notify({
+        eventType: "intake_info_requested",
+        title: "Documents / information requested",
+        message: composed,
+        recipients: await resolveRecipients([clientId].filter(Boolean)),
+        payload: { intakeId, missingDocuments: docs },
+        sendEmail: true,
+        sendSms: true,
+        ctaLabel: "Upload / reply",
+        ctaUrl: portalUrl("/client"),
+        priority: "high",
+      });
+      sendJson(res, 200, { ok: true, action: "request-info", intake: mapBooking(updated.rows[0]), message: composed, missingDocuments: docs });
+      return;
+    }
+
+    if (action === "guidance") {
+      const guidance = String(body.guidance || body.message || body.note || "").trim();
+      if (guidance.length < 12) {
+        sendJson(res, 400, { ok: false, error: "Official LC guidance note must be at least 12 characters." });
+        return;
+      }
+      const rule36 = strategyFeatures.assertRule36Safe(guidance);
+      if (!rule36.ok) {
+        sendJson(res, 422, { ok: false, error: rule36.error });
+        return;
+      }
+      if (loaded.mode === "demo") {
+        Object.assign(loaded.raw, { intakeStatus: "guidance_issued", lastLcNote: guidance });
+        sendJson(res, 200, { ok: true, action: "guidance", intake: dashboardBooking(loaded.raw) });
+        return;
+      }
+      const updated = await db.query(
+        `UPDATE bookings
+         SET payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
+         WHERE id = $1
+         RETURNING *`,
+        [intakeId, JSON.stringify({
+          intakeStatus: "guidance_issued",
+          lastLcNote: guidance,
+          guidanceIssuedAt: new Date().toISOString(),
+          guidanceIssuedBy: authUser.id,
+        })],
+      );
+      const linked = await db.query(
+        `SELECT id FROM cases WHERE payload->>'bookingId' = $1 ORDER BY created_at DESC LIMIT 1`,
+        [String(intakeId)],
+      ).catch(() => ({ rows: [] }));
+      if (linked.rows[0]) {
+        await db.query(
+          `INSERT INTO case_updates (case_id, update_type, message, payload, status, author_id, author_role, reviewed_by, reviewed_at)
+           VALUES ($1, 'lc_guidance', $2, $3::jsonb, 'approved', $4, 'admin', $4, now())`,
+          [
+            linked.rows[0].id,
+            guidance,
+            JSON.stringify({ source: "intake_guidance", official: true }),
+            String(authUser.id),
+          ],
+        ).catch(() => undefined);
+      }
+      await writeAuditLog(authUser, "intake_guidance", "booking", intakeId, "Official LC guidance issued", {});
+      await notify({
+        eventType: "intake_guidance",
+        title: "Official Legal Connect guidance",
+        message: guidance,
+        recipients: await resolveRecipients([clientId, booking.assignedAdvocateId].filter(Boolean)),
+        payload: { intakeId },
+        sendEmail: true,
+        sendSms: Boolean(body.sendSms !== false),
+        ctaLabel: "Read guidance",
+        ctaUrl: portalUrl("/client"),
+        priority: "high",
+      });
+      sendJson(res, 200, { ok: true, action: "guidance", intake: mapBooking(updated.rows[0]), guidance });
+      return;
+    }
+
+    if (action === "refund") {
+      const reason = String(body.reason || body.rejectionReason || body.message || "").trim();
+      if (reason.length < 8) {
+        sendJson(res, 400, { ok: false, error: "A rejection reason is required (min 8 characters)." });
+        return;
+      }
+      if (loaded.mode === "demo") {
+        Object.assign(loaded.raw, {
+          paymentStatus: "refunded",
+          workHoldStatus: "released",
+          intakeStatus: "rejected_refunded",
+          rejectionReason: reason,
+        });
+        sendJson(res, 200, { ok: true, action: "refund", intake: dashboardBooking(loaded.raw) });
+        return;
+      }
+      const updated = await db.query(
+        `UPDATE bookings
+         SET payment_status = 'refunded',
+             work_hold_status = 'released',
+             stage_status = 'rejected_refunded',
+             failure_reason = $2,
+             payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+         WHERE id = $1
+         RETURNING *`,
+        [
+          intakeId,
+          reason,
+          JSON.stringify({
+            intakeStatus: "rejected_refunded",
+            rejectionReason: reason,
+            refundedAt: new Date().toISOString(),
+            refundedBy: authUser.id,
+            work_hold_status: "released",
+          }),
+        ],
+      );
+      await recordPaymentEvent({
+        userId: clientId,
+        bookingId: intakeId,
+        amount: numericAmount(booking.amount),
+        currency: "INR",
+        provider: "legal-connect",
+        status: "refunded",
+        workHoldStatus: "released",
+        payload: { reason, source: "intake_refund" },
+      }).catch(() => undefined);
+      await writeAuditLog(authUser, "intake_refund", "booking", intakeId, `Intake rejected and refunded: ${reason}`, { reason });
+      await notify({
+        eventType: "intake_refunded",
+        title: "Intake closed — refund initiated",
+        message: `Legal Connect rejected this intake and released the work hold. Reason: ${reason}`,
+        recipients: await resolveRecipients([clientId].filter(Boolean)),
+        payload: { intakeId, reason },
+        sendEmail: true,
+        sendSms: true,
+        ctaLabel: "View booking",
+        ctaUrl: portalUrl("/client"),
+        priority: "high",
+      });
+      sendJson(res, 200, {
+        ok: true,
+        action: "refund",
+        intake: mapBooking(updated.rows[0]),
+        refund: { status: "refunded", workHoldStatus: "released", reason },
+      });
+      return;
+    }
+  }
+
   if (url.pathname === "/api/users" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (!authUser || !canSeeAll(authUser)) {
@@ -4125,11 +4852,17 @@ const server = http.createServer(async (req, res) => {
       if (body.action === "release_payment") {
         escrowStatus = "Released";
       }
+      const assignAdvocateId = body.advocateId || body.proxyAdvocateId || body.acceptedBy || null;
+      const assignAdvocateName = body.advocateName || body.proxyAdvocateName || body.assigneeName || null;
+      const acceptedByUpdate = (body.action === "assign_lawyer" || body.action === "assign_intern") && assignAdvocateId
+        ? assignAdvocateId
+        : null;
       const result = await db.query(
         `UPDATE tasks
          SET status = $2,
              escrow_status = COALESCE($3, escrow_status),
              proof_status = COALESCE($4, proof_status),
+             accepted_by = COALESCE($6, accepted_by),
              payload = COALESCE(payload, '{}'::jsonb) || $5::jsonb,
              updated_at = now()
          WHERE id = $1 RETURNING *`,
@@ -4142,7 +4875,11 @@ const server = http.createServer(async (req, res) => {
             lastAdminAction: body.action || null,
             transparencyLayer: body.action === "release_payment" ? "escrow_release" : body.action === "mark_proof_approved" ? "proof_review" : "admin",
             proofReviewedAt: body.action === "mark_proof_approved" ? new Date().toISOString() : undefined,
+            assignedProxyName: assignAdvocateName || undefined,
+            assignmentStatus: acceptedByUpdate ? "Assigned" : undefined,
+            assignedByAdmin: acceptedByUpdate ? true : undefined,
           }),
+          acceptedByUpdate,
         ],
       );
       await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
@@ -5568,8 +6305,21 @@ const server = http.createServer(async (req, res) => {
         payload.assignedAdvocateId = advocateId;
         if (meetingLink) payload.meetingLink = meetingLink;
         const updated = await db.query(
-          `UPDATE bookings SET payload = $2, work_hold_status = $3 WHERE id = $1 RETURNING *`,
-          [bookingId, JSON.stringify(payload), newStage === 'request_entertained' ? 'released' : 'pending']
+          `UPDATE bookings
+           SET payload = $2,
+               work_hold_status = $3,
+               stage_status = $4,
+               assigned_advocate_id = COALESCE($5, assigned_advocate_id),
+               assigned_advocate_name = COALESCE($6, assigned_advocate_name)
+           WHERE id = $1 RETURNING *`,
+          [
+            bookingId,
+            JSON.stringify(payload),
+            newStage === 'request_entertained' ? 'released' : 'pending',
+            newStage,
+            advocateId || null,
+            advocateName || null,
+          ],
         );
         targetBooking = mapBooking(updated.rows[0]);
       }

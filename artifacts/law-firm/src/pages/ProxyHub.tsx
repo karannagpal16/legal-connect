@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useListTasks, useDeleteTask, useAcceptTask } from "@workspace/api-client-react";
+import { useListTasks, useDeleteTask } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch, ShieldCheck, Camera, Star } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge, TaskTypeBadge } from "@/components/ui/StatusBadge";
-import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { TaskDialog } from "@/components/forms/TaskDialog";
 import { useAuth, normaliseRole } from "@/lib/auth";
@@ -29,6 +29,7 @@ export function ProxyHub() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [busyId, setBusyId] = useState<string>("");
+  const [proxyByTask, setProxyByTask] = useState<Record<string, string>>({});
   const { session } = useAuth();
   const role = normaliseRole(session?.user?.role);
   const isAdmin = role === "admin";
@@ -36,6 +37,12 @@ export function ProxyHub() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const advocates = useQuery({
+    queryKey: ["admin-advocates-proxy"],
+    queryFn: () => workspaceRequest<Array<{ id: string; name: string; enrollmentNo?: string }>>("/api/admin/advocates", session?.token),
+    enabled: Boolean(isAdmin && session?.token),
+    staleTime: 30_000,
+  });
 
   const { mutate: deleteTask, isPending: isDeleting } = useDeleteTask({
     mutation: {
@@ -46,18 +53,8 @@ export function ProxyHub() {
     },
   });
 
-  const { mutate: assignTask, isPending: isAssigning } = useAcceptTask({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-        toast({
-          title: "Proxy counsel assigned",
-          description: "Layer 2: assigned counsel must declare conflict before check-in.",
-        });
-      },
-      onError: (error) => toast({ title: "Assignment failed", description: error.message, variant: "destructive" }),
-    },
-  });
+  const [isAssigning, setIsAssigning] = useState(false);
+  const advocateList = Array.isArray(advocates.data) ? advocates.data : [];
 
   const filteredTasks = (tasks as ProxyTask[] | undefined)?.filter((t) => {
     if (filter === "All") return true;
@@ -82,7 +79,7 @@ export function ProxyHub() {
     }
   };
 
-  const handleAssign = (id: number) => {
+  const handleAssign = async (id: number | string) => {
     if (!isAdmin) {
       toast({
         title: "Admin assignment only",
@@ -91,7 +88,36 @@ export function ProxyHub() {
       });
       return;
     }
-    assignTask({ id });
+    const proxyId = proxyByTask[String(id)];
+    const proxy = advocateList.find((item) => item.id === proxyId);
+    if (!proxyId || !proxy) {
+      toast({
+        title: "Select proxy counsel",
+        description: "Choose a verified advocate before assigning this mission.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsAssigning(true);
+    try {
+      await workspaceRequest(`/api/tasks/${id}/accept`, session?.token, {
+        method: "POST",
+        body: JSON.stringify({
+          proxyAdvocateId: proxy.id,
+          proxyAdvocateName: proxy.name,
+          acceptedBy: proxy.id,
+        }),
+      });
+      await refresh();
+      toast({
+        title: "Proxy counsel assigned",
+        description: "Layer 2: assigned counsel must declare conflict before check-in.",
+      });
+    } catch (error) {
+      toast({ title: "Assignment failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setIsAssigning(false);
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -244,14 +270,28 @@ export function ProxyHub() {
 
                 <div className="flex flex-col gap-2 pt-4 border-t border-border mt-auto relative z-10">
                   {isAdmin && pending ? (
-                    <button
-                      onClick={() => handleAssign(t.id)}
-                      disabled={isAssigning || busyId === String(t.id)}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 min-h-[48px]"
-                    >
-                      <UserRoundSearch className="w-5 h-5" />
-                      Assign Proxy
-                    </button>
+                    <div className="space-y-2">
+                      <select
+                        value={proxyByTask[String(t.id)] || ""}
+                        onChange={(event) => setProxyByTask((current) => ({ ...current, [String(t.id)]: event.target.value }))}
+                        className="w-full p-3 rounded-xl bg-background border border-border outline-none"
+                      >
+                        <option value="">Select proxy counsel</option>
+                        {advocateList.map((advocate) => (
+                          <option key={advocate.id} value={advocate.id}>
+                            {advocate.name}{advocate.enrollmentNo ? ` · ${advocate.enrollmentNo}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleAssign(t.id)}
+                        disabled={isAssigning || busyId === String(t.id) || !proxyByTask[String(t.id)]}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 min-h-[48px]"
+                      >
+                        <UserRoundSearch className="w-5 h-5" />
+                        Assign Proxy
+                      </button>
+                    </div>
                   ) : null}
 
                   {canLifecycle && !t.conflictDeclaredAt ? (
