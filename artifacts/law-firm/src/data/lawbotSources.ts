@@ -178,27 +178,10 @@ export function retrieveLawBotSources(query: string, mode: LawBotSourceMode) {
     .map((result) => result.source);
 }
 
-export function answerFromApprovedSources(query: string, mode: LawBotSourceMode) {
-  const matches = retrieveLawBotSources(query, mode);
-  if (matches.length === 0) {
-    return {
-      answer: "I could not find this in the approved legal sources.",
-      citations: [],
-    };
-  }
-
-  const sourceText = matches.map((source) => source.text).join(" ");
-  const prefix =
-    mode === "Client Simple Explanation"
-      ? "In simple words, based only on the approved source snippets:"
-      : mode === "Advocate Research"
-        ? "Research note based only on the approved source snippets:"
-        : mode === "Order Explainer"
-          ? "Order explainer based only on the approved source snippets:"
-          : "Based only on the approved source snippets:";
-
+/** Local demo answers are disabled — UI must call POST /api/lawbot/query. */
+export function answerFromApprovedSources(_query: string, _mode: LawBotSourceMode) {
   return {
-    answer: `${prefix} ${sourceText} ${LAW_BOT_DISCLAIMER}`,
-    citations: matches,
+    answer: "I could not verify this from Legal Connect's approved legal sources. Please consult an advocate or add an authorised source.",
+    citations: [] as LawBotSource[],
   };
 }

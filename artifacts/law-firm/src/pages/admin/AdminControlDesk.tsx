@@ -132,9 +132,9 @@ export function AdminControlDesk() {
         assign: "Panel lawyer assigned (advocate_assigned).",
         "request-info": "Document / info request sent to client.",
         guidance: "Official LC guidance published.",
-        refund: "Intake rejected and escrow refund released.",
+        refund: "Intake rejected — work hold released. Refund (if any) is manual; not an automated Razorpay refund.",
         "start-review": "Intake marked lc_under_review.",
-        conclude: "Intake concluded — escrow released, rating unlocked.",
+        conclude: "Intake concluded — work hold released for manual settlement.",
       };
       setSuccess(labels[variables.action] || "Intake action saved.");
       setError("");
@@ -150,7 +150,7 @@ export function AdminControlDesk() {
         body: JSON.stringify(payload),
       }),
     onSuccess: () => {
-      setSuccess("Task / escrow action saved.");
+      setSuccess("Task / work-hold action saved.");
       setError("");
       refresh();
     },
@@ -209,7 +209,7 @@ export function AdminControlDesk() {
           <span className="lc-kicker">ADMIN MASTER SUPERVISION</span>
           <h2>Intake Supervision Deck</h2>
           <p>
-            Four LC actions per intake: assign panel lawyer, request missing documents, send official guidance, or reject with escrow refund.
+            Four LC actions per intake: assign panel lawyer, request missing documents, send official guidance, or reject and release the work hold (manual refund follow-up).
           </p>
         </div>
         <button className="lc-button" onClick={() => intakesQuery.refetch()} disabled={intakesQuery.isFetching}>
@@ -220,13 +220,13 @@ export function AdminControlDesk() {
       <section className="lc-workspace-metrics" aria-label="Intake metrics">
         <div><Gavel /><span><strong>{queue.length}</strong><small>Intakes needing action</small></span></div>
         <div><UserRoundSearch /><span><strong>{advocates.length}</strong><small>Bar-verified panel</small></span></div>
-        <div><BriefcaseBusiness /><span><strong>{tasks.length}</strong><small>Proxy / escrow actions</small></span></div>
+        <div><BriefcaseBusiness /><span><strong>{tasks.length}</strong><small>Proxy / work-hold actions</small></span></div>
         <div><ShieldCheck /><span><strong>{intakes.filter((item) => item.assignedAdvocateId).length}</strong><small>Assigned intakes</small></span></div>
       </section>
 
       <ActivityAuditTimeline
         title="Control Room · Live Status Broadcast"
-        emptyText="New intakes, lawyer assignments, proxy accepts and escrow releases will stream here instantly."
+        emptyText="New intakes, lawyer assignments, proxy accepts and work-hold releases will stream here instantly."
         limit={20}
       />
 
@@ -405,7 +405,7 @@ export function AdminControlDesk() {
                         onClick={() => runIntake.mutate({
                           id: intake.id,
                           action: "guidance",
-                          body: { guidance: guidanceNotes[intake.id], sendSms: true },
+                          body: { guidance: guidanceNotes[intake.id], sendSms: false },
                         })}
                       >
                         <ShieldCheck /> Issue guidance
@@ -416,8 +416,11 @@ export function AdminControlDesk() {
                   {/* Action 4 */}
                   <div style={{ padding: "0.85rem", borderRadius: 10, background: "rgba(180,35,24,0.06)" }}>
                     <h4 style={{ margin: "0 0 0.5rem", display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                      <RotateCcw className="h-4 w-4" /> Action 4 · Reject intake & escrow refund
+                      <RotateCcw className="h-4 w-4" /> Action 4 · Reject intake & release work hold
                     </h4>
+                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.85rem", opacity: 0.75 }}>
+                      Releases the platform work hold and flags a manual refund for Admin/support. Does not call Razorpay refunds.
+                    </p>
                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                       <input
                         value={refundReasons[intake.id] || ""}
@@ -429,7 +432,7 @@ export function AdminControlDesk() {
                         className="lc-button"
                         disabled={runIntake.isPending || !(refundReasons[intake.id] || "").trim()}
                         onClick={() => {
-                          if (!window.confirm("Reject this intake and release the work hold / refund?")) return;
+                          if (!window.confirm("Reject this intake and release the work hold? Any money refund stays manual (not automated Razorpay).")) return;
                           runIntake.mutate({
                             id: intake.id,
                             action: "refund",
@@ -437,7 +440,7 @@ export function AdminControlDesk() {
                           });
                         }}
                       >
-                        <Wallet /> Reject & refund
+                        <Wallet /> Reject & release hold
                       </button>
                     </div>
                   </div>
@@ -449,7 +452,7 @@ export function AdminControlDesk() {
       </section>
 
       <section style={{ marginTop: "2.5rem" }}>
-        <h3 style={{ marginBottom: "0.75rem" }}>Proxy tasks & escrow control</h3>
+        <h3 style={{ marginBottom: "0.75rem" }}>Proxy tasks & work-hold control</h3>
         {!tasks.length ? <p className="text-muted-foreground">No proxy missions need admin action.</p> : null}
         <div className="space-y-3">
           {tasks.map((task) => {
@@ -461,7 +464,7 @@ export function AdminControlDesk() {
                 <p style={{ margin: "0.25rem 0", opacity: 0.75 }}>
                   {task.court || "Court TBD"} · {task.status}
                   {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
-                  {" · "}Proof {task.proofStatus || "none"} · Escrow {task.escrowStatus || "—"}
+                  {" · "}Proof {task.proofStatus || "none"} · Work hold {task.escrowStatus || "—"}
                 </p>
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.65rem" }}>
                   {pendingAssign ? (
@@ -502,9 +505,12 @@ export function AdminControlDesk() {
                     <button
                       className="lc-button lc-button-primary"
                       disabled={taskAction.isPending}
-                      onClick={() => taskAction.mutate({ taskId: task.id, action: "release_payment" })}
+                      onClick={() => {
+                        if (!window.confirm("Release the work hold for manual settlement? This does not send an automated Razorpay payout.")) return;
+                        taskAction.mutate({ taskId: task.id, action: "release_payment" });
+                      }}
                     >
-                      Release escrow
+                      Release work hold
                     </button>
                   ) : null}
                   <Link className="lc-button" href="/admin/missions">Open missions</Link>

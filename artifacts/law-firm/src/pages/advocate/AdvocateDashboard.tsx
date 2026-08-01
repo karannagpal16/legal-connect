@@ -265,13 +265,13 @@ export function AdvocateDashboard() {
           <header>
             <div>
               <span>NDOH alerts</span>
-              <h2>Hearing reminders for clients</h2>
+              <h2>Supervised hearing updates</h2>
             </div>
-            <Link href="/advocate/reminders">Open reminders <ArrowRight /></Link>
+            <Link href="/advocate/updates">Post case update <ArrowRight /></Link>
           </header>
           <div style={{ padding: 16 }}>
             <p className="lc-inline-empty" style={{ margin: 0 }}>
-              Dispatch NDOH reminders with Order XVII CPC appearance guidance from the reminders desk.
+              Demo SMS/WhatsApp reminder dispatch is retired. Record hearing dates through LC-reviewed case updates.
             </p>
           </div>
         </div>

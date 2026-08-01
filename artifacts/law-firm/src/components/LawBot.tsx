@@ -1,20 +1,37 @@
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Bot, BookOpen, FileSearch, Gavel, Lock, Send, ShieldCheck, Sparkles } from "lucide-react";
-import {
-  answerFromApprovedSources,
-  LAW_BOT_DISCLAIMER,
-  LAW_BOT_SOURCE_MODES,
-  LawBotSource,
-  LawBotSourceMode,
-} from "@/data/lawbotSources";
+import { useAuth } from "@/lib/auth";
+import { workspaceRequest } from "@/lib/workspace";
+import { LAW_BOT_DISCLAIMER } from "@/data/lawbotSources";
+
+type LawBotCitation = {
+  id?: string;
+  title?: string;
+  citation?: string;
+  sourceType?: string;
+  courtOrAuthority?: string;
+  date?: string;
+  url?: string;
+};
 
 type ChatTurn = {
   id: number;
   question: string;
   answer: string;
-  citations: LawBotSource[];
+  citations: LawBotCitation[];
 };
+
+type LawBotQueryResult = {
+  answer?: string;
+  citations?: LawBotCitation[];
+  confidence?: string;
+  mode?: string;
+  queryId?: string;
+};
+
+const REFUSE =
+  "I could not verify this from Legal Connect's approved legal sources. Please consult an advocate or add an authorised source.";
 
 const sampleQuestions = [
   "What happens in cheque bounce under Section 138?",
@@ -25,36 +42,68 @@ const sampleQuestions = [
 ];
 
 export function LawBot({ audience }: { audience: "client" | "advocate" }) {
-  const [mode, setMode] = useState<LawBotSourceMode>(
-    audience === "client" ? "Client Simple Explanation" : "Advocate Research",
-  );
+  const { session } = useAuth();
+  const [mode, setMode] = useState(audience === "client" ? "Client Simple Explanation" : "Advocate Research");
   const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([
     {
       id: 1,
       question: "System greeting",
       answer:
-        "Namaste. I am Legal Connect LawBot. I answer only from approved Indian legal source snippets loaded in this demo. Ask about Bare Acts, case laws, amendments, tenancy, consumer issues, cheque bounce, or criminal law transitions.",
+        "Namaste. I am Legal Connect LawBot. I answer only from approved Indian legal sources indexed on the server. If no approved source matches, I refuse — I do not invent answers from general AI knowledge.",
       citations: [],
     },
   ]);
 
   const latestCitations = useMemo(() => turns[turns.length - 1]?.citations ?? [], [turns]);
+  const canAsk = Boolean(session?.token) && !busy;
 
-  const ask = (question = input) => {
+  const ask = async (question = input) => {
     const cleanQuestion = question.trim();
-    if (!cleanQuestion) return;
-    const result = answerFromApprovedSources(cleanQuestion, mode);
-    setTurns((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        question: cleanQuestion,
-        answer: result.answer,
-        citations: result.citations,
-      },
-    ]);
+    if (!cleanQuestion || !session?.token || busy) return;
+    setBusy(true);
+    setError("");
     setInput("");
+    try {
+      const result = await workspaceRequest<LawBotQueryResult>("/api/lawbot/query", session.token, {
+        method: "POST",
+        body: JSON.stringify({ question: cleanQuestion, query: cleanQuestion, mode }),
+      });
+      const citations = Array.isArray(result.citations) ? result.citations : [];
+      const answer = citations.length > 0
+        ? String(result.answer || REFUSE)
+        : String(result.answer || REFUSE);
+      setTurns((current) => [
+        ...current,
+        {
+          id: Date.now(),
+          question: cleanQuestion,
+          answer: result.confidence === "none" || citations.length === 0 ? (result.answer || REFUSE) : answer,
+          citations,
+        },
+      ]);
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : "LawBot request failed.";
+      setError(message);
+      setTurns((current) => [
+        ...current,
+        {
+          id: Date.now(),
+          question: cleanQuestion,
+          answer: REFUSE,
+          citations: [],
+        },
+      ]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void ask();
   };
 
   return (
@@ -69,19 +118,18 @@ export function LawBot({ audience }: { audience: "client" | "advocate" }) {
               </div>
               <div>
                 <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
-                  <Lock className="h-3.5 w-3.5" /> Source-restricted MVP
+                  <Lock className="h-3.5 w-3.5" /> Source-restricted · API-backed
                 </div>
                 <h1 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">Legal Connect LawBot</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">
-                  Indian legal research assistant that answers only from approved snippets. No general AI knowledge, no live SCC or Bar & Bench integration in this demo.
+                  Answers only from approved legal sources stored by Legal Connect. Local demo snippets are disabled. When the approved library is empty, LawBot refuses.
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-2 gap-2 text-center">
               {[
-                ["9", "Mock sources"],
-                ["6", "Modes"],
-                ["0", "Live scrapes"],
+                ["API", "Live query"],
+                ["0", "Local demos"],
               ].map(([value, label]) => (
                 <div key={label} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <div className="text-2xl font-bold text-[#F5C76A]">{value}</div>
@@ -100,14 +148,11 @@ export function LawBot({ audience }: { audience: "client" | "advocate" }) {
               <span className="text-xs font-bold uppercase tracking-widest text-[#D4A050]">Source mode</span>
               <select
                 value={mode}
-                onChange={(event) => setMode(event.target.value as LawBotSourceMode)}
+                onChange={(event) => setMode(event.target.value)}
                 className="h-12 w-full rounded-2xl border border-[#1A2332]/15 bg-[#F8F6F3] px-4 text-sm font-semibold text-[#1A2332] outline-none focus:border-[#D4A050]"
               >
-                {LAW_BOT_SOURCE_MODES.map((sourceMode) => (
-                  <option key={sourceMode} value={sourceMode}>
-                    {sourceMode}
-                  </option>
-                ))}
+                <option value="Client Simple Explanation">Client Simple Explanation</option>
+                <option value="Advocate Research">Advocate Research</option>
               </select>
             </label>
             <div className="rounded-2xl border border-[#1A2332]/10 bg-[#F8F6F3] p-3">
@@ -115,7 +160,7 @@ export function LawBot({ audience }: { audience: "client" | "advocate" }) {
                 <ShieldCheck className="h-4 w-4 text-emerald-600" /> Guardrail active
               </div>
               <p className="mt-1 text-xs leading-5 text-[#1A2332]/55">
-                If the local approved source database has no match, LawBot must respond: "I could not find this in the approved legal sources."
+                Queries hit `/api/lawbot/query`. If approved sources or chunks are missing, LawBot must refuse — no local fallback answers.
               </p>
             </div>
           </div>
@@ -138,35 +183,38 @@ export function LawBot({ audience }: { audience: "client" | "advocate" }) {
             ))}
           </div>
 
+          {error ? <p className="mt-3 text-sm text-red-700" role="alert">{error}</p> : null}
+
           <div className="mt-4 flex flex-wrap gap-2">
             {sampleQuestions.map((question) => (
               <button
                 key={question}
-                onClick={() => ask(question)}
-                className="rounded-full border border-[#1A2332]/10 bg-[#1A2332]/5 px-3 py-2 text-xs font-semibold text-[#1A2332]/70 transition hover:border-[#D4A050]/40 hover:bg-[#D4A050]/10"
+                type="button"
+                disabled={!canAsk}
+                onClick={() => void ask(question)}
+                className="rounded-full border border-[#1A2332]/10 bg-[#1A2332]/5 px-3 py-2 text-xs font-semibold text-[#1A2332]/70 transition hover:border-[#D4A050]/40 hover:bg-[#D4A050]/10 disabled:opacity-50"
               >
                 {question}
               </button>
             ))}
           </div>
 
-          <div className="mt-4 flex gap-3">
+          <form className="mt-4 flex gap-3" onSubmit={onSubmit}>
             <input
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") ask();
-              }}
-              placeholder="Ask only from approved Indian legal sources..."
-              className="h-13 min-h-13 flex-1 rounded-2xl border border-[#1A2332]/15 bg-white px-4 text-sm text-[#1A2332] outline-none focus:border-[#D4A050]"
+              placeholder={session?.token ? "Ask only from approved Indian legal sources..." : "Sign in to query LawBot"}
+              disabled={!session?.token || busy}
+              className="h-13 min-h-13 flex-1 rounded-2xl border border-[#1A2332]/15 bg-white px-4 text-sm text-[#1A2332] outline-none focus:border-[#D4A050] disabled:opacity-60"
             />
             <button
-              onClick={() => ask()}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#D4A050] px-5 py-3 text-sm font-bold text-[#1A2332] shadow-lg shadow-[#D4A050]/20 transition hover:bg-[#F5C76A]"
+              type="submit"
+              disabled={!canAsk || !input.trim()}
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#D4A050] px-5 py-3 text-sm font-bold text-[#1A2332] shadow-lg shadow-[#D4A050]/20 transition hover:bg-[#F5C76A] disabled:opacity-50"
             >
-              <Send className="h-4 w-4" /> Ask
+              <Send className="h-4 w-4" /> {busy ? "…" : "Ask"}
             </button>
-          </div>
+          </form>
         </motion.section>
 
         <aside className="space-y-4">
@@ -177,23 +225,27 @@ export function LawBot({ audience }: { audience: "client" | "advocate" }) {
             </div>
             {latestCitations.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-[#1A2332]/15 bg-[#F8F6F3] p-4 text-sm leading-6 text-[#1A2332]/55">
-                Citations will appear here when LawBot finds an approved source.
+                Citations appear only when the server finds an approved source. Empty library ⇒ refusal.
               </p>
             ) : (
               <div className="space-y-3">
-                {latestCitations.map((source) => (
-                  <div key={source.id} className="rounded-2xl border border-[#1A2332]/10 bg-[#F8F6F3] p-4">
-                    <div className="mb-2 inline-flex rounded-full bg-[#D4A050]/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#8A5A13]">
-                      {source.sourceType}
-                    </div>
-                    <h3 className="text-sm font-bold leading-5 text-[#1A2332]">{source.title}</h3>
-                    <p className="mt-1 text-xs text-[#1A2332]/50">{source.courtOrAuthority} | {source.date}</p>
-                    <p className="mt-2 text-xs font-semibold leading-5 text-[#1A2332]/65">{source.citation}</p>
-                    {source.url && (
+                {latestCitations.map((source, index) => (
+                  <div key={source.id || `${source.title || "source"}-${index}`} className="rounded-2xl border border-[#1A2332]/10 bg-[#F8F6F3] p-4">
+                    {source.sourceType ? (
+                      <div className="mb-2 inline-flex rounded-full bg-[#D4A050]/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#8A5A13]">
+                        {source.sourceType}
+                      </div>
+                    ) : null}
+                    <h3 className="text-sm font-bold leading-5 text-[#1A2332]">{source.title || "Approved source"}</h3>
+                    {(source.courtOrAuthority || source.date) ? (
+                      <p className="mt-1 text-xs text-[#1A2332]/50">{[source.courtOrAuthority, source.date].filter(Boolean).join(" | ")}</p>
+                    ) : null}
+                    {source.citation ? <p className="mt-2 text-xs font-semibold leading-5 text-[#1A2332]/65">{source.citation}</p> : null}
+                    {source.url ? (
                       <a className="mt-2 inline-block text-xs font-bold text-[#B97818] underline" href={source.url} target="_blank" rel="noreferrer">
                         Open source portal
                       </a>
-                    )}
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -209,10 +261,10 @@ export function LawBot({ audience }: { audience: "client" | "advocate" }) {
 
           <div className="rounded-3xl border border-[#1A2332]/10 bg-[#101820] p-5 text-white">
             <div className="mb-2 flex items-center gap-2 text-sm font-bold">
-              <BookOpen className="h-4 w-4 text-[#F5C76A]" /> Future live connectors
+              <BookOpen className="h-4 w-4 text-[#F5C76A]" /> Approved library
             </div>
             <p className="text-xs leading-5 text-white/55">
-              SCC_ONLINE_API_KEY, BAR_AND_BENCH_API_KEY, and INDIAN_KANOON_API_KEY are placeholders only. They are not connected in this MVP.
+              Admin must upload and approve legal sources before LawBot can answer. Until then every query refuses closed.
             </p>
           </div>
         </aside>

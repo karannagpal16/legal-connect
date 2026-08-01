@@ -79,7 +79,7 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "Case updates", href: "/client/updates", icon: FileSearch },
     { label: "Message LC", href: "/client/chat", icon: MessageSquare },
     { label: "LawBot", href: "/client/lawbot", icon: Sparkles },
-    { label: "Documents", href: "/client/diy-docs", icon: ReceiptIndianRupee },
+    { label: "Templates", href: "/client/diy-docs", icon: ReceiptIndianRupee },
     { label: "Engagement", href: "/client/engagement", icon: FileSearch },
     { label: "Grievance", href: "/client/grievance", icon: ShieldCheck },
     { label: "Library", href: "/client/library", icon: Library },
@@ -89,7 +89,6 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "My quests", href: "/intern/quests", icon: Target },
     { label: "Case tracker", href: "/intern/cases", icon: FileSearch },
     { label: "XP & progress", href: "/intern/xp", icon: BarChart3 },
-    { label: "AI assistant", href: "/intern/ai-assistant", icon: Sparkles },
     { label: "Library", href: "/intern/library", icon: Library },
   ],
 };

@@ -78,7 +78,7 @@ export function InternDashboard() {
       <section className="lc-quick-grid">
         <QuickAction title="Chamber quests" description="Tasks assigned from Chamber Vault" href="/intern/quests" icon={Target} tone="gold" />
         <QuickAction title="Case tracker" description="Review assigned case context" href="/intern/cases" icon={FileSearch} />
-        <QuickAction title="AI research desk" description="Structure briefs and citations" href="/intern/ai-assistant" icon={Sparkles} />
+        <QuickAction title="Doubt portal" description="Ask seniors for supervised answers" href="/intern/doubts" icon={Sparkles} />
         <QuickAction title="Legal library" description="Acts, templates and precedents" href="/intern/library" icon={BookOpen} tone="green" />
       </section>
 
@@ -106,7 +106,7 @@ export function InternDashboard() {
           )}
         </DashboardPanel>
 
-        <DashboardPanel title="Draft submission & feedback" detail="Send research notes back to Chamber Vault" action={{ label: "Open AI assistant", href: "/intern/ai-assistant" }}>
+        <DashboardPanel title="Draft submission & feedback" detail="Send research notes back to Chamber Vault" action={{ label: "Open doubt portal", href: "/intern/doubts" }}>
           <div className="lc-admin-summary">
             <div>
               <span><Send /></span>
