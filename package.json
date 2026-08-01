@@ -7,7 +7,7 @@
     "dev:api": "node artifacts/api-server/server.js",
     "audit:api": "node scripts/audit-api-contract.mjs",
     "audit:web": "pnpm --dir artifacts/law-firm exec node scripts/audit-web-routes.mjs",
-    "build": "pnpm --dir artifacts/law-firm build && node --check artifacts/api-server/config.js && node --check artifacts/api-server/db.js && node --check artifacts/api-server/server.js && node --check services/shared/env.mjs && node --check services/court-sync/index.js && node --check services/notify-worker/index.js",
+    "build": "pnpm --dir artifacts/law-firm build && node --check artifacts/api-server/config.js && node --check artifacts/api-server/db.js && node --check artifacts/api-server/platform-events.js && node --check artifacts/api-server/server.js && node --check services/shared/env.mjs && node --check services/court-sync/index.js && node --check services/notify-worker/index.js",
     "start": "node artifacts/api-server/server.js"
   }
 }

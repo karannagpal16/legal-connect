@@ -19,6 +19,7 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
+import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 
 type Advocate = {
   id: string;
@@ -211,6 +212,12 @@ export function AdminControlDesk() {
         <div><BriefcaseBusiness /><span><strong>{tasks.length}</strong><small>Proxy / escrow actions</small></span></div>
         <div><ShieldCheck /><span><strong>{intakes.filter((item) => item.assignedAdvocateId).length}</strong><small>Assigned intakes</small></span></div>
       </section>
+
+      <ActivityAuditTimeline
+        title="Control Room · Live Status Broadcast"
+        emptyText="New intakes, lawyer assignments, proxy accepts and escrow releases will stream here instantly."
+        limit={20}
+      />
 
       {error ? <div className="lc-form-error" role="alert">{error}</div> : null}
       {success ? (

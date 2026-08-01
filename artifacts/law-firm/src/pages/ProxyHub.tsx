@@ -9,6 +9,7 @@ import { TaskDialog } from "@/components/forms/TaskDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth, normaliseRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
+import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 
 const COMPLETION_TIMES = [
   "Within 24 hours",
@@ -237,6 +238,13 @@ export function ProxyHub() {
           </button>
         ))}
       </div>
+
+      <ActivityAuditTimeline
+        title="ProxyHub · Live Acceptance Feed"
+        emptyText="Posted missions, accepts and proof uploads sync here across ProxyHub, Chamber Vault and Admin Desk."
+        limit={12}
+        compact
+      />
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

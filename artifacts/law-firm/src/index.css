@@ -740,6 +740,97 @@
 .lc-fee-amount { color: #765a20; font-size: 10px; text-transform: capitalize; }
 .lc-inline-empty { margin: 0; padding: 24px; color: var(--lc-muted); font-size: 11px; text-align: center; }
 
+.lc-activity-timeline {
+  margin: 16px 0 8px;
+  border: 1px solid #e0e4e9;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fbfaf7 0%, #ffffff 42%);
+  overflow: hidden;
+}
+.lc-activity-timeline > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid #ebe4d6;
+}
+.lc-activity-timeline > header .lc-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #9a7429;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.lc-activity-timeline > header .lc-kicker svg { width: 12px; height: 12px; }
+.lc-activity-timeline > header h3 {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1d2736;
+}
+.lc-activity-timeline > header small {
+  color: var(--lc-muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.lc-activity-timeline ol {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 12px;
+}
+.lc-activity-timeline li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 18px 10px 16px;
+}
+.lc-activity-timeline li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 25px;
+  top: 28px;
+  bottom: -2px;
+  width: 1px;
+  background: #e6dfd0;
+}
+.lc-timeline-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: #cda45e;
+  box-shadow: 0 0 0 3px rgba(205, 164, 94, 0.18);
+}
+.lc-activity-timeline li strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #243044;
+}
+.lc-activity-timeline li strong svg { width: 12px; height: 12px; color: #9a7429; }
+.lc-activity-timeline li p {
+  margin: 4px 0 0;
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.lc-activity-timeline li small {
+  display: block;
+  margin-top: 4px;
+  color: #8a93a1;
+  font-size: 9px;
+}
+.lc-activity-timeline.compact > header h3 { font-size: 14px; }
+.lc-activity-timeline.compact li p { font-size: 10px; }
+
 .lc-practice-grid { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; }
 .lc-operational-panel { overflow: hidden; border: 1px solid #dbe0e6; border-radius: 8px; background: #fff; }
 .lc-operational-panel > header { display: flex; min-height: 68px; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 17px; border-bottom: 1px solid #e2e6eb; }
