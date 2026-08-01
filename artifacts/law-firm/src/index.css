@@ -505,9 +505,29 @@
 .lc-portal-header h1 { margin: 0; font-size: 18px; line-height: 1.25; }
 .lc-menu-button { display: none; border: 0; background: transparent; color: var(--lc-navy); }
 .lc-menu-button svg { width: 22px; }
-.lc-header-date { display: grid; margin-left: auto; text-align: right; }
+.lc-header-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.lc-header-date { display: grid; text-align: right; }
 .lc-header-date small { color: var(--lc-muted); font-size: 9px; text-transform: uppercase; }
 .lc-header-date strong { font-size: 12px; }
+.lc-notify-bell { position: relative; }
+.lc-notify-trigger { position: relative; display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--lc-border); border-radius: 8px; background: #fff; color: var(--lc-navy); cursor: pointer; }
+.lc-notify-trigger svg { width: 17px; height: 17px; }
+.lc-notify-trigger:hover { border-color: #c8b078; }
+.lc-notify-badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--lc-red); color: #fff; font-size: 10px; font-weight: 700; line-height: 18px; text-align: center; }
+.lc-notify-panel { position: absolute; top: calc(100% + 10px); right: 0; z-index: 40; width: min(360px, calc(100vw - 28px)); overflow: hidden; border: 1px solid var(--lc-border); border-radius: 10px; background: #fff; box-shadow: 0 14px 36px rgba(23,33,51,.14); }
+.lc-notify-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--lc-border); }
+.lc-notify-panel-head strong { font-size: 13px; }
+.lc-notify-panel-head button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--lc-gold-dark); font-size: 11px; font-weight: 700; cursor: pointer; }
+.lc-notify-panel-head button:disabled { opacity: .45; cursor: default; }
+.lc-notify-panel-head button svg { width: 14px; height: 14px; }
+.lc-notify-list { max-height: 360px; overflow: auto; }
+.lc-notify-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; width: 100%; padding: 12px 14px; border: 0; border-bottom: 1px solid #eef1f4; background: #fff; text-align: left; cursor: pointer; }
+.lc-notify-item:last-child { border-bottom: 0; }
+.lc-notify-item.unread { background: #f7f4ec; }
+.lc-notify-item strong { display: block; color: var(--lc-navy); font-size: 13px; line-height: 1.3; }
+.lc-notify-item small { display: block; margin-top: 4px; color: var(--lc-muted); font-size: 12px; line-height: 1.4; }
+.lc-notify-item em { color: var(--lc-muted); font-size: 10px; font-style: normal; white-space: nowrap; }
+.lc-notify-empty { margin: 0; padding: 28px 16px; color: var(--lc-muted); font-size: 13px; text-align: center; }
 .lc-portal-content { padding: 28px; }
 .lc-portal-content > div { width: min(1280px, 100%); margin: 0 auto; }
 .lc-sidebar-backdrop { position: fixed; inset: 0; z-index: 35; display: none; border: 0; background: rgba(23,33,51,.46); }
@@ -1096,6 +1116,38 @@
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Transparency ledger + grievance */
+.lc-transparency-page { min-height: 100vh; background: linear-gradient(180deg, #f4f7fb 0%, #eef2f6 48%, #f8f5ee 100%); color: #172133; }
+.lc-transparency-header { display: flex; align-items: center; gap: 18px; padding: 22px clamp(18px, 4vw, 48px); border-bottom: 1px solid #d7deea; background: rgba(255,255,255,.86); }
+.lc-transparency-back { display: inline-flex; align-items: center; gap: 8px; color: #172133; font-weight: 700; }
+.lc-transparency-header span { display: block; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.lc-transparency-header h1 { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 28px; }
+.lc-transparency-page main { width: min(1100px, calc(100% - 36px)); margin: 0 auto; padding: 36px 0 64px; display: grid; gap: 22px; }
+.lc-transparency-hero { display: grid; grid-template-columns: 48px 1fr; gap: 16px; padding: 28px; border: 1px solid #d7deea; border-radius: 12px; background: #fff; }
+.lc-transparency-hero h2 { margin: 0 0 8px; font-family: "Playfair Display", Georgia, serif; font-size: 30px; }
+.lc-transparency-hero p { margin: 0; color: #5b6472; line-height: 1.55; }
+.lc-transparency-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.lc-transparency-grid article { padding: 18px; border: 1px solid #d7deea; border-radius: 10px; background: #fff; }
+.lc-transparency-grid strong { display: block; font-size: 28px; line-height: 1; }
+.lc-transparency-grid span { display: block; margin-top: 8px; color: #6b7280; font-size: 12px; }
+.lc-transparency-split { padding: 22px; border: 1px solid #d7deea; border-radius: 12px; background: #fff; }
+.lc-transparency-split ul { list-style: none; margin: 14px 0; padding: 0; display: grid; gap: 10px; }
+.lc-transparency-split li { display: flex; align-items: center; gap: 8px; }
+.lc-transparency-empty { color: #6b7280; }
+.lc-grievance-form, .lc-grievance-list, .lc-engagement-card { display: grid; gap: 12px; padding: 22px; border: 1px solid var(--lc-border); border-radius: 10px; background: #fff; }
+.lc-grievance-form label, .lc-engagement-card label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.lc-grievance-form textarea, .lc-grievance-form select, .lc-engagement-card input, .lc-engagement-card textarea { width: 100%; padding: 12px; border: 1px solid var(--lc-border); border-radius: 8px; background: #fbfcfd; }
+.lc-grievance-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.lc-grievance-list li { display: grid; gap: 4px; padding: 14px; border: 1px solid #e7ebf0; border-radius: 8px; }
+.lc-grievance-list span { color: var(--lc-gold-dark); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.lc-form-error, .lc-form-success { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+.lc-form-error { color: var(--lc-red); }
+.lc-form-success { color: var(--lc-green); }
+.lc-doc-upload-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 900px) {
+  .lc-transparency-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Real-Time Chat & Document Previewer Styles v24 */

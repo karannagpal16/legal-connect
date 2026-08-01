@@ -1,21 +1,38 @@
 import { useState } from "react";
 import { useListTasks, useDeleteTask, useAcceptTask } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
-import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch } from "lucide-react";
+import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch, ShieldCheck, Camera, Star } from "lucide-react";
 import { StatusBadge, TaskTypeBadge } from "@/components/ui/StatusBadge";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { TaskDialog } from "@/components/forms/TaskDialog";
 import { useAuth, normaliseRole } from "@/lib/auth";
+import { workspaceRequest } from "@/lib/workspace";
+
+type ProxyTask = Task & {
+  cnr?: string;
+  roomNo?: string;
+  room?: string;
+  hearingDate?: string;
+  proofStatus?: string;
+  proofHash?: string;
+  conflictDeclaredAt?: string;
+  checkedInAt?: string;
+  acceptedBy?: string | number;
+  postedBy?: string | number;
+  escrowStatus?: string;
+};
 
 export function ProxyHub() {
   const { data: tasks, isLoading } = useListTasks();
   const [filter, setFilter] = useState<string>("All");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [busyId, setBusyId] = useState<string>("");
   const { session } = useAuth();
   const role = normaliseRole(session?.user?.role);
   const isAdmin = role === "admin";
+  const userId = session?.user?.id;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -35,18 +52,35 @@ export function ProxyHub() {
         queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
         toast({
           title: "Proxy counsel assigned",
-          description: "The posting advocate can now see the assignment.",
+          description: "Layer 2: assigned counsel must declare conflict before check-in.",
         });
       },
       onError: (error) => toast({ title: "Assignment failed", description: error.message, variant: "destructive" }),
     },
   });
 
-  const filteredTasks = tasks?.filter((t) => {
+  const filteredTasks = (tasks as ProxyTask[] | undefined)?.filter((t) => {
     if (filter === "All") return true;
     if (filter === "Pending Admin") return t.status === "Awaiting Admin Assignment" || t.status === "Open";
     return t.status === filter;
   });
+
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+  };
+
+  const runAction = async (taskId: string | number, path: string, init?: RequestInit, successTitle?: string) => {
+    setBusyId(String(taskId));
+    try {
+      await workspaceRequest(`${path}`, session?.token, init);
+      await refresh();
+      toast({ title: successTitle || "Updated" });
+    } catch (error) {
+      toast({ title: "Action failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setBusyId("");
+    }
+  };
 
   const handleAssign = (id: number) => {
     if (!isAdmin) {
@@ -71,17 +105,57 @@ export function ProxyHub() {
     setDialogOpen(true);
   };
 
+  const uploadProof = async (task: ProxyTask) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/pdf,image/*";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBusyId(String(task.id));
+      try {
+        const response = await fetch(`/api/tasks/${task.id}/proof`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.token}`,
+            "Content-Type": file.type || "application/octet-stream",
+            "X-File-Name": file.name,
+          },
+          body: file,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Proof upload failed.");
+        await refresh();
+        toast({ title: "Proof submitted", description: "Layer 4: awaiting Admin review before escrow unlock." });
+      } catch (error) {
+        toast({ title: "Proof upload failed", description: (error as Error).message, variant: "destructive" });
+      } finally {
+        setBusyId("");
+      }
+    };
+    input.click();
+  };
+
+  const rateTask = async (task: ProxyTask) => {
+    const starsRaw = window.prompt("Rate this ProxyHub mission (1-5 stars)", "5");
+    if (!starsRaw) return;
+    const stars = Number(starsRaw);
+    const comment = window.prompt("Optional comment", "") || "";
+    await runAction(task.id, `/api/tasks/${task.id}/rate`, {
+      method: "POST",
+      body: JSON.stringify({ stars, comment }),
+    }, "Rating saved");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">
-            {isAdmin ? "Proxy Desk · Assign Counsel" : "ProxyHub · Post Task"}
+            {isAdmin ? "Proxy Desk · Assign Counsel" : "ProxyHub · 5-Layer Transparency"}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            {isAdmin
-              ? "Review paid proxy posts and assign panel counsel."
-              : "Pay the fee (min ₹400), post task details, then Admin assigns a proxy. No peer accept."}
+            Posting → Conflict declaration → Check-in → Hash-checked proof → Admin escrow release. Clients are notified at every layer.
           </p>
         </div>
         {!isAdmin && (
@@ -99,7 +173,7 @@ export function ProxyHub() {
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {["All", "Pending Admin", "Assigned", "Completed"].map((status) => (
+        {["All", "Pending Admin", "Assigned", "Checked In", "Proof Submitted", "Completed"].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -125,13 +199,16 @@ export function ProxyHub() {
           <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-bold text-foreground">No proxy tasks yet</h3>
           <p className="text-muted-foreground mt-2">
-            {isAdmin ? "Paid posts from advocates will appear here for assignment." : "Post a paid task to queue Admin assignment."}
+            {isAdmin ? "Paid posts from advocates will appear here for assignment." : "Post a paid task with mandatory CNR and passover details."}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTasks?.map((t) => {
             const pending = t.status === "Open" || t.status === "Awaiting Admin Assignment";
+            const isProxy = String(t.acceptedBy || "") === String(userId || "");
+            const isPoster = String(t.postedBy || "") === String(userId || "");
+            const canLifecycle = isProxy || isAdmin;
             return (
               <div
                 key={t.id}
@@ -144,56 +221,120 @@ export function ProxyHub() {
                   <StatusBadge status={t.status === "Open" ? "Awaiting Admin Assignment" : t.status} />
                 </div>
 
-                <h3 className="text-lg font-bold text-foreground mb-4 relative z-10 leading-snug">{t.taskDescription}</h3>
-
-                <div className="space-y-2 mb-6 flex-1 relative z-10">
-                  {t.location && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-bold text-foreground mb-2 relative z-10 leading-snug">{t.taskDescription || t.title}</h3>
+                <div className="space-y-2 mb-4 flex-1 relative z-10 text-sm text-muted-foreground">
+                  {(t.cnr || (t as any).CNR) && <div>CNR {(t as any).cnr}</div>}
+                  {(t.roomNo || t.room) && <div>Room {t.roomNo || t.room}</div>}
+                  {t.hearingDate && <div>Hearing {String(t.hearingDate).slice(0, 10)}</div>}
+                  {t.location || t.court ? (
+                    <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-primary" />
-                      <span>{t.location}</span>
+                      <span>{t.location || t.court}</span>
                     </div>
-                  )}
-                  {t.fee && (
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground bg-accent/10 w-fit px-2 py-1 rounded-md text-accent">
+                  ) : null}
+                  {t.fee || t.amount ? (
+                    <div className="flex items-center gap-2 font-semibold text-foreground bg-accent/10 w-fit px-2 py-1 rounded-md">
                       <HandCoins className="w-4 h-4" />
-                      <span>{t.fee}</span>
+                      <span>₹{t.fee || t.amount}</span>
                     </div>
-                  )}
+                  ) : null}
+                  <div>Proof: {t.proofStatus || "none"}{t.proofHash ? ` · ${String(t.proofHash).slice(0, 8)}…` : ""}</div>
+                  <div>Escrow: {t.escrowStatus || "—"}</div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-4 border-t border-border mt-auto relative z-10">
+                <div className="flex flex-col gap-2 pt-4 border-t border-border mt-auto relative z-10">
                   {isAdmin && pending ? (
                     <button
                       onClick={() => handleAssign(t.id)}
-                      disabled={isAssigning}
-                      className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 min-h-[48px]"
+                      disabled={isAssigning || busyId === String(t.id)}
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 min-h-[48px]"
                     >
                       <UserRoundSearch className="w-5 h-5" />
                       Assign Proxy
                     </button>
-                  ) : (
-                    <div className="flex-1 text-center py-3 text-sm font-bold text-muted-foreground bg-muted rounded-xl">
-                      {pending ? "Awaiting Admin Assignment" : t.status}
-                    </div>
-                  )}
+                  ) : null}
 
-                  {(isAdmin || pending) && (
-                    <>
-                      <button
-                        onClick={() => openEdit(t)}
-                        className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors border border-transparent hover:border-primary/20"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        disabled={isDeleting}
-                        className="p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors border border-transparent hover:border-destructive/20"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
+                  {canLifecycle && !t.conflictDeclaredAt ? (
+                    <button
+                      className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
+                      disabled={busyId === String(t.id)}
+                      onClick={() => runAction(t.id, `/api/tasks/${t.id}/conflict-declare`, {
+                        method: "POST",
+                        body: JSON.stringify({ declared: true, note: "No conflict of interest for this appearance." }),
+                      }, "Conflict declaration signed")}
+                    >
+                      <ShieldCheck className="w-4 h-4" /> Declare no conflict
+                    </button>
+                  ) : null}
+
+                  {canLifecycle && t.conflictDeclaredAt && !t.checkedInAt ? (
+                    <button
+                      className="w-full border border-border rounded-xl py-2.5 font-semibold"
+                      disabled={busyId === String(t.id)}
+                      onClick={() => runAction(t.id, `/api/tasks/${t.id}/check-in`, { method: "POST", body: "{}" }, "Checked in · proof window open")}
+                    >
+                      Day-of check-in
+                    </button>
+                  ) : null}
+
+                  {canLifecycle && t.checkedInAt && t.proofStatus !== "submitted" && t.proofStatus !== "approved" ? (
+                    <button
+                      className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
+                      disabled={busyId === String(t.id)}
+                      onClick={() => uploadProof(t)}
+                    >
+                      <Camera className="w-4 h-4" /> Upload order sheet
+                    </button>
+                  ) : null}
+
+                  {isAdmin && t.proofStatus === "submitted" ? (
+                    <button
+                      className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 font-bold"
+                      disabled={busyId === String(t.id)}
+                      onClick={() => runAction(t.id, "/api/admin/task-action", {
+                        method: "POST",
+                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved" }),
+                      }, "Proof approved")}
+                    >
+                      Approve proof
+                    </button>
+                  ) : null}
+
+                  {isAdmin && t.proofStatus === "approved" && t.escrowStatus !== "Released" ? (
+                    <button
+                      className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 font-bold"
+                      disabled={busyId === String(t.id)}
+                      onClick={() => runAction(t.id, "/api/admin/task-action", {
+                        method: "POST",
+                        body: JSON.stringify({ taskId: t.id, action: "release_payment" }),
+                      }, "Escrow released")}
+                    >
+                      Release escrow
+                    </button>
+                  ) : null}
+
+                  {(isPoster || isProxy) && (t.escrowStatus === "Released" || /completed|closed|payment released/i.test(String(t.status || ""))) ? (
+                    <button
+                      className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
+                      disabled={busyId === String(t.id)}
+                      onClick={() => rateTask(t)}
+                    >
+                      <Star className="w-4 h-4" /> Rate counterpart
+                    </button>
+                  ) : null}
+
+                  <div className="flex items-center gap-2">
+                    {(isAdmin || pending) && (
+                      <>
+                        <button onClick={() => openEdit(t)} className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors">
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => handleDelete(t.id)} disabled={isDeleting} className="p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors">
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );

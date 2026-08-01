@@ -92,6 +92,13 @@ export interface WorkspaceCase {
   appearanceRequired: boolean;
   nextAction: string;
   costRisk?: string;
+  healthScore?: number;
+  healthBand?: string;
+  health?: {
+    score: number;
+    band: string;
+    factors?: Array<{ code: string; impact: number; label: string }>;
+  };
   clientName?: string;
   counsel?: {
     name: string;

@@ -116,7 +116,7 @@ export function Login() {
     setBusy(demoRole);
     setRole(demoRole);
     try {
-      // Temporary: open every portal with the shared master test account.
+      // Developer account: same credentials open Client, Advocate, Intern, and Admin portals.
       enterSession(await login({
         email: "karannagpal16@gmail.com",
         password: "Karan1605!",
@@ -126,7 +126,7 @@ export function Login() {
       try {
         enterSession(await demoLogin(demoRole));
       } catch {
-        setError(requestError instanceof Error ? requestError.message : "Demo login is unavailable.");
+        setError(requestError instanceof Error ? requestError.message : "Developer portal login is unavailable.");
       }
     } finally {
       setBusy(null);
@@ -176,7 +176,7 @@ export function Login() {
           <div className="lc-login-heading">
             <span className="lc-kicker">SECURE ACCESS</span>
             <h2>{mode === "login" ? "Welcome back" : "Create your workspace"}</h2>
-            <p>{mode === "login" ? "Pick a portal role, then sign in. Test credentials are prefilled for all portals." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
+            <p>{mode === "login" ? "Pick a portal role, then sign in with your credentials. Developer credentials are prefilled for portal testing." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
           </div>
 
           <div className="lc-role-picker" aria-label="Select a role">
@@ -315,7 +315,13 @@ export function Login() {
             {mode === "register" && (
               <label className="lc-consent-field">
                 <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-                <span>I agree to the privacy notice and secure processing of my account information.</span>
+                <span>
+                  I agree to the{" "}
+                  <Link href="/privacy">privacy notice</Link>
+                  {" "}and{" "}
+                  <Link href="/terms">terms of use</Link>
+                  {" "}for secure processing of my account information.
+                </span>
               </label>
             )}
             {error && <div className="lc-form-error" role="alert">{error}</div>}
@@ -326,7 +332,7 @@ export function Login() {
             </button>
           </form>
 
-          <div className="lc-demo-divider"><span>or jump into a portal</span></div>
+          <div className="lc-demo-divider"><span>developer portal access</span></div>
           <div className="lc-demo-grid">
             {roles.map((item) => (
               <button key={item.role} onClick={() => handleDemo(item.role)} disabled={Boolean(busy)}>
@@ -335,7 +341,16 @@ export function Login() {
               </button>
             ))}
           </div>
-          <p className="lc-demo-note">One-tap portals use the shared test login for Client, Advocate, Intern, and Admin.</p>
+          <p className="lc-demo-note">
+            Developer credentials (<strong>karannagpal16@gmail.com</strong>) open Client, Advocate, Intern, and Admin with all paid features free.
+          </p>
+          <p className="lc-demo-note">
+            <Link href="/privacy">Privacy</Link>
+            {" · "}
+            <Link href="/terms">Terms</Link>
+            {" · "}
+            <Link href="/refund">Refunds</Link>
+          </p>
         </div>
       </main>
     </div>
