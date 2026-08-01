@@ -435,6 +435,64 @@ function counselForClientAudience(counsel, fullName, enrollment) {
   };
 }
 
+/** Rewrite client-visible copy so a known full counsel name never appears. */
+function replaceCounselNameForClient(text, fullName, maskedDisplayName) {
+  const value = String(text || "");
+  const source = String(fullName || "").trim();
+  const masked = String(maskedDisplayName || "Assigned counsel").trim();
+  if (!value || !source || source === masked) return value;
+  return value.split(source).join(masked);
+}
+
+/** Strip full counsel identity from matter payloads returned to clients. */
+function sanitizeMatterForClient(matter) {
+  if (!matter || typeof matter !== "object") return matter;
+  const fullName = matter.assignedAdvocateName || matter.counsel?.name || matter.counsel?.displayName || "";
+  const enrollment = matter.counsel?.enrollment
+    || matter.counsel?.enrollmentNo
+    || matter.assignedAdvocateEnrollment
+    || null;
+  const masked = maskCounselForClient(fullName, enrollment);
+  const counsel = matter.counsel
+    ? counselForClientAudience(matter.counsel, fullName, enrollment)
+    : (fullName ? counselForClientAudience(null, fullName, enrollment) : null);
+  return {
+    ...matter,
+    assignedAdvocateName: fullName ? masked.displayName : matter.assignedAdvocateName || null,
+    counsel,
+    nextAction: replaceCounselNameForClient(matter.nextAction, fullName, masked.displayName) || matter.nextAction || null,
+    assignedAdvocateEmail: undefined,
+    assignedAdvocatePhone: undefined,
+    advocateEmail: undefined,
+    advocatePhone: undefined,
+    fullNameHidden: Boolean(fullName),
+  };
+}
+
+/** Strip full counsel identity from booking/intake payloads returned to clients. */
+function sanitizeBookingForClient(booking) {
+  if (!booking || typeof booking !== "object") return booking;
+  const fullName = booking.assignedAdvocateName || booking.counsel?.name || "";
+  const enrollment = booking.assignedAdvocateEnrollment
+    || booking.counsel?.enrollment
+    || booking.counsel?.enrollmentNo
+    || null;
+  const masked = maskCounselForClient(fullName, enrollment);
+  return {
+    ...booking,
+    assignedAdvocateName: fullName ? masked.displayName : booking.assignedAdvocateName || null,
+    counsel: booking.counsel
+      ? counselForClientAudience(booking.counsel, fullName, enrollment)
+      : booking.counsel || null,
+    nextAction: replaceCounselNameForClient(booking.nextAction, fullName, masked.displayName) || booking.nextAction || null,
+    assignedAdvocateEmail: undefined,
+    assignedAdvocatePhone: undefined,
+    advocateEmail: undefined,
+    advocatePhone: undefined,
+    fullNameHidden: Boolean(fullName),
+  };
+}
+
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
@@ -1172,6 +1230,9 @@ function mapBooking(row) {
     verifiedAt: row.verified_at,
     stageStatus: row.stage_status || payload.stageStatus || payload.intakeStatus || null,
     intakeStatus: payload.intakeStatus || row.stage_status || payload.stageStatus || null,
+    assignedAdvocateId: row.assigned_advocate_id || payload.assignedAdvocateId || null,
+    assignedAdvocateName: row.assigned_advocate_name || payload.assignedAdvocateName || null,
+    assignedAdvocateEnrollment: row.assigned_advocate_enrollment || payload.assignedAdvocateEnrollment || null,
     createdAt: row.created_at,
   });
 }
@@ -3515,11 +3576,14 @@ const server = http.createServer(async (req, res) => {
        WHERE case_id = $1 AND advocate_id <> $2 AND status = 'active'`,
       [caseId, advocateId],
     ).catch(() => undefined);
+    const enrollmentNo = enrollment.rows[0]?.enrollment_no || null;
+    const maskedCounsel = maskCounselForClient(advocate.name, enrollmentNo);
     const counsel = {
       name: advocate.name,
-      enrollment: enrollment.rows[0]?.enrollment_no || null,
+      enrollment: enrollmentNo,
       assignedAt: new Date().toISOString(),
       contactPolicy: "Coordinate through Legal Connect Admin.",
+      clientDisplayName: maskedCounsel.displayName,
     };
     const updated = await db.query(
       `UPDATE cases
@@ -3536,7 +3600,8 @@ const server = http.createServer(async (req, res) => {
         assignmentNote: note || null,
         assignedByAdmin: authUser.id,
         assignedAt: new Date().toISOString(),
-        nextAction: `Counsel assigned: ${advocate.name}. Legal Connect continues to supervise communications.`,
+        // Client-facing copy must stay initials-masked (Bar Council / LC gate).
+        nextAction: `Counsel assigned: ${maskedCounsel.displayName}. Legal Connect continues to supervise communications.`,
       })],
     );
     const bookingId = matter.bookingId || matterResult.rows[0].payload?.bookingId || null;
@@ -3553,11 +3618,12 @@ const server = http.createServer(async (req, res) => {
           String(bookingId),
           advocateId,
           advocate.name,
-          enrollment.rows[0]?.enrollment_no || null,
+          enrollmentNo,
           JSON.stringify({
             stageStatus: "acknowledged_and_assigned",
             assignedAdvocateId: advocateId,
             assignedAdvocateName: advocate.name,
+            clientCounselDisplayName: maskedCounsel.displayName,
           }),
         ],
       ).catch(() => undefined);
@@ -3566,19 +3632,36 @@ const server = http.createServer(async (req, res) => {
       advocateId,
       note: note || null,
     });
-    const recipients = await resolveRecipients([matter.userId, advocateId].filter(Boolean));
     await notify({
       eventType: "case_assigned",
-      title: "Counsel assigned",
-      message: note
-        ? `${advocate.name} has been assigned. LC note: ${note}`
-        : `${advocate.name} has been assigned to ${matter.title || matter.caseTitle || "your matter"}. Legal Connect remains the supervisor.`,
-      recipients,
-      payload: { caseId, advocateId, advocateName: advocate.name },
+      title: "Counsel assigned by Legal Connect",
+      message: `${maskedCounsel.displayName}${maskedCounsel.enrollment ? ` (${maskedCounsel.enrollment})` : ""} has been assigned to ${matter.title || matter.caseTitle || "your matter"}. Legal Connect remains the supervisor.`,
+      recipients: await resolveRecipients([matter.userId].filter(Boolean)),
+      payload: {
+        caseId,
+        advocateId,
+        advocateName: maskedCounsel.displayName,
+        enrollment: maskedCounsel.enrollment,
+        fullNameHidden: true,
+      },
       sendEmail: true,
       sendSms: true,
       ctaLabel: "Open matter",
       ctaUrl: portalUrl("/client"),
+      priority: "high",
+    });
+    await notify({
+      eventType: "case_assigned",
+      title: "New matter assigned by Legal Connect",
+      message: note
+        ? `You were assigned a supervised matter. LC briefing: ${note}`
+        : `You were assigned ${matter.title || matter.caseTitle || "a supervised matter"}. Review and proceed under LC supervision.`,
+      recipients: await resolveRecipients([advocateId].filter(Boolean)),
+      payload: { caseId, advocateId, clientId: matter.userId || null },
+      sendEmail: true,
+      sendSms: true,
+      ctaLabel: "Open matter",
+      ctaUrl: portalUrl("/advocate"),
       priority: "high",
     });
     sendJson(res, 200, { ok: true, case: mapCase(updated.rows[0]), advocate: { id: advocate.id, name: advocate.name } });
@@ -3617,6 +3700,8 @@ const server = http.createServer(async (req, res) => {
       "SELECT enrollment_no FROM profile_advocates WHERE user_id = $1 LIMIT 1",
       [advocateId],
     ).catch(() => ({ rows: [] }));
+    const enrollmentNo = enrollment.rows[0]?.enrollment_no || null;
+    const maskedCounsel = maskCounselForClient(advocate.name, enrollmentNo);
     const updatedBooking = await db.query(
       `UPDATE bookings
        SET assigned_advocate_id = $2,
@@ -3630,11 +3715,12 @@ const server = http.createServer(async (req, res) => {
         bookingId,
         advocateId,
         advocate.name,
-        enrollment.rows[0]?.enrollment_no || null,
+        enrollmentNo,
         JSON.stringify({
           stageStatus: "acknowledged_and_assigned",
           assignedAdvocateId: advocateId,
           assignedAdvocateName: advocate.name,
+          clientCounselDisplayName: maskedCounsel.displayName,
           assignmentNote: note || null,
         }),
       ],
@@ -3665,10 +3751,11 @@ const server = http.createServer(async (req, res) => {
           assignedAdvocateName: advocate.name,
           counsel: {
             name: advocate.name,
-            enrollment: enrollment.rows[0]?.enrollment_no || null,
+            enrollment: enrollmentNo,
             assignedAt: new Date().toISOString(),
+            clientDisplayName: maskedCounsel.displayName,
           },
-          nextAction: `Counsel assigned: ${advocate.name}.`,
+          nextAction: `Counsel assigned: ${maskedCounsel.displayName}.`,
         })],
       );
       linkedCase = mapCase(caseUpdated.rows[0]);
@@ -3678,13 +3765,34 @@ const server = http.createServer(async (req, res) => {
     await notify({
       eventType: "booking_assigned",
       title: "Legal Connect assigned your counsel",
-      message: `${advocate.name} has been assigned to your booking. Legal Connect will supervise the engagement.`,
-      recipients: await resolveRecipients([booking.userId, advocateId].filter(Boolean)),
-      payload: { bookingId, advocateId, caseId: linkedCase?.id || null },
+      message: `${maskedCounsel.displayName}${maskedCounsel.enrollment ? ` (${maskedCounsel.enrollment})` : ""} has been assigned to your booking. Legal Connect will supervise the engagement.`,
+      recipients: await resolveRecipients([booking.userId].filter(Boolean)),
+      payload: {
+        bookingId,
+        advocateId,
+        caseId: linkedCase?.id || null,
+        advocateName: maskedCounsel.displayName,
+        enrollment: maskedCounsel.enrollment,
+        fullNameHidden: true,
+      },
       sendEmail: true,
       sendSms: true,
       ctaLabel: "Open workspace",
       ctaUrl: portalUrl("/client"),
+      priority: "high",
+    });
+    await notify({
+      eventType: "booking_assigned",
+      title: "New booking assigned by Legal Connect",
+      message: note
+        ? `You were assigned a supervised booking. LC briefing: ${note}`
+        : "You were assigned a supervised booking. Review the brief under Legal Connect supervision.",
+      recipients: await resolveRecipients([advocateId].filter(Boolean)),
+      payload: { bookingId, advocateId, caseId: linkedCase?.id || null, clientId: booking.userId || null },
+      sendEmail: true,
+      sendSms: true,
+      ctaLabel: "Open bookings",
+      ctaUrl: portalUrl("/advocate/bookings"),
       priority: "high",
     });
     sendJson(res, 200, { ok: true, booking, case: linkedCase, advocate: { id: advocate.id, name: advocate.name } });
@@ -3858,9 +3966,15 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       if (loaded.mode === "demo") {
+        const rawDemoName = String(body.advocateName || "").trim();
+        const demoMasked = rawDemoName
+          ? maskCounselForClient(rawDemoName, body.enrollmentNo || null)
+          : { displayName: "Assigned counsel", enrollment: body.enrollmentNo || null };
         Object.assign(loaded.raw, {
           assignedAdvocateId: advocateId,
-          assignedAdvocateName: body.advocateName || "Panel counsel",
+          // Client-visible field stays initials-masked even in demo memory mode.
+          assignedAdvocateName: demoMasked.displayName,
+          assignedAdvocateEnrollment: demoMasked.enrollment || null,
           stageStatus: "advocate_assigned",
           intakeStatus: "advocate_assigned",
         });
@@ -3911,6 +4025,7 @@ const server = http.createServer(async (req, res) => {
           }),
         ],
       );
+      const maskedCounsel = maskCounselForClient(advocate.name, enrollment.rows[0]?.enrollment_no || null);
       const linked = await db.query(
         `SELECT id FROM cases WHERE payload->>'bookingId' = $1 ORDER BY created_at DESC LIMIT 1`,
         [String(intakeId)],
@@ -3933,13 +4048,17 @@ const server = http.createServer(async (req, res) => {
             assignedTo: advocateId,
             assignedAdvocateId: advocateId,
             assignedAdvocateName: advocate.name,
-            counsel: { name: advocate.name, enrollment: enrollment.rows[0]?.enrollment_no || null, assignedAt: new Date().toISOString() },
-            nextAction: `Panel counsel assigned: ${advocate.name}.`,
+            counsel: {
+              name: advocate.name,
+              enrollment: enrollment.rows[0]?.enrollment_no || null,
+              assignedAt: new Date().toISOString(),
+              clientDisplayName: maskedCounsel.displayName,
+            },
+            nextAction: `Panel counsel assigned: ${maskedCounsel.displayName}.`,
           })],
         ).catch(() => undefined);
       }
       await writeAuditLog(authUser, "intake_assign", "booking", intakeId, `Assigned panel lawyer ${advocate.name}`, { advocateId, note });
-      const maskedCounsel = maskCounselForClient(advocate.name, enrollment.rows[0]?.enrollment_no || null);
       await notify({
         eventType: "intake_assigned",
         title: "Advocate assigned by Legal Connect",
@@ -4451,7 +4570,9 @@ const server = http.createServer(async (req, res) => {
             "SELECT * FROM cases WHERE user_id::text = $1 OR COALESCE(payload->>'assignedTo', '') = $1 ORDER BY created_at DESC",
             [String(databaseUserId)],
           );
-      sendJson(res, 200, result.rows.map(mapCase));
+      const mapped = result.rows.map(mapCase);
+      const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
+      sendJson(res, 200, isClientAudience ? mapped.map(sanitizeMatterForClient) : mapped);
       return;
     }
     if (!authUser) {
@@ -4463,7 +4584,9 @@ const server = http.createServer(async (req, res) => {
       : authUser.role === "advocate"
         ? demoStore.cases.filter((item) => item.assignedTo === authUser.id)
         : demoStore.cases.filter((item) => item.userId === authUser.id);
-    sendJson(res, 200, visibleCases.map(dashboardCase));
+    const mappedDemo = visibleCases.map(dashboardCase);
+    const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
+    sendJson(res, 200, isClientAudience ? mappedDemo.map(sanitizeMatterForClient) : mappedDemo);
     return;
   }
 
@@ -4681,7 +4804,8 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
-      sendJson(res, 200, mapped);
+      const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
+      sendJson(res, 200, isClientAudience ? sanitizeMatterForClient(mapped) : mapped);
       return;
     }
     const trackedCase = demoStore.cases.find((item) => item.id === id);
@@ -4697,7 +4821,9 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 403, { error: "Forbidden" });
       return;
     }
-    sendJson(res, 200, dashboardCase(trackedCase));
+    const mappedDemo = dashboardCase(trackedCase);
+    const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
+    sendJson(res, 200, isClientAudience ? sanitizeMatterForClient(mappedDemo) : mappedDemo);
     return;
   }
 
@@ -6339,7 +6465,9 @@ const server = http.createServer(async (req, res) => {
         : authUser.role === "advocate"
           ? await db.query("SELECT * FROM bookings WHERE payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC", [databaseUserId])
           : await db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [databaseUserId]);
-      sendJson(res, 200, result.rows.map(mapBooking));
+      const mapped = result.rows.map(mapBooking);
+      const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
+      sendJson(res, 200, isClientAudience ? mapped.map(sanitizeBookingForClient) : mapped);
       return;
     }
     if (!authUser) {
@@ -6351,7 +6479,9 @@ const server = http.createServer(async (req, res) => {
       : authUser.role === "client"
         ? demoStore.bookings.filter((item) => item.userId === authUser.id)
         : [];
-    sendJson(res, 200, visibleBookings.map(dashboardBooking));
+    const mappedDemo = visibleBookings.map(dashboardBooking);
+    const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
+    sendJson(res, 200, isClientAudience ? mappedDemo.map(sanitizeBookingForClient) : mappedDemo);
     return;
   }
 
@@ -6651,30 +6781,56 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (targetBooking) {
-      const stageTitles = {
+      const maskedStageCounsel = maskCounselForClient(
+        advocateName,
+        targetBooking.assignedAdvocateEnrollment || null,
+      );
+      const stageTitlesClient = {
         booking_submitted: "Booking Submitted & Fee Held in Escrow",
         acknowledged_and_assigned: "Acknowledged & Assigned by Legal Connect",
-        advocate_connected: `Advocate Connected (${advocateName})`,
+        advocate_connected: `Advocate Connected (${maskedStageCounsel.displayName})`,
         session_confirmed: "Session Confirmed & Scheduled",
-        request_entertained: "Request Entertained & Work Completed"
+        request_entertained: "Request Entertained & Work Completed",
+      };
+      const stageTitlesInternal = {
+        ...stageTitlesClient,
+        advocate_connected: `Advocate Connected (${advocateName})`,
       };
       {
         const clientId = targetBooking.userId || targetBooking.user_id || null;
         const advocateTargetId = targetBooking.assignedAdvocateId || advocateId || null;
         const critical = ["acknowledged_and_assigned", "session_confirmed", "request_entertained", "advocate_connected"].includes(newStage);
-        const recipients = await resolveRecipients([clientId, advocateTargetId].filter(Boolean));
         await notify({
           eventType: "booking_stage_updated",
           title: "Booking status update",
-          message: `Your booking status is now: ${stageTitles[newStage] || newStage}`,
-          recipients,
-          payload: { bookingId, stageStatus: newStage, advocateName },
+          message: `Your booking status is now: ${stageTitlesClient[newStage] || newStage}`,
+          recipients: await resolveRecipients([clientId].filter(Boolean)),
+          payload: {
+            bookingId,
+            stageStatus: newStage,
+            advocateName: maskedStageCounsel.displayName,
+            fullNameHidden: true,
+          },
           sendEmail: true,
           sendSms: critical,
           ctaLabel: "Open booking desk",
-          ctaUrl: portalUrl(critical && String(advocateTargetId) === String(authUser?.id) ? "/advocate/bookings" : "/client"),
+          ctaUrl: portalUrl("/client"),
           priority: critical ? "high" : "normal",
         });
+        if (advocateTargetId && String(advocateTargetId) !== String(clientId)) {
+          await notify({
+            eventType: "booking_stage_updated",
+            title: "Booking status update",
+            message: `Booking status is now: ${stageTitlesInternal[newStage] || newStage}`,
+            recipients: await resolveRecipients([advocateTargetId].filter(Boolean)),
+            payload: { bookingId, stageStatus: newStage, advocateName },
+            sendEmail: true,
+            sendSms: critical,
+            ctaLabel: "Open booking desk",
+            ctaUrl: portalUrl("/advocate/bookings"),
+            priority: critical ? "high" : "normal",
+          });
+        }
       }
       sendJson(res, 200, { ok: true, booking: targetBooking });
     } else {
@@ -7592,7 +7748,12 @@ function strictRegistrationError(body, role) {
 }
 
 function clientWorkspaceDemo(name) {
-  const counsel = { name: 'Adv. Meera Khanna', enrollment: 'D/1842/2014', assignedAt: '2026-07-19', contactPolicy: 'Contact through Legal Connect' };
+  // Sample workspace must already use initials-masked counsel (never a full advocate name).
+  const counsel = counselForClientAudience(
+    { enrollment: 'D/1842/2014', assignedAt: '2026-07-19', contactPolicy: 'Contact through Legal Connect only' },
+    'Adv. Meera Khanna',
+    'D/1842/2014',
+  );
   return [
     {
       id: 'client-case-1', caseTitle: 'Karan Nagpal v. State', caseNumber: 'CRL/1842/2026', courtName: 'Tis Hazari Courts, Delhi',
@@ -7613,7 +7774,7 @@ function clientWorkspaceDemo(name) {
     {
       id: 'client-case-3', caseTitle: 'Property Notice Review', caseNumber: 'LC-INTAKE-912', courtName: 'Pre-litigation workspace',
       status: 'Intake', stage: 'Counsel Review', nextDate: null, appearanceRequired: false,
-      nextAction: 'Counsel is reviewing the notice and title documents.', costRisk: '', counsel: { ...counsel, name: 'Assignment confirmed' },
+      nextAction: 'Counsel is reviewing the notice and title documents.', costRisk: '', counsel: { ...counsel, statusLabel: 'Assignment confirmed' },
       documents: [{ id: 'doc-4', name: 'Legal notice.pdf', category: 'Notice', uploadedAt: '2026-07-28' }], communications: [], fees: [],
     },
   ];
@@ -8005,15 +8166,21 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         || matter.intakeStatus
         || matter.stage;
       const progress = pipelineProgress(stageValue);
-      const enrollment = matter.counsel?.enrollment || matter.counsel?.enrollmentNo || null;
-      return {
+      const safeMatter = sanitizeMatterForClient({
         ...matter,
+        assignedAdvocateName: matter.assignedAdvocateName
+          || linkedBooking?.assignedAdvocateName
+          || matter.counsel?.name
+          || null,
+        assignedAdvocateEnrollment: matter.counsel?.enrollment
+          || linkedBooking?.assignedAdvocateEnrollment
+          || null,
+      });
+      return {
+        ...safeMatter,
         stage: progress.stageLabel,
         pipelineStage: progress.stage,
         pipeline: progress,
-        counsel: matter.counsel
-          ? counselForClientAudience(matter.counsel, matter.counsel.name, enrollment)
-          : null,
       };
     });
     sendJson(res, 200, {
@@ -8024,11 +8191,14 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
       },
       cases: supervisedCases,
-      bookings: bookings.map((booking) => ({
-        ...booking,
-        pipeline: pipelineProgress(booking.intakeStatus || booking.stageStatus || booking.paymentStatus),
-        sla: slaClock(booking.verifiedAt || booking.createdAt, INTAKE_SLA_MS),
-      })),
+      bookings: bookings.map((booking) => {
+        const safeBooking = sanitizeBookingForClient(booking);
+        return {
+          ...safeBooking,
+          pipeline: pipelineProgress(booking.intakeStatus || booking.stageStatus || booking.paymentStatus),
+          sla: slaClock(booking.verifiedAt || booking.createdAt, INTAKE_SLA_MS),
+        };
+      }),
       payments: paymentsResult.rows.map((row) => ({ id: row.id, bookingId: row.booking_id, amount: row.amount, currency: row.currency, status: row.status, createdAt: row.created_at })),
       dataMode: useDemo ? 'sample' : 'live',
       supervisedPipeline: true,
