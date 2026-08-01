@@ -81,7 +81,7 @@ export function Dashboard() {
         eyebrow="MASTER OPERATIONS CONTROL"
         title={`Platform command for ${firstName}.`}
         description="Assign counsel, update clients as Legal Connect supervisor, and control tasks and escrow from one desk."
-        action={{ label: "Open intake desk", href: "/admin/control", icon: Gavel }}
+        action={{ label: "Open Ops Command", href: "/admin/control", icon: Gavel }}
       />
 
       <div className="lc-metric-grid lc-metric-grid-four">
@@ -102,7 +102,7 @@ export function Dashboard() {
         <DashboardPanel
           title="Client intake & lawyer assignment"
           detail="Paid and pending bookings ready for counsel allocation"
-          action={{ label: "Open intake desk", href: "/admin/control" }}
+          action={{ label: "Open Ops Command", href: "/admin/control" }}
         >
           {pendingBookings.length ? (
             <div className="lc-data-list">

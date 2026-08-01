@@ -3476,12 +3476,24 @@ const server = http.createServer(async (req, res) => {
           pa.years_practice AS "yearsPractice",
           pa.verification_status AS "verificationStatus",
           pa.bar_council_id AS "barCouncilId",
-          (SELECT COUNT(*) FROM cases WHERE payload->>'assignedTo' = u.id::text AND status = 'Active') AS "activeCasesCount"
+          (
+            SELECT COUNT(*)::int FROM cases c
+            WHERE (
+              COALESCE(c.payload->>'assignedAdvocateId', '') = u.id::text
+              OR COALESCE(c.payload->>'assignedTo', '') = u.id::text
+            )
+            AND lower(COALESCE(c.status, '')) NOT IN ('closed', 'concluded', 'rejected')
+          ) AS "activeCasesCount",
+          (
+            SELECT COUNT(*)::int FROM bookings b
+            WHERE COALESCE(b.payload->>'assignedAdvocateId', '') = u.id::text
+            AND lower(COALESCE(b.stage_status, b.payload->>'intakeStatus', '')) NOT IN ('matter_concluded', 'rejected_refunded', 'closed')
+          ) AS "activeIntakeCount"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
         WHERE pa.verification_status IN ('approved', 'verified')
           AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = lower($1))
-        ORDER BY pa.enrollment_no ASC
+        ORDER BY "activeCasesCount" ASC, pa.enrollment_no ASC
       `, [MASTER_TEST_LOGIN.email]);
       sendJson(res, 200, result.rows.map((row) => ({
         id: row.id,
@@ -3493,7 +3505,7 @@ const server = http.createServer(async (req, res) => {
         practiceCourts: row.practiceCourts || "",
         yearsPractice: Number(row.yearsPractice || 0),
         verificationStatus: row.verificationStatus || "pending",
-        activeCasesCount: Number(row.activeCasesCount || 0),
+        activeCasesCount: Number(row.activeCasesCount || 0) + Number(row.activeIntakeCount || 0),
       })));
       return;
     }
@@ -3516,8 +3528,12 @@ const server = http.createServer(async (req, res) => {
         cases: (demoStore.cases || []).slice(0, 40).map(dashboardCase),
         bookings: (demoStore.bookings || []).slice(0, 40).map(dashboardBooking),
         tasks: (demoStore.tasks || []).slice(0, 40).map(dashboardTask),
-        advocates: [],
+        advocates: [
+          { id: "demo-advocate", name: "Adv. Rishika Nagpal", enrollmentNo: "D/1482/2018", verificationStatus: "approved", activeCasesCount: 3 },
+          { id: "demo-advocate-2", name: "Adv. Aarav Mehta", enrollmentNo: "D/2104/2019", verificationStatus: "approved", activeCasesCount: 1 },
+        ],
         pendingUpdates: (demoStore.caseUpdates || []).filter((item) => item.status === "pending_lc_review"),
+        pendingReplies: [],
       });
       return;
     }
@@ -3528,12 +3544,25 @@ const server = http.createServer(async (req, res) => {
       db.query(`
         SELECT u.id, u.name, u.email, u.phone,
                pa.enrollment_no AS "enrollmentNo",
-               pa.verification_status AS "verificationStatus"
+               pa.verification_status AS "verificationStatus",
+               (
+                 SELECT COUNT(*)::int FROM cases c
+                 WHERE (
+                   COALESCE(c.payload->>'assignedAdvocateId', '') = u.id::text
+                   OR COALESCE(c.payload->>'assignedTo', '') = u.id::text
+                 )
+                 AND lower(COALESCE(c.status, '')) NOT IN ('closed', 'concluded', 'rejected')
+               ) AS "activeCasesCount",
+               (
+                 SELECT COUNT(*)::int FROM bookings b
+                 WHERE COALESCE(b.payload->>'assignedAdvocateId', '') = u.id::text
+                 AND lower(COALESCE(b.stage_status, b.payload->>'intakeStatus', '')) NOT IN ('matter_concluded', 'rejected_refunded', 'closed')
+               ) AS "activeIntakeCount"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
         WHERE pa.verification_status IN ('approved', 'verified')
           AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = $1)
-        ORDER BY u.name ASC
+        ORDER BY "activeCasesCount" ASC, u.name ASC
         LIMIT 100
       `, [MASTER_TEST_LOGIN.email]),
       db.query(`SELECT * FROM case_updates WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 50`).catch(() => ({ rows: [] })),
@@ -3551,6 +3580,7 @@ const server = http.createServer(async (req, res) => {
         phoneMasked: maskPhone(row.phone),
         enrollmentNo: row.enrollmentNo || null,
         verificationStatus: row.verificationStatus || "pending",
+        activeCasesCount: Number(row.activeCasesCount || 0) + Number(row.activeIntakeCount || 0),
       })),
       pendingUpdates: pendingUpdates.rows || [],
       pendingReplies: pendingReplies.rows || [],
@@ -3936,12 +3966,25 @@ const server = http.createServer(async (req, res) => {
       db.query(`
         SELECT u.id, u.name, u.email, u.phone,
                pa.enrollment_no AS "enrollmentNo",
-               pa.verification_status AS "verificationStatus"
+               pa.verification_status AS "verificationStatus",
+               (
+                 SELECT COUNT(*)::int FROM cases c
+                 WHERE (
+                   COALESCE(c.payload->>'assignedAdvocateId', '') = u.id::text
+                   OR COALESCE(c.payload->>'assignedTo', '') = u.id::text
+                 )
+                 AND lower(COALESCE(c.status, '')) NOT IN ('closed', 'concluded', 'rejected')
+               ) AS "activeCasesCount",
+               (
+                 SELECT COUNT(*)::int FROM bookings b
+                 WHERE COALESCE(b.payload->>'assignedAdvocateId', '') = u.id::text
+                 AND lower(COALESCE(b.stage_status, b.payload->>'intakeStatus', '')) NOT IN ('matter_concluded', 'rejected_refunded', 'closed')
+               ) AS "activeIntakeCount"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
         WHERE pa.verification_status IN ('approved', 'verified')
           AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = $1)
-        ORDER BY u.name ASC
+        ORDER BY "activeCasesCount" ASC, u.name ASC
       `, [MASTER_TEST_LOGIN.email]).catch(() => db.query(`SELECT id, name, email, phone FROM users WHERE role = 'advocate' ORDER BY name ASC`)),
     ]);
     sendJson(res, 200, {
@@ -3972,6 +4015,7 @@ const server = http.createServer(async (req, res) => {
         phoneMasked: maskPhone(row.phone),
         enrollmentNo: row.enrollmentNo || null,
         verificationStatus: row.verificationStatus || "approved",
+        activeCasesCount: Number(row.activeCasesCount || 0) + Number(row.activeIntakeCount || 0),
       })),
     });
     return;

@@ -33,7 +33,7 @@ interface PendingResponse {
   pendingReplies: PendingReply[];
 }
 
-export function AdminPendingUpdates() {
+export function AdminPendingUpdates({ embedded = false }: { embedded?: boolean } = {}) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [returnReasons, setReturnReasons] = useState<Record<string, string>>({});
@@ -79,23 +79,16 @@ export function AdminPendingUpdates() {
   const updates = query.data?.pendingUpdates || [];
   const replies = query.data?.pendingReplies || [];
 
-  return (
-    <div className="lc-workspace-page">
-      <section className="lc-vault-heading">
-        <div>
-          <span className="lc-kicker">LC SUPERVISION</span>
-          <h2>Pending case communications</h2>
-          <p>Approve or return advocate updates and client replies before they reach the other party.</p>
-        </div>
-        <button className="lc-button" onClick={() => query.refetch()} disabled={query.isFetching}>
-          {query.isFetching ? <Loader2 className="lc-spin" /> : <RefreshCw />} Refresh
-        </button>
-      </section>
-
+  const body = (
+    <>
       {error ? <div className="lc-form-error" role="alert">{error}</div> : null}
-
       <section className="lc-workspace-section">
-        <h3>Case updates ({updates.length})</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center", marginBottom: "0.75rem" }}>
+          <h3 style={{ margin: 0 }}>Case updates ({updates.length})</h3>
+          <button className="lc-button" onClick={() => query.refetch()} disabled={query.isFetching}>
+            {query.isFetching ? <Loader2 className="lc-spin" /> : <RefreshCw />} Refresh
+          </button>
+        </div>
         {!updates.length ? <p className="text-muted-foreground">No updates awaiting review.</p> : null}
         <div className="space-y-4">
           {updates.map((item) => {
@@ -173,6 +166,20 @@ export function AdminPendingUpdates() {
           })}
         </div>
       </section>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <div className="lc-workspace-page">
+      <section className="lc-vault-heading">
+        <div>
+          <span className="lc-kicker">LC SUPERVISION</span>
+          <h2>Pending case communications</h2>
+          <p>Approve or return advocate updates and client replies before they reach the other party.</p>
+        </div>
+      </section>
+      {body}
     </div>
   );
 }
