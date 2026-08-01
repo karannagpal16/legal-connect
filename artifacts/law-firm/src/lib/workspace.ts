@@ -81,6 +81,21 @@ export interface WorkspaceFee {
   dueDate?: string | null;
 }
 
+export interface PipelineProgress {
+  stage: string;
+  stageOrder: number;
+  stageLabel: string;
+  clientCopy: string;
+  totalStages: number;
+  steps: Array<{
+    key: string;
+    order: number;
+    label: string;
+    complete: boolean;
+    current: boolean;
+  }>;
+}
+
 export interface WorkspaceCase {
   id: string;
   caseTitle: string;
@@ -88,6 +103,9 @@ export interface WorkspaceCase {
   courtName: string;
   status: string;
   stage: string;
+  bookingId?: string | null;
+  pipelineStage?: string | null;
+  pipeline?: PipelineProgress | null;
   nextDate?: string | null;
   appearanceRequired: boolean;
   nextAction: string;
@@ -102,9 +120,11 @@ export interface WorkspaceCase {
   clientName?: string;
   counsel?: {
     name: string;
+    displayName?: string;
     enrollment?: string;
     assignedAt?: string;
     contactPolicy?: string;
+    fullNameHidden?: boolean;
   } | null;
   documents: WorkspaceDocument[];
   communications: WorkspaceCommunication[];

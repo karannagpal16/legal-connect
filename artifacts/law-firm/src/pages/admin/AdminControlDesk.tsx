@@ -45,6 +45,17 @@ type Intake = {
   rejectionReason?: string | null;
   workHoldStatus?: string;
   createdAt?: string;
+  sla?: {
+    elapsedLabel?: string;
+    remainingLabel?: string;
+    breached?: boolean;
+    windowHours?: number;
+  } | null;
+  pipeline?: {
+    stageLabel?: string;
+    stageOrder?: number;
+    totalStages?: number;
+  } | null;
 };
 
 type IntakesResponse = {
@@ -251,9 +262,17 @@ export function AdminControlDesk() {
                     <p style={{ margin: "0.25rem 0", opacity: 0.75 }}>
                       {intake.legalIssueType || intake.serviceType || "Counsel request"}
                       {" · "}
-                      {intake.intakeStatus || intake.stageStatus || intake.paymentStatus || intake.status || "Pending"}
+                      {intake.pipeline?.stageLabel || intake.intakeStatus || intake.stageStatus || intake.paymentStatus || intake.status || "Pending"}
+                      {intake.pipeline?.stageOrder ? ` · Stage ${intake.pipeline.stageOrder}/${intake.pipeline.totalStages || 7}` : ""}
                       {intake.amount != null ? ` · ₹${Number(intake.amount).toLocaleString("en-IN")}` : ""}
                     </p>
+                    {intake.sla ? (
+                      <p style={{ margin: "0.2rem 0 0", fontSize: 12, fontWeight: 700, color: intake.sla.breached ? "#b42318" : "#765a20" }}>
+                        {intake.sla.breached ? "SLA breached · " : "SLA · "}
+                        Received {intake.sla.elapsedLabel || "—"} ago
+                        {intake.sla.remainingLabel ? ` · ${intake.sla.remainingLabel}` : ""}
+                      </p>
+                    ) : null}
                     {intake.assignedAdvocateName ? (
                       <p style={{ margin: 0, fontSize: 13 }}>Counsel: {intake.assignedAdvocateName}</p>
                     ) : null}

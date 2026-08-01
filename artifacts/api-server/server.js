@@ -10,8 +10,16 @@ const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedFo
 const { createStrategyFeatures } = require("./strategy-features");
 const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createPlatformEvents } = require("./platform-events");
+const {
+  createSupervisedPipeline,
+  maskCounselForClient,
+  pipelineProgress,
+  slaClock,
+  INTAKE_SLA_MS,
+} = require("./supervised-pipeline");
 
 const platformEvents = createPlatformEvents({ db, config });
+const supervisedPipeline = createSupervisedPipeline({ db });
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
@@ -411,6 +419,20 @@ function maskPhone(phone) {
   const value = String(phone || "").replace(/\s+/g, "");
   if (!value) return "";
   return `${value.slice(0, 3)}****${value.slice(-3)}`;
+}
+
+function counselForClientAudience(counsel, fullName, enrollment) {
+  const sourceName = (counsel && counsel.name) || fullName || "";
+  const sourceEnrollment = (counsel && (counsel.enrollment || counsel.enrollmentNo)) || enrollment || null;
+  const masked = maskCounselForClient(sourceName, sourceEnrollment);
+  return {
+    ...(counsel || {}),
+    name: masked.displayName,
+    displayName: masked.displayName,
+    enrollment: masked.enrollment,
+    contactPolicy: masked.contactPolicy,
+    fullNameHidden: true,
+  };
 }
 
 function normalizeEmail(email) {
@@ -1133,8 +1155,9 @@ function mapCase(row) {
 
 function mapBooking(row) {
   // Column fields must win over stale payload mirrors (e.g. paymentStatus after refund).
+  const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
   return dashboardBooking({
-    ...(row.payload || {}),
+    ...payload,
     id: row.id,
     userId: row.user_id,
     serviceType: row.service_type,
@@ -1147,6 +1170,8 @@ function mapBooking(row) {
     workHoldStatus: row.work_hold_status,
     failureReason: row.failure_reason,
     verifiedAt: row.verified_at,
+    stageStatus: row.stage_status || payload.stageStatus || payload.intakeStatus || null,
+    intakeStatus: payload.intakeStatus || row.stage_status || payload.stageStatus || null,
     createdAt: row.created_at,
   });
 }
@@ -3782,14 +3807,17 @@ const server = http.createServer(async (req, res) => {
       intakes: bookings.rows.map((row) => {
         const mapped = mapBooking(row);
         const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
+        const intakeStatus = payload.intakeStatus
+          || row.stage_status
+          || mapped.stageStatus
+          || (["payment_pending", "Pending", "pending"].includes(String(mapped.paymentStatus || "")) ? "draft" : null)
+          || mapped.paymentStatus
+          || "draft";
         return {
           ...mapped,
-          intakeStatus: payload.intakeStatus
-            || row.stage_status
-            || mapped.stageStatus
-            || (["payment_pending", "Pending", "pending"].includes(String(mapped.paymentStatus || "")) ? "draft" : null)
-            || mapped.paymentStatus
-            || "draft",
+          intakeStatus,
+          pipeline: pipelineProgress(intakeStatus),
+          sla: slaClock(row.verified_at || row.created_at || mapped.verifiedAt || mapped.createdAt, INTAKE_SLA_MS),
           missingDocuments: payload.missingDocuments || [],
           lastLcNote: payload.lastLcNote || null,
           rejectionReason: payload.rejectionReason || null,
@@ -3911,18 +3939,37 @@ const server = http.createServer(async (req, res) => {
         ).catch(() => undefined);
       }
       await writeAuditLog(authUser, "intake_assign", "booking", intakeId, `Assigned panel lawyer ${advocate.name}`, { advocateId, note });
+      const maskedCounsel = maskCounselForClient(advocate.name, enrollment.rows[0]?.enrollment_no || null);
       await notify({
         eventType: "intake_assigned",
-        title: "Panel lawyer assigned",
-        message: note
-          ? `${advocate.name} has been assigned to your intake. LC note: ${note}`
-          : `${advocate.name} has been assigned by Legal Connect. We continue to supervise the engagement.`,
-        recipients: await resolveRecipients([clientId, advocateId].filter(Boolean)),
-        payload: { intakeId, advocateId, advocateName: advocate.name },
+        title: "Advocate assigned by Legal Connect",
+        message: `${maskedCounsel.displayName}${maskedCounsel.enrollment ? ` (${maskedCounsel.enrollment})` : ""} has been assigned to your matter. Your advocate will review and update within 48 hours.`,
+        recipients: await resolveRecipients([clientId].filter(Boolean)),
+        payload: {
+          intakeId,
+          advocateId,
+          advocateName: maskedCounsel.displayName,
+          clientId,
+          bookingId: intakeId,
+        },
         sendEmail: true,
         sendSms: true,
         ctaLabel: "Open workspace",
         ctaUrl: portalUrl("/client"),
+        priority: "high",
+      });
+      await notify({
+        eventType: "intake_assigned",
+        title: "New matter assigned by Legal Connect",
+        message: note
+          ? `You were assigned a supervised matter. LC briefing: ${note}`
+          : "You were assigned a supervised matter. Review the full brief and accept within 12 hours.",
+        recipients: await resolveRecipients([advocateId].filter(Boolean)),
+        payload: { intakeId, advocateId, bookingId: intakeId, clientId },
+        sendEmail: true,
+        sendSms: true,
+        ctaLabel: "Accept matter",
+        ctaUrl: portalUrl("/advocate"),
         priority: "high",
       });
       sendJson(res, 200, { ok: true, action: "assign", intake: mapBooking(updated.rows[0]), advocate: { id: advocate.id, name: advocate.name } });
@@ -4967,12 +5014,30 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const message = body.message || body.decision || "Case diary decision saved.";
     if (db.dbAvailable) {
+      // Supervised pipeline: never publish client-visible updates without LC review.
+      const status = canSeeAll(authUser) && body.publishImmediately ? "approved" : "pending_lc_review";
       const result = await db.query(
-        `INSERT INTO case_updates (case_id, update_type, message, payload)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO case_updates (case_id, update_type, message, payload, status, author_id, author_role, reviewed_by, reviewed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
-        [body.caseId || body.case_id || null, body.updateType || body.update_type || "calendar_decision", message, JSON.stringify({ ...body, user_id: authUser?.id || null })],
+        [
+          body.caseId || body.case_id || null,
+          body.updateType || body.update_type || "calendar_decision",
+          message,
+          JSON.stringify({ ...body, user_id: authUser?.id || null }),
+          status,
+          authUser?.id ? String(authUser.id) : null,
+          authUser?.role || "system",
+          status === "approved" && authUser?.id ? String(authUser.id) : null,
+          status === "approved" ? new Date().toISOString() : null,
+        ],
       );
+      const caseId = body.caseId || body.case_id || null;
+      if (caseId && status === "pending_lc_review") {
+        const bookingId = await supervisedPipeline.bookingIdForCase(caseId);
+        if (bookingId) await supervisedPipeline.syncBookingPipelineStage(bookingId, "advocate_update_pending");
+        await supervisedPipeline.syncCasePipelineStage(caseId, "advocate_update_pending");
+      }
       await createNotification("clash_warning", "Calendar decision saved", message, { caseUpdateId: result.rows[0].id }, authUser?.id || null);
       await createReceipt({
         userId: authUser?.id || null,
@@ -7564,6 +7629,7 @@ function enrichWorkspaceCase(item) {
   return {
     ...payload,
     id: payload.id,
+    bookingId: payload.bookingId || null,
     caseTitle: payload.caseTitle || payload.title || 'Untitled matter',
     caseNumber: payload.caseNumber || payload.caseNo || 'Number pending',
     courtName: payload.courtName || payload.court || 'Court not listed',
@@ -7578,6 +7644,7 @@ function enrichWorkspaceCase(item) {
     documents: Array.isArray(payload.documents) ? payload.documents : [],
     communications: Array.isArray(payload.communications) ? payload.communications : [],
     fees: Array.isArray(payload.fees) ? payload.fees : [],
+    pipelineStage: payload.pipelineStage || payload.intakeStatus || null,
   };
 }
 
@@ -7928,6 +7995,27 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const paymentsResult = await db.query('SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
     const useDemo = /^Demo Client$/i.test(String(authUser.name || '')) && casesResult.rows.length === 0;
     const cases = useDemo ? clientWorkspaceDemo(authUser.name) : await attachStoredCaseRecords(casesResult.rows.map(mapCase));
+    const bookings = bookingsResult.rows.map(mapBooking);
+    const bookingById = new Map(bookings.map((item) => [String(item.id), item]));
+    const supervisedCases = cases.map((matter) => {
+      const linkedBooking = matter.bookingId ? bookingById.get(String(matter.bookingId)) : null;
+      const stageValue = linkedBooking?.intakeStatus
+        || linkedBooking?.stageStatus
+        || matter.pipelineStage
+        || matter.intakeStatus
+        || matter.stage;
+      const progress = pipelineProgress(stageValue);
+      const enrollment = matter.counsel?.enrollment || matter.counsel?.enrollmentNo || null;
+      return {
+        ...matter,
+        stage: progress.stageLabel,
+        pipelineStage: progress.stage,
+        pipeline: progress,
+        counsel: matter.counsel
+          ? counselForClientAudience(matter.counsel, matter.counsel.name, enrollment)
+          : null,
+      };
+    });
     sendJson(res, 200, {
       ok: true,
       profile: {
@@ -7935,10 +8023,15 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         identity: profileResult.rows[0]?.aadhaar_last4 ? `XXXX XXXX ${profileResult.rows[0].aadhaar_last4}` : 'Verification record pending',
         verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
       },
-      cases,
-      bookings: bookingsResult.rows.map(mapBooking),
+      cases: supervisedCases,
+      bookings: bookings.map((booking) => ({
+        ...booking,
+        pipeline: pipelineProgress(booking.intakeStatus || booking.stageStatus || booking.paymentStatus),
+        sla: slaClock(booking.verifiedAt || booking.createdAt, INTAKE_SLA_MS),
+      })),
       payments: paymentsResult.rows.map((row) => ({ id: row.id, bookingId: row.booking_id, amount: row.amount, currency: row.currency, status: row.status, createdAt: row.created_at })),
       dataMode: useDemo ? 'sample' : 'live',
+      supervisedPipeline: true,
     });
     return true;
   }
@@ -8041,21 +8134,37 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const updated = await db.query(`UPDATE cases SET status = $2,
       payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb, updated_at = now()
       WHERE id = $1 RETURNING *`, [caseId, nextStatus, JSON.stringify({ stage, statusUpdatedBy: userId, statusUpdatedAt: new Date().toISOString() })]);
-    await db.query(`INSERT INTO case_updates (case_id, update_type, message, payload)
-      VALUES ($1, 'stage_update', $2, $3)`, [caseId, `Matter stage updated to ${stage}.`, JSON.stringify({ stage, actorId: userId })]);
-    await writeAuditLog(authUser, 'case_stage_updated', 'case', caseId, `Matter stage updated to ${stage}.`, { stage });
+    // Court-stage changes also enter the LC gate — clients only see approved updates.
+    await db.query(
+      `INSERT INTO case_updates (case_id, update_type, message, payload, status, author_id, author_role)
+       VALUES ($1, 'stage_update', $2, $3, 'pending_lc_review', $4, 'advocate')`,
+      [caseId, `Matter stage updated to ${stage}.`, JSON.stringify({ stage, actorId: userId }), String(userId)],
+    );
+    const bookingId = await supervisedPipeline.bookingIdForCase(caseId);
+    if (bookingId) await supervisedPipeline.syncBookingPipelineStage(bookingId, "advocate_update_pending", { courtStageDraft: stage });
+    await supervisedPipeline.syncCasePipelineStage(caseId, "advocate_update_pending", { courtStageDraft: stage });
+    await writeAuditLog(authUser, 'case_stage_updated', 'case', caseId, `Matter stage updated to ${stage} (held for LC review).`, { stage });
     {
-      const matter = mapCase(updated.rows[0]);
-      const recipients = await resolveRecipients([matter.userId, userId].filter(Boolean));
       await notify({
-        eventType: 'case_stage_updated',
-        title: 'Case stage updated',
-        message: `${matter.caseTitle || matter.title || 'Your matter'} moved to ${stage}.`,
-        recipients,
+        eventType: 'case_update_pending_review',
+        title: 'Court stage update awaiting LC review',
+        message: `${authUser.name || 'Counsel'} moved a matter to ${stage}. Approve before client release.`,
+        recipients: await resolveAdminRecipients(),
+        payload: { caseId, stage, advocateId: userId },
+        sendEmail: true,
+        priority: 'high',
+        ctaLabel: 'Review updates',
+        ctaUrl: portalUrl('/admin/pending-updates'),
+      });
+      await notify({
+        eventType: 'case_update_held_for_lc',
+        title: 'Stage update held for Legal Connect',
+        message: `Your stage change to ${stage} is awaiting LC approval before the client is notified.`,
+        recipients: await resolveRecipients([userId]),
         payload: { caseId, stage },
         sendEmail: true,
-        ctaLabel: 'Open case',
-        ctaUrl: portalUrl('/client'),
+        ctaLabel: 'Open updates',
+        ctaUrl: portalUrl('/advocate/updates'),
       });
     }
     sendJson(res, 200, { ok: true, matter: enrichWorkspaceCase(mapCase(updated.rows[0])), syncedAt: new Date().toISOString() });

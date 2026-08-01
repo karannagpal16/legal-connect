@@ -25,11 +25,22 @@ interface ChamberTask {
   due_at?: string;
 }
 
+interface PaidIntake {
+  id: string;
+  clientName: string;
+  legalIssueType: string;
+  paymentStatus: string;
+  createdAt: string;
+  intakeStatus?: string;
+  stageStatus?: string;
+  assignedAdvocateId?: string;
+}
+
 interface AdvocateWorkspace {
   ok: boolean;
   profile: { name: string; enrollmentNo: string; stateBarCouncil: string; practiceCourts: string; verificationStatus: string };
   cases: WorkspaceCase[];
-  paidIntakes: Array<{ id: string; clientName: string; legalIssueType: string; paymentStatus: string; createdAt: string }>;
+  paidIntakes: PaidIntake[];
   chamber: { id: string; name: string; members: unknown[]; tasks: ChamberTask[] } | null;
   dataMode: "live" | "sample";
 }
@@ -58,6 +69,17 @@ export function AdvocateDashboard() {
         ...current,
         cases: current.cases.map((matter) => matter.id === payload.matter.id ? payload.matter : matter),
       } : current);
+    },
+  });
+  const acceptIntake = useMutation({
+    mutationFn: (intakeId: string) => workspaceRequest<{ ok: boolean }>(
+      `/api/intakes/${intakeId}/advocate-accept`,
+      session?.token,
+      { method: "POST", body: JSON.stringify({ note: "Matter accepted. Work commencing under Legal Connect supervision." }) },
+    ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["advocate-workspace", session?.user.id] });
+      queryClient.invalidateQueries({ queryKey: ["platform-events"] });
     },
   });
   const activeCases = useMemo(() => query.data?.cases.filter((matter) => !["Disposed", "Closed"].includes(matter.status)) || [], [query.data]);
@@ -184,19 +206,36 @@ export function AdvocateDashboard() {
             <Link href="/advocate/bookings">Open bookings <ArrowRight /></Link>
           </header>
           <div className="lc-chamber-task-list" style={{ padding: 16 }}>
-            {(query.data?.paidIntakes || []).slice(0, 5).map((intake) => (
-              <div key={intake.id}>
-                <span>
-                  <strong>{intake.clientName}</strong>
-                  <small>{intake.legalIssueType} · {intake.paymentStatus}</small>
-                </span>
-                <em>{new Date(intake.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em>
-              </div>
-            ))}
+            {(query.data?.paidIntakes || []).slice(0, 5).map((intake) => {
+              const status = String(intake.intakeStatus || intake.stageStatus || "").toLowerCase();
+              const awaitingAccept = ["advocate_assigned", "assigned", "acknowledged_and_assigned"].includes(status);
+              return (
+                <div key={intake.id}>
+                  <span>
+                    <strong>{intake.clientName}</strong>
+                    <small>{intake.legalIssueType} · {intake.intakeStatus || intake.paymentStatus}</small>
+                  </span>
+                  {awaitingAccept ? (
+                    <button
+                      className="lc-sync-button"
+                      disabled={acceptIntake.isPending}
+                      onClick={() => acceptIntake.mutate(intake.id)}
+                    >
+                      <CheckCircle2 /> Accept
+                    </button>
+                  ) : (
+                    <em>{new Date(intake.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em>
+                  )}
+                </div>
+              );
+            })}
             {!query.data?.paidIntakes?.length && (
               <p className="lc-inline-empty">No paid intakes are waiting in your practice desk.</p>
             )}
           </div>
+          {acceptIntake.isSuccess && <p className="lc-sync-confirmation"><CheckCircle2 /> Matter accepted. Client and LC Admin have been notified.</p>}
+          {acceptIntake.isError && <p className="lc-sync-error"><AlertTriangle /> {acceptIntake.error.message}</p>}
+          <Link className="lc-chamber-action" href="/advocate/updates"><CheckCircle2 /> Post update for LC review</Link>
         </div>
       </section>
 

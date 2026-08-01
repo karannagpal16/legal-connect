@@ -24,6 +24,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { CounselIntake, type ConsultationChannel } from "@/components/client/CounselIntake";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
+import { SupervisedPipelineStrip } from "@/components/SupervisedPipelineStrip";
 import {
   dailyQuote,
   greetingFor,
@@ -216,8 +217,10 @@ export function ClientHome() {
                 <span className={`lc-status lc-status-${statusTone(selectedCase.status)}`}>{selectedCase.status}</span>
               </header>
 
+              <SupervisedPipelineStrip pipeline={selectedCase.pipeline} />
+
               <div className="lc-stage-strip">
-                <span><small>Current stage</small><strong>{selectedCase.stage}</strong></span>
+                <span><small>Pipeline stage</small><strong>{selectedCase.pipeline?.stageLabel || selectedCase.stage}</strong></span>
                 <i />
                 <span><small>Next date of hearing</small><strong>{formatDate(selectedCase.nextDate)}</strong></span>
                 <i />
@@ -253,7 +256,22 @@ export function ClientHome() {
                     </section>
                     <section>
                       <span className="lc-section-icon"><UserRoundCheck /></span>
-                      <div><small>Assigned counsel</small><h3>{selectedCase.counsel?.name || "Assignment pending"}</h3><p>{selectedCase.counsel?.enrollment || selectedCase.counsel?.contactPolicy || "Legal Connect will assign verified counsel after intake payment."}</p>{selectedCase.counsel && <div className="lc-counsel-actions"><Link href={`/client/chat?caseId=${encodeURIComponent(selectedCase.id)}`}><MessageSquareText /> Chat</Link><button onClick={() => openBooking("call", selectedCase)}><Phone /> Call</button><button onClick={() => openBooking("video", selectedCase)}><Video /> Video</button></div>}</div>
+                      <div>
+                        <small>Assigned counsel · via Legal Connect</small>
+                        <h3>{selectedCase.counsel?.displayName || selectedCase.counsel?.name || "Assignment pending"}</h3>
+                        <p>
+                          {selectedCase.counsel?.enrollment ? `Enrollment ${selectedCase.counsel.enrollment} · ` : ""}
+                          {selectedCase.counsel?.contactPolicy || "Legal Connect will assign verified counsel after intake payment. Direct contact stays inside the LC relay."}
+                        </p>
+                        {selectedCase.counsel && (
+                          <div className="lc-counsel-actions">
+                            <Link href={`/client/updates`}><MessageSquareText /> Case updates</Link>
+                            <Link href={`/client/chat?caseId=${encodeURIComponent(selectedCase.id)}`}><MessageSquareText /> Message LC</Link>
+                            <button onClick={() => openBooking("call", selectedCase)}><Phone /> Book call</button>
+                            <button onClick={() => openBooking("video", selectedCase)}><Video /> Book video</button>
+                          </div>
+                        )}
+                      </div>
                     </section>
                     <section>
                       <span className="lc-section-icon"><CheckCircle2 /></span>

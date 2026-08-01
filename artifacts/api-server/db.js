@@ -396,7 +396,7 @@ async function initDb() {
         update_type text,
         message text,
         payload jsonb,
-        status text DEFAULT 'visible',
+        status text DEFAULT 'pending_lc_review',
         author_id text,
         author_role text,
         reviewed_by text,
@@ -405,7 +405,9 @@ async function initDb() {
         created_at timestamptz DEFAULT now()
       )
     `);
-    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS status text DEFAULT 'visible'`);
+    await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending_lc_review'`);
+    // Legacy rows defaulted to 'visible' and bypassed the LC gate — force them into review.
+    await query(`UPDATE case_updates SET status = 'pending_lc_review' WHERE status IS NULL OR status = 'visible'`);
     await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_id text`);
     await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_role text`);
     await query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS reviewed_by text`);

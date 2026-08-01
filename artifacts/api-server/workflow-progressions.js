@@ -553,13 +553,14 @@ function createWorkflowProgressions(deps) {
       }
       if (action === "conclude") {
         const note = String(body.note || body.message || "Matter concluded by Legal Connect.").trim();
-        const updated = await patchIntakeStatus(intakeId, "concluded", {
+        const updated = await patchIntakeStatus(intakeId, "matter_concluded", {
           concludedAt: new Date().toISOString(),
           concludedBy: authUser.id,
           conclusionNote: note,
           work_hold_status: "released",
           ratingUnlocked: true,
-        }, "concluded");
+          intakeStatus: "matter_concluded",
+        }, "matter_concluded");
         if (db.dbAvailable) {
           await db.query(
             `UPDATE bookings SET work_hold_status = 'released' WHERE id = $1`,
@@ -572,11 +573,11 @@ function createWorkflowProgressions(deps) {
           if (linked.rows[0]) {
             await db.query(
               `UPDATE cases SET status = 'Closed', payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb, updated_at = now() WHERE id = $1`,
-              [linked.rows[0].id, JSON.stringify({ stage: "concluded", ratingUnlocked: true, conclusionNote: note })],
+              [linked.rows[0].id, JSON.stringify({ stage: "matter_concluded", pipelineStage: "matter_concluded", ratingUnlocked: true, conclusionNote: note })],
             ).catch(() => undefined);
           }
         }
-        await writeAuditLog(authUser, "intake_concluded", "booking", intakeId, note, {});
+        await writeAuditLog(authUser, "intake_concluded", "booking", intakeId, note, { intakeStatus: "matter_concluded" });
         await notify({
           eventType: "intake_concluded",
           title: "Matter concluded",
@@ -585,14 +586,14 @@ function createWorkflowProgressions(deps) {
             intake.userId || intake.user_id,
             intake.assignedAdvocateId,
           ].filter(Boolean)),
-          payload: { intakeId, intakeStatus: "concluded" },
+          payload: { intakeId, intakeStatus: "matter_concluded", bookingId: intakeId },
           sendEmail: true,
           sendSms: true,
           ctaLabel: "Rate counsel",
           ctaUrl: portalUrl("/client"),
           priority: "high",
         });
-        sendJson(res, 200, { ok: true, action, intake: updated });
+        sendJson(res, 200, { ok: true, action, intake: updated, pipelineStage: "matter_concluded" });
         return true;
       }
     }
@@ -669,7 +670,17 @@ function createWorkflowProgressions(deps) {
           completionTimeOptions: COMPLETION_TIME_OPTIONS,
         },
         clientIntake: {
-          statuses: ["draft", "intake_submitted", "lc_under_review", "advocate_assigned", "advocate_accepted", "work_in_progress", "concluded", "closed"],
+          statuses: [
+            "intake_submitted",
+            "lc_under_review",
+            "advocate_assigned",
+            "advocate_accepted",
+            "advocate_update_pending",
+            "lc_update_approved",
+            "matter_concluded",
+          ],
+          aliases: ["draft", "work_in_progress", "concluded", "closed", "info_requested", "guidance_issued", "rejected_refunded"],
+          principle: "Client ──→ [LC Gate] ──→ Advocate ──→ [LC Gate] ──→ Client",
         },
       });
       return true;
