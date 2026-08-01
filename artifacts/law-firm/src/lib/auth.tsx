@@ -18,6 +18,7 @@ export interface SessionUser {
   email?: string | null;
   emailMasked?: string | null;
   phoneMasked?: string | null;
+  verificationStatus?: string | null;
 }
 
 export interface AuthSession {

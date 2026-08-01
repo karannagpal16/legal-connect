@@ -131,145 +131,102 @@ export function AdvocateDashboard() {
         </aside>
       </section>
 
-      {/* Daily Cause List & Hearing Schedule */}
-      <section className="lc-operational-panel" style={{ marginTop: '20px' }}>
+      <section className="lc-operational-panel" style={{ marginTop: 20 }}>
         <header>
           <div>
-            <span>Daily Cause List &amp; Hearing Schedule</span>
-            <h2>Today's Court Appearances &amp; Listed Items</h2>
+            <span>Daily cause list & hearing schedule</span>
+            <h2>Listed matters with next date of hearing</h2>
           </div>
-          <button className="lc-button" style={{ background: '#f8fafc', color: '#0f172a', border: '1px solid #e2e8f0', fontSize: '0.8rem' }} onClick={() => alert("🔄 Live eCourts Cause List refreshed (< 220ms sync).")}>
-            🔄 Refresh Cause List
-          </button>
+          <Link href="/advocate/diary">Open court diary <ArrowRight /></Link>
         </header>
-        <div style={{ padding: '16px', display: 'grid', gap: '10px' }}>
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <strong style={{ color: '#0f172a' }}>Item No. 14 — State v. Mehra (CNR-DL-HC-901)</strong>
-              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>Delhi High Court · Court Room 5 (Hon'ble Bench 2) · Defendant Evidence (DE)</p>
+        <div className="lc-chamber-task-list" style={{ padding: 16 }}>
+          {activeCases.filter((matter) => matter.nextDate).slice(0, 6).map((matter) => (
+            <div key={matter.id}>
+              <span>
+                <strong>{matter.caseTitle}</strong>
+                <small>{matter.courtName || "Court"} · {matter.stage} · NDOH {new Date(matter.nextDate as string).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</small>
+              </span>
+              <em>{matter.appearanceRequired ? "Client required" : "Counsel"}</em>
             </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span className="role-dash-badge" style={{ background: '#dbeafe', color: '#1e40af' }}>In Hearing</span>
-              <button className="lc-button lc-button-primary" style={{ height: '32px', fontSize: '0.76rem', padding: '0 10px' }} onClick={() => alert("Passover requested on eCourts portal.")}>
-                Request Passover
-              </button>
-            </div>
-          </div>
-
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <strong style={{ color: '#0f172a' }}>Item No. 28 — Rohini Property Title Dispute (CNR-DL-2026-904)</strong>
-              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>Saket District Court · Court Room 204 · Framing of Issues</p>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span className="role-dash-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Proxy Delegated</span>
-              <button className="lc-button" style={{ background: '#0f766e', color: '#fff', border: 0, height: '32px', fontSize: '0.76rem', padding: '0 10px' }} onClick={() => alert("Proxy appearance verified for Adv. Aarav Mehta.")}>
-                View Proxy Memo
-              </button>
-            </div>
-          </div>
+          ))}
+          {!activeCases.some((matter) => matter.nextDate) && (
+            <p className="lc-inline-empty">No listed hearings yet. Sync matter stages and NDOH from your case desk.</p>
+          )}
         </div>
       </section>
 
-      {/* Practice Escrow Ledger & Precedent Research */}
-      <section className="lc-practice-grid" style={{ marginTop: '20px' }}>
+      <section className="lc-practice-grid" style={{ marginTop: 20 }}>
         <div className="lc-operational-panel">
           <header>
             <div>
-              <span>Practice Finance &amp; Escrow</span>
-              <h2>Work Completion Escrow Balance</h2>
+              <span>ProxyHub</span>
+              <h2>Pay & post proxy appearances</h2>
             </div>
+            <Link href="/advocate/proxy">Open ProxyHub <ArrowRight /></Link>
           </header>
-          <div style={{ padding: '16px', display: 'grid', gap: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px' }}>
-                <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>Secured Escrow Hold</span>
-                <strong style={{ display: 'block', fontSize: '1.4rem', color: '#0f766e', marginTop: '2px' }}>₹14,500</strong>
-              </div>
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px' }}>
-                <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>Released Earnings</span>
-                <strong style={{ display: 'block', fontSize: '1.4rem', color: '#15803d', marginTop: '2px' }}>₹38,200</strong>
-              </div>
-            </div>
-            <button 
-              onClick={() => alert("✓ Work Completion Verification Sent! Escrow funds will release upon client 5-star rating.")}
-              className="lc-button lc-button-primary"
-              style={{ width: '100%', height: '40px', fontWeight: 800 }}
-            >
-              💸 Request Work Completion Escrow Release
-            </button>
-          </div>
-        </div>
-
-        <div className="lc-operational-panel">
-          <header>
-            <div>
-              <span>AI Judgment Research</span>
-              <h2>Precedent Case Law Search</h2>
-            </div>
-          </header>
-          <div style={{ padding: '16px', display: 'grid', gap: '10px' }}>
-            <input 
-              type="text" 
-              placeholder="Search Supreme Court &amp; High Court judgments..." 
-              style={{ width: '100%', height: '40px', borderRadius: '12px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '0.88rem' }}
-            />
-            <button 
-              onClick={() => alert("🔍 Legal Research Query Executed: Found 14 Supreme Court precedents matching your query.")}
-              className="lc-button"
-              style={{ background: '#0f172a', color: '#fff', height: '38px', fontWeight: 800 }}
-            >
-              🔍 Search Landmark Precedents
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ProxyHub & Paid Intake Quick Actions */}
-      <section className="lc-practice-grid" style={{ marginTop: '20px' }}>
-        <div className="lc-operational-panel">
-          <header>
-            <div>
-              <span>ProxyHub Network</span>
-              <h2>Post or Accept Court Proxy Appearances</h2>
-            </div>
-            <Link href="/proxy-hub">Open Marketplace <ArrowRight /></Link>
-          </header>
-          <div style={{ padding: '16px', display: 'grid', gap: '12px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <strong style={{ color: '#0f172a' }}>Saket Court Room 204 — Proxy Appearance</strong>
-                <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>NDOH: 12 Aug 2026 · Order XVII CPC Passover Memo</p>
-              </div>
-              <button 
-                onClick={() => alert("✓ Proxy Appearance Accepted! Status synced with delegating advocate & Legal Connect Admin (< 180ms).")}
-                className="lc-button lc-button-primary"
-                style={{ height: '36px', fontSize: '0.82rem', padding: '0 12px' }}
-              >
-                Accept Proxy (₹1,500)
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="lc-operational-panel">
-          <header>
-            <div>
-              <span>NDOH Client Alerts</span>
-              <h2>Send Automated WhatsApp Reminders</h2>
-            </div>
-          </header>
-          <div style={{ padding: '16px', display: 'grid', gap: '12px', background: '#ecfdf5', borderRadius: '16px', border: '1px solid #a7f3d0' }}>
-            <p style={{ fontSize: '0.84rem', color: '#065f46', margin: 0 }}>
-              Send instant NDOH court date reminders to clients with Order XVII CPC compliance notes.
+          <div style={{ padding: 16 }}>
+            <p className="lc-inline-empty" style={{ margin: 0 }}>
+              Post a proxy task with court details and a fee of at least ₹400. After payment, Legal Connect Admin assigns a proxy advocate. Peer accept is disabled.
             </p>
-            <button 
-              onClick={() => alert("📲 WhatsApp & SMS Reminder Sent to Client!\n\nMessage: 'Mandatory NDOH Court Appearance on 12 August 2026 at Saket Court Room 204 under Order XVII CPC.'")}
-              className="lc-button"
-              style={{ background: '#10b981', color: '#fff', border: 0, height: '38px', font: 'inherit', fontWeight: 800 }}
-            >
-              📲 Dispatch WhatsApp Hearing Alert
-            </button>
+            <Link className="lc-button lc-button-primary" href="/advocate/proxy" style={{ marginTop: 12, display: "inline-flex" }}>
+              Post proxy task
+            </Link>
+          </div>
+        </div>
+
+        <div className="lc-operational-panel">
+          <header>
+            <div>
+              <span>Paid client intakes</span>
+              <h2>New counsel requests after payment</h2>
+            </div>
+            <Link href="/advocate/bookings">Open bookings <ArrowRight /></Link>
+          </header>
+          <div className="lc-chamber-task-list" style={{ padding: 16 }}>
+            {(query.data?.paidIntakes || []).slice(0, 5).map((intake) => (
+              <div key={intake.id}>
+                <span>
+                  <strong>{intake.clientName}</strong>
+                  <small>{intake.legalIssueType} · {intake.paymentStatus}</small>
+                </span>
+                <em>{new Date(intake.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em>
+              </div>
+            ))}
+            {!query.data?.paidIntakes?.length && (
+              <p className="lc-inline-empty">No paid intakes are waiting in your practice desk.</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="lc-practice-grid" style={{ marginTop: 20 }}>
+        <div className="lc-operational-panel">
+          <header>
+            <div>
+              <span>Client messaging</span>
+              <h2>Encrypted chat & document vault</h2>
+            </div>
+            <Link href="/advocate/chat">Open messages <ArrowRight /></Link>
+          </header>
+          <div style={{ padding: 16 }}>
+            <p className="lc-inline-empty" style={{ margin: 0 }}>
+              Share strategy notes and review client documents from the advocate chat workspace.
+            </p>
+          </div>
+        </div>
+
+        <div className="lc-operational-panel">
+          <header>
+            <div>
+              <span>NDOH alerts</span>
+              <h2>Hearing reminders for clients</h2>
+            </div>
+            <Link href="/advocate/reminders">Open reminders <ArrowRight /></Link>
+          </header>
+          <div style={{ padding: 16 }}>
+            <p className="lc-inline-empty" style={{ margin: 0 }}>
+              Dispatch NDOH reminders with Order XVII CPC appearance guidance from the reminders desk.
+            </p>
           </div>
         </div>
       </section>
