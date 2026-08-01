@@ -1343,7 +1343,10 @@ function createStrategyFeatures(deps) {
       return true;
     }
 
-    const adminUpdateAction = url.pathname.match(/^\/api\/admin\/pending-updates\/([^/]+)\/(approve|return)$/);
+    // Plan alias: POST /api/admin/updates/:id/approve|return
+    const adminUpdateAlias = url.pathname.match(/^\/api\/admin\/updates\/([^/]+)\/(approve|return)$/);
+    const adminUpdateAction = url.pathname.match(/^\/api\/admin\/pending-updates\/([^/]+)\/(approve|return)$/)
+      || adminUpdateAlias;
     if (adminUpdateAction && req.method === "POST") {
       const authUser = getAuthUser(req);
       if (!authUser || !canSeeAll(authUser)) {
