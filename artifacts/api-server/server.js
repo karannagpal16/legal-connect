@@ -2377,8 +2377,9 @@ const strategyFeatures = createStrategyFeatures({
   sendJson,
   readBody,
   readRawBody,
-  getAuthUser,
-  canSeeAll,
+  // Live lookup: getAuthUser is later wrapped with strict JWT decoding.
+  getAuthUser: (req) => getAuthUser(req),
+  canSeeAll: (user) => canSeeAll(user),
   mapTask,
   mapCase,
   writeAuditLog,
