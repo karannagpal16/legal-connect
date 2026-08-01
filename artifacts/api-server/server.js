@@ -3190,11 +3190,12 @@ const server = http.createServer(async (req, res) => {
                pa.enrollment_no AS "enrollmentNo",
                pa.verification_status AS "verificationStatus"
         FROM users u
-        LEFT JOIN profile_advocates pa ON pa.user_id = u.id
-        WHERE u.role = 'advocate'
+        JOIN profile_advocates pa ON pa.user_id = u.id
+        WHERE pa.verification_status IN ('approved', 'verified')
+          AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = $1)
         ORDER BY u.name ASC
         LIMIT 100
-      `),
+      `, [MASTER_TEST_LOGIN.email]),
       db.query(`SELECT * FROM case_updates WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 50`).catch(() => ({ rows: [] })),
       db.query(`SELECT * FROM case_update_replies WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 50`).catch(() => ({ rows: [] })),
     ]);
