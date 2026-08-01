@@ -3966,12 +3966,15 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       if (loaded.mode === "demo") {
-        const demoMasked = maskCounselForClient(body.advocateName || "Assigned counsel", body.enrollmentNo || null);
+        const rawDemoName = String(body.advocateName || "").trim();
+        const demoMasked = rawDemoName
+          ? maskCounselForClient(rawDemoName, body.enrollmentNo || null)
+          : { displayName: "Assigned counsel", enrollment: body.enrollmentNo || null };
         Object.assign(loaded.raw, {
           assignedAdvocateId: advocateId,
           // Client-visible field stays initials-masked even in demo memory mode.
           assignedAdvocateName: demoMasked.displayName,
-          assignedAdvocateEnrollment: body.enrollmentNo || null,
+          assignedAdvocateEnrollment: demoMasked.enrollment || null,
           stageStatus: "advocate_assigned",
           intakeStatus: "advocate_assigned",
         });
