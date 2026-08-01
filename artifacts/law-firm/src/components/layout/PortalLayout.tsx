@@ -1,10 +1,12 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
   BarChart3,
+  Bell,
   BookOpen,
   BriefcaseBusiness,
   CalendarDays,
+  CheckCheck,
   ChevronRight,
   CircleUserRound,
   FileSearch,
@@ -26,13 +28,24 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { normaliseRole, useAuth, type AppRole } from "@/lib/auth";
+import { workspaceRequest } from "@/lib/workspace";
 import { SOSButton } from "@/components/SOSButton";
 
 interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+}
+
+interface PortalNotification {
+  id: string;
+  title: string;
+  message: string;
+  readAt?: string | null;
+  createdAt?: string | null;
+  priority?: string;
 }
 
 const navigation: Record<AppRole, NavItem[]> = {
@@ -86,6 +99,136 @@ const roleMeta: Record<AppRole, { title: string; subtitle: string }> = {
 function isActive(location: string, item: NavItem, home: string) {
   if (item.href === home) return location === item.href;
   return location === item.href || location.startsWith(`${item.href}/`);
+}
+
+function formatRelativeTime(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(date);
+}
+
+function NotificationBell({ token }: { token?: string | null }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const unreadQuery = useQuery({
+    queryKey: ["notifications-unread-count", token],
+    queryFn: () => workspaceRequest<{ count: number }>("/api/notifications/unread-count", token),
+    enabled: Boolean(token),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+
+  const feedQuery = useQuery({
+    queryKey: ["notifications-feed", token],
+    queryFn: () => workspaceRequest<PortalNotification[]>("/api/notifications", token),
+    enabled: Boolean(token) && open,
+    staleTime: 10_000,
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!panelRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const unreadCount = unreadQuery.data?.count || 0;
+  const notifications = (feedQuery.data || []).slice(0, 20);
+
+  const refreshBell = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count", token] }),
+      queryClient.invalidateQueries({ queryKey: ["notifications-feed", token] }),
+    ]);
+  };
+
+  const markOneRead = async (id: string) => {
+    await workspaceRequest(`/api/notifications/${encodeURIComponent(id)}/read`, token, { method: "POST" });
+    await refreshBell();
+  };
+
+  const markAllRead = async () => {
+    await workspaceRequest("/api/notifications/read-all", token, { method: "POST" });
+    await refreshBell();
+  };
+
+  return (
+    <div className="lc-notify-bell" ref={panelRef}>
+      <button
+        type="button"
+        className="lc-notify-trigger"
+        aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : "Notifications"}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <Bell />
+        {unreadCount > 0 ? <span className="lc-notify-badge">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
+      </button>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            className="lc-notify-panel"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.16 }}
+          >
+            <div className="lc-notify-panel-head">
+              <strong>Notifications</strong>
+              <button type="button" onClick={markAllRead} disabled={unreadCount === 0}>
+                <CheckCheck /> Mark all read
+              </button>
+            </div>
+            <div className="lc-notify-list">
+              {feedQuery.isLoading ? (
+                <p className="lc-notify-empty">Loading updates…</p>
+              ) : notifications.length === 0 ? (
+                <p className="lc-notify-empty">No notifications yet.</p>
+              ) : (
+                notifications.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`lc-notify-item ${item.readAt ? "" : "unread"}`}
+                    onClick={() => {
+                      if (!item.readAt) void markOneRead(item.id);
+                    }}
+                  >
+                    <span>
+                      <strong>{item.title}</strong>
+                      <small>{item.message}</small>
+                    </span>
+                    <em>{formatRelativeTime(item.createdAt)}</em>
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export function PortalLayout({
@@ -170,9 +313,12 @@ export function PortalLayout({
             <span>{roleMeta[role].subtitle}</span>
             <h1>{activeItem.label}</h1>
           </div>
-          <div className="lc-header-date">
-            <small>Today</small>
-            <strong>{new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(new Date())}</strong>
+          <div className="lc-header-actions">
+            <NotificationBell token={session?.token} />
+            <div className="lc-header-date">
+              <small>Today</small>
+              <strong>{new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(new Date())}</strong>
+            </div>
           </div>
         </header>
         <main className="lc-portal-content">

@@ -369,8 +369,11 @@ async function initDb() {
         created_at timestamptz DEFAULT now()
       )
     `);
+    await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS channel_log jsonb DEFAULT '{}'::jsonb`);
+    await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS priority text DEFAULT 'normal'`);
     await query(`CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS notifications_read_idx ON notifications (read_at)`);
+    await query(`CREATE INDEX IF NOT EXISTS notifications_user_unread_idx ON notifications (user_id, read_at) WHERE read_at IS NULL`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS receipts (

@@ -1385,15 +1385,20 @@ function mapUser(row) {
 }
 
 function mapNotification(row) {
+  const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+    ? row.payload
+    : {};
   return {
     id: row.id,
-    userId: row.user_id,
-    eventType: row.event_type,
+    userId: row.user_id ?? row.userId ?? null,
+    eventType: row.event_type ?? row.eventType ?? null,
     title: row.title,
     message: row.message,
-    readAt: row.read_at,
-    createdAt: row.created_at,
-    ...(row.payload || {}),
+    readAt: row.read_at ?? row.readAt ?? null,
+    priority: row.priority || "normal",
+    channelLog: row.channel_log || row.channelLog || {},
+    payload,
+    createdAt: row.created_at ?? row.createdAt ?? null,
   };
 }
 
@@ -1491,26 +1496,358 @@ async function writeAuditLog(actor, action, targetType, targetId, message, paylo
   return audit;
 }
 
+function portalUrl(path = "/") {
+  const base = String(config.publicAppUrl || "").replace(/\/$/, "");
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${suffix}`;
+}
+
+function buildEmailHtml({ title, message, ctaLabel, ctaUrl, recipientName }) {
+  const safeTitle = escapeHtml(title || "Legal Connect");
+  const safeMessage = escapeHtml(message || "");
+  const safeName = escapeHtml(recipientName || "Legal Connect User");
+  const safeCta = escapeHtml(ctaLabel || "Open Legal Connect");
+  const safeUrl = escapeHtml(ctaUrl || portalUrl("/"));
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title></head>
+<body style="margin:0;padding:0;background:#f6f6f6;font-family:Inter,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td bgcolor="#050b14" align="center" style="padding:28px 16px">
+      <span style="color:#cda45e;font-size:22px;font-weight:800;letter-spacing:0.08em">LEGAL CONNECT</span>
+      <br><span style="color:#f3ead7;font-size:12px">Serve Dharma. Deliver Justice.</span>
+    </td></tr>
+    <tr><td bgcolor="#ffffff" style="padding:32px 40px">
+      <p style="color:#374151;font-size:14px;margin:0 0 12px">Dear ${safeName},</p>
+      <h2 style="color:#050b14;font-size:20px;margin:0 0 8px">${safeTitle}</h2>
+      <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 24px">${safeMessage}</p>
+      <div style="margin:28px 0">
+        <a href="${safeUrl}" style="background:#cda45e;color:#08111f;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:700;font-size:14px;display:inline-block">${safeCta}</a>
+      </div>
+    </td></tr>
+    <tr><td bgcolor="#050b14" align="center" style="padding:20px;color:#8ca3a3;font-size:11px">
+      Legal Connect · UDYAM-DL-11-0164811<br>
+      You are receiving this because you have an active account on Legal Connect.
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+async function dispatchEmail({ to, subject, html, text }) {
+  try {
+    const result = await sendEmail({ to, subject, html, text });
+    return {
+      ok: Boolean(result?.sent),
+      id: result?.id || null,
+      reason: result?.reason || result?.safeError || null,
+      mode: result?.mode || null,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.message || "email-failed" };
+  }
+}
+
+async function dispatchSms({ to, body }) {
+  if (!config.twilioAccountSid || !config.twilioAuthToken || !config.twilioFromNumber) {
+    return { ok: false, reason: "Twilio not configured — SMS skipped" };
+  }
+  if (!to) return { ok: false, reason: "missing-phone" };
+  try {
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${config.twilioAccountSid}/Messages.json`;
+    const encoded = Buffer.from(`${config.twilioAccountSid}:${config.twilioAuthToken}`).toString("base64");
+    const params = new URLSearchParams({
+      To: String(to),
+      From: String(config.twilioFromNumber),
+      Body: String(body || "").slice(0, 1500),
+    });
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${encoded}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { ok: false, reason: data.message || `Twilio status ${response.status}`, status: data.status || null };
+    }
+    return { ok: true, sid: data.sid || null, status: data.status || null };
+  } catch (error) {
+    return { ok: false, reason: error?.message || "sms-failed" };
+  }
+}
+
+function normalizeRecipient(row) {
+  if (!row) return null;
+  const userId = row.id || row.userId || row.user_id || null;
+  if (!userId) return null;
+  return {
+    userId: String(userId),
+    name: row.name || row.full_name || "Legal Connect User",
+    email: row.email || null,
+    phone: row.phone || null,
+    role: row.role || null,
+  };
+}
+
+async function resolveRecipients(userIds = []) {
+  const unique = [...new Set((userIds || []).filter(Boolean).map((id) => String(id)))];
+  if (!unique.length) return [];
+  if (db.dbAvailable) {
+    try {
+      const result = await db.query(
+        `SELECT id, name, email, phone, role FROM users WHERE id = ANY($1::uuid[])`,
+        [unique],
+      );
+      const found = result.rows.map(normalizeRecipient).filter(Boolean);
+      if (found.length) return found;
+    } catch {
+      // Fall through to text-id / demo lookup when uuid cast fails.
+    }
+    try {
+      const result = await db.query(
+        `SELECT id, name, email, phone, role FROM users WHERE id::text = ANY($1::text[])`,
+        [unique],
+      );
+      return result.rows.map(normalizeRecipient).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  return (demoStore.users || [])
+    .filter((user) => unique.includes(String(user.id)))
+    .map(normalizeRecipient)
+    .filter(Boolean);
+}
+
+async function resolveAdminRecipients() {
+  if (db.dbAvailable) {
+    try {
+      const result = await db.query(
+        `SELECT id, name, email, phone, role FROM users
+         WHERE lower(coalesce(role, '')) IN ('admin', 'rna')
+         ORDER BY created_at ASC
+         LIMIT 50`,
+      );
+      return result.rows.map(normalizeRecipient).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  return (demoStore.users || [])
+    .filter((user) => ["admin", "rna"].includes(String(user.role || "").toLowerCase()))
+    .map(normalizeRecipient)
+    .filter(Boolean);
+}
+
+async function resolveInternRecipients() {
+  if (db.dbAvailable) {
+    try {
+      const result = await db.query(
+        `SELECT id, name, email, phone, role FROM users
+         WHERE lower(coalesce(role, '')) = 'intern'
+         ORDER BY created_at DESC
+         LIMIT 100`,
+      );
+      return result.rows.map(normalizeRecipient).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  return (demoStore.users || [])
+    .filter((user) => String(user.role || "").toLowerCase() === "intern")
+    .map(normalizeRecipient)
+    .filter(Boolean);
+}
+
+/**
+ * notify() — Central 360° dispatcher (in-app + email + optional SMS).
+ * Never throws to callers.
+ */
+async function notify({
+  eventType,
+  title,
+  message,
+  recipients = [],
+  payload = {},
+  sendEmail: shouldEmail = true,
+  sendSms = false,
+  ctaLabel = "Open Legal Connect",
+  ctaUrl = null,
+  priority = "normal",
+} = {}) {
+  const channelLog = { inApp: [], email: [], sms: [] };
+  const list = (recipients || []).map(normalizeRecipient).filter(Boolean);
+  if (!list.length) return channelLog;
+  const finalCtaUrl = ctaUrl || portalUrl("/");
+  const jobs = [];
+
+  for (const recipient of list) {
+    jobs.push((async () => {
+      const entry = {
+        id: `notification-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+        userId: recipient.userId,
+        eventType,
+        title,
+        message,
+        payload,
+        priority,
+        channelLog: { inApp: "delivered" },
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      };
+      try {
+        if (db.dbAvailable) {
+          await db.query(
+            `INSERT INTO notifications (user_id, event_type, title, message, payload, priority, channel_log)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              recipient.userId,
+              eventType,
+              title,
+              message,
+              JSON.stringify(payload || {}),
+              priority || "normal",
+              JSON.stringify({ inApp: "delivered" }),
+            ],
+          );
+        } else if (config.nodeEnv !== "production") {
+          demoStore.notifications.unshift(entry);
+        }
+        channelLog.inApp.push({ userId: recipient.userId, status: "delivered" });
+      } catch (error) {
+        channelLog.inApp.push({ userId: recipient.userId, status: "failed", reason: error?.message || "in-app-failed" });
+      }
+    })());
+
+    if (shouldEmail && recipient.email) {
+      jobs.push((async () => {
+        const html = buildEmailHtml({
+          title,
+          message,
+          ctaLabel,
+          ctaUrl: finalCtaUrl,
+          recipientName: recipient.name,
+        });
+        const result = await dispatchEmail({
+          to: recipient.email,
+          subject: title,
+          html,
+          text: `${title}\n\n${message}\n\n${finalCtaUrl}`,
+        });
+        channelLog.email.push({
+          email: maskEmail(recipient.email),
+          status: result.ok ? "sent" : "failed",
+          reason: result.reason || null,
+        });
+      })());
+    }
+
+    if (sendSms && recipient.phone) {
+      jobs.push((async () => {
+        const result = await dispatchSms({
+          to: recipient.phone,
+          body: `[Legal Connect] ${title}: ${message}`.slice(0, 480),
+        });
+        channelLog.sms.push({
+          phone: maskPhone(recipient.phone),
+          status: result.ok ? "sent" : "failed",
+          reason: result.reason || null,
+        });
+        if (!result.ok && /Twilio not configured/i.test(String(result.reason || ""))) {
+          console.info("SMS skipped: Twilio not configured");
+        }
+      })());
+    }
+  }
+
+  await Promise.allSettled(jobs);
+  return channelLog;
+}
+
 async function createNotification(eventType, title, message, payload = {}, userId = null) {
-  const notification = {
-    id: `notification-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-    userId,
+  if (!userId) {
+    // Broadcast-style null userId rows are retained for admin-visible system notices.
+    const notification = {
+      id: `notification-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+      userId: null,
+      eventType,
+      title,
+      message,
+      payload,
+      priority: "normal",
+      channelLog: { inApp: "delivered" },
+      createdAt: new Date().toISOString(),
+      readAt: null,
+    };
+    try {
+      if (db.dbAvailable) {
+        await db.query(
+          `INSERT INTO notifications (user_id, event_type, title, message, payload, priority, channel_log)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [null, eventType, title, message, JSON.stringify(payload || {}), "normal", JSON.stringify({ inApp: "delivered" })],
+        );
+      } else if (config.nodeEnv !== "production") {
+        demoStore.notifications.unshift(notification);
+      }
+    } catch (error) {
+      console.warn("createNotification failed:", error?.message || error);
+    }
+    return notification;
+  }
+  const [recipient] = await resolveRecipients([userId]);
+  await notify({
     eventType,
     title,
     message,
     payload,
-    createdAt: new Date().toISOString(),
-  };
+    recipients: [recipient || { userId, name: "Legal Connect User" }],
+    sendEmail: false,
+    sendSms: false,
+  });
+  return { userId, eventType, title, message, payload };
+}
+
+async function markNotificationRead(authUser, notificationId) {
+  if (!authUser?.id || !notificationId) return false;
   if (db.dbAvailable) {
-    await db.query(
-      `INSERT INTO notifications (user_id, event_type, title, message, payload)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, eventType, title, message, JSON.stringify(payload)],
-    );
-  } else {
-    demoStore.notifications.unshift(notification);
+    if (canSeeAll(authUser)) {
+      await db.query("UPDATE notifications SET read_at = now() WHERE id = $1", [notificationId]);
+    } else {
+      await db.query(
+        "UPDATE notifications SET read_at = now() WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)",
+        [notificationId, authUser.id],
+      );
+    }
+    return true;
   }
-  return notification;
+  if (config.nodeEnv === "production") return false;
+  const item = demoStore.notifications.find((notification) => (
+    String(notification.id) === String(notificationId)
+    && (canSeeAll(authUser) || !notification.userId || String(notification.userId) === String(authUser.id))
+  ));
+  if (item) item.readAt = new Date().toISOString();
+  return Boolean(item);
+}
+
+async function markAllNotificationsRead(authUser) {
+  if (!authUser?.id) return 0;
+  if (db.dbAvailable) {
+    const result = await db.query(
+      "UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL",
+      [authUser.id],
+    );
+    return result.rowCount || 0;
+  }
+  if (config.nodeEnv === "production") return 0;
+  let count = 0;
+  for (const item of demoStore.notifications) {
+    if (String(item.userId) === String(authUser.id) && !item.readAt) {
+      item.readAt = new Date().toISOString();
+      count += 1;
+    }
+  }
+  return count;
 }
 
 async function createReceipt({
@@ -2676,6 +3013,22 @@ const server = http.createServer(async (req, res) => {
       );
       const deletionRequest = mapDeletionRequest(result.rows[0]);
       await writeAuditLog(authUser, "account_deletion_requested", "account_deletion_request", deletionRequest.id, "Account deletion request received.", { requestId: deletionRequest.id });
+      {
+        const selfRecipients = await resolveRecipients([authUser.id]);
+        const admins = await resolveAdminRecipients();
+        await notify({
+          eventType: "account_deletion_requested",
+          title: "Account deletion request received",
+          message,
+          recipients: [...selfRecipients, ...admins],
+          payload: { requestId: deletionRequest.id },
+          sendEmail: true,
+          sendSms: false,
+          ctaLabel: "Open Legal Connect",
+          ctaUrl: portalUrl("/admin"),
+          priority: "high",
+        });
+      }
       sendJson(res, 201, { ok: true, request: deletionRequest, message });
       return;
     }
@@ -2689,6 +3042,22 @@ const server = http.createServer(async (req, res) => {
     };
     demoStore.deletionRequests.unshift(deletionRequest);
     await writeAuditLog(authUser, "account_deletion_requested", "account_deletion_request", deletionRequest.id, "Account deletion request received.", { requestId: deletionRequest.id });
+    {
+      const selfRecipients = await resolveRecipients([authUser.id]);
+      const admins = await resolveAdminRecipients();
+      await notify({
+        eventType: "account_deletion_requested",
+        title: "Account deletion request received",
+        message,
+        recipients: [...selfRecipients, ...admins],
+        payload: { requestId: deletionRequest.id },
+        sendEmail: true,
+        sendSms: false,
+        ctaLabel: "Open Legal Connect",
+        ctaUrl: portalUrl("/admin"),
+        priority: "high",
+      });
+    }
     sendJson(res, 201, { ok: true, request: deletionRequest, message });
     return;
   }
@@ -2890,11 +3259,32 @@ const server = http.createServer(async (req, res) => {
         "INSERT INTO intern_quests (title, description, xp_points, deadline, status) VALUES ($1, $2, $3, $4, $5) RETURNING *",
         [body.title, body.description, Number(body.xpPoints || 10), body.deadline || null, body.status || "Open"],
       );
-      sendJson(res, 201, mapInternQuest(result.rows[0]));
+      const quest = mapInternQuest(result.rows[0]);
+      await notify({
+        eventType: "quest_assigned",
+        title: "New intern quest posted",
+        message: `${quest.title} is ready. Complete it to earn ${quest.xpPoints || 0} XP.`,
+        recipients: await resolveInternRecipients(),
+        payload: { questId: quest.id },
+        sendEmail: true,
+        ctaLabel: "Open quests",
+        ctaUrl: portalUrl("/intern/quests"),
+      });
+      sendJson(res, 201, quest);
       return;
     }
     const quest = mapInternQuest({ ...body, id: `quest-${Date.now()}`, createdAt: new Date().toISOString() });
     demoStore.internQuests.unshift(quest);
+    await notify({
+      eventType: "quest_assigned",
+      title: "New intern quest posted",
+      message: `${quest.title} is ready. Complete it to earn ${quest.xpPoints || 0} XP.`,
+      recipients: await resolveInternRecipients(),
+      payload: { questId: quest.id },
+      sendEmail: true,
+      ctaLabel: "Open quests",
+      ctaUrl: portalUrl("/intern/quests"),
+    });
     sendJson(res, 201, quest);
     return;
   }
@@ -2929,7 +3319,24 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 404, { error: "Quest not found" });
         return;
       }
-      sendJson(res, 200, mapInternQuest(result.rows[0]));
+      const quest = mapInternQuest(result.rows[0]);
+      if (["Completed", "completed", "Approved"].includes(String(quest.status || ""))) {
+        const recipients = [
+          ...(await resolveRecipients([authUser.id])),
+          ...(await resolveAdminRecipients()),
+        ];
+        await notify({
+          eventType: "quest_completed",
+          title: "Quest completed",
+          message: `${quest.title} is marked ${quest.status}. ${quest.xpPoints || 0} XP credited.`,
+          recipients,
+          payload: { questId: quest.id, xpPoints: quest.xpPoints || 0 },
+          sendEmail: true,
+          ctaLabel: "View progress",
+          ctaUrl: portalUrl("/intern/xp"),
+        });
+      }
+      sendJson(res, 200, quest);
       return;
     }
     const quest = demoStore.internQuests.find((item) => String(item.id) === String(id));
@@ -2938,7 +3345,24 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     Object.assign(quest, body, { xpPoints: body.xpPoints == null ? quest.xpPoints : Number(body.xpPoints) });
-    sendJson(res, 200, mapInternQuest(quest));
+    const mappedQuest = mapInternQuest(quest);
+    if (["Completed", "completed", "Approved"].includes(String(mappedQuest.status || ""))) {
+      const recipients = [
+        ...(await resolveRecipients([authUser.id])),
+        ...(await resolveAdminRecipients()),
+      ];
+      await notify({
+        eventType: "quest_completed",
+        title: "Quest completed",
+        message: `${mappedQuest.title} is marked ${mappedQuest.status}. ${mappedQuest.xpPoints || 0} XP credited.`,
+        recipients,
+        payload: { questId: mappedQuest.id, xpPoints: mappedQuest.xpPoints || 0 },
+        sendEmail: true,
+        ctaLabel: "View progress",
+        ctaUrl: portalUrl("/intern/xp"),
+      });
+    }
+    sendJson(res, 200, mappedQuest);
     return;
   }
 
@@ -3060,10 +3484,39 @@ const server = http.createServer(async (req, res) => {
           JSON.stringify({ ...body, user_id: databaseUserId, role: userRole(authUser), stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
         ],
       );
-      sendJson(res, 201, mapCase(result.rows[0]));
+      {
+        const saved = mapCase(result.rows[0]);
+        const selfRecipients = await resolveRecipients([databaseUserId]);
+        const admins = await resolveAdminRecipients();
+        await notify({
+          eventType: "case_added",
+          title: "Case added",
+          message: `${saved.caseTitle || saved.title || "A matter"} was added to Legal Connect.`,
+          recipients: [...selfRecipients, ...admins],
+          payload: { caseId: saved.id },
+          sendEmail: true,
+          ctaLabel: "View cases",
+          ctaUrl: portalUrl(authUser.role === "advocate" ? "/advocate/cases" : authUser.role === "admin" ? "/admin/cases" : "/client"),
+        });
+        sendJson(res, 201, saved);
+      }
       return;
     }
     demoStore.cases.push(trackedCase);
+    {
+      const selfRecipients = await resolveRecipients([trackedCase.userId]);
+      const admins = await resolveAdminRecipients();
+      await notify({
+        eventType: "case_added",
+        title: "Case added",
+        message: `${trackedCase.title || "A matter"} was added to Legal Connect.`,
+        recipients: [...selfRecipients, ...admins],
+        payload: { caseId: trackedCase.id },
+        sendEmail: true,
+        ctaLabel: "View cases",
+        ctaUrl: portalUrl("/client"),
+      });
+    }
     sendJson(res, 201, dashboardCase(trackedCase));
     return;
   }
@@ -3244,7 +3697,24 @@ const server = http.createServer(async (req, res) => {
          RETURNING *`,
         [id, next.title, next.court, next.caseNumber, next.nextDate, next.status, body.notes ?? current.notes ?? null, JSON.stringify({ ...next, user_id: current.userId })],
       );
-      sendJson(res, 200, mapCase(result.rows[0]));
+      const mapped = mapCase(result.rows[0]);
+      const previousDate = current.nextDate ? String(current.nextDate).slice(0, 10) : "";
+      const upcomingDate = mapped.nextDate ? String(mapped.nextDate).slice(0, 10) : "";
+      if (upcomingDate && upcomingDate !== previousDate) {
+        const recipients = await resolveRecipients([mapped.userId, mapped.assignedTo].filter(Boolean));
+        await notify({
+          eventType: "hearing_scheduled",
+          title: "Next hearing updated",
+          message: `${mapped.caseTitle || mapped.title || "Your matter"} is listed for ${upcomingDate}${mapped.courtName || mapped.court ? ` at ${mapped.courtName || mapped.court}` : ""}.`,
+          recipients,
+          payload: { caseId: mapped.id, nextDate: upcomingDate },
+          sendEmail: true,
+          ctaLabel: "Open case",
+          ctaUrl: portalUrl(authUser.role === "advocate" ? "/advocate/cases" : authUser.role === "admin" || authUser.role === "rna" ? "/admin/cases" : "/client"),
+          priority: "high",
+        });
+      }
+      sendJson(res, 200, mapped);
       return;
     }
 
@@ -3264,6 +3734,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
+    const previousDate = trackedCase.nextDate ? String(trackedCase.nextDate).slice(0, 10) : "";
     Object.assign(trackedCase, body, {
       title: body.title ?? body.caseTitle ?? trackedCase.title,
       court: body.court ?? body.courtName ?? trackedCase.court,
@@ -3272,7 +3743,23 @@ const server = http.createServer(async (req, res) => {
       status: body.status ?? trackedCase.status,
       updatedAt: new Date().toISOString(),
     });
-    sendJson(res, 200, dashboardCase(trackedCase));
+    const mapped = dashboardCase(trackedCase);
+    const upcomingDate = mapped.nextDate ? String(mapped.nextDate).slice(0, 10) : "";
+    if (upcomingDate && upcomingDate !== previousDate) {
+      const recipients = await resolveRecipients([mapped.userId, mapped.assignedTo].filter(Boolean));
+      await notify({
+        eventType: "hearing_scheduled",
+        title: "Next hearing updated",
+        message: `${mapped.caseTitle || mapped.title || "Your matter"} is listed for ${upcomingDate}${mapped.courtName || mapped.court ? ` at ${mapped.courtName || mapped.court}` : ""}.`,
+        recipients,
+        payload: { caseId: mapped.id, nextDate: upcomingDate },
+        sendEmail: true,
+        ctaLabel: "Open case",
+        ctaUrl: portalUrl(authUser.role === "advocate" ? "/advocate/cases" : authUser.role === "admin" || authUser.role === "rna" ? "/admin/cases" : "/client"),
+        priority: "high",
+      });
+    }
+    sendJson(res, 200, mapped);
     return;
   }
 
@@ -3303,65 +3790,124 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const title = body.title || "Legal Connect reminder";
     const message = body.message || "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.";
-    const recipient = body.to || body.email || authUser?.email || null;
+    const recipientEmail = body.to || body.email || authUser?.email || null;
+    const wantSms = body.sendSms === true || body.send_sms === true;
+    const recipients = [{
+      userId: authUser.id,
+      name: authUser.name || "Admin",
+      email: recipientEmail,
+      phone: authUser.phone || body.phone || null,
+    }];
+    const channelLog = await notify({
+      eventType: "notify_test",
+      title,
+      message,
+      recipients,
+      payload: { mode: "notify_test", sendSms: wantSms },
+      sendEmail: true,
+      sendSms: wantSms,
+      ctaLabel: "Open dashboard",
+      ctaUrl: portalUrl("/admin"),
+      priority: wantSms ? "high" : "normal",
+    });
+    const emailSent = channelLog.email.some((item) => item.status === "sent");
     const provider = emailProviderStatus();
-    if (provider.provider !== "resend" || provider.status !== "ready") {
-      const demoMessage = "In-app fallback notification queued because Resend is not configured.";
-      await createNotification("notify_test", title, message, { mode: "demo", channels: ["in-app"] }, authUser.id || null);
-      await writeAuditLog(authUser, "notification_test_demo_queued", "notification", "notify-test", demoMessage, { recipient, provider: emailAdminStatus() });
-      sendJson(res, 202, {
-        ok: true,
-        mode: "demo",
-        status: "queued",
-        message: demoMessage,
-      });
+    await writeAuditLog(
+      authUser,
+      emailSent ? "notification_test_sent" : "notification_test_queued",
+      "notification",
+      "notify-test",
+      emailSent ? "Notification test dispatched through notify()." : "Notification test queued (email may be unavailable).",
+      { recipient: recipientEmail, provider: emailAdminStatus(), channelLog },
+    );
+    sendJson(res, emailSent || provider.provider !== "resend" ? 202 : 200, {
+      ok: true,
+      mode: emailSent ? "resend" : "demo",
+      status: emailSent ? "sent" : "queued",
+      channel_log: channelLog,
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/notifications/unread-count" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
       return;
     }
-    const emailResult = await sendEmail({
-      to: recipient,
-      subject: title,
-      text: message,
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2 style="color:#0f2a25">Legal Connect</h2><p>${escapeHtml(message)}</p><p><a href="${escapeHtml(config.publicAppUrl)}" style="color:#b8872b">Open Legal Connect dashboard</a></p><p style="color:#64748b;font-size:12px">This is a Legal Connect notification test.</p></div>`,
-    });
-    if (emailResult.sent) {
-      await createNotification("notify_test", title, message, { mode: "resend", status: "sent", providerMessageId: emailResult.id }, authUser.id || null);
-      await writeAuditLog(authUser, "notification_test_resend_sent", "notification", emailResult.id || "resend-email", "Notification test sent through Resend.", { recipient, providerMessageId: emailResult.id || null });
-      sendJson(res, 202, {
-        ok: true,
-        mode: "resend",
-        status: "sent",
-        provider_message_id: emailResult.id || null,
-      });
+    if (isReviewUser(authUser)) {
+      sendJson(res, 200, { count: 0 });
       return;
     }
-    const errorMessage = safeEmailError(emailResult);
-    await createNotification("notify_test_failed", title, `Resend email failed: ${errorMessage}`, { mode: "resend", status: "failed" }, authUser.id || null);
-    await writeAuditLog(authUser, "notification_test_resend_failed", "notification", "resend-email", `Resend email failed: ${errorMessage}`, { recipient, status: emailResult.status || null });
-    sendJson(res, 200, {
-      ok: false,
-      mode: "resend",
-      status: "failed",
-      error_message: errorMessage,
-    });
+    if (db.dbAvailable) {
+      const result = await db.query(
+        "SELECT count(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL",
+        [authUser.id],
+      );
+      sendJson(res, 200, { count: result.rows[0]?.count || 0 });
+      return;
+    }
+    const count = (demoStore.notifications || []).filter((item) => (
+      String(item.userId) === String(authUser.id) && !item.readAt
+    )).length;
+    sendJson(res, 200, { count });
+    return;
+  }
+
+  if (url.pathname === "/api/notifications/read-all" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    const updated = await markAllNotificationsRead(authUser);
+    sendJson(res, 200, { ok: true, updated });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/notifications/") && url.pathname.endsWith("/read") && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    const parts = url.pathname.split("/").filter(Boolean);
+    const notificationId = decodeURIComponent(parts[parts.length - 2] || "");
+    if (!notificationId || notificationId === "notifications") {
+      sendJson(res, 400, { ok: false, error: "Notification id is required." });
+      return;
+    }
+    await markNotificationRead(authUser, notificationId);
+    sendJson(res, 200, { ok: true });
     return;
   }
 
   if (url.pathname === "/api/notifications" && req.method === "GET") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
     if (isReviewUser(authUser)) {
       sendJson(res, 200, reviewSeedData(authUser).notifications);
       return;
     }
     if (db.dbAvailable) {
-      const result = canSeeAll(authUser)
-        ? await db.query("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50")
-        : authUser
-          ? await db.query("SELECT * FROM notifications WHERE user_id = $1 OR user_id IS NULL ORDER BY created_at DESC LIMIT 50", [authUser.id])
-          : await db.query("SELECT * FROM notifications WHERE user_id IS NULL ORDER BY created_at DESC LIMIT 50");
+      const result = await db.query(
+        "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50",
+        [authUser.id],
+      );
       sendJson(res, 200, result.rows.map(mapNotification));
       return;
     }
-    sendJson(res, 200, authUser ? demoStore.notifications.filter((item) => !item.userId || item.userId === authUser.id) : demoStore.notifications.filter((item) => !item.userId));
+    sendJson(
+      res,
+      200,
+      (demoStore.notifications || [])
+        .filter((item) => String(item.userId) === String(authUser.id))
+        .slice(0, 50)
+        .map(mapNotification),
+    );
     return;
   }
 
@@ -3372,16 +3918,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
-    if (db.dbAvailable) {
-      if (canSeeAll(authUser)) {
-        await db.query("UPDATE notifications SET read_at = now() WHERE id = $1", [body.id]);
-      } else {
-        await db.query("UPDATE notifications SET read_at = now() WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)", [body.id, authUser.id]);
-      }
-    } else {
-      const item = demoStore.notifications.find((notification) => notification.id === body.id && (canSeeAll(authUser) || !notification.userId || notification.userId === authUser.id));
-      if (item) item.readAt = new Date().toISOString();
+    if (!body.id) {
+      sendJson(res, 400, { ok: false, error: "Notification id is required." });
+      return;
     }
+    await markNotificationRead(authUser, body.id);
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -3918,10 +4459,42 @@ const server = http.createServer(async (req, res) => {
         [task.title, task.court, task.taskType, task.amount, "Locked", authUser.id, JSON.stringify({ ...task, user_id: authUser.id })],
       );
       await writeAuditLog(authUser, "proxy_hub_task_posted", "task", result.rows[0].id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified });
+      {
+        const recipients = [
+          ...(await resolveRecipients([authUser.id])),
+          ...(await resolveAdminRecipients()),
+        ];
+        await notify({
+          eventType: "proxy_mission_posted",
+          title: "Proxy mission live",
+          message: `${task.title} is live and awaiting Admin proxy assignment.`,
+          recipients,
+          payload: { taskId: result.rows[0].id, fee: task.amount },
+          sendEmail: true,
+          ctaLabel: "Open ProxyHub",
+          ctaUrl: portalUrl("/advocate/proxy"),
+        });
+      }
       sendJson(res, 201, { ok: true, task: mapTask(result.rows[0]), paymentVerified: task.paymentVerified });
       return;
     }
     demoStore.tasks.unshift(task);
+    {
+      const recipients = [
+        ...(await resolveRecipients([authUser.id])),
+        ...(await resolveAdminRecipients()),
+      ];
+      await notify({
+        eventType: "proxy_mission_posted",
+        title: "Proxy mission live",
+        message: `${task.title} is live and awaiting Admin proxy assignment.`,
+        recipients,
+        payload: { taskId: task.id, fee: task.amount },
+        sendEmail: true,
+        ctaLabel: "Open ProxyHub",
+        ctaUrl: portalUrl("/advocate/proxy"),
+      });
+    }
     sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: "demo" });
     return;
   }
@@ -4146,7 +4719,20 @@ const server = http.createServer(async (req, res) => {
         workHoldStatus: "active",
         payload: { verifiedAt: new Date().toISOString() },
       });
-      await createNotification("payment_verified", "Payment verified", "Payment verified. Work Completion Hold is active.", { bookingId, orderId, paymentId }, authUser?.id || null);
+      {
+        const recipients = await resolveRecipients([authUser?.id].filter(Boolean));
+        await notify({
+          eventType: "payment_verified",
+          title: "Payment verified",
+          message: "Payment verified. Work Completion Hold is active.",
+          recipients,
+          payload: { bookingId, orderId, paymentId },
+          sendEmail: true,
+          sendSms: false,
+          ctaLabel: "View booking",
+          ctaUrl: portalUrl("/client"),
+        });
+      }
       await createReceipt({
         userId: authUser?.id || null,
         actor: authUser || { role: "system" },
@@ -4194,6 +4780,20 @@ const server = http.createServer(async (req, res) => {
       visibility: "private",
       payload: { orderId, paymentId, workHoldStatus: "pending" },
     });
+    {
+      const recipients = await resolveRecipients([authUser?.id].filter(Boolean));
+      await notify({
+        eventType: "payment_failed",
+        title: "Payment verification failed",
+        message: "Your payment could not be verified. Contact support if the amount was deducted.",
+        recipients,
+        payload: { bookingId, orderId, paymentId },
+        sendEmail: true,
+        ctaLabel: "Contact support",
+        ctaUrl: portalUrl("/client"),
+        priority: "high",
+      });
+    }
     sendJson(res, 400, { ok: false, mode: "razorpay", status: "failed", payment_status: "verification_failed", work_hold_status: "pending", error_message: "Payment verification failed. Please contact support." });
     return;
   }
@@ -4248,8 +4848,24 @@ const server = http.createServer(async (req, res) => {
         workHoldStatus: "active",
         payload: { webhookEvent: event },
       });
-      const paidBooking = await db.query("SELECT id FROM bookings WHERE razorpay_order_id = $1 LIMIT 1", [orderId]);
-      if (paidBooking.rows[0]) await ensurePaidBookingCase(paidBooking.rows[0].id);
+      const paidBooking = await db.query("SELECT id, user_id FROM bookings WHERE razorpay_order_id = $1 LIMIT 1", [orderId]);
+      if (paidBooking.rows[0]) {
+        await ensurePaidBookingCase(paidBooking.rows[0].id);
+        const recipients = [
+          ...(await resolveRecipients([paidBooking.rows[0].user_id].filter(Boolean))),
+          ...(await resolveAdminRecipients()),
+        ];
+        await notify({
+          eventType: "payment_webhook_captured",
+          title: "Payment captured",
+          message: "Razorpay confirmed your payment. Work Completion Hold is active.",
+          recipients,
+          payload: { orderId, paymentId, event },
+          sendEmail: true,
+          ctaLabel: "Open Legal Connect",
+          ctaUrl: portalUrl("/client"),
+        });
+      }
     }
     if (db.dbAvailable && orderId && event === "payment.failed") {
       await db.query(
@@ -4394,7 +5010,23 @@ const server = http.createServer(async (req, res) => {
         [id, "Assigned", proxyId, JSON.stringify({ assignedProxyName: proxyName, assignmentStatus: "Assigned", assignedByAdmin: true })],
       );
       await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });
-      sendJson(res, 200, mapTask(result.rows[0]));
+      {
+        const assigned = mapTask(result.rows[0]);
+        const recipients = await resolveRecipients([assigned.postedBy, proxyId].filter(Boolean));
+        await notify({
+          eventType: "proxy_mission_assigned",
+          title: "Proxy mission assigned",
+          message: `${proxyName} has been assigned to ${assigned.title || "the proxy mission"}.`,
+          recipients,
+          payload: { taskId: id, proxyId, proxyName },
+          sendEmail: true,
+          sendSms: true,
+          ctaLabel: "Open ProxyHub",
+          ctaUrl: portalUrl("/advocate/proxy"),
+          priority: "high",
+        });
+        sendJson(res, 200, assigned);
+      }
       return;
     }
     const task = demoStore.tasks.find((item) => item.id === id);
@@ -4414,6 +5046,21 @@ const server = http.createServer(async (req, res) => {
       updatedAt: new Date().toISOString(),
     });
     await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });
+    {
+      const recipients = await resolveRecipients([task.postedBy, proxyId].filter(Boolean));
+      await notify({
+        eventType: "proxy_mission_assigned",
+        title: "Proxy mission assigned",
+        message: `${proxyName} has been assigned to ${task.title || "the proxy mission"}.`,
+        recipients,
+        payload: { taskId: id, proxyId, proxyName },
+        sendEmail: true,
+        sendSms: true,
+        ctaLabel: "Open ProxyHub",
+        ctaUrl: portalUrl("/advocate/proxy"),
+        priority: "high",
+      });
+    }
     sendJson(res, 200, dashboardTask(task));
     return;
   }
@@ -4461,9 +5108,30 @@ const server = http.createServer(async (req, res) => {
          SET title = $2, court = $3, task_type = $4, amount = $5, escrow_status = $6, status = $7, accepted_by = $8, proof_url = $9, payload = $10, updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, next.proofUrl || null, JSON.stringify({ ...next, user_id: current.postedBy })],
+        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, next.proofUrl || body.proof_url || null, JSON.stringify({ ...next, user_id: current.postedBy })],
       );
-      sendJson(res, 200, mapTask(result.rows[0]));
+      const updatedTask = mapTask(result.rows[0]);
+      const proofAdded = Boolean((body.proofUrl || body.proof_url) && !(current.proofUrl));
+      const submitted = ["submitted", "Submitted", "Completed", "completed"].includes(String(body.status || ""));
+      if (proofAdded || submitted) {
+        const recipients = [
+          ...(await resolveRecipients([updatedTask.postedBy, updatedTask.acceptedBy].filter(Boolean))),
+          ...(await resolveAdminRecipients()),
+        ];
+        await notify({
+          eventType: proofAdded ? "proxy_proof_uploaded" : "task_draft_submitted",
+          title: proofAdded ? "Proxy proof uploaded" : "Task draft submitted",
+          message: proofAdded
+            ? `Proof was uploaded for ${updatedTask.title || "a proxy mission"}.`
+            : `${updatedTask.title || "A task"} was marked ${updatedTask.status}.`,
+          recipients,
+          payload: { taskId: updatedTask.id, status: updatedTask.status, proofUrl: updatedTask.proofUrl || null },
+          sendEmail: true,
+          ctaLabel: "Review task",
+          ctaUrl: portalUrl("/admin/missions"),
+        });
+      }
+      sendJson(res, 200, updatedTask);
       return;
     }
 
@@ -4573,7 +5241,22 @@ const server = http.createServer(async (req, res) => {
         ],
       );
       const savedBooking = mapBooking(result.rows[0]);
-      await createNotification("booking_confirmed", "Booking received", "Your Legal Connect booking has been recorded.", { bookingId: savedBooking.id }, bookingUserId);
+      {
+        const recipients = [
+          ...(await resolveRecipients([bookingUserId].filter(Boolean))),
+          ...(await resolveAdminRecipients()),
+        ];
+        await notify({
+          eventType: "booking_confirmed",
+          title: "Booking received",
+          message: "Your Legal Connect booking has been recorded.",
+          recipients,
+          payload: { bookingId: savedBooking.id },
+          sendEmail: true,
+          ctaLabel: "View booking",
+          ctaUrl: portalUrl("/client"),
+        });
+      }
       const receipt = await createReceipt({
         userId: bookingUserId,
         actor: authUser || { role: userRole(authUser) },
@@ -4590,7 +5273,22 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 201, { ...savedBooking, transparencyReceipt: receipt });
       return;
     }
-    await createNotification("booking_confirmed", "Booking received", "Your Legal Connect booking has been recorded.", { bookingId: booking.id }, booking.userId || null);
+    {
+      const recipients = [
+        ...(await resolveRecipients([booking.userId].filter(Boolean))),
+        ...(await resolveAdminRecipients()),
+      ];
+      await notify({
+        eventType: "booking_confirmed",
+        title: "Booking received",
+        message: "Your Legal Connect booking has been recorded.",
+        recipients,
+        payload: { bookingId: booking.id },
+        sendEmail: true,
+        ctaLabel: "View booking",
+        ctaUrl: portalUrl("/client"),
+      });
+    }
     booking.transparencyReceipt = await createReceipt({
       userId: booking.userId || null,
       actor: authUser || { role: userRole(authUser) },
@@ -4788,13 +5486,24 @@ const server = http.createServer(async (req, res) => {
         session_confirmed: "Session Confirmed & Scheduled",
         request_entertained: "Request Entertained & Work Completed"
       };
-      await createNotification(
-        "booking_stage_updated",
-        "Booking Status Update",
-        `Your booking status is now: ${stageTitles[newStage] || newStage}`,
-        { bookingId, stageStatus: newStage, advocateName },
-        targetBooking.userId || targetBooking.user_id || null
-      );
+      {
+        const clientId = targetBooking.userId || targetBooking.user_id || null;
+        const advocateTargetId = targetBooking.assignedAdvocateId || advocateId || null;
+        const critical = ["acknowledged_and_assigned", "session_confirmed", "request_entertained", "advocate_connected"].includes(newStage);
+        const recipients = await resolveRecipients([clientId, advocateTargetId].filter(Boolean));
+        await notify({
+          eventType: "booking_stage_updated",
+          title: "Booking status update",
+          message: `Your booking status is now: ${stageTitles[newStage] || newStage}`,
+          recipients,
+          payload: { bookingId, stageStatus: newStage, advocateName },
+          sendEmail: true,
+          sendSms: critical,
+          ctaLabel: "Open booking desk",
+          ctaUrl: portalUrl(critical && String(advocateTargetId) === String(authUser?.id) ? "/advocate/bookings" : "/client"),
+          priority: critical ? "high" : "normal",
+        });
+      }
       sendJson(res, 200, { ok: true, booking: targetBooking });
     } else {
       sendJson(res, 404, { ok: false, error: "Booking not found" });
@@ -5024,7 +5733,24 @@ const server = http.createServer(async (req, res) => {
          RETURNING *`,
         [sosRequest.userId, sosRequest.serviceType, sosRequest.urgency, sosRequest.status, JSON.stringify({ ...body, role: userRole(authUser) })],
       );
-      await createNotification("sos_created", "Legal SOS created", `${sosRequest.urgency} SOS request saved.`, { sosId: result.rows[0].id }, sosUserId);
+      {
+        const recipients = [
+          ...(await resolveRecipients([sosUserId].filter(Boolean))),
+          ...(await resolveAdminRecipients()),
+        ];
+        await notify({
+          eventType: "sos_created",
+          title: "Legal SOS created",
+          message: `${sosRequest.urgency} SOS request saved and queued for Legal Connect response.`,
+          recipients,
+          payload: { sosId: result.rows[0].id },
+          sendEmail: true,
+          sendSms: true,
+          ctaLabel: "Open SOS desk",
+          ctaUrl: portalUrl("/admin"),
+          priority: "urgent",
+        });
+      }
       const sosResponse = {
         id: result.rows[0].id,
         userId: result.rows[0].user_id,
@@ -5051,7 +5777,24 @@ const server = http.createServer(async (req, res) => {
     }
     demoStore.sosRequests = demoStore.sosRequests || [];
     demoStore.sosRequests.push(sosRequest);
-    await createNotification("sos_created", "Legal SOS created", `${sosRequest.urgency} SOS request saved.`, { sosId: sosRequest.id }, sosUserId);
+    {
+      const recipients = [
+        ...(await resolveRecipients([sosUserId].filter(Boolean))),
+        ...(await resolveAdminRecipients()),
+      ];
+      await notify({
+        eventType: "sos_created",
+        title: "Legal SOS created",
+        message: `${sosRequest.urgency} SOS request saved and queued for Legal Connect response.`,
+        recipients,
+        payload: { sosId: sosRequest.id },
+        sendEmail: true,
+        sendSms: true,
+        ctaLabel: "Open SOS desk",
+        ctaUrl: portalUrl("/admin"),
+        priority: "urgent",
+      });
+    }
     sosRequest.transparencyReceipt = await createReceipt({
       userId: sosUserId,
       actor: authUser || { role: userRole(authUser) },
@@ -5756,7 +6499,19 @@ async function handleLocalWorkspaceRoute(req, res, url) {
   if (caseStatusMatch && req.method === 'PATCH' && authUser.role === 'advocate') {
     const body = await readBody(req);
     const demoMatter = clientWorkspaceDemo(authUser.name)[Number(caseStatusMatch[1].split('-').pop() || 1) - 1] || clientWorkspaceDemo(authUser.name)[0];
-    sendJson(res, 200, { ok: true, matter: { ...demoMatter, id: caseStatusMatch[1], stage: body.stage || demoMatter.stage }, syncedAt: new Date().toISOString(), dataMode: 'sample' });
+    const stage = body.stage || demoMatter.stage;
+    const matter = { ...demoMatter, id: caseStatusMatch[1], stage };
+    await notify({
+      eventType: 'case_stage_updated',
+      title: 'Case stage updated',
+      message: `${matter.caseTitle || matter.title || 'Your matter'} moved to ${stage}.`,
+      recipients: await resolveRecipients([authUser.id, matter.userId].filter(Boolean)),
+      payload: { caseId: matter.id, stage },
+      sendEmail: true,
+      ctaLabel: 'Open cases',
+      ctaUrl: portalUrl('/advocate/cases'),
+    });
+    sendJson(res, 200, { ok: true, matter, syncedAt: new Date().toISOString(), dataMode: 'sample' });
     return true;
   }
   if (url.pathname === '/api/chamber' && req.method === 'GET' && authUser.role === 'advocate') {
@@ -5777,6 +6532,17 @@ async function handleLocalWorkspaceRoute(req, res, url) {
     const body = await readBody(req);
     const member = { id: `member-${Date.now()}`, display_name: body.displayName, email: body.email, member_role: body.memberRole || 'associate', status: 'invited' };
     demoStore.chamber.members.push(member);
+    const invitee = (demoStore.users || []).find((user) => normalizeEmail(user.email) === normalizeEmail(body.email));
+    await notify({
+      eventType: 'chamber_member_invited',
+      title: 'Chamber Vault invitation',
+      message: `${authUser.name || 'An advocate'} invited you to join their Chamber Vault as ${body.memberRole || 'associate'}.`,
+      recipients: [invitee ? normalizeRecipient(invitee) : { userId: member.id, name: body.displayName, email: body.email, phone: null }],
+      payload: { memberId: member.id },
+      sendEmail: true,
+      ctaLabel: 'Open Chamber Vault',
+      ctaUrl: portalUrl('/advocate/chamber'),
+    });
     sendJson(res, 201, { ok: true, member });
     return true;
   }
@@ -5784,6 +6550,16 @@ async function handleLocalWorkspaceRoute(req, res, url) {
     const body = await readBody(req);
     const task = { id: `task-${Date.now()}`, title: body.title, details: body.details || '', assignee_name: body.assigneeName || 'Unassigned', status: 'assigned', priority: body.priority || 'normal', due_at: body.dueAt || null, updated_at: new Date().toISOString() };
     demoStore.chamber.tasks.unshift(task);
+    await notify({
+      eventType: 'chamber_task_assigned',
+      title: 'Chamber task assigned',
+      message: `${task.title} was assigned to ${task.assignee_name}.`,
+      recipients: await resolveRecipients([authUser.id]),
+      payload: { taskId: task.id },
+      sendEmail: true,
+      ctaLabel: 'Open Chamber Vault',
+      ctaUrl: portalUrl('/advocate/chamber'),
+    });
     sendJson(res, 201, { ok: true, task, syncedAt: new Date().toISOString() });
     return true;
   }
@@ -5797,6 +6573,16 @@ async function handleLocalWorkspaceRoute(req, res, url) {
     }
     task.status = body.status;
     task.updated_at = new Date().toISOString();
+    await notify({
+      eventType: 'chamber_task_status_updated',
+      title: 'Chamber task updated',
+      message: `${task.title} is now ${String(task.status || '').replace(/_/g, ' ')}.`,
+      recipients: await resolveRecipients([authUser.id]),
+      payload: { taskId: task.id, status: task.status },
+      sendEmail: true,
+      ctaLabel: 'Open Chamber Vault',
+      ctaUrl: portalUrl('/advocate/chamber'),
+    });
     sendJson(res, 200, { ok: true, task, syncedAt: task.updated_at });
     return true;
   }
@@ -5922,6 +6708,17 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const token = strictSignJwt(user);
     await saveSessionToken(user, token);
     await writeAuditLog(user, 'jwt_register', 'user', user.id, 'Strict JWT registration completed.', { role, emailMasked: maskEmail(email) });
+    await notify({
+      eventType: 'user_registered',
+      title: 'Welcome to Legal Connect',
+      message: `Your ${role} account is ready. Identity review is pending before full access unlocks.`,
+      recipients: [{ userId: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role }],
+      payload: { role },
+      sendEmail: true,
+      sendSms: false,
+      ctaLabel: 'Open your workspace',
+      ctaUrl: portalUrl(`/${role}`),
+    });
     sendJson(res, 201, { ok: true, token, user: strictPublicUser(user), message: 'Account created. Identity review is pending.' });
     return true;
   }
@@ -6060,7 +6857,18 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const caseId = advocateCaseStatusMatch[1];
     if (!isUuid(caseId) && /^Demo Lawyer$/i.test(String(authUser.name || ''))) {
       const demoMatter = clientWorkspaceDemo(authUser.name)[Number(caseId.split('-').pop() || 1) - 1] || clientWorkspaceDemo(authUser.name)[0];
-      sendJson(res, 200, { ok: true, matter: { ...demoMatter, id: caseId, stage }, syncedAt: new Date().toISOString(), dataMode: 'sample' });
+      const matter = { ...demoMatter, id: caseId, stage };
+      await notify({
+        eventType: 'case_stage_updated',
+        title: 'Case stage updated',
+        message: `${matter.caseTitle || matter.title || 'Your matter'} moved to ${stage}.`,
+        recipients: await resolveRecipients([authUser.id, matter.userId].filter(Boolean)),
+        payload: { caseId, stage },
+        sendEmail: true,
+        ctaLabel: 'Open cases',
+        ctaUrl: portalUrl('/advocate/cases'),
+      });
+      sendJson(res, 200, { ok: true, matter, syncedAt: new Date().toISOString(), dataMode: 'sample' });
       return true;
     }
     const userId = await resolveDatabaseUserId(authUser);
@@ -6082,6 +6890,20 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     await db.query(`INSERT INTO case_updates (case_id, update_type, message, payload)
       VALUES ($1, 'stage_update', $2, $3)`, [caseId, `Matter stage updated to ${stage}.`, JSON.stringify({ stage, actorId: userId })]);
     await writeAuditLog(authUser, 'case_stage_updated', 'case', caseId, `Matter stage updated to ${stage}.`, { stage });
+    {
+      const matter = mapCase(updated.rows[0]);
+      const recipients = await resolveRecipients([matter.userId, userId].filter(Boolean));
+      await notify({
+        eventType: 'case_stage_updated',
+        title: 'Case stage updated',
+        message: `${matter.caseTitle || matter.title || 'Your matter'} moved to ${stage}.`,
+        recipients,
+        payload: { caseId, stage },
+        sendEmail: true,
+        ctaLabel: 'Open case',
+        ctaUrl: portalUrl('/client'),
+      });
+    }
     sendJson(res, 200, { ok: true, matter: enrichWorkspaceCase(mapCase(updated.rows[0])), syncedAt: new Date().toISOString() });
     return true;
   }
@@ -6279,6 +7101,22 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const created = await db.query(`INSERT INTO chamber_members (chamber_id, display_name, email, member_role, status)
       VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamber.id, displayName, email, body.memberRole || 'associate']);
     await writeAuditLog(authUser, 'chamber_member_invited', 'chamber_member', created.rows[0].id, 'A chamber member was invited.', { emailMasked: maskEmail(email) });
+    {
+      const inviteeUsers = await db.query('SELECT id, name, email, phone, role FROM users WHERE lower(email) = lower($1) LIMIT 1', [email]);
+      const invitee = inviteeUsers.rows[0]
+        ? normalizeRecipient(inviteeUsers.rows[0])
+        : { userId: created.rows[0].id, name: displayName, email, phone: null };
+      await notify({
+        eventType: 'chamber_member_invited',
+        title: 'Chamber Vault invitation',
+        message: `${authUser.name || 'An advocate'} invited you to join their Chamber Vault as ${body.memberRole || 'associate'}.`,
+        recipients: [invitee],
+        payload: { chamberId: chamber.id, memberId: created.rows[0].id },
+        sendEmail: true,
+        ctaLabel: 'Open Chamber Vault',
+        ctaUrl: portalUrl('/advocate/chamber'),
+      });
+    }
     sendJson(res, 201, { ok: true, member: created.rows[0] });
     return true;
   }
@@ -6323,6 +7161,26 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       isUuid(body.assignedTo) ? body.assignedTo : null, body.assigneeName || 'Unassigned', body.priority || 'normal', body.dueAt || null, userId,
     ]);
     await writeAuditLog(authUser, 'chamber_task_created', 'chamber_task', created.rows[0].id, 'A chamber task was delegated.', { caseId: body.caseId || null });
+    {
+      const assigneeId = isUuid(body.assignedTo) ? body.assignedTo : null;
+      const recipients = assigneeId
+        ? await resolveRecipients([assigneeId])
+        : [];
+      if (recipients.length || body.assigneeEmail) {
+        await notify({
+          eventType: 'chamber_task_delegated',
+          title: 'Chamber task assigned',
+          message: `${created.rows[0].title} was delegated to ${body.assigneeName || 'you'}.`,
+          recipients: recipients.length
+            ? recipients
+            : [{ userId: created.rows[0].id, name: body.assigneeName || 'Chamber member', email: body.assigneeEmail || null }],
+          payload: { taskId: created.rows[0].id, chamberId: chamber.id },
+          sendEmail: true,
+          ctaLabel: 'Open Chamber Vault',
+          ctaUrl: portalUrl('/advocate/chamber'),
+        });
+      }
+    }
     sendJson(res, 201, { ok: true, task: created.rows[0], syncedAt: new Date().toISOString() });
     return true;
   }
@@ -6348,6 +7206,20 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     if (!updated.rows[0]) {
       sendJson(res, 404, { ok: false, error: 'Task not found.' });
       return true;
+    }
+    {
+      const taskRow = updated.rows[0];
+      const recipients = await resolveRecipients([userId, taskRow.assigned_to].filter(Boolean));
+      await notify({
+        eventType: 'chamber_task_status_updated',
+        title: 'Chamber task updated',
+        message: `${taskRow.title} is now ${status.replace(/_/g, ' ')}.`,
+        recipients,
+        payload: { taskId: taskRow.id, status },
+        sendEmail: true,
+        ctaLabel: 'Open Chamber Vault',
+        ctaUrl: portalUrl('/advocate/chamber'),
+      });
     }
     sendJson(res, 200, { ok: true, task: updated.rows[0], syncedAt: new Date().toISOString() });
     return true;
@@ -6395,6 +7267,25 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const profileTable = { client: 'profile_clients', advocate: 'profile_advocates', intern: 'profile_interns' }[verification.role];
     if (profileTable) await db.query(`UPDATE ${profileTable} SET verification_status = $2, updated_at = now() WHERE user_id = $1`, [verification.user_id, status]);
     await writeAuditLog(authUser, `identity_${status}`, 'identity_verification', verification.id, `Identity verification ${status}.`, { userId: verification.user_id, role: verification.role });
+    {
+      const recipients = await resolveRecipients([verification.user_id]);
+      const approved = status === 'approved';
+      const portalHome = verification.role === 'advocate' ? '/advocate' : verification.role === 'intern' ? '/intern' : '/client';
+      await notify({
+        eventType: approved ? 'identity_approved' : 'identity_rejected',
+        title: approved ? 'Identity verified' : 'Identity verification rejected',
+        message: approved
+          ? 'Your Legal Connect identity verification was approved. You can continue using your workspace.'
+          : `Your identity verification was rejected${body.note ? `: ${String(body.note).slice(0, 180)}` : '.'}`,
+        recipients,
+        payload: { verificationId: verification.id, status, role: verification.role },
+        sendEmail: true,
+        sendSms: true,
+        ctaLabel: approved ? 'Open workspace' : 'Review account',
+        ctaUrl: portalUrl(portalHome),
+        priority: approved ? 'high' : 'urgent',
+      });
+    }
     sendJson(res, 200, { ok: true, verification: { id: verification.id, status, reviewedAt: verification.reviewed_at } });
     return true;
   }

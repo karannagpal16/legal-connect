@@ -92,6 +92,9 @@ const config = {
   playReviewEnabled: optionalString("PLAY_REVIEW_ENABLED", "false").toLowerCase() === "true",
   playReviewEmail: optionalString("PLAY_REVIEW_EMAIL"),
   playReviewCode: optionalString("PLAY_REVIEW_CODE"),
+  twilioAccountSid: optionalString("TWILIO_ACCOUNT_SID"),
+  twilioAuthToken: optionalString("TWILIO_AUTH_TOKEN"),
+  twilioFromNumber: optionalString("TWILIO_FROM_NUMBER"),
 };
 
 if (config.nodeEnv === "production") {
