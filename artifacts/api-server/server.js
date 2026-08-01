@@ -2578,6 +2578,149 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Admin-only hard reset of operational data (cases, bookings, tasks, quests, receipts, etc.).
+  // Keeps the developer/admin account and legal source library. Requires explicit confirmation phrase.
+  if (url.pathname === "/api/admin/reset-operational-data" && req.method === "POST") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const body = await readBody(req);
+    const confirm = String(body.confirm || "").trim();
+    if (confirm !== "RESET_OPERATIONAL_DATA") {
+      sendJson(res, 400, {
+        ok: false,
+        error: 'Send {"confirm":"RESET_OPERATIONAL_DATA"} to wipe operational data.',
+      });
+      return;
+    }
+    const keepEmail = String(body.keepEmail || authUser.email || "karannagpal16@gmail.com").trim().toLowerCase();
+    const removeOtherUsers = body.removeOtherUsers !== false;
+
+    const operationalTables = [
+      "case_update_replies",
+      "case_updates",
+      "case_assignments",
+      "case_documents",
+      "case_communications",
+      "case_fees",
+      "booking_attachments",
+      "chamber_tasks",
+      "chamber_members",
+      "chambers",
+      "bookings",
+      "cases",
+      "payments",
+      "tasks",
+      "task_ratings",
+      "grievances",
+      "engagement_agreements",
+      "reminder_jobs",
+      "lawbot_chats",
+      "lawbot_feedback",
+      "lawbot_queries",
+      "sos_requests",
+      "notifications",
+      "receipts",
+      "intern_quests",
+      "audit_logs",
+      "account_deletion_requests",
+      "identity_verifications",
+      "otp_codes",
+      "login_verifications",
+      "password_reset_tokens",
+      "sessions",
+    ];
+
+    if (!db.dbAvailable) {
+      if (config.nodeEnv === "production") {
+        sendJson(res, 503, { ok: false, error: "Database is unavailable; cannot reset operational data." });
+        return;
+      }
+      demoStore.cases = [];
+      demoStore.bookings = [];
+      demoStore.tasks = [];
+      demoStore.internQuests = [];
+      demoStore.caseUpdates = [];
+      demoStore.sosRequests = [];
+      demoStore.notifications = [];
+      demoStore.receipts = [];
+      demoStore.auditLogs = [];
+      demoStore.verifications = [];
+      demoStore.deletionRequests = [];
+      demoStore.users = (demoStore.users || []).filter((user) => String(user.email || "").toLowerCase() === keepEmail);
+      sendJson(res, 200, {
+        ok: true,
+        mode: "demo",
+        message: "Local demo operational data cleared.",
+        keptEmail: keepEmail,
+        counts: {
+          cases: 0,
+          bookings: 0,
+          tasks: 0,
+          quests: 0,
+          notifications: 0,
+          receipts: 0,
+          users: demoStore.users.length,
+        },
+      });
+      return;
+    }
+
+    const existing = await db.query(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY($1::text[])`,
+      [operationalTables],
+    );
+    const present = existing.rows.map((row) => row.tablename);
+    const before = {};
+    for (const table of present) {
+      const countResult = await db.query(`SELECT count(*)::int AS count FROM ${table}`);
+      before[table] = countResult.rows[0].count;
+    }
+
+    if (present.length) {
+      // Identifiers come from the allow-list above, never from request input.
+      await db.query(`TRUNCATE TABLE ${present.join(", ")} RESTART IDENTITY CASCADE`);
+    }
+
+    let removedUsers = [];
+    if (removeOtherUsers) {
+      const deleted = await db.query(
+        `DELETE FROM users WHERE lower(coalesce(email, '')) <> $1 RETURNING id, email, name, role`,
+        [keepEmail],
+      );
+      removedUsers = deleted.rows;
+    }
+
+    const afterUsers = await db.query("SELECT count(*)::int AS count FROM users");
+    await writeAuditLog(
+      authUser,
+      "operational_data_reset",
+      "system",
+      "all",
+      "Operational data wiped to a fresh zero state.",
+      { keepEmail, removedUsers: removedUsers.map((row) => row.email), before },
+    );
+
+    sendJson(res, 200, {
+      ok: true,
+      mode: "database",
+      message: "Operational data wiped. Platform starts from zero.",
+      keptEmail: keepEmail,
+      removedUsers,
+      truncatedTables: present,
+      before,
+      counts: {
+        users: afterUsers.rows[0].count,
+        cases: 0,
+        bookings: 0,
+        tasks: 0,
+        quests: 0,
+        notifications: 0,
+        receipts: 0,
+      },
+    });
+    return;
+  }
+
   if (url.pathname === "/api/admin/payments/status" && req.method === "GET") {
     const authUser = sourceAdminUser(req, res);
     if (!authUser) return;
