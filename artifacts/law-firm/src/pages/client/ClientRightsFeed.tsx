@@ -52,7 +52,7 @@ const cards: Card[] = [
     hook: "Your landlord must give you 24-hour written notice before entering your home. Surprise inspections are illegal.",
     detail: "Under the Model Tenancy Act, landlords may only enter for maintenance or inspection, must give at least 24 hours' notice, and must visit between 7 AM and 8 PM. If your landlord cuts essential services (water, electricity) to force you out, that is an offence under Section 11 and you can seek an injunction from the Rent Authority.",
     actionLabel: "File Complaint",
-    actionHref: "/client/connect",
+    actionHref: "/client/book",
   },
   {
     id: "dpdp-act",
@@ -64,7 +64,7 @@ const cards: Card[] = [
     hook: "If a company leaks your personal data, you can now claim financial compensation under Indian law. This is new.",
     detail: "The Digital Personal Data Protection Act 2023 gives you the right to: (1) Know what data a company holds about you, (2) Correct wrong data, (3) Withdraw consent at any time, (4) Seek financial penalty against the company for data breaches up to ₹250 crore. File complaints with the Data Protection Board of India. Legal Connect can help you draft a formal demand notice.",
     actionLabel: "Ask LexBot",
-    actionHref: "/client/connect",
+    actionHref: "/client/lawbot",
   },
   {
     id: "consumer-2026",
@@ -100,7 +100,7 @@ const cards: Card[] = [
     hook: "MCD's Sampattikar Niptaan Yojana (Property Tax Amnesty) has been extended. Pay now — 100% interest waiver on pending dues.",
     detail: "The MCD amnesty applies to all residential and commercial properties in West Delhi including Subhash Nagar, Hari Nagar, and Tilak Nagar. Unpaid property tax after the amnesty period attracts 100% interest plus legal action by MCD. Legal Connect can help if you've received an MCD notice. Visit your ward office or pay at mcdonline.nic.in.",
     actionLabel: "Get Help with MCD Notice",
-    actionHref: "/client/connect",
+    actionHref: "/client/book",
     isLocal: true,
   },
   {
@@ -113,7 +113,7 @@ const cards: Card[] = [
     hook: "DDA is acquiring land in West Delhi corridors. If your property is in the acquisition zone, you have 90 days to file objections — don't miss the deadline.",
     detail: "Under the Land Acquisition Act 2013, landowners have a right to object to acquisition and claim fair compensation (up to 4x market value for rural land). Deadline for objections is typically published in the Delhi Gazette. Legal Connect can review your property documents and file a timely objection on your behalf.",
     actionLabel: "File Objection",
-    actionHref: "/client/connect",
+    actionHref: "/client/book",
     isLocal: true,
   },
   {
@@ -126,7 +126,7 @@ const cards: Card[] = [
     hook: "Under RERA, if a builder delays possession, you are entitled to SBI MCLR + 2% interest per annum on your entire deposited amount.",
     detail: "Delhi RERA has received 4,200+ complaints in 2025-26. Steps to claim: (1) Send a legal notice to the builder demanding possession date and compensation. (2) File a complaint at RERA Delhi (rera.delhi.gov.in). (3) If the builder is unresponsive, approach RERA Adjudicating Officer. Legal Connect has handled 30+ RERA cases — contact us for a consultation.",
     actionLabel: "Consult for RERA Claim",
-    actionHref: "/client/connect",
+    actionHref: "/client/book",
   },
 ];
 
@@ -237,11 +237,11 @@ export function ClientRightsFeed() {
         <Sparkles className="w-8 h-8 text-primary flex-shrink-0" />
         <div className="flex-1">
           <p className="text-[#1A2332] font-bold text-sm">Have a specific legal question?</p>
-          <p className="text-[#1A2332]/40 text-xs mt-0.5">Ask LexBot or connect with one of our advocates instantly.</p>
+          <p className="text-[#1A2332]/40 text-xs mt-0.5">Ask LexBot, or submit a supervised intake to Legal Connect.</p>
         </div>
-        <Link href="/client/connect">
+        <Link href="/client/book">
           <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-background text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex-shrink-0">
-            Consult Legal Connect <ArrowRight className="w-3.5 h-3.5" />
+            Submit intake to Legal Connect <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </Link>
       </div>

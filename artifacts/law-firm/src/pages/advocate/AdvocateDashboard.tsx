@@ -249,14 +249,14 @@ export function AdvocateDashboard() {
         <div className="lc-operational-panel">
           <header>
             <div>
-              <span>Client messaging</span>
-              <h2>Encrypted chat & document vault</h2>
+              <span>Supervised messaging</span>
+              <h2>LC-reviewed case updates</h2>
             </div>
-            <Link href="/advocate/chat">Open messages <ArrowRight /></Link>
+            <Link href="/advocate/updates">Post update <ArrowRight /></Link>
           </header>
           <div style={{ padding: 16 }}>
             <p className="lc-inline-empty" style={{ margin: 0 }}>
-              Share strategy notes and review client documents from the advocate chat workspace.
+              Direct client chat is closed. Submit updates to Legal Connect for review before release.
             </p>
           </div>
         </div>

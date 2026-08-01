@@ -563,14 +563,14 @@ export function ClientCaseTracker() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Link href="/client/chat">
+                  <Link href="/client/updates">
                     <button className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary border border-primary/25 py-3 rounded-xl text-sm font-bold transition-all">
-                      <FileText className="w-4 h-4" /> Encrypted Chat with Counsel
+                      <FileText className="w-4 h-4" /> Supervised case updates
                     </button>
                   </Link>
-                  <Link href="/client/connect">
+                  <Link href="/client/chat">
                     <button className="w-full flex items-center justify-center gap-2 bg-[#1A2332]/8 hover:bg-[#1A2332]/12 text-[#1A2332] border border-[#1A2332]/10 py-3 rounded-xl text-sm font-bold transition-all">
-                      <Phone className="w-4 h-4" /> Instant SOS Video Call
+                      <Phone className="w-4 h-4" /> Message Legal Connect
                     </button>
                   </Link>
                   <button 
