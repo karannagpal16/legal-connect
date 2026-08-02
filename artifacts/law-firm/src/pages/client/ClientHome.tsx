@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowRight,
+  BookOpenText,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -25,12 +26,17 @@ import { useAuth } from "@/lib/auth";
 import { CounselIntake, type ConsultationChannel } from "@/components/client/CounselIntake";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { SupervisedPipelineStrip } from "@/components/SupervisedPipelineStrip";
+import { CaseProgressStepper } from "@/components/client/CaseProgressStepper";
+import { LegalDictionaryModal } from "@/components/client/LegalDictionaryModal";
+import { LegalTerm } from "@/components/ui/LegalTerm";
+import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
 import {
   dailyQuote,
   greetingFor,
   workspaceRequest,
   type WorkspaceCase,
 } from "@/lib/workspace";
+import { onNotificationAction } from "@/lib/notificationBus";
 
 interface ClientWorkspace {
   ok: boolean;
@@ -63,6 +69,9 @@ export function ClientHome() {
   const [noticeIndex, setNoticeIndex] = useState(0);
   const [downloadingId, setDownloadingId] = useState("");
   const [booking, setBooking] = useState<{ open: boolean; channel: ConsultationChannel; caseId?: string; caseTitle?: string }>({ open: false, channel: "call" });
+  const [dictionaryOpen, setDictionaryOpen] = useState(false);
+  const [dictionaryQuery, setDictionaryQuery] = useState("");
+  const [highlightPulse, setHighlightPulse] = useState(false);
   const quote = dailyQuote();
   const query = useQuery({
     queryKey: ["client-workspace", session?.user.id],
@@ -75,6 +84,66 @@ export function ClientHome() {
   useEffect(() => {
     if (!selectedCaseId && cases[0]) setSelectedCaseId(cases[0].id);
   }, [cases, selectedCaseId]);
+
+  const applyDeepLink = (opts: {
+    caseId?: string | null;
+    tab?: string | null;
+    action?: string | null;
+  }) => {
+    if (opts.caseId && cases.some((matter) => matter.id === opts.caseId)) {
+      setSelectedCaseId(opts.caseId);
+    }
+    const nextTab = String(opts.tab || "").toLowerCase();
+    if (nextTab === "documents" || nextTab === "communications" || nextTab === "payments" || nextTab === "overview") {
+      setTab(nextTab as MatterTab);
+    }
+    const action = String(opts.action || "").toLowerCase();
+    if (action === "pay") {
+      const matter = cases.find((item) => item.id === (opts.caseId || selectedCaseId)) || cases[0];
+      openBooking("call", matter);
+    }
+    if (action === "upload" || action === "chat" || action === "hearing" || action === "highlight" || nextTab) {
+      window.setTimeout(() => document.getElementById("client-matters")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
+    }
+    if (action === "highlight" || action === "hearing") {
+      setHighlightPulse(true);
+      window.setTimeout(() => setHighlightPulse(false), 2600);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !cases.length) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("caseId") && !params.get("tab") && !params.get("action")) return;
+    applyDeepLink({
+      caseId: params.get("caseId"),
+      tab: params.get("tab"),
+      action: params.get("action"),
+    });
+    // Strip query after consuming so refresh doesn't re-open modals.
+    const cleanUrl = `${window.location.pathname}`;
+    window.history.replaceState({}, "", cleanUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cases.length]);
+
+  useEffect(() => onNotificationAction((detail) => {
+    const { resolved } = detail;
+    applyDeepLink({
+      caseId: resolved.actionPayload.caseId,
+      tab: resolved.actionPayload.tab
+        || (resolved.actionType === "PAYMENT_REQUIRED" ? "payments"
+          : resolved.actionType === "DOCUMENT_REQUIRED" ? "documents"
+            : resolved.actionType === "LAWYER_ASSIGNED" || resolved.actionType === "CHAT_MESSAGE" ? "communications"
+              : "overview"),
+      action: resolved.actionType === "PAYMENT_REQUIRED" ? "pay"
+        : resolved.actionType === "DOCUMENT_REQUIRED" ? "upload"
+          : resolved.actionType === "CASE_UPDATE" ? "highlight"
+            : resolved.actionType === "HEARING_REMINDER" ? "hearing"
+              : resolved.actionType === "LAWYER_ASSIGNED" || resolved.actionType === "CHAT_MESSAGE" ? "chat"
+                : null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [cases, selectedCaseId]);
 
   const selectedCase = useMemo(
     () => cases.find((matter) => matter.id === selectedCaseId) || cases[0],
@@ -129,7 +198,7 @@ export function ClientHome() {
     }
   };
 
-  if (query.isLoading || (query.isFetching && !query.data)) {
+  if (query.isLoading) {
     return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Preparing your private case workspace...</p></div>;
   }
 
@@ -143,14 +212,84 @@ export function ClientHome() {
     );
   }
 
+  const firstDue = cases.flatMap((matter) => (matter.fees || []).map((fee) => ({ matter, fee }))).find(({ fee }) => fee.status === "due");
+  const heroAction = pickHeroAction([
+    selectedCase?.appearanceRequired
+      ? {
+          tone: "urgent" as const,
+          kicker: "Urgent action required",
+          title: `Court appearance on ${formatDate(selectedCase.nextDate)}`,
+          detail: selectedCase.costRisk || "Confirm attendance with assigned counsel before the hearing date.",
+          ctaLabel: "Open matter desk",
+          onClick: () => focusMatter(selectedCase.id),
+          icon: AlertTriangle,
+        }
+      : null,
+    firstDue
+      ? {
+          tone: "urgent" as const,
+          kicker: "Payment pending",
+          title: `${firstDue.fee.label} · ₹${firstDue.fee.amount.toLocaleString("en-IN")}`,
+          detail: `${firstDue.matter.caseTitle} · due ${formatDate(firstDue.fee.dueDate)}`,
+          ctaLabel: `Pay ₹${firstDue.fee.amount.toLocaleString("en-IN")} now`,
+          onClick: () => focusMatter(firstDue.matter.id, "payments"),
+          icon: IndianRupee,
+        }
+      : null,
+    query.data?.profile?.verificationStatus && !["approved", "verified"].includes(query.data.profile.verificationStatus)
+      ? {
+          tone: "action" as const,
+          kicker: "Action needed",
+          title: "Complete identity verification",
+          detail: "Upload Aadhaar / voter ID proof so Legal Connect can keep your matter moving.",
+          ctaLabel: "Check verification status",
+          href: "/client",
+          icon: ShieldCheck,
+        }
+      : null,
+    selectedCase
+      ? {
+          tone: "clear" as const,
+          kicker: "All clear",
+          title: selectedCase.nextAction || "Your matter is on track",
+          detail: `${selectedCase.caseTitle}${selectedCase.nextDate ? ` · Next date ${formatDate(selectedCase.nextDate)}` : ""}`,
+          ctaLabel: "View case file",
+          onClick: () => focusMatter(selectedCase.id),
+          icon: CheckCircle2,
+        }
+      : {
+          tone: "action" as const,
+          kicker: "Start here",
+          title: "No matter yet — book verified counsel",
+          detail: "Tell us what happened. Legal Connect reviews your intake and assigns suitable counsel.",
+          ctaLabel: "Book a counsel",
+          onClick: () => openBooking(),
+          icon: Gavel,
+        },
+  ]);
+
   return (
     <div className="lc-workspace-page">
+      <HeroActionBanner action={heroAction} />
+
       <section className="lc-command-hero">
         <div className="lc-command-intro">
           <span className="lc-kicker">CLIENT COMMAND CENTRE</span>
           <h2>{greetingFor()}, {name}.</h2>
-          <p>{cases.length ? `${cases.length} matters · ${upcoming} upcoming dates · ${dueFees.length} payment dues` : "Tell us what happened and we will assign verified counsel."}</p>
-          <button className="lc-button lc-button-primary" onClick={() => openBooking()}><Gavel /> Book a counsel <ArrowRight /></button>
+          <p>
+            {cases.length
+              ? `${cases.length} matters · ${upcoming} upcoming dates · ${dueFees.length} payment dues`
+              : <>Tell us what happened and we will assign verified counsel after <LegalTerm term="LC Review" onOpenDictionary={(term) => { setDictionaryQuery(term); setDictionaryOpen(true); }}>LC Review</LegalTerm>.</>}
+          </p>
+          <div className="lc-hero-button-row">
+            <button className="lc-button lc-button-primary" onClick={() => openBooking()}><Gavel /> Book a counsel <ArrowRight /></button>
+            <button
+              className="lc-button"
+              onClick={() => { setDictionaryQuery(""); setDictionaryOpen(true); }}
+            >
+              <BookOpenText /> Legal Terms Dictionary
+            </button>
+          </div>
         </div>
         <div className={`lc-live-notice tone-${notices[noticeIndex]?.tone || "navy"}`} aria-live="polite">
           <AnimatePresence mode="wait">
@@ -207,7 +346,7 @@ export function ClientHome() {
           </aside>
 
           {selectedCase && (
-            <div className="lc-matter-detail">
+            <div className={`lc-matter-detail ${highlightPulse ? "lc-matter-highlight" : ""}`}>
               <header className="lc-matter-heading">
                 <div>
                   <span>{selectedCase.courtName}</span>
@@ -218,6 +357,7 @@ export function ClientHome() {
               </header>
 
               <SupervisedPipelineStrip pipeline={selectedCase.pipeline} />
+              <CaseProgressStepper pipeline={selectedCase.pipeline} nextAction={selectedCase.nextAction} />
 
               <div className="lc-stage-strip">
                 <span><small>Pipeline stage</small><strong>{selectedCase.pipeline?.stageLabel || selectedCase.stage}</strong></span>
@@ -232,7 +372,15 @@ export function ClientHome() {
               {selectedCase.appearanceRequired && (
                 <div className="lc-appearance-alert">
                   <AlertTriangle />
-                  <div><strong>Your presence is required on the NDOH</strong><p>{selectedCase.costRisk || "Please coordinate with assigned counsel before the hearing."}</p></div>
+                  <div>
+                    <strong>
+                      Your presence is required on the{" "}
+                      <LegalTerm term="NDOH (Next Date of Hearing)" onOpenDictionary={(term) => { setDictionaryQuery(term); setDictionaryOpen(true); }}>
+                        NDOH
+                      </LegalTerm>
+                    </strong>
+                    <p>{selectedCase.costRisk || "Please coordinate with assigned counsel before the hearing."}</p>
+                  </div>
                 </div>
               )}
 
@@ -369,6 +517,22 @@ export function ClientHome() {
           </div>
         )}
       </AnimatePresence>
+
+      <button
+        type="button"
+        className="lc-dict-fab"
+        aria-label="Open Legal Terms Dictionary"
+        onClick={() => { setDictionaryQuery(""); setDictionaryOpen(true); }}
+      >
+        <BookOpenText />
+        <span>Legal Terms</span>
+      </button>
+
+      <LegalDictionaryModal
+        open={dictionaryOpen}
+        initialQuery={dictionaryQuery}
+        onClose={() => setDictionaryOpen(false)}
+      />
     </div>
   );
 }

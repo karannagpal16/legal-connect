@@ -25,6 +25,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { asArray, caseCourt, caseNumber, caseTitle, objectNumber } from "@/lib/data";
 import { DashboardIntro, DashboardPanel, EmptyState, MetricCard, StatusPill } from "@/components/dashboard/DashboardParts";
+import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
 import { workspaceRequest } from "@/lib/workspace";
 
 type VerificationRow = {
@@ -75,13 +76,59 @@ export function Dashboard() {
   const advocates = userList.filter((item) => String((item as { role?: string }).role || "").toLowerCase() === "advocate");
   const escrowHeld = objectNumber(analytics, "totalManagedRevenue") || objectNumber(analytics, "escrowHeld") || pendingBookings.length * 500;
 
+  const heroAction = pickHeroAction([
+    pendingBookings.length
+      ? {
+          tone: "urgent" as const,
+          kicker: "Unassigned intakes",
+          title: `${pendingBookings.length} booking${pendingBookings.length === 1 ? "" : "s"} need counsel assignment`,
+          detail: "Open the intake desk and assign a Bar-verified advocate by live workload.",
+          ctaLabel: "Assign now",
+          href: "/admin/control",
+          icon: Gavel,
+        }
+      : null,
+    pendingVerifications.length
+      ? {
+          tone: "action" as const,
+          kicker: "Credential review",
+          title: `${pendingVerifications.length} identity verification${pendingVerifications.length === 1 ? "" : "s"} pending`,
+          detail: "Approve or reject masked KYC records before users unlock full access.",
+          ctaLabel: "Review verifications",
+          href: "/admin/verifications",
+          icon: ShieldCheck,
+        }
+      : null,
+    openTasks.length
+      ? {
+          tone: "action" as const,
+          kicker: "Proxy desk",
+          title: `${openTasks.length} proxy mission${openTasks.length === 1 ? "" : "s"} need admin action`,
+          detail: "Assign proxy counsel, approve proof, or release work holds.",
+          ctaLabel: "Open missions",
+          href: "/admin/missions",
+          icon: BriefcaseBusiness,
+        }
+      : null,
+    {
+      tone: "clear" as const,
+      kicker: "Platform clear",
+      title: "No blocking admin queue items right now",
+      detail: `${activeCases.length} active cases · ${advocates.length} advocates on panel.`,
+      ctaLabel: "Open ops desk",
+      href: "/admin/control",
+      icon: Scale,
+    },
+  ]);
+
   return (
     <div className="lc-dashboard-stack">
+      <HeroActionBanner action={heroAction} />
       <DashboardIntro
         eyebrow="MASTER OPERATIONS CONTROL"
         title={`Platform command for ${firstName}.`}
         description="Assign counsel, update clients as Legal Connect supervisor, and control tasks and escrow from one desk."
-        action={{ label: "Open intake desk", href: "/admin/control", icon: Gavel }}
+        action={{ label: "Open Ops Command", href: "/admin/control", icon: Gavel }}
       />
 
       <div className="lc-metric-grid lc-metric-grid-four">
@@ -102,7 +149,7 @@ export function Dashboard() {
         <DashboardPanel
           title="Client intake & lawyer assignment"
           detail="Paid and pending bookings ready for counsel allocation"
-          action={{ label: "Open intake desk", href: "/admin/control" }}
+          action={{ label: "Open Ops Command", href: "/admin/control" }}
         >
           {pendingBookings.length ? (
             <div className="lc-data-list">
