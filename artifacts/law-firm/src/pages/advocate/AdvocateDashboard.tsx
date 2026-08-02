@@ -15,6 +15,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { dailyQuote, greetingFor, workspaceRequest, type WorkspaceCase } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
+import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
 
 interface ChamberTask {
   id: string;
@@ -90,9 +91,47 @@ export function AdvocateDashboard() {
   if (query.isError) return <section className="lc-workspace-error"><AlertTriangle /><div><h2>Practice workspace unavailable</h2><p>{query.error.message}</p></div><button className="lc-button lc-button-primary" onClick={() => query.refetch()}><RefreshCw /> Retry</button></section>;
 
   const name = query.data?.profile.name || session?.user.name || "Counsel";
+  const pendingAccept = (query.data?.paidIntakes || []).filter((item) => {
+    const status = String(item.intakeStatus || item.stageStatus || "").toLowerCase();
+    return status.includes("assigned") && !status.includes("accepted");
+  });
+  const heroAction = pickHeroAction([
+    pendingAccept[0]
+      ? {
+          tone: "urgent" as const,
+          kicker: "Urgent action required",
+          title: `Accept intake · ${pendingAccept[0].clientName}`,
+          detail: `${pendingAccept[0].legalIssueType || "Counsel request"} is waiting for your acceptance under LC supervision.`,
+          ctaLabel: "Review paid intakes",
+          href: "/advocate#paid-intakes",
+          icon: Clock3,
+        }
+      : null,
+    openTasks[0]
+      ? {
+          tone: "action" as const,
+          kicker: "Action needed",
+          title: `Chamber task · ${openTasks[0].title}`,
+          detail: `Assigned to ${openTasks[0].assignee_name || "chamber"} · priority ${openTasks[0].priority || "normal"}`,
+          ctaLabel: "Open Chamber Vault",
+          href: "/advocate/chamber",
+          icon: UsersRound,
+        }
+      : null,
+    {
+      tone: "clear" as const,
+      kicker: "Practice status",
+      title: `${activeCases.length} active matters · ${upcoming} listed hearings`,
+      detail: "Sync stages and reply to LC-reviewed client updates from this desk.",
+      ctaLabel: "Open my cases",
+      href: "/advocate/cases",
+      icon: BriefcaseBusiness,
+    },
+  ]);
 
   return (
     <div className="lc-workspace-page">
+      <HeroActionBanner action={heroAction} />
       <section className="lc-command-hero lc-advocate-command">
         <div>
           <span className="lc-kicker">ADVOCATE PRACTICE DESK</span>

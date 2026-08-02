@@ -17,6 +17,7 @@ const {
   slaClock,
   INTAKE_SLA_MS,
 } = require("./supervised-pipeline");
+const { LEGAL_DICTIONARY, searchLegalDictionary } = require("./legal-dictionary-data");
 
 const platformEvents = createPlatformEvents({ db, config });
 const supervisedPipeline = createSupervisedPipeline({ db });
@@ -1510,10 +1511,64 @@ function mapUser(row) {
   };
 }
 
+function inferNotificationAction(eventType, payload = {}, ctaUrl = null) {
+  const event = String(eventType || "").toLowerCase();
+  const fromPayload = payload && typeof payload === "object" ? payload : {};
+  if (fromPayload.actionType) {
+    return {
+      actionType: fromPayload.actionType,
+      targetUrl: fromPayload.targetUrl || ctaUrl || null,
+      actionPayload: fromPayload.actionPayload || {
+        caseId: fromPayload.caseId || fromPayload.matterId || null,
+        bookingId: fromPayload.bookingId || fromPayload.intakeId || null,
+        amount: fromPayload.amount || null,
+        lawyerId: fromPayload.lawyerId || fromPayload.advocateId || fromPayload.assignedAdvocateId || null,
+        lawyerName: fromPayload.lawyerName || fromPayload.advocateName || fromPayload.assignedAdvocateName || null,
+        docType: fromPayload.docType || fromPayload.documentType || null,
+        taskId: fromPayload.taskId || null,
+        questId: fromPayload.questId || null,
+      },
+    };
+  }
+  const table = {
+    case_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client" },
+    booking_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client" },
+    intake_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/advocate" },
+    intake_info_requested: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/client" },
+    intake_guidance: { actionType: "CASE_UPDATE", targetUrl: "/client/updates" },
+    lc_supervisor_update: { actionType: "CASE_UPDATE", targetUrl: "/client/updates" },
+    case_update_approved: { actionType: "CASE_UPDATE", targetUrl: "/client/updates" },
+    payment_due: { actionType: "PAYMENT_REQUIRED", targetUrl: "/client/book" },
+    payment_failed: { actionType: "PAYMENT_REQUIRED", targetUrl: "/client/book" },
+    hearing_scheduled: { actionType: "HEARING_REMINDER", targetUrl: "/client" },
+    clash_warning: { actionType: "HEARING_REMINDER", targetUrl: "/advocate/diary" },
+    quest_assigned: { actionType: "QUEST_ACTION", targetUrl: "/intern/quests" },
+    quest_completed: { actionType: "QUEST_ACTION", targetUrl: "/intern/quests" },
+    proxy_proof_needed: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/advocate/proxy" },
+    verification_pending: { actionType: "KYC_VERIFICATION", targetUrl: "/admin/verifications" },
+  };
+  const mapped = table[event] || { actionType: "GENERIC_NAV", targetUrl: ctaUrl || null };
+  return {
+    actionType: mapped.actionType,
+    targetUrl: fromPayload.targetUrl || mapped.targetUrl || ctaUrl || null,
+    actionPayload: {
+      caseId: fromPayload.caseId || fromPayload.matterId || null,
+      bookingId: fromPayload.bookingId || fromPayload.intakeId || null,
+      amount: fromPayload.amount || null,
+      lawyerId: fromPayload.lawyerId || fromPayload.advocateId || fromPayload.assignedAdvocateId || null,
+      lawyerName: fromPayload.lawyerName || fromPayload.advocateName || fromPayload.assignedAdvocateName || null,
+      docType: fromPayload.docType || fromPayload.documentType || null,
+      taskId: fromPayload.taskId || null,
+      questId: fromPayload.questId || null,
+    },
+  };
+}
+
 function mapNotification(row) {
   const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
     ? row.payload
     : {};
+  const action = inferNotificationAction(row.event_type ?? row.eventType, payload, payload.targetUrl || null);
   return {
     id: row.id,
     userId: row.user_id ?? row.userId ?? null,
@@ -1524,6 +1579,9 @@ function mapNotification(row) {
     priority: row.priority || "normal",
     channelLog: row.channel_log || row.channelLog || {},
     payload,
+    actionType: action.actionType,
+    targetUrl: action.targetUrl,
+    actionPayload: action.actionPayload,
     createdAt: row.created_at ?? row.createdAt ?? null,
   };
 }
@@ -1811,6 +1869,13 @@ async function notify({
   const list = (recipients || []).map(normalizeRecipient).filter(Boolean);
   if (!list.length) return channelLog;
   const finalCtaUrl = ctaUrl || portalUrl("/");
+  const actionMeta = inferNotificationAction(eventType, payload, finalCtaUrl);
+  const enrichedPayload = {
+    ...(payload && typeof payload === "object" ? payload : {}),
+    actionType: (payload && payload.actionType) || actionMeta.actionType,
+    targetUrl: (payload && payload.targetUrl) || actionMeta.targetUrl || finalCtaUrl,
+    actionPayload: (payload && payload.actionPayload) || actionMeta.actionPayload,
+  };
   const jobs = [];
 
   for (const recipient of list) {
@@ -1821,7 +1886,7 @@ async function notify({
         eventType,
         title,
         message,
-        payload,
+        payload: enrichedPayload,
         priority,
         channelLog: { inApp: "delivered" },
         createdAt: new Date().toISOString(),
@@ -1837,7 +1902,7 @@ async function notify({
               eventType,
               title,
               message,
-              JSON.stringify(payload || {}),
+              JSON.stringify(enrichedPayload || {}),
               priority || "normal",
               JSON.stringify({ inApp: "delivered" }),
             ],
@@ -5002,6 +5067,20 @@ const server = http.createServer(async (req, res) => {
       mode: emailSent ? "resend" : "demo",
       status: emailSent ? "sent" : "queued",
       channel_log: channelLog,
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/legal-dictionary" && req.method === "GET") {
+    const q = String(url.searchParams.get("q") || url.searchParams.get("query") || "");
+    const category = String(url.searchParams.get("category") || "all");
+    const terms = searchLegalDictionary(q, category);
+    sendJson(res, 200, {
+      ok: true,
+      count: terms.length,
+      total: LEGAL_DICTIONARY.length,
+      categories: ["all", "court_process", "documents", "money_fees", "rights_protections", "criminal", "civil_family"],
+      terms,
     });
     return;
   }

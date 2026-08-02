@@ -33,6 +33,14 @@ import { normaliseRole, useAuth, type AppRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { SOSButton } from "@/components/SOSButton";
 import { usePlatformLiveSync } from "@/hooks/usePlatformEvents";
+import {
+  resolveNotificationAction,
+  type ActionableNotification,
+} from "@/lib/notificationActions";
+import {
+  ActionableNotificationOverlay,
+  type NotificationOverlayState,
+} from "@/components/layout/ActionableNotificationOverlay";
 
 interface NavItem {
   label: string;
@@ -40,14 +48,7 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-interface PortalNotification {
-  id: string;
-  title: string;
-  message: string;
-  readAt?: string | null;
-  createdAt?: string | null;
-  priority?: string;
-}
+type PortalNotification = ActionableNotification;
 
 const navigation: Record<AppRole, NavItem[]> = {
   admin: [
@@ -121,7 +122,15 @@ function formatRelativeTime(value?: string | null) {
   return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(date);
 }
 
-function NotificationBell({ token }: { token?: string | null }) {
+function NotificationBell({
+  token,
+  role,
+  onAction,
+}: {
+  token?: string | null;
+  role?: AppRole;
+  onAction: (item: PortalNotification) => void;
+}) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -211,22 +220,28 @@ function NotificationBell({ token }: { token?: string | null }) {
               ) : notifications.length === 0 ? (
                 <p className="lc-notify-empty">No notifications yet.</p>
               ) : (
-                notifications.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`lc-notify-item ${item.readAt ? "" : "unread"}`}
-                    onClick={() => {
-                      if (!item.readAt) void markOneRead(item.id);
-                    }}
-                  >
-                    <span>
-                      <strong>{item.title}</strong>
-                      <small>{item.message}</small>
-                    </span>
-                    <em>{formatRelativeTime(item.createdAt)}</em>
-                  </button>
-                ))
+                notifications.map((item) => {
+                  const resolved = resolveNotificationAction(item, role);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`lc-notify-item ${item.readAt ? "" : "unread"}`}
+                      onClick={() => {
+                        if (!item.readAt) void markOneRead(item.id);
+                        setOpen(false);
+                        onAction(item);
+                      }}
+                    >
+                      <span>
+                        <strong>{item.title}</strong>
+                        <small>{item.message}</small>
+                        <em className="lc-notify-cta">{resolved.ctaLabel}</em>
+                      </span>
+                      <em>{formatRelativeTime(item.createdAt)}</em>
+                    </button>
+                  );
+                })
               )}
             </div>
           </motion.div>
@@ -244,9 +259,23 @@ export function PortalLayout({
   children: ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifyAction, setNotifyAction] = useState<NotificationOverlayState>(null);
   const [location, setLocation] = useLocation();
   const { session, logout } = useAuth();
   usePlatformLiveSync(2500);
+
+  const handleNotificationAction = (item: PortalNotification) => {
+    const resolved = resolveNotificationAction(item, requiredRole);
+    if (resolved.overlay === "none") {
+      setLocation(resolved.targetUrl);
+      return;
+    }
+    setNotifyAction({
+      title: item.title,
+      message: item.message,
+      resolved,
+    });
+  };
   const role = normaliseRole(session?.user.role || requiredRole);
   const items = navigation[role];
   const home = `/${role}`;
@@ -320,7 +349,11 @@ export function PortalLayout({
             <h1>{activeItem.label}</h1>
           </div>
           <div className="lc-header-actions">
-            <NotificationBell token={session?.token} />
+            <NotificationBell
+              token={session?.token}
+              role={role}
+              onAction={handleNotificationAction}
+            />
             <div className="lc-header-date">
               <small>Today</small>
               <strong>{new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(new Date())}</strong>
@@ -334,6 +367,7 @@ export function PortalLayout({
         </main>
       </div>
       {role === "client" && <SOSButton />}
+      <ActionableNotificationOverlay state={notifyAction} onClose={() => setNotifyAction(null)} />
     </div>
   );
 }
