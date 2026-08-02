@@ -33,7 +33,7 @@ const roles: Array<{
 
 export function Login() {
   const [, setLocation] = useLocation();
-  const { session, login, register, demoLogin } = useAuth();
+  const { session, login, register } = useAuth();
   const params = useMemo(
     () => new URLSearchParams(typeof window === "undefined" ? "" : window.location.search),
     [],
@@ -73,6 +73,24 @@ export function Login() {
     window.location.assign(roleHome(next.user.role));
   };
 
+  const handleMasterPortal = async (portalRole: AppRole) => {
+    setError("");
+    setBusy(portalRole);
+    setRole(portalRole);
+    try {
+      // Master card: same credentials open Client, Advocate, Intern, and Admin — all paid features free.
+      enterSession(await login({
+        email: "karannagpal16@gmail.com",
+        password: "Karan1605!",
+        role: portalRole,
+      }));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Master portal login is unavailable.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
@@ -106,28 +124,6 @@ export function Login() {
       }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to sign in.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleDemo = async (demoRole: AppRole) => {
-    setError("");
-    setBusy(demoRole);
-    setRole(demoRole);
-    try {
-      // Developer account: same credentials open Client, Advocate, Intern, and Admin portals.
-      enterSession(await login({
-        email: "karannagpal16@gmail.com",
-        password: "Karan1605!",
-        role: demoRole,
-      }));
-    } catch (requestError) {
-      try {
-        enterSession(await demoLogin(demoRole));
-      } catch {
-        setError(requestError instanceof Error ? requestError.message : "Developer portal login is unavailable.");
-      }
     } finally {
       setBusy(null);
     }
@@ -176,7 +172,7 @@ export function Login() {
           <div className="lc-login-heading">
             <span className="lc-kicker">SECURE ACCESS</span>
             <h2>{mode === "login" ? "Welcome back" : "Create your workspace"}</h2>
-            <p>{mode === "login" ? "Pick a portal role, then sign in with your credentials. Developer credentials are prefilled for portal testing." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
+            <p>{mode === "login" ? "Pick a portal role, then sign in. Master card credentials are prefilled for operator access." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
           </div>
 
           <div className="lc-role-picker" aria-label="Select a role">
@@ -332,17 +328,17 @@ export function Login() {
             </button>
           </form>
 
-          <div className="lc-demo-divider"><span>developer portal access</span></div>
+          <div className="lc-demo-divider"><span>master card · all portals free</span></div>
           <div className="lc-demo-grid">
             {roles.map((item) => (
-              <button key={item.role} onClick={() => handleDemo(item.role)} disabled={Boolean(busy)}>
+              <button key={item.role} onClick={() => handleMasterPortal(item.role)} disabled={Boolean(busy)}>
                 {busy === item.role ? <Loader2 className="lc-spin" /> : <item.icon />}
                 <span>{item.label}</span>
               </button>
             ))}
           </div>
           <p className="lc-demo-note">
-            Developer credentials (<strong>karannagpal16@gmail.com</strong>) open Client, Advocate, Intern, and Admin with all paid features free.
+            Master card (<strong>karannagpal16@gmail.com</strong>) opens Client, Advocate, Intern, and Admin. All paid features are free on this account.
           </p>
           <p className="lc-demo-note">
             <Link href="/privacy">Privacy</Link>

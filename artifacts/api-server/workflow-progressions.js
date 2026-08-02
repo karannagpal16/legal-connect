@@ -558,7 +558,6 @@ function createWorkflowProgressions(deps) {
           concludedBy: authUser.id,
           conclusionNote: note,
           work_hold_status: "released",
-          ratingUnlocked: true,
           intakeStatus: "matter_concluded",
         }, "matter_concluded");
         if (db.dbAvailable) {
@@ -573,7 +572,7 @@ function createWorkflowProgressions(deps) {
           if (linked.rows[0]) {
             await db.query(
               `UPDATE cases SET status = 'Closed', payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb, updated_at = now() WHERE id = $1`,
-              [linked.rows[0].id, JSON.stringify({ stage: "matter_concluded", pipelineStage: "matter_concluded", ratingUnlocked: true, conclusionNote: note })],
+              [linked.rows[0].id, JSON.stringify({ stage: "matter_concluded", pipelineStage: "matter_concluded", conclusionNote: note })],
             ).catch(() => undefined);
           }
         }
@@ -581,15 +580,15 @@ function createWorkflowProgressions(deps) {
         await notify({
           eventType: "intake_concluded",
           title: "Matter concluded",
-          message: `${note} Escrow released and rating unlocked.`,
+          message: `${note} Work hold released. Settlement (if any) is handled manually by Legal Connect Admin.`,
           recipients: await resolveRecipients([
             intake.userId || intake.user_id,
             intake.assignedAdvocateId,
           ].filter(Boolean)),
           payload: { intakeId, intakeStatus: "matter_concluded", bookingId: intakeId },
           sendEmail: true,
-          sendSms: true,
-          ctaLabel: "Rate counsel",
+          sendSms: false,
+          ctaLabel: "View matter",
           ctaUrl: portalUrl("/client"),
           priority: "high",
         });

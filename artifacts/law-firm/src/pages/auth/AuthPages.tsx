@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, BadgeCheck, CheckCircle2, FileText, Lock, Mail, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CheckCircle2, FileText, Lock, Mail, ShieldCheck, UserRound } from "lucide-react";
 import { createDemoUser, getPortalForRole, getPostLoginRoute, getStoredSession, isRoleAllowedForPortal, normaliseApiUser, portalCopy, setStoredSession } from "@/lib/authFlow";
 import type { Portal } from "@/lib/authFlow";
 
@@ -23,8 +23,8 @@ export function PortalLogin({ portal }: { portal: Portal }) {
   const [, navigate] = useLocation();
   const copy = portalCopy[portal];
   const [mode, setMode] = useState<"otp" | "password">("otp");
-  const [status, setStatus] = useState("Ready for secure sign in");
-  const [name, setName] = useState("Legal Connect User");
+  const [status, setStatus] = useState("Ready for secure email OTP sign in");
+  const [name, setName] = useState("Karan Nagpal");
   const [email, setEmail] = useState("karannagpal16@gmail.com");
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("Karan1605!");
@@ -48,8 +48,8 @@ export function PortalLogin({ portal }: { portal: Portal }) {
   async function requestOtp() {
     setLoading(true);
     try {
-      const result = await apiRequest("/api/auth/request-code", { email, phone: mobile });
-      setStatus(result.devCode ? `Development OTP: ${result.devCode}` : `OTP sent to ${result.destinationMasked || "your contact"}.`);
+      const result = await apiRequest("/api/auth/request-code", { email });
+      setStatus(result.devCode ? `Development OTP: ${result.devCode}` : `OTP sent to ${result.destinationMasked || "your email"}.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not send OTP.");
     } finally {
@@ -60,9 +60,9 @@ export function PortalLogin({ portal }: { portal: Portal }) {
   async function verifyOtp() {
     setLoading(true);
     try {
-      await apiRequest("/api/auth/verify-code", { email, phone: mobile, code: otp });
+      await apiRequest("/api/auth/verify-code", { email, code: otp });
       setOtpVerified(true);
-      setStatus("OTP verified. Continue to open your private dashboard.");
+      setStatus("Email OTP verified. Continue to open your private dashboard.");
     } catch (error) {
       setOtpVerified(false);
       setStatus(error instanceof Error ? error.message : "OTP could not be verified.");
@@ -123,7 +123,7 @@ export function PortalLogin({ portal }: { portal: Portal }) {
 
         <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-[#CDA45E24] bg-[#08111F] p-1">
           <button type="button" onClick={() => setMode("otp")} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === "otp" ? "bg-[#CDA45E] text-[#08111F] shadow-sm" : "text-[#C9BEA8]"}`}>
-            Mobile OTP
+            Email OTP
           </button>
           <button type="button" onClick={() => setMode("password")} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === "password" ? "bg-[#CDA45E] text-[#08111F] shadow-sm" : "text-[#C9BEA8]"}`}>
             Email Password
@@ -141,23 +141,23 @@ export function PortalLogin({ portal }: { portal: Portal }) {
           )}
           <label className="block">
             <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#C9BEA8]">
-              {mode === "otp" ? <Phone className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
-              {mode === "otp" ? "Mobile Number" : "Email Address"}
+              <Mail className="h-3.5 w-3.5" /> Email Address
             </span>
-            <input className={input} value={mode === "otp" ? mobile : email} onChange={(event) => mode === "otp" ? setMobile(event.target.value) : setEmail(event.target.value)} placeholder={mode === "otp" ? "+91 98765 43210" : "you@example.com"} />
+            <input className={input} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" type="email" required />
           </label>
           <label className="block">
             <span className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#C9BEA8]">
-              <Lock className="h-3.5 w-3.5" /> {mode === "otp" ? "OTP" : "Password"}
+              <Lock className="h-3.5 w-3.5" /> {mode === "otp" ? "Email OTP" : "Password"}
             </span>
             <input className={input} value={mode === "otp" ? otp : password} onChange={(event) => mode === "otp" ? setOtp(event.target.value) : setPassword(event.target.value)} type={mode === "otp" ? "text" : "password"} placeholder={mode === "otp" ? "Enter 6 digit OTP" : "Enter password"} />
           </label>
           {mode === "otp" && (
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={requestOtp} disabled={loading} className={ghostButton}>Send OTP</button>
-              <button type="button" onClick={verifyOtp} disabled={loading} className={ghostButton}>Verify OTP</button>
+              <button type="button" onClick={requestOtp} disabled={loading || !email.trim()} className={ghostButton}>Send email OTP</button>
+              <button type="button" onClick={verifyOtp} disabled={loading || !otp.trim()} className={ghostButton}>Verify OTP</button>
             </div>
           )}
+          <p className="text-xs text-[#C9BEA8]">Phone SMS OTP is not enabled at launch. Use email verification.</p>
           <button disabled={loading} className={button}>{loading ? "Please wait" : "Continue"} <CheckCircle2 className="h-4 w-4" /></button>
         </form>
 

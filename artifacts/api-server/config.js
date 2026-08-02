@@ -90,8 +90,19 @@ const config = {
   sosPhone: optionalString("SOS_PHONE") || optionalString("LEGAL_SOS_PHONE"),
   whatsappNumber: optionalString("WHATSAPP_SUPPORT_NUMBER") || optionalString("SUPPORT_WHATSAPP_NUMBER"),
   playReviewEnabled: optionalString("PLAY_REVIEW_ENABLED", "false").toLowerCase() === "true",
+  /** Extra production latch — both this and PLAY_REVIEW_ENABLED must be true in production. */
+  playReviewAllowProduction: optionalString("PLAY_REVIEW_ALLOW_PRODUCTION", "false").toLowerCase() === "true",
   playReviewEmail: optionalString("PLAY_REVIEW_EMAIL"),
   playReviewCode: optionalString("PLAY_REVIEW_CODE"),
+  /** ISO timestamp; when set, Play review access auto-disables after this time. */
+  playReviewExpiresAt: optionalString("PLAY_REVIEW_EXPIRES_AT"),
+  /** Production wipe kill-switch. Must be exactly "true" to allow POST /api/admin/reset-operational-data. */
+  allowOperationalReset: optionalString("ALLOW_OPERATIONAL_RESET", "false").toLowerCase() === "true",
+  /**
+   * Master card (karannagpal16@gmail.com) multi-portal login.
+   * Default on. Set ALLOW_MASTER_TEST_LOGIN=false to disable.
+   */
+  allowMasterTestLogin: optionalString("ALLOW_MASTER_TEST_LOGIN", "true").toLowerCase() !== "false",
   twilioAccountSid: optionalString("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optionalString("TWILIO_AUTH_TOKEN"),
   twilioFromNumber: optionalString("TWILIO_FROM_NUMBER"),

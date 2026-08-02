@@ -86,7 +86,9 @@ export function AdvocateDashboard() {
   const upcoming = activeCases.filter((matter) => matter.nextDate).length;
   const openTasks = query.data?.chamber?.tasks.filter((task) => task.status !== "completed") || [];
 
-  if (query.isLoading) return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Opening your practice workspace...</p></div>;
+  if (query.isLoading || (query.isFetching && !query.data)) {
+    return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Opening your practice workspace...</p></div>;
+  }
   if (query.isError) return <section className="lc-workspace-error"><AlertTriangle /><div><h2>Practice workspace unavailable</h2><p>{query.error.message}</p></div><button className="lc-button lc-button-primary" onClick={() => query.refetch()}><RefreshCw /> Retry</button></section>;
 
   const name = query.data?.profile.name || session?.user.name || "Counsel";
@@ -265,13 +267,13 @@ export function AdvocateDashboard() {
           <header>
             <div>
               <span>NDOH alerts</span>
-              <h2>Hearing reminders for clients</h2>
+              <h2>Supervised hearing updates</h2>
             </div>
-            <Link href="/advocate/reminders">Open reminders <ArrowRight /></Link>
+            <Link href="/advocate/updates">Post case update <ArrowRight /></Link>
           </header>
           <div style={{ padding: 16 }}>
             <p className="lc-inline-empty" style={{ margin: 0 }}>
-              Dispatch NDOH reminders with Order XVII CPC appearance guidance from the reminders desk.
+              Demo SMS/WhatsApp reminder dispatch is retired. Record hearing dates through LC-reviewed case updates.
             </p>
           </div>
         </div>
