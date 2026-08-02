@@ -41,6 +41,7 @@ import {
   ActionableNotificationOverlay,
   type NotificationOverlayState,
 } from "@/components/layout/ActionableNotificationOverlay";
+import { emitNotificationAction } from "@/lib/notificationBus";
 
 interface NavItem {
   label: string;
@@ -266,15 +267,15 @@ export function PortalLayout({
 
   const handleNotificationAction = (item: PortalNotification) => {
     const resolved = resolveNotificationAction(item, requiredRole);
+    const detail = { title: item.title, message: item.message, resolved };
     if (resolved.overlay === "none") {
+      // Direct navigate + page-level handler (no confirmation overlay).
+      emitNotificationAction(detail);
       setLocation(resolved.targetUrl);
       return;
     }
-    setNotifyAction({
-      title: item.title,
-      message: item.message,
-      resolved,
-    });
+    // Overlay actions emit only when the user confirms the CTA.
+    setNotifyAction(detail);
   };
   const role = normaliseRole(session?.user.role || requiredRole);
   const items = navigation[role];
@@ -367,7 +368,11 @@ export function PortalLayout({
         </main>
       </div>
       {role === "client" && <SOSButton />}
-      <ActionableNotificationOverlay state={notifyAction} onClose={() => setNotifyAction(null)} />
+      <ActionableNotificationOverlay
+        state={notifyAction}
+        onClose={() => setNotifyAction(null)}
+        onNavigate={(url) => setLocation(url)}
+      />
     </div>
   );
 }

@@ -1481,3 +1481,28 @@
 .lc-guest-next-step strong { display: block; margin: 0.2rem 0; font-family: "Playfair Display", serif; font-size: 1.25rem; }
 .lc-guest-next-step p { margin: 0; max-width: 46ch; font-size: 13px; opacity: 0.88; }
 .lc-guest-next-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.lc-dict-fab {
+  position: fixed; right: 1.1rem; bottom: 1.1rem; z-index: 45;
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  min-height: 46px; padding: 0.55rem 0.95rem;
+  border: 1px solid #d4bd86; border-radius: 999px;
+  background: #1a2332; color: #f7f1e4; font-size: 12px; font-weight: 800;
+  box-shadow: 0 12px 28px rgba(26, 35, 50, 0.28); cursor: pointer;
+}
+.lc-dict-fab svg { width: 16px; height: 16px; color: #d4af37; }
+.lc-dict-fab:hover { background: #243247; }
+.lc-matter-highlight {
+  animation: lc-matter-glow 1.2s ease-in-out 2;
+  border-radius: 12px;
+}
+@keyframes lc-matter-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 169, 106, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(201, 169, 106, 0.45); }
+}
+.lc-legal-sheet { border-top-left-radius: 16px; border-top-right-radius: 16px; }
+.lc-legal-sheet-body { display: grid; gap: 0.65rem; padding-top: 0.5rem; font-size: 14px; }
+@media (max-width: 720px) {
+  .lc-dict-fab span { display: none; }
+  .lc-dict-fab { width: 48px; height: 48px; justify-content: center; padding: 0; border-radius: 50%; }
+}

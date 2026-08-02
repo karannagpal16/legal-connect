@@ -1,7 +1,7 @@
 import { FileUp, Gavel, IndianRupee, MessageSquareText, X } from "lucide-react";
-import { Link } from "wouter";
 import { AnimatePresence, motion } from "framer-motion";
 import type { ResolvedNotificationAction } from "@/lib/notificationActions";
+import { emitNotificationAction } from "@/lib/notificationBus";
 
 export type NotificationOverlayState = {
   title: string;
@@ -12,28 +12,29 @@ export type NotificationOverlayState = {
 type Props = {
   state: NotificationOverlayState;
   onClose: () => void;
+  onNavigate: (url: string) => void;
 };
 
 const overlayMeta = {
   payment: {
     icon: IndianRupee,
     heading: "Payment action",
-    body: "Continue to the secure payment flow for this matter. No card details are stored by Legal Connect.",
+    body: "Continue to the secure payment / booking flow for this matter.",
   },
   documents: {
     icon: FileUp,
     heading: "Document action",
-    body: "Open your matter desk and upload the requested file from the Documents tab.",
+    body: "Jump straight to the Documents tab so you can upload the requested file.",
   },
   chat: {
     icon: MessageSquareText,
     heading: "Counsel / case desk",
-    body: "Open your supervised case workspace to review the assignment and message through Legal Connect.",
+    body: "Open your supervised case workspace to review the assignment and message Legal Connect.",
   },
   hearing: {
     icon: Gavel,
     heading: "Hearing reminder",
-    body: "Review the next date, appearance requirement, and coordinate with counsel before court.",
+    body: "Review the next date and appearance requirement before court.",
   },
   none: {
     icon: Gavel,
@@ -42,7 +43,18 @@ const overlayMeta = {
   },
 } as const;
 
-export function ActionableNotificationOverlay({ state, onClose }: Props) {
+export function ActionableNotificationOverlay({ state, onClose, onNavigate }: Props) {
+  const runAction = () => {
+    if (!state) return;
+    emitNotificationAction({
+      title: state.title,
+      message: state.message,
+      resolved: state.resolved,
+    });
+    onNavigate(state.resolved.targetUrl);
+    onClose();
+  };
+
   return (
     <AnimatePresence>
       {state ? (
@@ -84,15 +96,14 @@ export function ActionableNotificationOverlay({ state, onClose }: Props) {
                   {state.resolved.actionPayload.lawyerName ? (
                     <p className="lc-notify-action-amount">Counsel · {state.resolved.actionPayload.lawyerName}</p>
                   ) : null}
+                  {state.resolved.actionPayload.docType ? (
+                    <p className="lc-notify-action-amount">Document needed · {state.resolved.actionPayload.docType}</p>
+                  ) : null}
                   <div className="lc-notify-action-row">
                     <button type="button" className="lc-button" onClick={onClose}>Not now</button>
-                    <Link
-                      href={state.resolved.targetUrl}
-                      className="lc-button lc-button-primary"
-                      onClick={onClose}
-                    >
+                    <button type="button" className="lc-button lc-button-primary" onClick={runAction}>
                       <Icon /> {state.resolved.ctaLabel}
-                    </Link>
+                    </button>
                   </div>
                 </>
               );

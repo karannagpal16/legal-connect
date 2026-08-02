@@ -121,10 +121,6 @@ export function resolveNotificationAction(
     tab: str(payload.tab),
   };
 
-  if (actionPayload.caseId && targetUrl === "/client") {
-    targetUrl = `/client?caseId=${encodeURIComponent(actionPayload.caseId)}${actionPayload.tab ? `&tab=${encodeURIComponent(actionPayload.tab)}` : ""}`;
-  }
-
   const overlay = (mapped.overlay
     || (explicitType === "PAYMENT_REQUIRED" ? "payment"
       : explicitType === "DOCUMENT_REQUIRED" ? "documents"
@@ -132,10 +128,59 @@ export function resolveNotificationAction(
           : explicitType === "HEARING_REMINDER" ? "hearing"
             : "none")) as ResolvedNotificationAction["overlay"];
 
+  // Build deep-link query so ClientHome can open the exact tab/modal.
+  if (role === "client" || !role) {
+    if (explicitType === "PAYMENT_REQUIRED") {
+      const params = new URLSearchParams();
+      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
+      params.set("tab", "payments");
+      params.set("action", "pay");
+      if (actionPayload.amount != null) params.set("amount", String(actionPayload.amount));
+      targetUrl = `/client?${params.toString()}`;
+      actionPayload.tab = "payments";
+    } else if (explicitType === "DOCUMENT_REQUIRED") {
+      const params = new URLSearchParams();
+      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
+      params.set("tab", "documents");
+      params.set("action", "upload");
+      if (actionPayload.docType) params.set("docType", actionPayload.docType);
+      targetUrl = `/client?${params.toString()}`;
+      actionPayload.tab = "documents";
+    } else if (explicitType === "LAWYER_ASSIGNED" || explicitType === "CHAT_MESSAGE") {
+      const params = new URLSearchParams();
+      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
+      params.set("tab", "communications");
+      params.set("action", "chat");
+      targetUrl = `/client?${params.toString()}`;
+      actionPayload.tab = "communications";
+    } else if (explicitType === "CASE_UPDATE") {
+      const params = new URLSearchParams();
+      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
+      params.set("tab", "overview");
+      params.set("action", "highlight");
+      targetUrl = `/client?${params.toString()}`;
+      actionPayload.tab = "overview";
+    } else if (explicitType === "HEARING_REMINDER") {
+      const params = new URLSearchParams();
+      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
+      params.set("tab", "overview");
+      params.set("action", "hearing");
+      targetUrl = `/client?${params.toString()}`;
+      actionPayload.tab = "overview";
+    } else if (actionPayload.caseId && targetUrl.startsWith("/client")) {
+      const params = new URLSearchParams();
+      params.set("caseId", actionPayload.caseId);
+      if (actionPayload.tab) params.set("tab", actionPayload.tab);
+      targetUrl = `/client?${params.toString()}`;
+    }
+  }
+
   return {
     actionType: explicitType,
     targetUrl,
-    overlay: role === "client" ? overlay : overlay === "payment" || overlay === "chat" ? overlay : "none",
+    overlay: role === "client" || !role
+      ? overlay
+      : (overlay === "payment" || overlay === "chat" || overlay === "documents" || overlay === "hearing" ? overlay : "none"),
     actionPayload,
     ctaLabel: mapped.ctaLabel || "Open",
   };

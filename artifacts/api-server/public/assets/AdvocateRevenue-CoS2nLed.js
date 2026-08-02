@@ -1,0 +1,1 @@
+import{j as r}from"./tanstack-query-BLUn7k_x.js";import{RevenueTracker as o}from"./RevenueTracker-DiJ6tSAo.js";import"./api-BCcKWAkm.js";import"./index-CnALLjAV.js";import"./trending-up-iRPSe9lj.js";import"./briefcase-DWdDF5Xn.js";import"./trophy-CTqYPU6U.js";import"./award-DAerFJcJ.js";function x(){return r.jsx(o,{})}export{x as AdvocateRevenue};

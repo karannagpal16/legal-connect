@@ -36,6 +36,7 @@ import {
   workspaceRequest,
   type WorkspaceCase,
 } from "@/lib/workspace";
+import { onNotificationAction } from "@/lib/notificationBus";
 
 interface ClientWorkspace {
   ok: boolean;
@@ -70,6 +71,7 @@ export function ClientHome() {
   const [booking, setBooking] = useState<{ open: boolean; channel: ConsultationChannel; caseId?: string; caseTitle?: string }>({ open: false, channel: "call" });
   const [dictionaryOpen, setDictionaryOpen] = useState(false);
   const [dictionaryQuery, setDictionaryQuery] = useState("");
+  const [highlightPulse, setHighlightPulse] = useState(false);
   const quote = dailyQuote();
   const query = useQuery({
     queryKey: ["client-workspace", session?.user.id],
@@ -82,6 +84,66 @@ export function ClientHome() {
   useEffect(() => {
     if (!selectedCaseId && cases[0]) setSelectedCaseId(cases[0].id);
   }, [cases, selectedCaseId]);
+
+  const applyDeepLink = (opts: {
+    caseId?: string | null;
+    tab?: string | null;
+    action?: string | null;
+  }) => {
+    if (opts.caseId && cases.some((matter) => matter.id === opts.caseId)) {
+      setSelectedCaseId(opts.caseId);
+    }
+    const nextTab = String(opts.tab || "").toLowerCase();
+    if (nextTab === "documents" || nextTab === "communications" || nextTab === "payments" || nextTab === "overview") {
+      setTab(nextTab as MatterTab);
+    }
+    const action = String(opts.action || "").toLowerCase();
+    if (action === "pay") {
+      const matter = cases.find((item) => item.id === (opts.caseId || selectedCaseId)) || cases[0];
+      openBooking("call", matter);
+    }
+    if (action === "upload" || action === "chat" || action === "hearing" || action === "highlight" || nextTab) {
+      window.setTimeout(() => document.getElementById("client-matters")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
+    }
+    if (action === "highlight" || action === "hearing") {
+      setHighlightPulse(true);
+      window.setTimeout(() => setHighlightPulse(false), 2600);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !cases.length) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("caseId") && !params.get("tab") && !params.get("action")) return;
+    applyDeepLink({
+      caseId: params.get("caseId"),
+      tab: params.get("tab"),
+      action: params.get("action"),
+    });
+    // Strip query after consuming so refresh doesn't re-open modals.
+    const cleanUrl = `${window.location.pathname}`;
+    window.history.replaceState({}, "", cleanUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cases.length]);
+
+  useEffect(() => onNotificationAction((detail) => {
+    const { resolved } = detail;
+    applyDeepLink({
+      caseId: resolved.actionPayload.caseId,
+      tab: resolved.actionPayload.tab
+        || (resolved.actionType === "PAYMENT_REQUIRED" ? "payments"
+          : resolved.actionType === "DOCUMENT_REQUIRED" ? "documents"
+            : resolved.actionType === "LAWYER_ASSIGNED" || resolved.actionType === "CHAT_MESSAGE" ? "communications"
+              : "overview"),
+      action: resolved.actionType === "PAYMENT_REQUIRED" ? "pay"
+        : resolved.actionType === "DOCUMENT_REQUIRED" ? "upload"
+          : resolved.actionType === "CASE_UPDATE" ? "highlight"
+            : resolved.actionType === "HEARING_REMINDER" ? "hearing"
+              : resolved.actionType === "LAWYER_ASSIGNED" || resolved.actionType === "CHAT_MESSAGE" ? "chat"
+                : null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [cases, selectedCaseId]);
 
   const selectedCase = useMemo(
     () => cases.find((matter) => matter.id === selectedCaseId) || cases[0],
@@ -284,7 +346,7 @@ export function ClientHome() {
           </aside>
 
           {selectedCase && (
-            <div className="lc-matter-detail">
+            <div className={`lc-matter-detail ${highlightPulse ? "lc-matter-highlight" : ""}`}>
               <header className="lc-matter-heading">
                 <div>
                   <span>{selectedCase.courtName}</span>
@@ -455,6 +517,16 @@ export function ClientHome() {
           </div>
         )}
       </AnimatePresence>
+
+      <button
+        type="button"
+        className="lc-dict-fab"
+        aria-label="Open Legal Terms Dictionary"
+        onClick={() => { setDictionaryQuery(""); setDictionaryOpen(true); }}
+      >
+        <BookOpenText />
+        <span>Legal Terms</span>
+      </button>
 
       <LegalDictionaryModal
         open={dictionaryOpen}
