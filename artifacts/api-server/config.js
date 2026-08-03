@@ -100,9 +100,14 @@ const config = {
   allowOperationalReset: optionalString("ALLOW_OPERATIONAL_RESET", "false").toLowerCase() === "true",
   /**
    * Master card (karannagpal16@gmail.com) multi-portal login.
-   * Default on. Set ALLOW_MASTER_TEST_LOGIN=false to disable.
+   * Production default: OFF. Set ALLOW_MASTER_TEST_LOGIN=true to re-enable.
+   * Non-production default: ON for local/dev.
    */
-  allowMasterTestLogin: optionalString("ALLOW_MASTER_TEST_LOGIN", "true").toLowerCase() !== "false",
+  allowMasterTestLogin: (() => {
+    const raw = optionalString("ALLOW_MASTER_TEST_LOGIN", "");
+    if (raw) return raw.toLowerCase() !== "false";
+    return optionalString("NODE_ENV", "development") !== "production";
+  })(),
   twilioAccountSid: optionalString("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optionalString("TWILIO_AUTH_TOKEN"),
   twilioFromNumber: optionalString("TWILIO_FROM_NUMBER"),
