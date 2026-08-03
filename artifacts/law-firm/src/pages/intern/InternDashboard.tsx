@@ -15,6 +15,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { asArray } from "@/lib/data";
 import { DashboardIntro, DashboardPanel, EmptyState, MetricCard, QuickAction, StatusPill } from "@/components/dashboard/DashboardParts";
+import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
 
 function xpOf(item: { xpPoints?: number; xp?: number }) {
   const value = Number(item.xpPoints ?? item.xp ?? 0);
@@ -36,8 +37,44 @@ export function InternDashboard() {
   const level = Math.floor(xp / 500) + 1;
   const verified = ["approved", "verified"].includes(String(session?.user.verificationStatus || "").toLowerCase());
 
+  const firstQuest = active[0] as { title?: string; status?: string; id?: string | number } | undefined;
+  const heroAction = pickHeroAction([
+    !verified
+      ? {
+          tone: "action" as const,
+          kicker: "Action needed",
+          title: "Campus ID verification still pending",
+          detail: "Complete verification so chamber quests and case research unlock fully.",
+          ctaLabel: "Open dashboard",
+          href: "/intern",
+          icon: GraduationCap,
+        }
+      : null,
+    firstQuest
+      ? {
+          tone: "urgent" as const,
+          kicker: "Quest objective",
+          title: firstQuest.title || "Chamber quest ready",
+          detail: "Start research or drafting for your supervising advocate.",
+          ctaLabel: "Start quest",
+          href: "/intern/quests",
+          icon: Target,
+        }
+      : null,
+    {
+      tone: "clear" as const,
+      kicker: "Learning status",
+      title: `Level ${level} · ${xp} XP earned`,
+      detail: active.length ? `${active.length} open quests on your desk.` : "No open quests — check library or await mentor assignment.",
+      ctaLabel: "View XP progress",
+      href: "/intern/xp",
+      icon: Zap,
+    },
+  ]);
+
   return (
     <div className="lc-dashboard-stack">
+      <HeroActionBanner action={heroAction} />
       <DashboardIntro
         eyebrow="LAW SCHOOL UNIVERSE"
         title={`Ready to learn, ${firstName}?`}
@@ -78,7 +115,7 @@ export function InternDashboard() {
       <section className="lc-quick-grid">
         <QuickAction title="Chamber quests" description="Tasks assigned from Chamber Vault" href="/intern/quests" icon={Target} tone="gold" />
         <QuickAction title="Case tracker" description="Review assigned case context" href="/intern/cases" icon={FileSearch} />
-        <QuickAction title="Doubt portal" description="Ask seniors for supervised answers" href="/intern/doubts" icon={Sparkles} />
+        <QuickAction title="AI research desk" description="Structure briefs and citations" href="/intern/ai-assistant" icon={Sparkles} />
         <QuickAction title="Legal library" description="Acts, templates and precedents" href="/intern/library" icon={BookOpen} tone="green" />
       </section>
 
@@ -106,7 +143,7 @@ export function InternDashboard() {
           )}
         </DashboardPanel>
 
-        <DashboardPanel title="Draft submission & feedback" detail="Send research notes back to Chamber Vault" action={{ label: "Open doubt portal", href: "/intern/doubts" }}>
+        <DashboardPanel title="Draft submission & feedback" detail="Send research notes back to Chamber Vault" action={{ label: "Open AI assistant", href: "/intern/ai-assistant" }}>
           <div className="lc-admin-summary">
             <div>
               <span><Send /></span>

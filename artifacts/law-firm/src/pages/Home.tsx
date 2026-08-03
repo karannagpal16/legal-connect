@@ -155,6 +155,18 @@ export function Home() {
               </article>
             </div>
 
+            <section className="lc-guest-next-step" aria-label="How to start with Legal Connect">
+              <div>
+                <span>Your next step</span>
+                <strong>Get verified counsel without legalese.</strong>
+                <p>Book help in under a minute. Legal Connect reviews your intake, assigns counsel, and explains court words in plain English.</p>
+              </div>
+              <div className="lc-guest-next-actions">
+                <Link className="lc-button lc-button-primary" href="/login?role=client">Get lawyer help</Link>
+                <Link className="lc-button" href="/login?role=client">See how pricing works</Link>
+              </div>
+            </section>
+
             <div className="lc-dharma-trust" id="security">
               {trustPoints.map((item) => (
                 <div key={item.title}>
