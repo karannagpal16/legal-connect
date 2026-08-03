@@ -5171,19 +5171,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === "/api/legal-dictionary" && req.method === "GET") {
-    const q = String(url.searchParams.get("q") || url.searchParams.get("query") || "");
-    const category = String(url.searchParams.get("category") || "all");
-    const terms = searchLegalDictionary(q, category);
-    sendJson(res, 200, {
-      ok: true,
-      count: terms.length,
-      total: LEGAL_DICTIONARY.length,
-      categories: ["all", "court_process", "documents", "money_fees", "rights_protections", "criminal", "civil_family"],
-      terms,
-    });
-    return;
-  }
+
 
   if (url.pathname === "/api/notifications/unread-count" && req.method === "GET") {
     const authUser = getAuthUser(req);
