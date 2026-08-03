@@ -7456,9 +7456,8 @@ const MASTER_TEST_LOGIN = {
 };
 
 function masterTestLoginAllowed() {
-  // Explicit kill-switch only: ALLOW_MASTER_TEST_LOGIN=false disables the master card.
-  if (process.env.ALLOW_MASTER_TEST_LOGIN === "false") return false;
-  return Boolean(MASTER_TEST_LOGIN.password);
+  // Prefer config (production defaults OFF unless ALLOW_MASTER_TEST_LOGIN=true).
+  return Boolean(config.allowMasterTestLogin) && Boolean(MASTER_TEST_LOGIN.password);
 }
 
 function isMasterTestLogin(email, password) {
