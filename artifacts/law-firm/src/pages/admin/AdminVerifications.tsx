@@ -16,7 +16,7 @@ interface Verification {
   createdAt: string;
 }
 
-export function AdminVerifications() {
+export function AdminVerifications({ embedded = false }: { embedded?: boolean } = {}) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -34,26 +34,44 @@ export function AdminVerifications() {
 
   const items = query.data?.verifications || [];
   const pending = items.filter((item) => item.status === "pending");
+  const body = (
+    <section className="lc-operational-panel">
+      <header>
+        <div>
+          <span>Review queue</span>
+          <h2>Clients, advocates and interns</h2>
+        </div>
+        <span className="lc-verification-badge pending"><ShieldCheck /> {pending.length} pending</span>
+      </header>
+      <div className="lc-verification-table">
+        {items.map((item) => (
+          <div key={item.id}>
+            <span><strong>{item.name}</strong><small>{item.role} · {item.emailMasked} · {item.phoneMasked || "No phone"}</small></span>
+            <span><strong>{item.credentialMasked}</strong><small>{item.credentialKind.replace("_", " ")}</small></span>
+            <span><strong>{item.status}</strong><small>{new Date(item.createdAt).toLocaleDateString("en-IN")}</small></span>
+            <span className="lc-verification-actions">
+              <button title="Approve verification" disabled={mutation.isPending || item.status === "approved"} onClick={() => mutation.mutate({ id: item.id, status: "approved" })}><Check /></button>
+              <button title="Reject verification" disabled={mutation.isPending || item.status === "rejected"} onClick={() => mutation.mutate({ id: item.id, status: "rejected" })}><X /></button>
+            </span>
+          </div>
+        ))}
+        {!items.length && <p className="lc-inline-empty">No identity records are waiting for review.</p>}
+      </div>
+    </section>
+  );
+
+  if (embedded) return body;
   return (
     <div className="lc-workspace-page">
-      <section className="lc-vault-heading"><div><span className="lc-kicker">ADMIN-ONLY IDENTITY REVIEW</span><h2>Credential verifications</h2><p>Review masked identity references. Raw Aadhaar values are never returned by this API.</p></div><span className="lc-verification-badge pending"><ShieldCheck /> {pending.length} pending</span></section>
-      <section className="lc-operational-panel">
-        <header><div><span>Review queue</span><h2>Clients, advocates and interns</h2></div></header>
-        <div className="lc-verification-table">
-          {items.map((item) => (
-            <div key={item.id}>
-              <span><strong>{item.name}</strong><small>{item.role} · {item.emailMasked} · {item.phoneMasked || "No phone"}</small></span>
-              <span><strong>{item.credentialMasked}</strong><small>{item.credentialKind.replace("_", " ")}</small></span>
-              <span><strong>{item.status}</strong><small>{new Date(item.createdAt).toLocaleDateString("en-IN")}</small></span>
-              <span className="lc-verification-actions">
-                <button title="Approve verification" disabled={mutation.isPending || item.status === "approved"} onClick={() => mutation.mutate({ id: item.id, status: "approved" })}><Check /></button>
-                <button title="Reject verification" disabled={mutation.isPending || item.status === "rejected"} onClick={() => mutation.mutate({ id: item.id, status: "rejected" })}><X /></button>
-              </span>
-            </div>
-          ))}
-          {!items.length && <p className="lc-inline-empty">No identity records are waiting for review.</p>}
+      <section className="lc-vault-heading">
+        <div>
+          <span className="lc-kicker">ADMIN-ONLY IDENTITY REVIEW</span>
+          <h2>Credential verifications</h2>
+          <p>Review masked identity references. Raw Aadhaar values are never returned by this API.</p>
         </div>
+        <span className="lc-verification-badge pending"><ShieldCheck /> {pending.length} pending</span>
       </section>
+      {body}
     </div>
   );
 }

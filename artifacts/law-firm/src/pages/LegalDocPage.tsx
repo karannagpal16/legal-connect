@@ -34,7 +34,8 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
       {
         heading: "Sharing",
         body: [
-          "Payment processing with Razorpay, transactional email/SMS providers, and cloud document storage where configured.",
+          "Payment processing with Razorpay, transactional email providers (currently Resend), and cloud document storage where configured.",
+          "SMS or WhatsApp providers are used only if separately enabled by Legal Connect operations; email OTP is the default verification channel at launch.",
           "Law enforcement or regulators only when required by applicable Indian law.",
         ],
       },
@@ -75,7 +76,7 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
         heading: "Payments & holds",
         body: [
           "Paid features (consultations, ProxyHub fees, Chamber Vault plans) are charged through Razorpay unless a free entitlement applies.",
-          "Work Completion Hold and escrow-style statuses restrict release of funds until platform rules for the product are met.",
+          "Work Completion Hold statuses restrict platform release of work until Admin rules for the product are met. Hold release is a platform status — it is not an automated Razorpay payout.",
         ],
       },
       {
@@ -116,7 +117,7 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
         heading: "How to request",
         body: [
           "Open Grievance in the client portal or contact Admin with your payment id / receipt number within 7 days of the charge.",
-          "Approved refunds are processed to the original payment method through Razorpay’s timelines.",
+          "Approved refunds are processed manually by Legal Connect Admin/support to the original payment method. Automated Razorpay refund APIs are not enabled in this release; timelines depend on Admin processing and your bank/UPI provider.",
         ],
       },
     ],
@@ -135,6 +136,21 @@ export function LegalDocPage({ kind }: { kind: LegalDocKind }) {
           <div className="lc-login-brand" style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
             <span className="lc-brand-symbol"><Scale /></span>
             <span><strong>Legal Connect</strong><small>India's Legal OS</small></span>
+          </div>
+          <div
+            role="status"
+            style={{
+              marginBottom: "1.25rem",
+              padding: "0.85rem 1rem",
+              borderRadius: 12,
+              border: "1px solid rgba(180, 120, 20, 0.35)",
+              background: "rgba(212, 160, 80, 0.12)",
+              fontSize: "0.92rem",
+              lineHeight: 1.55,
+            }}
+          >
+            <strong>Draft — pending Indian counsel sign-off.</strong>{" "}
+            This page is product launch copy for transparency. It is not a counsel-signed legal instrument and is not legal advice. Formal review is required before treating it as final policy.
           </div>
           <span className="lc-kicker">LEGAL</span>
           <h1 style={{ fontSize: "2rem", margin: "0.35rem 0 0.5rem" }}>{doc.title}</h1>

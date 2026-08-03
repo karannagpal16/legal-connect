@@ -446,6 +446,37 @@ function replaceCounselNameForClient(text, fullName, maskedDisplayName) {
 }
 
 /** Strip full counsel identity from matter payloads returned to clients. */
+const CLIENT_CONFIDENTIAL_FIELDS = [
+  "assignmentNote",
+  "assignedByAdmin",
+  "assignedAdvocateEmail",
+  "assignedAdvocatePhone",
+  "advocateEmail",
+  "advocatePhone",
+  "rejectionReason",
+  "refundedBy",
+  "concludedBy",
+  "internalNote",
+  "adminNote",
+  "confidentialBriefing",
+];
+
+function omitClientConfidentialFields(record) {
+  if (!record || typeof record !== "object") return record;
+  const safe = { ...record };
+  for (const key of CLIENT_CONFIDENTIAL_FIELDS) {
+    delete safe[key];
+  }
+  if (safe.payload && typeof safe.payload === "object") {
+    const payload = { ...safe.payload };
+    for (const key of CLIENT_CONFIDENTIAL_FIELDS) {
+      delete payload[key];
+    }
+    safe.payload = payload;
+  }
+  return safe;
+}
+
 function sanitizeMatterForClient(matter) {
   if (!matter || typeof matter !== "object") return matter;
   const fullName = matter.assignedAdvocateName || matter.counsel?.name || matter.counsel?.displayName || "";
@@ -457,20 +488,16 @@ function sanitizeMatterForClient(matter) {
   const counsel = matter.counsel
     ? counselForClientAudience(matter.counsel, fullName, enrollment)
     : (fullName ? counselForClientAudience(null, fullName, enrollment) : null);
-  return {
+  return omitClientConfidentialFields({
     ...matter,
     assignedAdvocateName: fullName ? masked.displayName : matter.assignedAdvocateName || null,
     counsel,
     nextAction: replaceCounselNameForClient(matter.nextAction, fullName, masked.displayName) || matter.nextAction || null,
-    assignedAdvocateEmail: undefined,
-    assignedAdvocatePhone: undefined,
-    advocateEmail: undefined,
-    advocatePhone: undefined,
     fullNameHidden: Boolean(fullName),
-  };
+  });
 }
 
-/** Strip full counsel identity from booking/intake payloads returned to clients. */
+/** Strip full counsel identity and confidential admin notes from booking/intake payloads returned to clients. */
 function sanitizeBookingForClient(booking) {
   if (!booking || typeof booking !== "object") return booking;
   const fullName = booking.assignedAdvocateName || booking.counsel?.name || "";
@@ -479,19 +506,15 @@ function sanitizeBookingForClient(booking) {
     || booking.counsel?.enrollmentNo
     || null;
   const masked = maskCounselForClient(fullName, enrollment);
-  return {
+  return omitClientConfidentialFields({
     ...booking,
     assignedAdvocateName: fullName ? masked.displayName : booking.assignedAdvocateName || null,
     counsel: booking.counsel
       ? counselForClientAudience(booking.counsel, fullName, enrollment)
       : booking.counsel || null,
     nextAction: replaceCounselNameForClient(booking.nextAction, fullName, masked.displayName) || booking.nextAction || null,
-    assignedAdvocateEmail: undefined,
-    assignedAdvocatePhone: undefined,
-    advocateEmail: undefined,
-    advocatePhone: undefined,
     fullNameHidden: Boolean(fullName),
-  };
+  });
 }
 
 function normalizeEmail(email) {
@@ -503,7 +526,14 @@ function normalizePhone(phone) {
 }
 
 function playReviewConfigured() {
-  return Boolean(config.playReviewEnabled && config.playReviewEmail && config.playReviewCode);
+  if (!config.playReviewEnabled || !config.playReviewEmail || !config.playReviewCode) return false;
+  // Production requires an explicit second latch so a leftover PLAY_REVIEW_ENABLED=true cannot stay armed.
+  if (config.nodeEnv === "production" && !config.playReviewAllowProduction) return false;
+  if (config.playReviewExpiresAt) {
+    const expiresAt = Date.parse(config.playReviewExpiresAt);
+    if (Number.isFinite(expiresAt) && Date.now() > expiresAt) return false;
+  }
+  return true;
 }
 
 function isPlayReviewEmail(email) {
@@ -2648,6 +2678,19 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/legal-dictionary" && req.method === "GET") {
+    const q = String(url.searchParams.get("q") || url.searchParams.get("query") || "");
+    const category = String(url.searchParams.get("category") || "all");
+    const terms = searchLegalDictionary(q, category);
+    sendJson(res, 200, {
+      ok: true,
+      count: terms.length,
+      total: LEGAL_DICTIONARY.length,
+      categories: ["all", "court_process", "documents", "money_fees", "rights_protections", "criminal", "civil_family"],
+      terms,
+    });
+    return;
+  }
   if (url.pathname === "/api/healthz") {
     sendJson(res, 200, {
       ok: true,
@@ -2750,8 +2793,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Admin-only hard reset of operational data (cases, bookings, tasks, quests, receipts, etc.).
-  // Keeps the developer/admin account and legal source library. Requires explicit confirmation phrase.
+  // Production: disabled unless ALLOW_OPERATIONAL_RESET=true. Always requires confirmation phrase.
   if (url.pathname === "/api/admin/reset-operational-data" && req.method === "POST") {
+    if (config.nodeEnv === "production" && !config.allowOperationalReset) {
+      sendJson(res, 404, { ok: false, error: "Not found" });
+      return;
+    }
     const authUser = sourceAdminUser(req, res);
     if (!authUser) return;
     const body = await readBody(req);
@@ -3507,12 +3554,24 @@ const server = http.createServer(async (req, res) => {
           pa.years_practice AS "yearsPractice",
           pa.verification_status AS "verificationStatus",
           pa.bar_council_id AS "barCouncilId",
-          (SELECT COUNT(*) FROM cases WHERE payload->>'assignedTo' = u.id::text AND status = 'Active') AS "activeCasesCount"
+          (
+            SELECT COUNT(*)::int FROM cases c
+            WHERE (
+              COALESCE(c.payload->>'assignedAdvocateId', '') = u.id::text
+              OR COALESCE(c.payload->>'assignedTo', '') = u.id::text
+            )
+            AND lower(COALESCE(c.status, '')) NOT IN ('closed', 'concluded', 'rejected')
+          ) AS "activeCasesCount",
+          (
+            SELECT COUNT(*)::int FROM bookings b
+            WHERE COALESCE(b.payload->>'assignedAdvocateId', '') = u.id::text
+            AND lower(COALESCE(b.stage_status, b.payload->>'intakeStatus', '')) NOT IN ('matter_concluded', 'rejected_refunded', 'closed')
+          ) AS "activeIntakeCount"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
         WHERE pa.verification_status IN ('approved', 'verified')
           AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = lower($1))
-        ORDER BY pa.enrollment_no ASC
+        ORDER BY "activeCasesCount" ASC, pa.enrollment_no ASC
       `, [MASTER_TEST_LOGIN.email]);
       sendJson(res, 200, result.rows.map((row) => ({
         id: row.id,
@@ -3524,7 +3583,7 @@ const server = http.createServer(async (req, res) => {
         practiceCourts: row.practiceCourts || "",
         yearsPractice: Number(row.yearsPractice || 0),
         verificationStatus: row.verificationStatus || "pending",
-        activeCasesCount: Number(row.activeCasesCount || 0),
+        activeCasesCount: Number(row.activeCasesCount || 0) + Number(row.activeIntakeCount || 0),
       })));
       return;
     }
@@ -3547,8 +3606,12 @@ const server = http.createServer(async (req, res) => {
         cases: (demoStore.cases || []).slice(0, 40).map(dashboardCase),
         bookings: (demoStore.bookings || []).slice(0, 40).map(dashboardBooking),
         tasks: (demoStore.tasks || []).slice(0, 40).map(dashboardTask),
-        advocates: [],
+        advocates: [
+          { id: "demo-advocate", name: "Adv. Rishika Nagpal", enrollmentNo: "D/1482/2018", verificationStatus: "approved", activeCasesCount: 3 },
+          { id: "demo-advocate-2", name: "Adv. Aarav Mehta", enrollmentNo: "D/2104/2019", verificationStatus: "approved", activeCasesCount: 1 },
+        ],
         pendingUpdates: (demoStore.caseUpdates || []).filter((item) => item.status === "pending_lc_review"),
+        pendingReplies: [],
       });
       return;
     }
@@ -3559,12 +3622,25 @@ const server = http.createServer(async (req, res) => {
       db.query(`
         SELECT u.id, u.name, u.email, u.phone,
                pa.enrollment_no AS "enrollmentNo",
-               pa.verification_status AS "verificationStatus"
+               pa.verification_status AS "verificationStatus",
+               (
+                 SELECT COUNT(*)::int FROM cases c
+                 WHERE (
+                   COALESCE(c.payload->>'assignedAdvocateId', '') = u.id::text
+                   OR COALESCE(c.payload->>'assignedTo', '') = u.id::text
+                 )
+                 AND lower(COALESCE(c.status, '')) NOT IN ('closed', 'concluded', 'rejected')
+               ) AS "activeCasesCount",
+               (
+                 SELECT COUNT(*)::int FROM bookings b
+                 WHERE COALESCE(b.payload->>'assignedAdvocateId', '') = u.id::text
+                 AND lower(COALESCE(b.stage_status, b.payload->>'intakeStatus', '')) NOT IN ('matter_concluded', 'rejected_refunded', 'closed')
+               ) AS "activeIntakeCount"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
         WHERE pa.verification_status IN ('approved', 'verified')
           AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = $1)
-        ORDER BY u.name ASC
+        ORDER BY "activeCasesCount" ASC, u.name ASC
         LIMIT 100
       `, [MASTER_TEST_LOGIN.email]),
       db.query(`SELECT * FROM case_updates WHERE status = 'pending_lc_review' ORDER BY created_at ASC LIMIT 50`).catch(() => ({ rows: [] })),
@@ -3582,6 +3658,7 @@ const server = http.createServer(async (req, res) => {
         phoneMasked: maskPhone(row.phone),
         enrollmentNo: row.enrollmentNo || null,
         verificationStatus: row.verificationStatus || "pending",
+        activeCasesCount: Number(row.activeCasesCount || 0) + Number(row.activeIntakeCount || 0),
       })),
       pendingUpdates: pendingUpdates.rows || [],
       pendingReplies: pendingReplies.rows || [],
@@ -3967,12 +4044,25 @@ const server = http.createServer(async (req, res) => {
       db.query(`
         SELECT u.id, u.name, u.email, u.phone,
                pa.enrollment_no AS "enrollmentNo",
-               pa.verification_status AS "verificationStatus"
+               pa.verification_status AS "verificationStatus",
+               (
+                 SELECT COUNT(*)::int FROM cases c
+                 WHERE (
+                   COALESCE(c.payload->>'assignedAdvocateId', '') = u.id::text
+                   OR COALESCE(c.payload->>'assignedTo', '') = u.id::text
+                 )
+                 AND lower(COALESCE(c.status, '')) NOT IN ('closed', 'concluded', 'rejected')
+               ) AS "activeCasesCount",
+               (
+                 SELECT COUNT(*)::int FROM bookings b
+                 WHERE COALESCE(b.payload->>'assignedAdvocateId', '') = u.id::text
+                 AND lower(COALESCE(b.stage_status, b.payload->>'intakeStatus', '')) NOT IN ('matter_concluded', 'rejected_refunded', 'closed')
+               ) AS "activeIntakeCount"
         FROM users u
         JOIN profile_advocates pa ON pa.user_id = u.id
         WHERE pa.verification_status IN ('approved', 'verified')
           AND (u.role = 'advocate' OR lower(coalesce(u.email, '')) = $1)
-        ORDER BY u.name ASC
+        ORDER BY "activeCasesCount" ASC, u.name ASC
       `, [MASTER_TEST_LOGIN.email]).catch(() => db.query(`SELECT id, name, email, phone FROM users WHERE role = 'advocate' ORDER BY name ASC`)),
     ]);
     sendJson(res, 200, {
@@ -4003,6 +4093,7 @@ const server = http.createServer(async (req, res) => {
         phoneMasked: maskPhone(row.phone),
         enrollmentNo: row.enrollmentNo || null,
         verificationStatus: row.verificationStatus || "approved",
+        activeCasesCount: Number(row.activeCasesCount || 0) + Number(row.activeIntakeCount || 0),
       })),
     });
     return;
@@ -4295,19 +4386,26 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, error: "A rejection reason is required (min 8 characters)." });
         return;
       }
+      // Honesty: this path releases the platform work hold and marks payment status for ops follow-up.
+      // It does NOT call Razorpay refunds/payouts yet — money movement stays manual.
       if (loaded.mode === "demo") {
         Object.assign(loaded.raw, {
-          paymentStatus: "refunded",
+          paymentStatus: "refund_manual_required",
           workHoldStatus: "released",
           intakeStatus: "rejected_refunded",
           rejectionReason: reason,
         });
-        sendJson(res, 200, { ok: true, action: "refund", intake: dashboardBooking(loaded.raw) });
+        sendJson(res, 200, {
+          ok: true,
+          action: "refund",
+          intake: dashboardBooking(loaded.raw),
+          refund: { status: "manual_required", workHoldStatus: "released", razorpayRefund: false, reason },
+        });
         return;
       }
       const updated = await db.query(
         `UPDATE bookings
-         SET payment_status = 'refunded',
+         SET payment_status = 'refund_manual_required',
              work_hold_status = 'released',
              stage_status = 'rejected_refunded',
              failure_reason = $2,
@@ -4320,9 +4418,11 @@ const server = http.createServer(async (req, res) => {
           JSON.stringify({
             intakeStatus: "rejected_refunded",
             rejectionReason: reason,
-            refundedAt: new Date().toISOString(),
+            refundRequestedAt: new Date().toISOString(),
             refundedBy: authUser.id,
             work_hold_status: "released",
+            razorpayRefund: false,
+            refundStatus: "manual_required",
           }),
         ],
       );
@@ -4332,19 +4432,19 @@ const server = http.createServer(async (req, res) => {
         amount: numericAmount(booking.amount),
         currency: "INR",
         provider: "legal-connect",
-        status: "refunded",
+        status: "refund_manual_required",
         workHoldStatus: "released",
-        payload: { reason, source: "intake_refund" },
+        payload: { reason, source: "intake_reject_work_hold_release", razorpayRefund: false },
       }).catch(() => undefined);
-      await writeAuditLog(authUser, "intake_refund", "booking", intakeId, `Intake rejected and refunded: ${reason}`, { reason });
+      await writeAuditLog(authUser, "intake_reject_work_hold_release", "booking", intakeId, `Intake rejected; work hold released; manual refund required: ${reason}`, { reason, razorpayRefund: false });
       await notify({
         eventType: "intake_refunded",
-        title: "Intake closed — refund initiated",
-        message: `Legal Connect rejected this intake and released the work hold. Reason: ${reason}`,
+        title: "Intake closed — work hold released",
+        message: `Legal Connect rejected this intake and released the work hold. Any paid amount is refunded manually by Admin/support (not automated Razorpay). Reason: ${reason}`,
         recipients: await resolveRecipients([clientId].filter(Boolean)),
-        payload: { intakeId, reason },
+        payload: { intakeId, reason, razorpayRefund: false, refundStatus: "manual_required" },
         sendEmail: true,
-        sendSms: true,
+        sendSms: false,
         ctaLabel: "View booking",
         ctaUrl: portalUrl("/client"),
         priority: "high",
@@ -4353,7 +4453,7 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         action: "refund",
         intake: mapBooking(updated.rows[0]),
-        refund: { status: "refunded", workHoldStatus: "released", reason },
+        refund: { status: "manual_required", workHoldStatus: "released", razorpayRefund: false, reason },
       });
       return;
     }
@@ -5407,12 +5507,12 @@ const server = http.createServer(async (req, res) => {
         const mapped = mapTask(result.rows[0]);
         await strategyFeatures.notifyTaskLayer(mapped, {
           eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
-          title: body.action === "release_payment" ? "Escrow released" : "Proof approved",
+          title: body.action === "release_payment" ? "Work hold released" : "Proof approved",
           message: body.action === "release_payment"
-            ? `${mapped.title || "Proxy mission"} escrow has been released after proof review.`
-            : `${mapped.title || "Proxy mission"} proof was approved. Escrow can now be released.`,
+            ? `${mapped.title || "Proxy mission"} work hold was released after proof review. Payout/settlement is processed manually by Admin — this is not an automated Razorpay transfer.`
+            : `${mapped.title || "Proxy mission"} proof was approved. Admin can now release the work hold for manual settlement.`,
           priority: "high",
-          sendSms: body.action === "release_payment",
+          sendSms: false,
         });
       }
       sendJson(res, 200, { ok: true, task: result.rows[0] ? mapTask(result.rows[0]) : null });
@@ -7346,20 +7446,31 @@ getAuthUser = function strictGetAuthUser(req) {
   return decodeStrictJwt(token) || strictLegacyGetAuthUser(req);
 };
 
-/** Developer account — one email/password opens every portal role with all paid features free. */
+/**
+ * Master operator account — one email/password opens every portal role.
+ * All paid features are free for this account (see isMasterTestUser).
+ * Password may be overridden with MASTER_TEST_PASSWORD.
+ */
 const MASTER_TEST_LOGIN = {
   email: "karannagpal16@gmail.com",
-  password: "Karan1605!",
+  password: process.env.MASTER_TEST_PASSWORD || "Karan1605!",
   names: {
     client: "Karan Nagpal",
     advocate: "Adv. Karan Nagpal",
     intern: "Karan Nagpal",
     admin: "Karan Nagpal",
   },
-  label: "developer",
+  label: "master",
 };
 
+function masterTestLoginAllowed() {
+  // Explicit kill-switch only: ALLOW_MASTER_TEST_LOGIN=false disables the master card.
+  if (process.env.ALLOW_MASTER_TEST_LOGIN === "false") return false;
+  return Boolean(MASTER_TEST_LOGIN.password);
+}
+
 function isMasterTestLogin(email, password) {
+  if (!masterTestLoginAllowed()) return false;
   return normalizeEmail(email) === MASTER_TEST_LOGIN.email && String(password || "") === MASTER_TEST_LOGIN.password;
 }
 

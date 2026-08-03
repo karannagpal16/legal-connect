@@ -121,10 +121,10 @@ export function InternDoubtPortal() {
           <p className="text-[#1A2332]/40 ml-10">Ask legal doubts, get answers from senior advocates.</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/intern/ai-assistant">
+          <Link href="/intern/library">
             <button className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-2.5 rounded-xl text-sm font-bold transition-all">
               <Sparkles className="w-4 h-4" />
-              Ask AI
+              Open library
             </button>
           </Link>
           <button

@@ -573,11 +573,13 @@ export function ClientCaseTracker() {
                       <Phone className="w-4 h-4" /> Message Legal Connect
                     </button>
                   </Link>
-                  <button 
-                    onClick={() => alert(`📲 WhatsApp & SMS Hearing Reminder Active!\n\nAutomated alert set for ${c.nextDate || '12 August 2026'} at ${c.court}.\n\nMessage: "Mandatory NDOH Court Appearance under Order XVII CPC. Physical/Virtual appearance required."`)}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 border border-emerald-500/30 py-3 rounded-xl text-sm font-bold transition-all"
+                  <button
+                    type="button"
+                    disabled
+                    title="SMS/WhatsApp reminders are not enabled at launch. Hearing dates stay on your supervised matter."
+                    className="w-full flex items-center justify-center gap-2 bg-[#1A2332]/5 text-[#1A2332]/45 border border-[#1A2332]/10 py-3 rounded-xl text-sm font-bold cursor-not-allowed"
                   >
-                    <Bell className="w-4 h-4 text-emerald-600" /> 📲 Send WhatsApp Reminder
+                    <Bell className="w-4 h-4" /> SMS/WhatsApp reminders — soon
                   </button>
                 </div>
               </motion.div>

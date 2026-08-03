@@ -1,7 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import fs from "fs";
 import path from "path";
 
 // 1. Fallback port for local development if process.env.PORT isn't set
@@ -12,12 +11,17 @@ const basePath = process.env.BASE_PATH || "/";
 
 const spaOutDir = path.resolve(import.meta.dirname, "..", "api-server", "public");
 
-function cleanSpaAssetsOnly(): Plugin {
+/**
+ * Do NOT wipe hashed assets on every build.
+ * Soft SPA navigation keeps the old runtime in memory; deleting prior chunks
+ * causes "Failed to fetch dynamically imported module" until a hard refresh.
+ * Vite overwrites changed files; orphaned hashes are safe to leave (or prune later).
+ */
+function retainSpaAssets(): Plugin {
   return {
-    name: "clean-spa-assets-only",
+    name: "retain-spa-assets",
     buildStart() {
-      // Keep non-Vite files in api-server/public (landing assets, etc.).
-      fs.rmSync(path.join(spaOutDir, "assets"), { recursive: true, force: true });
+      // Intentionally no-op: keep previous asset hashes available post-deploy.
     },
   };
 }
@@ -27,7 +31,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    cleanSpaAssetsOnly(),
+    retainSpaAssets(),
   ],
   resolve: {
     alias: {

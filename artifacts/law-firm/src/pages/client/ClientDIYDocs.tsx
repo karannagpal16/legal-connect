@@ -250,10 +250,10 @@ export function ClientDIYDocs() {
         <p className="text-[#1A2332]/40 ml-10">Draft basic legal documents yourself — instantly, for free.</p>
       </motion.div>
 
-      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-start gap-3">
-        <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-        <p className="text-[#1A2332]/60 text-sm leading-relaxed">
-          These templates are a starting point. For important matters, always have a qualified advocate review the document before signing or filing.
+      <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <p className="text-[#1A2332]/70 text-sm leading-relaxed">
+          Template preview only — not filed, not notarized, and not Legal Connect-supervised advice. Have a verified advocate review before signing or filing.
         </p>
       </div>
 
@@ -290,14 +290,14 @@ export function ClientDIYDocs() {
           <div className="mt-6 p-5 bg-card/30 border border-[#1A2332]/10 rounded-2xl text-center">
             <p className="text-[#1A2332]/40 text-sm mb-3">Need a custom document or something more complex?</p>
             <div className="flex justify-center gap-3">
-              <Link href="/client/ai-assistant">
-                <button className="flex items-center gap-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-500/30 transition-all">
-                  Ask AI Assistant
-                </button>
-              </Link>
               <Link href="/client/book">
                 <button className="flex items-center gap-2 bg-[#1A2332]/10 text-[#1A2332] border border-[#1A2332]/10 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[#1A2332]/20 transition-all">
-                  Book an Advocate
+                  Submit an intake
+                </button>
+              </Link>
+              <Link href="/client/lawbot">
+                <button className="flex items-center gap-2 bg-[#D4A050]/15 text-[#8A5A13] border border-[#D4A050]/30 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[#D4A050]/25 transition-all">
+                  Ask LawBot
                 </button>
               </Link>
             </div>

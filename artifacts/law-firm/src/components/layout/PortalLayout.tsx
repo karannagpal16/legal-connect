@@ -54,7 +54,7 @@ type PortalNotification = ActionableNotification;
 const navigation: Record<AppRole, NavItem[]> = {
   admin: [
     { label: "Overview", href: "/admin", icon: LayoutDashboard },
-    { label: "Intake desk", href: "/admin/control", icon: Gavel },
+    { label: "Ops Command", href: "/admin/control", icon: Gavel },
     { label: "Verifications", href: "/admin/verifications", icon: ShieldCheck },
     { label: "LC review", href: "/admin/pending-updates", icon: MessageSquare },
     { label: "Users", href: "/admin/users", icon: Users },
