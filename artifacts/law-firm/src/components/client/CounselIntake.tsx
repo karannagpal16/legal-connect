@@ -275,17 +275,15 @@ export function CounselIntake({
     setError("");
     try {
       const attachedFiles = files.map((file) => ({ name: file.name, type: file.type, size: file.size }));
-      const booking = await workspaceRequest<any>("/api/bookings", session?.token, {
+      const bookingResponse = await workspaceRequest<any>("/api/consultations/book-advisory", session?.token, {
         method: "POST",
         body: JSON.stringify({
           serviceType: `${selectedChannel.title}${source === "sos" ? " - Legal SOS" : ""}${everythingFree ? " - Free" : ""}`,
           legalIssueType: caseType,
           amount: payableAmount,
-          paymentStatus: "payment_pending",
-          workHoldStatus: "pending",
-          nextDestination: "Legal Connect assignment desk",
-          source,
+          channel,
           consultationChannel: channel,
+          source,
           urgency,
           clientName,
           partyName,
@@ -298,10 +296,13 @@ export function CounselIntake({
           existingCaseId: initialCaseId || null,
           attachedFiles,
           assignmentPolicy: "legal-connect-managed",
-          firstChatFree: everythingFree,
+          firstChatFree: everythingFree || firstChatFree,
           masterTestFree: masterFree,
+          productType: "advisory",
+          noDirectHiringDisclaimer: true,
         }),
       });
+      const booking = bookingResponse.consultation || bookingResponse;
 
       if (files.length && !session?.demo) await uploadBookingFiles(booking.id, files, session?.token);
 
@@ -384,14 +385,17 @@ export function CounselIntake({
     <div className={`lc-counsel-intake ${embedded ? "embedded" : ""}`}>
       <header className="lc-counsel-intake-head">
         <div>
-          <span className="lc-kicker">LEGAL CONNECT MANAGED ASSIGNMENT</span>
+          <span className="lc-kicker">1-TIME ADVISORY · LC GATEWAY</span>
           <h2>{heading}</h2>
           <p>
             {masterFree
               ? "Master test account — every client booking is free on this login."
               : firstChatFree
                 ? "Your first Secure chat is free — try Legal Connect, then continue with paid counsel if you need more."
-                : "Share one clear brief, pay securely, and Legal Connect will assign verified counsel."}
+                : "Book a one-time advisory session. Full court representation is available only through LC Gateway retention — never by hiring an advocate directly in the app."}
+          </p>
+          <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>
+            No direct in-app hiring. After advisory, use Request LC Gateway retention for panel representation.
           </p>
         </div>
         {onClose && <button className="lc-icon-command" onClick={onClose} aria-label="Close counsel booking"><X /></button>}

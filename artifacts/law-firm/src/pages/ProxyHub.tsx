@@ -125,18 +125,17 @@ export function ProxyHub() {
     }
     setIsAssigning(true);
     try {
-      await workspaceRequest(`/api/tasks/${id}/accept`, session?.token, {
+      await workspaceRequest(`/api/admin/proxy-tasks/${id}/assign-proxy`, session?.token, {
         method: "POST",
         body: JSON.stringify({
           proxyAdvocateId: proxy.id,
           proxyAdvocateName: proxy.name,
-          acceptedBy: proxy.id,
         }),
       });
       await refresh();
       toast({
-        title: "Proxy counsel assigned",
-        description: "Layer 2: assigned counsel must declare conflict before check-in.",
+        title: "Proxy assigned by LC",
+        description: "State: proxy_assigned_by_lc. Assigned counsel must declare conflict before check-in.",
       });
     } catch (error) {
       toast({ title: "Assignment failed", description: (error as Error).message, variant: "destructive" });
@@ -443,6 +442,30 @@ export function ProxyHub() {
                     >
                       Release escrow
                     </button>
+                  ) : null}
+
+                  {(isPoster || isProxy || isAdmin) && !pendingAdmin ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={queryNote[String(t.id)] || ""}
+                        onChange={(e) => setQueryNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
+                        placeholder="Supervised inter-counsel Q&A (LC moderated)…"
+                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
+                      />
+                      <button
+                        className="w-full border border-border font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2"
+                        disabled={busyId === String(t.id) || (queryNote[String(t.id)] || "").trim().length < 4}
+                        onClick={() => runAction(t.id, `/api/proxy-tasks/${t.id}/qa`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            message: queryNote[String(t.id)],
+                            kind: isAdmin ? "lc_moderation" : "counsel_query",
+                          }),
+                        }, "Supervised Q&A posted")}
+                      >
+                        <MessageSquareText className="w-4 h-4" /> Post supervised Q&A
+                      </button>
+                    </div>
                   ) : null}
 
                   {(isPoster || isProxy) && (t.escrowStatus === "Released" || /completed|closed|payment released/i.test(String(t.status || ""))) ? (

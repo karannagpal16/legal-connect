@@ -45,6 +45,15 @@ type Intake = {
   assignedAdvocateName?: string;
   stageStatus?: string;
   intakeStatus?: string;
+  retentionStatus?: string;
+  retention?: {
+    status?: string;
+    matterSummary?: string;
+    quotedAmount?: number;
+    termsSummary?: string;
+    requestedAt?: string;
+  } | null;
+  productType?: string;
   missingDocuments?: string[];
   lastLcNote?: string | null;
   rejectionReason?: string | null;
@@ -123,7 +132,7 @@ type ControlDeskResponse = {
   pendingReplies?: unknown[];
 };
 
-type OpsTab = "intakes" | "proxy" | "moderation" | "verifications" | "escrow" | "cases";
+type OpsTab = "intakes" | "gateway" | "proxy" | "moderation" | "verifications" | "escrow" | "cases" | "lawbot";
 type QuickFilter =
   | "all"
   | "unassigned"
@@ -190,6 +199,9 @@ export function AdminControlDesk() {
   const [guidanceNotes, setGuidanceNotes] = useState<Record<string, string>>({});
   const [refundReasons, setRefundReasons] = useState<Record<string, string>>({});
   const [proxyByTask, setProxyByTask] = useState<Record<string, string>>({});
+  const [quoteAmounts, setQuoteAmounts] = useState<Record<string, string>>({});
+  const [quoteSummaries, setQuoteSummaries] = useState<Record<string, string>>({});
+  const [qaDrafts, setQaDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [expanded, setExpanded] = useState<string>("");
@@ -264,16 +276,78 @@ export function AdminControlDesk() {
 
   const assignProxy = useMutation({
     mutationFn: ({ taskId, advocateId, advocateName }: { taskId: string; advocateId: string; advocateName: string }) =>
-      workspaceRequest(`/api/tasks/${taskId}/accept`, session?.token, {
+      workspaceRequest(`/api/admin/proxy-tasks/${taskId}/assign-proxy`, session?.token, {
         method: "POST",
         body: JSON.stringify({ proxyAdvocateId: advocateId, proxyAdvocateName: advocateName }),
       }),
     onSuccess: () => {
-      setSuccess("Proxy counsel assigned.");
+      setSuccess("Proxy counsel assigned by LC (proxy_assigned_by_lc).");
       setError("");
       refresh();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Proxy assignment failed."),
+  });
+
+  const gatewayAction = useMutation({
+    mutationFn: ({
+      id,
+      action,
+      body,
+    }: {
+      id: string;
+      action: "start-review" | "request-info" | "quote-terms" | "assign-panel";
+      body?: Record<string, unknown>;
+    }) =>
+      workspaceRequest(`/api/admin/gateway/retention/${id}/${action}`, session?.token, {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    onSuccess: (_data, variables) => {
+      const labels: Record<string, string> = {
+        "start-review": "Gateway retention marked lc_under_review.",
+        "request-info": "Additional documents requested from client.",
+        "quote-terms": "Full-representation terms quoted (terms_quoted).",
+        "assign-panel": "Panel lawyer assigned (panel_lawyer_assigned).",
+      };
+      setSuccess(labels[variables.action] || "Gateway action saved.");
+      setError("");
+      refresh();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Gateway action failed."),
+  });
+
+  const seedLawBot = useMutation({
+    mutationFn: () =>
+      workspaceRequest<{
+        ok: boolean;
+        approved_sources_count?: number;
+        legal_chunks_count?: number;
+      }>("/api/admin/legal-sources/seed", session?.token, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    onSuccess: (data) => {
+      setSuccess(
+        `LawBot knowledge seeded · ${data.approved_sources_count ?? 0} approved sources · ${data.legal_chunks_count ?? 0} chunks.`,
+      );
+      setError("");
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "LawBot seed failed."),
+  });
+
+  const proxyQa = useMutation({
+    mutationFn: ({ taskId, message }: { taskId: string; message: string }) =>
+      workspaceRequest(`/api/proxy-tasks/${taskId}/qa`, session?.token, {
+        method: "POST",
+        body: JSON.stringify({ message, kind: "lc_moderation" }),
+      }),
+    onSuccess: () => {
+      setSuccess("Supervised proxy Q&A note posted.");
+      setError("");
+      setQaDrafts({});
+      refresh();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Proxy Q&A failed."),
   });
 
   const assignCase = useMutation({
@@ -303,6 +377,17 @@ export function AdminControlDesk() {
   }, [intakesQuery.data?.advocates, controlDesk.data?.advocates]);
 
   const queue = useMemo(() => intakes.filter(needsSupervision), [intakes]);
+  const gatewayQueue = useMemo(() => {
+    return intakes.filter((item) => {
+      const retention = String(item.retentionStatus || item.retention?.status || item.stageStatus || item.intakeStatus || "").toLowerCase();
+      return retention.includes("retention")
+        || retention === "requested"
+        || retention === "lc_under_review"
+        || retention === "terms_quoted"
+        || retention === "info_requested"
+        || (item.productType === "advisory" && retention.includes("review"));
+    });
+  }, [intakes]);
   const tasks = useMemo(
     () => (controlDesk.data?.tasks || []).filter(isProxyActionable),
     [controlDesk.data?.tasks],
@@ -413,11 +498,13 @@ export function AdminControlDesk() {
 
   const tabs: Array<{ id: OpsTab; label: string; count?: number }> = [
     { id: "intakes", label: "Intakes & Assignments", count: queue.length },
+    { id: "gateway", label: "LC Gateway", count: gatewayQueue.length },
     { id: "proxy", label: "Proxy Missions", count: tasks.length },
     { id: "moderation", label: "Counsel Updates", count: pendingLcCount },
     { id: "verifications", label: "Credential Verifications", count: pendingVerifyCount },
     { id: "escrow", label: "Escrow & Revenue", count: escrowTasks.length + heldBookings.length },
     { id: "cases", label: "Global Case Register", count: cases.length },
+    { id: "lawbot", label: "LawBot Seeder" },
   ];
 
   const pills: Array<{ id: QuickFilter; label: string; count?: number }> = [
@@ -436,8 +523,8 @@ export function AdminControlDesk() {
           <span className="lc-kicker">360° OPERATIONS COMMAND</span>
           <h2>Admin Ops Desk</h2>
           <p>
-            Assign cases to verified advocates by live workload, moderate counsel updates, verify credentials,
-            and control escrow — from one command surface.
+            Gateway retention onboarding, proxy assignment & escrow, supervised Q&A audit, LawBot seeding,
+            and panel assignments — one Master Blueprint control surface.
           </p>
         </div>
         <button
@@ -702,13 +789,155 @@ export function AdminControlDesk() {
         </section>
       ) : null}
 
+      {tab === "gateway" ? (
+        <section className="space-y-4">
+          <div className="lc-ops-section-head">
+            <div>
+              <h3>LC Gateway Onboarding Desk</h3>
+              <p className="text-muted-foreground">
+                Flow A conversion: advisory → retention request → review → quote terms → panel lawyer assignment.
+                Four one-click actions per request.
+              </p>
+            </div>
+          </div>
+          {!gatewayQueue.length ? <p className="text-muted-foreground">No LC Gateway retention requests in queue.</p> : null}
+          {gatewayQueue.map((intake) => {
+            const retentionState = String(intake.retentionStatus || intake.retention?.status || intake.stageStatus || "requested");
+            const selectedAdvocate = advocates.find((item) => item.id === advocateByIntake[intake.id]);
+            return (
+              <article key={intake.id} className="lc-ops-card">
+                <div className="lc-ops-card-head">
+                  <div>
+                    <strong>{intake.clientName || "Client retention"}</strong>
+                    <p>
+                      {intake.legalIssueType || intake.serviceType || "Full court representation"}
+                      {" · "}
+                      Retention: {retentionState}
+                      {intake.amount != null ? ` · Advisory ₹${Number(intake.amount).toLocaleString("en-IN")}` : ""}
+                    </p>
+                    {intake.retention?.matterSummary ? (
+                      <p className="lc-ops-meta">{intake.retention.matterSummary}</p>
+                    ) : null}
+                    {intake.assignedAdvocateName ? (
+                      <p className="lc-ops-meta">Panel: {intake.assignedAdvocateName}</p>
+                    ) : (
+                      <p className="lc-ops-meta warn">Awaiting panel assignment</p>
+                    )}
+                  </div>
+                  <ShieldCheck className="h-5 w-5 opacity-50" />
+                </div>
+                <div className="lc-ops-actions" style={{ display: "grid", gap: "0.75rem", marginTop: "0.85rem" }}>
+                  <div className="lc-ops-action-block row">
+                    <button
+                      className="lc-button"
+                      disabled={gatewayAction.isPending}
+                      onClick={() => gatewayAction.mutate({ id: intake.id, action: "start-review" })}
+                    >
+                      1. Start review
+                    </button>
+                    <button
+                      className="lc-button"
+                      disabled={gatewayAction.isPending}
+                      onClick={() => gatewayAction.mutate({
+                        id: intake.id,
+                        action: "request-info",
+                        body: {
+                          note: infoNotes[intake.id] || "Please upload supporting documents for LC Gateway retention review.",
+                          missingDocuments: (docRequests[intake.id] || "").split(",").map((item) => item.trim()).filter(Boolean),
+                        },
+                      })}
+                    >
+                      2. Request info
+                    </button>
+                  </div>
+                  <div className="lc-ops-action-block">
+                    <h4>3. Quote terms</h4>
+                    <div className="lc-ops-inline">
+                      <input
+                        value={quoteAmounts[intake.id] || ""}
+                        onChange={(event) => setQuoteAmounts((current) => ({ ...current, [intake.id]: event.target.value }))}
+                        placeholder="Quoted amount (INR)"
+                        inputMode="decimal"
+                      />
+                      <input
+                        value={quoteSummaries[intake.id] || ""}
+                        onChange={(event) => setQuoteSummaries((current) => ({ ...current, [intake.id]: event.target.value }))}
+                        placeholder="Terms summary"
+                      />
+                      <button
+                        className="lc-button lc-button-primary"
+                        disabled={gatewayAction.isPending}
+                        onClick={() => gatewayAction.mutate({
+                          id: intake.id,
+                          action: "quote-terms",
+                          body: {
+                            quotedAmount: Number(quoteAmounts[intake.id] || 0),
+                            termsSummary: quoteSummaries[intake.id] || "LC Gateway full representation engagement terms",
+                          },
+                        })}
+                      >
+                        Quote terms
+                      </button>
+                    </div>
+                  </div>
+                  <div className="lc-ops-action-block">
+                    <h4>4. Assign panel lawyer</h4>
+                    <div className="lc-ops-inline">
+                      <select
+                        value={advocateByIntake[intake.id] || ""}
+                        onChange={(event) => setAdvocateByIntake((current) => ({ ...current, [intake.id]: event.target.value }))}
+                      >
+                        <option value="">Select Bar-verified panel lawyer</option>
+                        {advocates.map((advocate) => (
+                          <option key={advocate.id} value={advocate.id}>{advocateOptionLabel(advocate)}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="lc-button lc-button-primary"
+                        disabled={gatewayAction.isPending || !advocateByIntake[intake.id]}
+                        onClick={() => gatewayAction.mutate({
+                          id: intake.id,
+                          action: "assign-panel",
+                          body: {
+                            advocateId: advocateByIntake[intake.id],
+                            advocateName: selectedAdvocate?.name,
+                          },
+                        })}
+                      >
+                        {gatewayAction.isPending ? <Loader2 className="lc-spin" /> : <Gavel />} Assign panel
+                      </button>
+                    </div>
+                  </div>
+                  <div className="lc-ops-stack">
+                    <input
+                      value={docRequests[intake.id] || ""}
+                      onChange={(event) => setDocRequests((current) => ({ ...current, [intake.id]: event.target.value }))}
+                      placeholder="Missing docs (comma-separated) for request-info"
+                    />
+                    <textarea
+                      value={infoNotes[intake.id] || ""}
+                      onChange={(event) => setInfoNotes((current) => ({ ...current, [intake.id]: event.target.value }))}
+                      placeholder="Optional note for request-info"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      ) : null}
+
       {tab === "proxy" ? (
         <section>
-          <h3>Proxy Missions</h3>
+          <h3>Proxy Missions · Assignment & Escrow</h3>
+          <p className="text-muted-foreground" style={{ marginBottom: "1rem" }}>
+            Flow B: escrow_paid → proxy_assigned_by_lc → supervised Q&A → proof_approved → escrow_released.
+          </p>
           {!filteredTasks.length ? <p className="text-muted-foreground">No proxy missions need admin action.</p> : null}
           <div className="space-y-3">
             {filteredTasks.map((task) => {
-              const pendingAssign = /awaiting|open/i.test(String(task.status || ""));
+              const pendingAssign = /awaiting|open|pending/i.test(String(task.status || ""));
               const selected = advocates.find((item) => item.id === proxyByTask[task.id]);
               return (
                 <article key={task.id} className="lc-ops-card">
@@ -717,6 +946,7 @@ export function AdminControlDesk() {
                     {task.court || "Court TBD"} · {task.status}
                     {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                     {" · "}Proof {task.proofStatus || "none"} · Work hold {task.escrowStatus || "—"}
+                    {task.assignedProxyName ? ` · Proxy: ${task.assignedProxyName}` : ""}
                   </p>
                   <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
                     {pendingAssign ? (
@@ -766,10 +996,56 @@ export function AdminControlDesk() {
                     ) : null}
                     <Link className="lc-button" href="/admin/missions">Open missions</Link>
                   </div>
+                  <div className="lc-ops-stack" style={{ marginTop: "0.75rem" }}>
+                    <h4><MessageSquareText className="h-4 w-4" /> Supervised inter-counsel Q&A</h4>
+                    <textarea
+                      value={qaDrafts[task.id] || ""}
+                      onChange={(event) => setQaDrafts((current) => ({ ...current, [task.id]: event.target.value }))}
+                      placeholder="LC-moderated question or instruction for poster/proxy counsel"
+                      rows={2}
+                    />
+                    <button
+                      className="lc-button"
+                      style={{ width: "fit-content" }}
+                      disabled={proxyQa.isPending || !(qaDrafts[task.id] || "").trim()}
+                      onClick={() => proxyQa.mutate({ taskId: String(task.id), message: qaDrafts[task.id] })}
+                    >
+                      <Send /> Post supervised Q&A
+                    </button>
+                  </div>
                 </article>
               );
             })}
           </div>
+        </section>
+      ) : null}
+
+      {tab === "lawbot" ? (
+        <section className="space-y-4">
+          <div className="lc-ops-section-head">
+            <div>
+              <h3>LawBot Knowledge Seeder</h3>
+              <p className="text-muted-foreground">
+                Seed approved bare-act / explainer sources and rebuild grounded chunks for LawBot research answers.
+              </p>
+            </div>
+            <button
+              className="lc-button lc-button-primary"
+              disabled={seedLawBot.isPending}
+              onClick={() => seedLawBot.mutate()}
+            >
+              {seedLawBot.isPending ? <Loader2 className="lc-spin" /> : <FileSearch />} Seed default sources
+            </button>
+          </div>
+          <article className="lc-ops-card">
+            <strong>Default seed pack</strong>
+            <p className="lc-ops-meta">
+              NI Act §138 cheque bounce · BNSS bail overview · Consumer Protection Act basics · LC Gateway retention explainer
+            </p>
+            <p className="lc-ops-meta">
+              Endpoint: <code>POST /api/admin/legal-sources/seed</code>
+            </p>
+          </article>
         </section>
       ) : null}
 

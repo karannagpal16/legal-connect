@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -12,6 +12,7 @@ import {
   FileText,
   Gavel,
   IndianRupee,
+  Loader2,
   MessageSquareText,
   Phone,
   RefreshCw,
@@ -38,11 +39,26 @@ import {
 } from "@/lib/workspace";
 import { onNotificationAction } from "@/lib/notificationBus";
 
+interface ClientBooking {
+  id: string;
+  legalIssueType: string;
+  paymentStatus?: string;
+  status: string;
+  createdAt: string;
+  stageStatus?: string;
+  intakeStatus?: string;
+  productType?: string;
+  retentionStatus?: string;
+  retention?: { status?: string } | null;
+  advisoryCompletedAt?: string;
+  amount?: number;
+}
+
 interface ClientWorkspace {
   ok: boolean;
   profile: { name: string; identity: string; verificationStatus: string };
   cases: WorkspaceCase[];
-  bookings: Array<{ id: string; legalIssueType: string; paymentStatus?: string; status: string; createdAt: string }>;
+  bookings: ClientBooking[];
   payments: Array<{ id: string; amount: number; currency: string; status: string; createdAt: string }>;
   dataMode: "live" | "sample";
 }
@@ -64,6 +80,7 @@ function statusTone(status: string) {
 
 export function ClientHome() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedCaseId, setSelectedCaseId] = useState("");
   const [tab, setTab] = useState<MatterTab>("overview");
   const [noticeIndex, setNoticeIndex] = useState(0);
@@ -72,6 +89,8 @@ export function ClientHome() {
   const [dictionaryOpen, setDictionaryOpen] = useState(false);
   const [dictionaryQuery, setDictionaryQuery] = useState("");
   const [highlightPulse, setHighlightPulse] = useState(false);
+  const [retentionNotice, setRetentionNotice] = useState("");
+  const [retentionError, setRetentionError] = useState("");
   const quote = dailyQuote();
   const query = useQuery({
     queryKey: ["client-workspace", session?.user.id],
@@ -80,6 +99,25 @@ export function ClientHome() {
     staleTime: 30_000,
   });
   const cases = Array.isArray(query.data?.cases) ? query.data.cases : [];
+  const bookings = Array.isArray(query.data?.bookings) ? query.data.bookings : [];
+
+  const requestRetention = useMutation({
+    mutationFn: (bookingId: string) =>
+      workspaceRequest("/api/intakes/request-retention", session?.token, {
+        method: "POST",
+        body: JSON.stringify({
+          bookingId,
+          matterSummary: "Client requested LC Gateway retention for full court representation after advisory.",
+          urgency: "normal",
+        }),
+      }),
+    onSuccess: () => {
+      setRetentionNotice("Retention request sent. Legal Connect will review, quote terms, and assign a panel lawyer.");
+      setRetentionError("");
+      queryClient.invalidateQueries({ queryKey: ["client-workspace"] });
+    },
+    onError: (err) => setRetentionError(err instanceof Error ? err.message : "Retention request failed."),
+  });
 
   useEffect(() => {
     if (!selectedCaseId && cases[0]) setSelectedCaseId(cases[0].id);
@@ -282,7 +320,8 @@ export function ClientHome() {
               : <>Tell us what happened and we will assign verified counsel after <LegalTerm term="LC Review" onOpenDictionary={(term) => { setDictionaryQuery(term); setDictionaryOpen(true); }}>LC Review</LegalTerm>.</>}
           </p>
           <div className="lc-hero-button-row">
-            <button className="lc-button lc-button-primary" onClick={() => openBooking()}><Gavel /> Book a counsel <ArrowRight /></button>
+            <button className="lc-button lc-button-primary" onClick={() => openBooking()}><Gavel /> Book 1-time advisory <ArrowRight /></button>
+            <Link className="lc-button" href="/client/lawbot">Ask LawBot</Link>
             <button
               className="lc-button"
               onClick={() => { setDictionaryQuery(""); setDictionaryOpen(true); }}
@@ -290,6 +329,10 @@ export function ClientHome() {
               <BookOpenText /> Legal Terms Dictionary
             </button>
           </div>
+          <p className="lc-ops-meta" style={{ marginTop: "0.75rem" }}>
+            One-time advisory only. You cannot hire an advocate directly in the app — full court representation
+            requires LC Gateway retention.
+          </p>
         </div>
         <div className={`lc-live-notice tone-${notices[noticeIndex]?.tone || "navy"}`} aria-live="polite">
           <AnimatePresence mode="wait">
@@ -313,13 +356,58 @@ export function ClientHome() {
         <button onClick={() => selectedCase && focusMatter(selectedCase.id, "communications")} disabled={!selectedCase?.communications?.length}><MessageSquareText /><span><strong>{selectedCase?.communications?.length || 0}</strong><small>Case updates</small></span><ArrowRight /></button>
       </section>
 
+      {(bookings.length > 0 || retentionNotice || retentionError) ? (
+        <section className="space-y-3" style={{ marginBottom: "1.25rem" }}>
+          <div className="lc-vault-heading" style={{ marginBottom: 0 }}>
+            <div>
+              <span className="lc-kicker">LC GATEWAY RETENTION</span>
+              <h3>Convert advisory into full court representation</h3>
+              <p className="text-muted-foreground">
+                After a paid advisory session, request LC Gateway retention. Legal Connect reviews, quotes terms,
+                and assigns a Bar-verified panel lawyer.
+              </p>
+            </div>
+          </div>
+          {retentionError ? <div className="lc-form-error" role="alert">{retentionError}</div> : null}
+          {retentionNotice ? (
+            <div role="status" className="lc-ops-success">
+              <CheckCircle2 className="h-4 w-4" /> {retentionNotice}
+            </div>
+          ) : null}
+          {bookings.slice(0, 6).map((item) => {
+            const retention = item.retentionStatus || item.retention?.status;
+            const paid = /paid|verified|active/i.test(String(item.paymentStatus || item.status || ""));
+            return (
+              <article key={item.id} className="lc-ops-card">
+                <strong>{item.legalIssueType || "Advisory session"}</strong>
+                <p className="lc-ops-meta">
+                  {item.stageStatus || item.intakeStatus || item.status}
+                  {item.amount != null ? ` · ₹${Number(item.amount).toLocaleString("en-IN")}` : ""}
+                  {retention ? ` · Retention: ${retention}` : ""}
+                </p>
+                <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
+                  <button
+                    className="lc-button lc-button-primary"
+                    disabled={!paid || Boolean(retention) || requestRetention.isPending}
+                    onClick={() => requestRetention.mutate(item.id)}
+                  >
+                    {requestRetention.isPending ? <Loader2 className="lc-spin" /> : <ShieldCheck />}
+                    {retention ? "Retention requested" : "Request LC Gateway retention"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      ) : null}
+
       {!cases.length ? (
         <>
           <section className="lc-workspace-empty">
             <Gavel />
             <h2>No matters in your workspace</h2>
-            <p>Start a paid intake. Legal Connect will review the issue and assign suitable verified counsel.</p>
-            <button className="lc-button lc-button-primary" onClick={() => openBooking()}>Book a counsel</button>
+            <p>Start a one-time advisory. After the session, request LC Gateway retention for full court representation.</p>
+            <button className="lc-button lc-button-primary" onClick={() => openBooking()}>Book 1-time advisory</button>
           </section>
           <ActivityAuditTimeline
             title="Minute-by-Minute Activity Audit"
