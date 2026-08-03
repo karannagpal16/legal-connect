@@ -184,7 +184,7 @@ export function PortalRegister({ portal }: { portal: Exclude<Portal, "admin"> })
     event.preventDefault();
     const user = createDemoUser(portal, { verificationStatus: "draft", onboardingCompleted: false });
     setStoredSession(user);
-    navigate(`/${portal}/onboarding`);
+    navigate(`/${portal}`);
   }
 
   return (
@@ -294,7 +294,7 @@ export function VerificationPending({ portal }: { portal: "advocate" | "intern" 
           real supervised missions, verified XP, certificates, and rewards become available after verification.
         </p>
         <div className="mt-5 flex flex-col gap-2">
-          <Link href={portal === "advocate" ? "/advocate/dashboard" : "/intern/dashboard"}>
+          <Link href={portal === "advocate" ? "/advocate" : "/intern"}>
             <button className={button}>Explore limited dashboard</button>
           </Link>
           <Link href="/">

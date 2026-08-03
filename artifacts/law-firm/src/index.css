@@ -1581,3 +1581,29 @@
   .lc-ops-inline select { min-width: 100%; }
 }
 
+
+/* Access / restriction pages */
+.lc-access-page {
+  min-height: 70vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.85rem;
+  padding: 2rem 1.25rem;
+  text-align: center;
+  background: linear-gradient(180deg, #f7f4ee 0%, #fff 55%);
+}
+.lc-access-page svg { width: 42px; height: 42px; color: #8b6826; }
+.lc-access-page h1 {
+  margin: 0;
+  font-family: "Playfair Display", serif;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+}
+.lc-access-page p { margin: 0; max-width: 34rem; color: #5b6573; line-height: 1.5; }
+.lc-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}

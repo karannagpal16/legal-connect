@@ -15,41 +15,32 @@ function isRoleAllowedForPortal(role, portal) {
   return Boolean(portalRoles[normalizedPortal] && portalRoles[normalizedPortal].includes(normalizedRole));
 }
 
-function getPortalLoginRoute(portal) {
-  const normalizedPortal = normalizePortal(portal);
-  if (normalizedPortal === 'advocate') return '/advocate/login';
-  if (normalizedPortal === 'client') return '/client/login';
-  if (normalizedPortal === 'intern') return '/intern/login';
-  if (normalizedPortal === 'admin') return '/admin/login';
+/** Single unified login — role-specific /login aliases redirect in the SPA. */
+function getPortalLoginRoute(_portal) {
   return '/login';
+}
+
+function roleHome(role) {
+  switch (String(role || '').toLowerCase()) {
+    case 'admin':
+      return '/admin';
+    case 'advocate':
+    case 'rna':
+      return '/advocate';
+    case 'intern':
+      return '/intern';
+    case 'client':
+      return '/client';
+    default:
+      return '/access-denied';
+  }
 }
 
 function getPostLoginRoute(user = {}) {
   if (user.accountStatus === 'suspended') {
     return '/account-restricted';
   }
-
-  if (!user.onboardingCompleted) {
-    return `/${user.role === 'rna' ? 'advocate' : user.role}/onboarding`;
-  }
-
-  if (['advocate', 'rna', 'intern'].includes(user.role) && user.verificationStatus !== 'verified') {
-    return `/${user.role === 'rna' ? 'advocate' : user.role}/verification-pending`;
-  }
-
-  switch (user.role) {
-    case 'client':
-      return '/client/dashboard';
-    case 'advocate':
-    case 'rna':
-      return '/advocate/dashboard';
-    case 'intern':
-      return '/intern/dashboard';
-    case 'admin':
-      return '/admin/dashboard';
-    default:
-      return '/access-denied';
-  }
+  return roleHome(user.role);
 }
 
 module.exports = {
@@ -58,4 +49,5 @@ module.exports = {
   isRoleAllowedForPortal,
   getPortalLoginRoute,
   getPostLoginRoute,
+  roleHome,
 };
