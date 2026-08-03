@@ -9,6 +9,7 @@ const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
 const { createStrategyFeatures } = require("./strategy-features");
 const { createWorkflowProgressions } = require("./workflow-progressions");
+const { createMasterBlueprint } = require("./master-blueprint");
 const { createPlatformEvents } = require("./platform-events");
 const {
   createSupervisedPipeline,
@@ -2645,12 +2646,37 @@ const workflowProgressions = createWorkflowProgressions({
   ensureInternQuestsTable,
 });
 
+const masterBlueprint = createMasterBlueprint({
+  db,
+  config,
+  notify,
+  resolveRecipients,
+  resolveAdminRecipients,
+  portalUrl,
+  sendJson,
+  readBody,
+  getAuthUser: (req) => getAuthUser(req),
+  canSeeAll: (user) => canSeeAll(user),
+  mapBooking,
+  mapTask,
+  writeAuditLog,
+  demoStore,
+  activateBookingAsPaid,
+  numericAmount,
+  isMasterTestUser,
+  strategyFeatures,
+});
+
 const server = http.createServer(async (req, res) => {
   res.localsCorsOrigin = corsOriginFor(req);
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (req.method === "OPTIONS") {
     sendJson(res, 204, {});
+    return;
+  }
+
+  if (await masterBlueprint.handleBlueprintRoutes(req, res, url)) {
     return;
   }
 
@@ -4079,6 +4105,9 @@ const server = http.createServer(async (req, res) => {
         return {
           ...mapped,
           intakeStatus,
+          productType: payload.productType || mapped.productType || null,
+          retention: payload.retention || mapped.retention || null,
+          retentionStatus: payload.retentionStatus || payload.retention?.status || mapped.retentionStatus || null,
           pipeline: pipelineProgress(intakeStatus),
           sla: slaClock(row.verified_at || row.created_at || mapped.verifiedAt || mapped.createdAt, INTAKE_SLA_MS),
           missingDocuments: payload.missingDocuments || [],
