@@ -44,31 +44,31 @@ export const portalCopy: Record<Portal, {
     label: "Advocate",
     loginHeading: "Welcome to your Litigation Command Centre",
     createHeading: "You are creating an Advocate Account",
-    dashboard: "/advocate/dashboard",
-    onboarding: "/advocate/onboarding",
-    pending: "/advocate/verification-pending",
+    dashboard: "/advocate",
+    onboarding: "/advocate",
+    pending: "/advocate",
   },
   client: {
     label: "Client",
     loginHeading: "Welcome to your Personal Legal Hub",
     createHeading: "You are creating a Client Account",
-    dashboard: "/client/dashboard",
-    onboarding: "/client/onboarding",
+    dashboard: "/client",
+    onboarding: "/client",
   },
   intern: {
     label: "Intern",
     loginHeading: "Welcome to Internverse",
     createHeading: "You are creating an Internverse Account",
-    dashboard: "/intern/dashboard",
-    onboarding: "/intern/onboarding",
-    pending: "/intern/verification-pending",
+    dashboard: "/intern",
+    onboarding: "/intern",
+    pending: "/intern",
   },
   admin: {
     label: "Administrator",
     loginHeading: "Legal Connect Administration",
     createHeading: "Administrator accounts are invitation only",
-    dashboard: "/admin/dashboard",
-    onboarding: "/admin/dashboard",
+    dashboard: "/admin",
+    onboarding: "/admin",
   },
 };
 
@@ -125,24 +125,18 @@ export function getPostLoginRoute(user: AuthUser) {
     return "/account-restricted";
   }
 
-  if (!user.onboardingCompleted) {
-    return `/${user.role === "rna" ? "advocate" : user.role}/onboarding`;
-  }
-
-  if (["advocate", "rna", "intern"].includes(user.role) && user.verificationStatus !== "verified") {
-    return `/${user.role === "rna" ? "advocate" : user.role}/verification-pending`;
-  }
-
+  // Launch: send every healthy role to its live portal home.
+  // Legacy /dashboard, /onboarding, and /verification-pending URLs redirect in App.tsx.
   switch (user.role) {
     case "client":
-      return "/client/dashboard";
+      return "/client";
     case "advocate":
     case "rna":
-      return "/advocate/dashboard";
+      return "/advocate";
     case "intern":
-      return "/intern/dashboard";
+      return "/intern";
     case "admin":
-      return "/admin/dashboard";
+      return "/admin";
     default:
       return "/access-denied";
   }

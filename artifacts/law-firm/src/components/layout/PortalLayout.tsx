@@ -42,6 +42,7 @@ import {
   type NotificationOverlayState,
 } from "@/components/layout/ActionableNotificationOverlay";
 import { emitNotificationAction } from "@/lib/notificationBus";
+import { appPath } from "@/lib/appPath";
 
 interface NavItem {
   label: string;
@@ -271,7 +272,7 @@ export function PortalLayout({
     if (resolved.overlay === "none") {
       // Direct navigate + page-level handler (no confirmation overlay).
       emitNotificationAction(detail);
-      setLocation(resolved.targetUrl);
+      setLocation(appPath(resolved.targetUrl));
       return;
     }
     // Overlay actions emit only when the user confirms the CTA.
@@ -290,7 +291,7 @@ export function PortalLayout({
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/login");
+    setLocation(appPath("/login"));
   };
 
   return (
@@ -371,7 +372,7 @@ export function PortalLayout({
       <ActionableNotificationOverlay
         state={notifyAction}
         onClose={() => setNotifyAction(null)}
-        onNavigate={(url) => setLocation(url)}
+        onNavigate={(url) => setLocation(appPath(url))}
       />
     </div>
   );

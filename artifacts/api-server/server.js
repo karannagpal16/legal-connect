@@ -7334,6 +7334,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Unknown /api/* must not fall through to SPA HTML — clients expect JSON.
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+    sendJson(res, 404, { ok: false, error: "Not found", path: url.pathname });
+    return;
+  }
+
   serveStatic(req, res);
 });
 
