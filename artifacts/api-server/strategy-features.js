@@ -102,6 +102,10 @@ function createStrategyFeatures(deps) {
 
   const supervised = createSupervisedPipeline({ db });
   let schemaReady = false;
+  // In-process store for proof bytes when no external file store (Cloudinary) is
+  // configured. Keeps the uploaded order sheet viewable by LC Admin, the posting
+  // (main) counsel, and the assigned proxy counsel within the running instance.
+  const proofBlobs = new Map();
 
   function assertRule36Safe(text) {
     const value = String(text || "").trim();
@@ -525,10 +529,14 @@ function createStrategyFeatures(deps) {
     if (!nextDate || !userId) return [];
     const hearing = new Date(nextDate);
     if (Number.isNaN(hearing.getTime())) return [];
+    // Three reminders the day before the hearing (morning, midday, evening),
+    // plus the earlier D-7/D-3 nudges and a hearing-day morning alert.
     const templates = [
       { key: "ndoh_d7", offsetDays: -7, hour: 10 },
       { key: "ndoh_d3", offsetDays: -3, hour: 10 },
-      { key: "ndoh_d1", offsetDays: -1, hour: 10 },
+      { key: "ndoh_d1_morning", offsetDays: -1, hour: 8 },
+      { key: "ndoh_d1_midday", offsetDays: -1, hour: 13 },
+      { key: "ndoh_d1_evening", offsetDays: -1, hour: 19 },
       { key: "ndoh_morning", offsetDays: 0, hour: 7 },
     ];
     const created = [];
@@ -1161,15 +1169,24 @@ function createStrategyFeatures(deps) {
         sendJson(res, 409, { ok: false, error: "This order sheet scan was already used on another mission. Upload a fresh scan." });
         return true;
       }
+      const proofMime = contentType.includes("application/json")
+        ? "application/pdf"
+        : (contentType.split(";")[0] || "application/pdf");
       if (fileBuffer?.length) {
         const cloud = await uploadToCloudinary({
           buffer: fileBuffer,
           fileName,
-          mimeType: contentType.split(";")[0] || "application/pdf",
+          mimeType: proofMime,
           folder: "legal-connect/proxy-proofs",
         });
-        if (cloud.ok) proofUrl = cloud.url;
-        else if (!proofUrl) proofUrl = `local://proof/${proofHash.slice(0, 16)}/${fileName}`;
+        if (cloud.ok) {
+          proofUrl = cloud.url;
+        } else {
+          // No external store — retain the bytes in-process so the order sheet
+          // stays viewable, and expose an authenticated download path.
+          proofBlobs.set(String(proofMatch[1]), { buffer: fileBuffer, mimeType: proofMime, fileName });
+          proofUrl = `/api/tasks/${proofMatch[1]}/proof`;
+        }
       }
       const updated = await saveTaskPatch(proofMatch[1], {
         status: "Proof Uploaded",
@@ -1179,6 +1196,8 @@ function createStrategyFeatures(deps) {
         payloadPatch: {
           proofSubmittedAt: new Date().toISOString(),
           proofSubmittedBy: authUser.id,
+          proofFileName: fileName,
+          proofMime,
           transparencyLayer: "proof",
           lcProofStatus: "pending",
           posterProofDecision: null,
@@ -1198,6 +1217,49 @@ function createStrategyFeatures(deps) {
         priority: "high",
       });
       sendJson(res, 200, { ok: true, task: updated });
+      return true;
+    }
+
+    if (proofMatch && req.method === "GET") {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Login is required." });
+        return true;
+      }
+      const task = await loadTask(proofMatch[1]);
+      if (!task) {
+        sendJson(res, 404, { ok: false, error: "Task not found." });
+        return true;
+      }
+      // Order sheet is visible to LC Admin, the posting (main) counsel, and the
+      // assigned proxy counsel (including the proxy who uploaded it).
+      const isPoster = String(task.postedBy || task.payload?.postedBy || "") === String(authUser.id || "");
+      const isProxy = String(task.acceptedBy || task.payload?.acceptedBy || "") === String(authUser.id || "");
+      if (!isPoster && !isProxy && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only Legal Connect Admin, the posting counsel, or the assigned proxy can view this order sheet." });
+        return true;
+      }
+      const blob = proofBlobs.get(String(proofMatch[1]));
+      if (blob?.buffer?.length) {
+        res.writeHead(200, {
+          "Content-Type": blob.mimeType || "application/octet-stream",
+          "Content-Disposition": `inline; filename="${safeAttachmentName(blob.fileName || "order-sheet.pdf")}"`,
+          "Content-Length": blob.buffer.length,
+          "Cache-Control": "private, no-store",
+        });
+        res.end(blob.buffer);
+        return true;
+      }
+      const proofUrl = task.proofUrl || task.proof_url || "";
+      if (/^https?:\/\//i.test(proofUrl)) {
+        res.writeHead(302, { Location: proofUrl });
+        res.end();
+        return true;
+      }
+      sendJson(res, 404, {
+        ok: false,
+        error: "The order sheet file is not available to view. Ask the proxy counsel to upload it again.",
+      });
       return true;
     }
 

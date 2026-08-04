@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
+  FileText,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "wouter";
@@ -43,6 +44,7 @@ type ProxyTask = Task & {
   room?: string;
   hearingDate?: string;
   proofStatus?: string;
+  proofUrl?: string | null;
   conflictDeclaredAt?: string;
   checkedInAt?: string;
   acceptedBy?: string | number;
@@ -110,6 +112,7 @@ export function ProxyHub() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [busyId, setBusyId] = useState("");
+  const [viewingId, setViewingId] = useState("");
   const [proxyByTask, setProxyByTask] = useState<Record<string, string>>({});
   const [proofRejectReason, setProofRejectReason] = useState<Record<string, string>>({});
   const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
@@ -299,6 +302,33 @@ export function ProxyHub() {
     input.click();
   };
 
+  const viewProof = async (task: ProxyTask) => {
+    const direct = String(task.proofUrl || "");
+    // Cloudinary / external URLs are public — open them directly.
+    if (/^https?:\/\//i.test(direct)) {
+      window.open(direct, "_blank", "noopener");
+      return;
+    }
+    setViewingId(String(task.id));
+    try {
+      const response = await fetch(`/api/tasks/${task.id}/proof`, {
+        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {},
+      });
+      if (!response.ok) {
+        const info = await response.json().catch(() => ({}));
+        throw new Error(info.error || "Order sheet could not be opened.");
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      window.open(href, "_blank", "noopener");
+      window.setTimeout(() => URL.revokeObjectURL(href), 60_000);
+    } catch (error) {
+      toast({ title: "Could not open order sheet", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setViewingId("");
+    }
+  };
+
   const rateTask = async (task: ProxyTask) => {
     const starsRaw = window.prompt("Rate this mission (1-5)", "5");
     if (!starsRaw) return;
@@ -435,6 +465,9 @@ export function ProxyHub() {
             const pendingAdmin = stage === "lc_review" || stage === "posted_escrow";
             const acceptedLike = stage === "proxy_assigned" || stage === "proxy_checked_in";
             const canLifecycle = isProxy || isAdmin;
+            const proofUploaded = ["submitted", "lc_verified", "poster_approved", "approved", "rejected"].includes(String(t.proofStatus || "")) || Boolean(t.proofUrl);
+            // Order sheet is viewable by LC Admin, the posting counsel, and the assigned proxy (uploader).
+            const canViewProof = (isAdmin || isPoster || isProxy) && proofUploaded;
             const canEditDetails = (isAdmin || isPoster) && canEditProxyMissionDetails(t);
             const detailsOpen = Boolean(openDetails[String(t.id)]);
             const fee = Number(t.amount ?? t.fee ?? 0);
@@ -639,6 +672,19 @@ export function ProxyHub() {
                     >
                       <Camera className="w-4 h-4" />
                       {t.proofStatus === "rejected" ? "Re-upload order sheet" : "Upload order sheet"}
+                    </button>
+                  ) : null}
+
+                  {/* Order sheet is readable by LC Admin, posting counsel, and the proxy who uploaded it */}
+                  {!t.teaserOnly && canViewProof ? (
+                    <button
+                      type="button"
+                      className="w-full border border-primary/40 text-primary font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2"
+                      disabled={viewingId === String(t.id)}
+                      onClick={() => viewProof(t)}
+                    >
+                      <FileText className="w-4 h-4" />
+                      {viewingId === String(t.id) ? "Opening order sheet…" : "View order sheet (PDF)"}
                     </button>
                   ) : null}
 

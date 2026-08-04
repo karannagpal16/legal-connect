@@ -107,6 +107,8 @@ export interface WorkspaceCase {
   pipelineStage?: string | null;
   pipeline?: PipelineProgress | null;
   nextDate?: string | null;
+  /** Last date of hearing (LDOH) — the previous listed hearing date, when known. */
+  lastDate?: string | null;
   appearanceRequired: boolean;
   nextAction: string;
   costRisk?: string;

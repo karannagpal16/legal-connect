@@ -5558,6 +5558,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const body = await readBody(req);
+      const dateChanging = body.nextDate != null && String(body.nextDate).slice(0, 10) !== String(current.nextDate || "").slice(0, 10);
       const next = {
         ...current,
         ...body,
@@ -5565,6 +5566,8 @@ const server = http.createServer(async (req, res) => {
         court: body.court ?? body.courtName ?? current.courtName,
         caseNumber: body.caseNumber ?? body.caseNo ?? body.case_number ?? current.caseNumber,
         nextDate: body.nextDate ?? current.nextDate,
+        // When the hearing date moves, the outgoing date becomes the last date of hearing (LDOH).
+        lastDate: dateChanging && current.nextDate ? String(current.nextDate).slice(0, 10) : (current.lastDate || current.lastHearingDate || null),
         status: body.status ?? current.status,
       };
       const result = await db.query(
@@ -5616,11 +5619,14 @@ const server = http.createServer(async (req, res) => {
     }
     const body = await readBody(req);
     const previousDate = trackedCase.nextDate ? String(trackedCase.nextDate).slice(0, 10) : "";
+    const demoDateChanging = body.nextDate != null && String(body.nextDate).slice(0, 10) !== previousDate;
     Object.assign(trackedCase, body, {
       title: body.title ?? body.caseTitle ?? trackedCase.title,
       court: body.court ?? body.courtName ?? trackedCase.court,
       caseNo: body.caseNo ?? body.caseNumber ?? body.case_number ?? trackedCase.caseNo,
       nextDate: body.nextDate ?? trackedCase.nextDate,
+      // The outgoing hearing date becomes the last date of hearing (LDOH).
+      lastDate: demoDateChanging && previousDate ? previousDate : (trackedCase.lastDate || trackedCase.lastHearingDate || null),
       status: body.status ?? trackedCase.status,
       updatedAt: new Date().toISOString(),
     });
@@ -5639,6 +5645,10 @@ const server = http.createServer(async (req, res) => {
         ctaUrl: portalUrl(authUser.role === "advocate" ? "/advocate/cases" : authUser.role === "admin" || authUser.role === "rna" ? "/admin/cases" : "/client"),
         priority: "high",
       });
+      await strategyFeatures.scheduleNdohRemindersForCase(
+        { id: mapped.id, nextDate: upcomingDate, title: mapped.caseTitle || mapped.title },
+        mapped.userId || authUser.id,
+      );
     }
     sendJson(res, 200, mapped);
     return;
@@ -8809,7 +8819,7 @@ function clientWorkspaceDemo(name) {
   return [
     {
       id: 'client-case-1', caseTitle: 'Karan Nagpal v. State', caseNumber: 'CRL/1842/2026', courtName: 'Tis Hazari Courts, Delhi',
-      status: 'Active', stage: 'Defence Evidence', nextDate: '2026-08-05', appearanceRequired: true,
+      status: 'Active', stage: 'Defence Evidence', nextDate: '2026-08-05', lastDate: '2026-07-04', appearanceRequired: true,
       nextAction: 'Appear with original identity documents on the next date of hearing.', costRisk: 'Non-appearance may lead to costs or an adverse procedural order.',
       counsel, documents: [{ id: 'doc-1', name: 'Order dated 18 Jul 2026.pdf', category: 'Court order', uploadedAt: '2026-07-18' }, { id: 'doc-2', name: 'Evidence index.pdf', category: 'Evidence', uploadedAt: '2026-07-22' }],
       communications: [{ id: 'com-1', type: 'call-summary', title: 'Strategy call', summary: 'Discussed defence evidence and witness availability.', occurredAt: '2026-07-24', recordingStatus: 'Consent-managed archive' }, { id: 'com-2', type: 'message', title: 'Counsel update', summary: 'Draft evidence affidavit shared for review.', occurredAt: '2026-07-26' }],
@@ -8817,7 +8827,7 @@ function clientWorkspaceDemo(name) {
     },
     {
       id: 'client-case-2', caseTitle: 'Consumer Refund Matter', caseNumber: 'CC/2201/2026', courtName: 'District Consumer Commission, Delhi',
-      status: 'Active', stage: 'Complainant Evidence', nextDate: '2026-08-12', appearanceRequired: false,
+      status: 'Active', stage: 'Complainant Evidence', nextDate: '2026-08-12', lastDate: '2026-06-16', appearanceRequired: false,
       nextAction: 'Approve the evidence affidavit uploaded by assigned counsel.', costRisk: '', counsel,
       documents: [{ id: 'doc-3', name: 'Complaint with annexures.pdf', category: 'Pleading', uploadedAt: '2026-07-11' }],
       communications: [{ id: 'com-3', type: 'message', title: 'Document request', summary: 'Counsel requested the original purchase invoice.', occurredAt: '2026-07-23' }],
@@ -8849,6 +8859,7 @@ function enrichWorkspaceCase(item) {
     stage: payload.stage || 'Case review',
     appearanceRequired: Boolean(payload.appearanceRequired),
     nextAction: payload.nextAction || 'No action is due from you right now.',
+    lastDate: payload.lastDate || payload.lastHearingDate || payload.last_date || null,
     costRisk: payload.costRisk || '',
     healthScore: payload.healthScore?.score || payload.health_score || health.score,
     healthBand: payload.healthScore?.band || health.band,
