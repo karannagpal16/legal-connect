@@ -1,12 +1,26 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useListTasks, useDeleteTask } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
-import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch, ShieldCheck, Camera, Star, MessageSquareText, CheckCircle2, Briefcase, Clock3 } from "lucide-react";
+import {
+  Plus,
+  MapPin,
+  HandCoins,
+  Edit2,
+  Trash2,
+  UserRoundSearch,
+  ShieldCheck,
+  Camera,
+  Star,
+  MessageSquareText,
+  CheckCircle2,
+  Briefcase,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge, TaskTypeBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { TaskDialog } from "@/components/forms/TaskDialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth, normaliseRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
@@ -14,18 +28,11 @@ import { ProxyFlowBanner, ProxyMissionTimeline } from "@/components/proxy/ProxyF
 import {
   canEditProxyMissionDetails,
   humanProxyStatus,
+  nextActionButtonLabel,
   nextProxyActor,
   proxyUrgencyMeta,
   resolveProxyFlowStage,
 } from "@/lib/proxyFlow";
-
-const COMPLETION_TIMES = [
-  "Within 1 hour (urgent SLA)",
-  "Same business day",
-  "Next business day",
-  "Within 24 hours",
-  "1–2 days",
-];
 
 type ProxyTask = Task & {
   cnr?: string;
@@ -33,92 +40,117 @@ type ProxyTask = Task & {
   room?: string;
   hearingDate?: string;
   proofStatus?: string;
-  proofHash?: string;
   conflictDeclaredAt?: string;
   checkedInAt?: string;
   acceptedBy?: string | number;
   postedBy?: string | number;
   escrowStatus?: string;
   adminQuery?: string;
-  barEnrollment?: string;
-  completionEta?: string;
   amount?: number;
   fee?: string | number;
   court?: string;
   title?: string;
   urgency?: string;
   timingTier?: string;
-  slaAfterAssign?: string;
-  urgencyLabel?: string;
   appearanceType?: string;
+  assignedProxyName?: string;
   posterProofDecision?: string;
   posterProofReason?: string;
-  settlement?: {
-    gross?: number;
-    platformFee?: number;
-    appTaxGst?: number;
-    netToProxy?: number;
-  };
-  settlementPreview?: {
-    gross?: number;
-    platformFee?: number;
-    appTaxGst?: number;
-    netToProxy?: number;
-  };
+  settlement?: { netToProxy?: number; gross?: number };
+  settlementPreview?: { netToProxy?: number; gross?: number };
 };
+
+type SimpleFilter = "needs_you" | "waiting" | "done" | "all";
+
+function formatHearing(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(String(value).slice(0, 10));
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function roleOnMission(task: ProxyTask, userId?: string | number, isAdmin?: boolean) {
+  if (isAdmin) return "admin" as const;
+  if (String(task.acceptedBy || "") === String(userId || "")) return "proxy" as const;
+  if (String(task.postedBy || "") === String(userId || "")) return "poster" as const;
+  return "other" as const;
+}
+
+function missionNeedsYou(task: ProxyTask, role: ReturnType<typeof roleOnMission>) {
+  const stage = resolveProxyFlowStage(task);
+  const next = nextProxyActor(task);
+  if (role === "admin") {
+    return next.actor === "lc" || (stage === "proof_submitted" && !task.posterProofDecision);
+  }
+  if (role === "proxy") return next.actor === "proxy";
+  if (role === "poster") return next.actor === "main_counsel" || String(task.status || "").toLowerCase().includes("query");
+  return false;
+}
 
 export function ProxyHub() {
   const { data: tasks, isLoading } = useListTasks();
-  const [filter, setFilter] = useState<string>("All");
+  const [filter, setFilter] = useState<SimpleFilter>("needs_you");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [busyId, setBusyId] = useState<string>("");
+  const [busyId, setBusyId] = useState("");
   const [proxyByTask, setProxyByTask] = useState<Record<string, string>>({});
-  const [acceptTask, setAcceptTask] = useState<ProxyTask | null>(null);
-  const [enrollmentNo, setEnrollmentNo] = useState("");
-  const [completionEta, setCompletionEta] = useState(COMPLETION_TIMES[0]);
+  const [proofRejectReason, setProofRejectReason] = useState<Record<string, string>>({});
+  const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
+  const [showLiveSync, setShowLiveSync] = useState(false);
   const [queryNote, setQueryNote] = useState<Record<string, string>>({});
   const [respondNote, setRespondNote] = useState<Record<string, string>>({});
-  const [proofRejectReason, setProofRejectReason] = useState<Record<string, string>>({});
   const { session } = useAuth();
   const role = normaliseRole(session?.user?.role);
   const isAdmin = role === "admin";
-  const isAdvocate = role === "advocate" || isAdmin;
   const userId = session?.user?.id;
-
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [isAssigning, setIsAssigning] = useState(false);
+
   const advocates = useQuery({
     queryKey: ["admin-advocates-proxy"],
     queryFn: () => workspaceRequest<Array<{ id: string; name: string; enrollmentNo?: string }>>("/api/admin/advocates", session?.token),
     enabled: Boolean(isAdmin && session?.token),
     staleTime: 30_000,
   });
+  const advocateList = Array.isArray(advocates.data) ? advocates.data : [];
 
   const { mutate: deleteTask, isPending: isDeleting } = useDeleteTask({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-        toast({ title: "Task deleted" });
+        toast({ title: "Mission deleted" });
       },
     },
   });
 
-  const [isAssigning, setIsAssigning] = useState(false);
-  const advocateList = Array.isArray(advocates.data) ? advocates.data : [];
+  const allTasks = useMemo(() => (Array.isArray(tasks) ? (tasks as ProxyTask[]) : []), [tasks]);
 
-  const filteredTasks = (tasks as ProxyTask[] | undefined)?.filter((t) => {
-    if (filter === "All") return true;
-    const stage = resolveProxyFlowStage(t);
-    if (filter === "Pending Admin") return stage === "lc_review" || stage === "posted_escrow";
-    if (filter === "Assigned") return stage === "proxy_assigned" || stage === "proxy_checked_in";
-    if (filter === "Proof review") return stage === "proof_submitted" || stage === "counsel_ok";
-    if (filter === "Completed") return stage === "escrow_released";
-    if (filter === "Open") return String(t.status) === "Open";
-    if (filter === "Accepted") return t.status === "Accepted" || t.status === "Assigned" || stage === "proxy_assigned";
-    if (filter === "Proof Uploaded") return stage === "proof_submitted" || t.proofStatus === "submitted";
-    return t.status === filter;
-  });
+  const filteredTasks = useMemo(() => {
+    return allTasks.filter((task) => {
+      const myRole = roleOnMission(task, userId, isAdmin);
+      const stage = resolveProxyFlowStage(task);
+      const needsYou = missionNeedsYou(task, myRole);
+      if (filter === "all") return true;
+      if (filter === "done") return stage === "escrow_released";
+      if (filter === "needs_you") return needsYou;
+      return !needsYou && stage !== "escrow_released";
+    });
+  }, [allTasks, filter, isAdmin, userId]);
+
+  const counts = useMemo(() => {
+    let needsYou = 0;
+    let waiting = 0;
+    let done = 0;
+    for (const task of allTasks) {
+      const myRole = roleOnMission(task, userId, isAdmin);
+      const stage = resolveProxyFlowStage(task);
+      if (stage === "escrow_released") done += 1;
+      else if (missionNeedsYou(task, myRole)) needsYou += 1;
+      else waiting += 1;
+    }
+    return { needsYou, waiting, done, all: allTasks.length };
+  }, [allTasks, isAdmin, userId]);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -127,65 +159,43 @@ export function ProxyHub() {
   const runAction = async (taskId: string | number, path: string, init?: RequestInit, successTitle?: string) => {
     setBusyId(String(taskId));
     try {
-      await workspaceRequest(`${path}`, session?.token, init);
+      await workspaceRequest(path, session?.token, init);
       await refresh();
       toast({ title: successTitle || "Updated" });
     } catch (error) {
-      toast({ title: "Action failed", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Could not update", description: (error as Error).message, variant: "destructive" });
     } finally {
       setBusyId("");
     }
   };
 
   const handleAssign = async (id: number | string) => {
-    if (!isAdmin) {
-      toast({
-        title: "Admin assignment only",
-        description: "Legal Connect Admin searches and assigns proxy counsel after payment.",
-        variant: "destructive",
-      });
-      return;
-    }
     const proxyId = proxyByTask[String(id)];
     const proxy = advocateList.find((item) => item.id === proxyId);
     if (!proxyId || !proxy) {
-      toast({
-        title: "Select proxy counsel",
-        description: "Choose a verified advocate before assigning this mission.",
-        variant: "destructive",
-      });
+      toast({ title: "Pick an advocate", description: "Choose who should appear in court.", variant: "destructive" });
       return;
     }
     setIsAssigning(true);
     try {
-      await workspaceRequest(`/api/admin/proxy-tasks/${id}/assign-proxy`, session?.token, {
-        method: "POST",
-        body: JSON.stringify({
-          proxyAdvocateId: proxy.id,
-          proxyAdvocateName: proxy.name,
-        }),
-      });
+      try {
+        await workspaceRequest(`/api/admin/proxy-tasks/${id}/assign-proxy`, session?.token, {
+          method: "POST",
+          body: JSON.stringify({ proxyAdvocateId: proxy.id, proxyAdvocateName: proxy.name }),
+        });
+      } catch {
+        await workspaceRequest(`/api/tasks/${id}/accept`, session?.token, {
+          method: "POST",
+          body: JSON.stringify({ proxyAdvocateId: proxy.id, proxyAdvocateName: proxy.name }),
+        });
+      }
       await refresh();
-      toast({
-        title: "Proxy assigned by LC",
-        description: "State: proxy_assigned_by_lc. Assigned counsel must declare conflict before check-in.",
-      });
+      toast({ title: "Proxy assigned", description: `${proxy.name} can now check in and upload proof.` });
     } catch (error) {
       toast({ title: "Assignment failed", description: (error as Error).message, variant: "destructive" });
     } finally {
       setIsAssigning(false);
     }
-  };
-
-  const handleDelete = (id: number) => {
-    if (confirm("Delete this proxy task?")) {
-      deleteTask({ id });
-    }
-  };
-
-  const openEdit = (t: Task) => {
-    setEditingTask(t);
-    setDialogOpen(true);
   };
 
   const uploadProof = async (task: ProxyTask) => {
@@ -209,9 +219,9 @@ export function ProxyHub() {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Proof upload failed.");
         await refresh();
-        toast({ title: "Proof submitted", description: "Awaiting main counsel satisfaction. Escrow stays locked." });
+        toast({ title: "Order sheet uploaded", description: "Waiting for the posting counsel to confirm." });
       } catch (error) {
-        toast({ title: "Proof upload failed", description: (error as Error).message, variant: "destructive" });
+        toast({ title: "Upload failed", description: (error as Error).message, variant: "destructive" });
       } finally {
         setBusyId("");
       }
@@ -220,7 +230,7 @@ export function ProxyHub() {
   };
 
   const rateTask = async (task: ProxyTask) => {
-    const starsRaw = window.prompt("Rate this ProxyHub mission (1-5 stars)", "5");
+    const starsRaw = window.prompt("Rate this mission (1-5)", "5");
     if (!starsRaw) return;
     const stars = Number(starsRaw);
     const comment = window.prompt("Optional comment", "") || "";
@@ -230,17 +240,24 @@ export function ProxyHub() {
     }, "Rating saved");
   };
 
+  const filters: Array<{ id: SimpleFilter; label: string; count: number }> = [
+    { id: "needs_you", label: "Needs you", count: counts.needsYou },
+    { id: "waiting", label: "Waiting", count: counts.waiting },
+    { id: "done", label: "Done", count: counts.done },
+    { id: "all", label: "All", count: counts.all },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">
-            {isAdmin ? "Proxy Desk · LC assignment & escrow release" : "ProxyHub · Main counsel & assigned missions"}
+            {isAdmin ? "Court missions" : "My court missions"}
           </h1>
-          <p className="mt-1 text-muted-foreground">
+          <p className="mt-1 text-muted-foreground max-w-xl">
             {isAdmin
-              ? "Live Sync for Admin. Review urgency, assign proxy, and release escrow after proof."
-              : "Post with urgency pricing. If LC assigns you, see court, task type, SLA and upload proof here."}
+              ? "Assign a proxy, then release payment after proof is confirmed."
+              : "Post a court appearance, or complete missions Legal Connect assigns to you."}
           </p>
         </div>
         <button
@@ -248,179 +265,148 @@ export function ProxyHub() {
             setEditingTask(null);
             setDialogOpen(true);
           }}
-          className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-4 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:-translate-y-1 hover:shadow-xl min-h-[48px]"
+          className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-3.5 rounded-xl font-bold shadow-md min-h-[48px]"
         >
           <Plus className="w-5 h-5" />
-          Pay & Post Task
+          Post a mission
         </button>
       </div>
 
       <ProxyFlowBanner />
 
-      {!isAdmin ? (
-        <div className="rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          Timing prices: <strong className="text-foreground">Urgent ₹1,299</strong> (1 hr after assign) ·{" "}
-          <strong className="text-foreground">Priority ₹799</strong> (same day) ·{" "}
-          <strong className="text-foreground">Standard ₹499</strong> (business hours). Assigned proxy must keep the mission updated with order-sheet proof.
-        </div>
-      ) : null}
-
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {["All", "Pending Admin", "Assigned", "Proof review", "Completed"].map((status) => (
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {filters.map((item) => (
           <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
-              filter === status
+            key={item.id}
+            onClick={() => setFilter(item.id)}
+            className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
+              filter === item.id
                 ? "bg-primary text-primary-foreground shadow-md"
-                : "bg-card border border-border text-foreground hover:border-primary/50"
+                : "bg-card border border-border text-foreground hover:border-primary/40"
             }`}
           >
-            {status}
+            {item.label}
+            <span className="ml-1.5 opacity-70">{item.count}</span>
           </button>
         ))}
       </div>
 
       {isAdmin ? (
-        <ActivityAuditTimeline
-          title="ProxyHub · Live Sync"
-          emptyText="Posts, LC assignments, proof uploads and releases sync here for Admin."
-          limit={12}
-          compact
-        />
+        <div className="rounded-2xl border border-border bg-card">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between px-4 py-3 text-left"
+            onClick={() => setShowLiveSync((value) => !value)}
+          >
+            <span className="text-sm font-semibold text-foreground">Live activity (admin)</span>
+            {showLiveSync ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          {showLiveSync ? (
+            <div className="px-2 pb-3">
+              <ActivityAuditTimeline
+                title="Live Sync"
+                emptyText="Assignments and proof updates appear here."
+                limit={8}
+                compact
+              />
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 bg-card rounded-2xl animate-pulse border border-border" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-44 bg-card rounded-2xl animate-pulse border border-border" />
           ))}
         </div>
-      ) : filteredTasks?.length === 0 ? (
-        <div className="text-center py-20 bg-card rounded-2xl border border-border">
-          <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-foreground">No proxy tasks yet</h3>
-          <p className="text-muted-foreground mt-2">
-            {isAdmin ? "Paid posts from advocates will appear here for assignment." : "Post a paid task with mandatory CNR and passover details."}
+      ) : filteredTasks.length === 0 ? (
+        <div className="text-center py-16 bg-card rounded-2xl border border-border">
+          <Briefcase className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-foreground">
+            {filter === "needs_you" ? "Nothing needs you right now" : "No missions here"}
+          </h3>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {isAdmin ? "New paid posts will show up under Needs you." : "Post a mission, or wait for Legal Connect to assign you one."}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTasks?.map((t) => {
-            const pendingAdmin = ["pending_admin_review", "query_raised", "Awaiting Admin Assignment"].includes(String(t.status))
-              || resolveProxyFlowStage(t) === "lc_review"
-              || resolveProxyFlowStage(t) === "posted_escrow";
-            const marketplaceOpen = t.status === "Open";
-            const isProxy = String(t.acceptedBy || "") === String(userId || "");
-            const isPoster = String(t.postedBy || "") === String(userId || "");
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredTasks.map((t) => {
+            const myRole = roleOnMission(t, userId, isAdmin);
+            const isProxy = myRole === "proxy";
+            const isPoster = myRole === "poster";
             const stage = resolveProxyFlowStage(t);
             const urgency = proxyUrgencyMeta(t.urgency || t.timingTier);
             const next = nextProxyActor(t);
-            const acceptedLike = stage === "proxy_assigned" || stage === "proxy_checked_in" || t.status === "Accepted" || t.status === "Assigned" || t.status === "Checked In";
+            const pendingAdmin = stage === "lc_review" || stage === "posted_escrow";
+            const acceptedLike = stage === "proxy_assigned" || stage === "proxy_checked_in";
             const canLifecycle = isProxy || isAdmin;
             const canEditDetails = (isAdmin || isPoster) && canEditProxyMissionDetails(t);
-            const myRoleLabel = isAdmin ? "LC desk" : isPoster ? "You are main counsel" : isProxy ? "You are proxy counsel · assigned by LC" : "Observer";
+            const detailsOpen = Boolean(openDetails[String(t.id)]);
+            const fee = Number(t.amount ?? t.fee ?? 0);
+            const assignedName = t.assignedProxyName
+              || advocateList.find((a) => a.id === String(t.acceptedBy || ""))?.name
+              || (t.acceptedBy ? "Assigned proxy" : null);
+            const whoLine = isAdmin
+              ? (assignedName ? `Proxy: ${assignedName}` : "Waiting for assignment")
+              : isProxy
+                ? "Assigned to you"
+                : isPoster
+                  ? (assignedName ? `Proxy: ${assignedName}` : "Waiting for Legal Connect")
+                  : "Court mission";
+
             return (
-              <div
+              <article
                 key={t.id}
-                className={`bg-card border rounded-2xl p-5 hover:border-primary/50 transition-all shadow-sm flex flex-col group relative overflow-hidden ${
-                  isProxy ? "border-primary/60 ring-1 ring-primary/20" : "border-border"
+                className={`bg-card border rounded-2xl p-5 flex flex-col shadow-sm ${
+                  isProxy || missionNeedsYou(t, myRole) ? "border-primary/50" : "border-border"
                 }`}
               >
-                {pendingAdmin && <div className="absolute top-0 right-0 w-16 h-16 bg-primary/10 rounded-bl-[100%] z-0" />}
-
-                <div className="flex justify-between items-start mb-3 relative z-10 gap-2">
-                  <TaskTypeBadge type={t.taskType || "Other"} />
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <TaskTypeBadge type={String(t.taskType || t.appearanceType || "Other")} />
                   <StatusBadge status={String(t.status || humanProxyStatus(t))} task={t} />
                 </div>
 
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2 relative z-10">{myRoleLabel}</p>
-
-                <h3 className="text-lg font-bold text-foreground mb-1 relative z-10 leading-snug">
-                  {(t.taskType || t.appearanceType || "Appearance") as string}
+                <h3 className="text-xl font-serif font-bold text-foreground leading-snug">
+                  {String(t.taskType || t.appearanceType || "Appearance")}
                   {" · "}
-                  {t.location || t.court || "Court TBD"}
+                  {t.location || t.court || "Court"}
                 </h3>
-                <p className="text-sm text-muted-foreground mb-3 relative z-10 leading-snug">{t.taskDescription || t.title}</p>
+                <p className="text-sm text-muted-foreground mt-1">{whoLine}</p>
 
-                <div className="mb-3 relative z-10 flex flex-wrap gap-2 text-[11px] font-semibold">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-accent/15 px-2 py-1 text-foreground">
-                    <Clock3 className="w-3.5 h-3.5" />
-                    {urgency.label} · {urgency.slaShort}
-                  </span>
-                  {isProxy ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-foreground">
-                      Next: {next.action}
+                <div className="mt-3 space-y-1.5 text-sm text-foreground">
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="w-4 h-4 text-primary shrink-0" />
+                    <span>
+                      {formatHearing(t.hearingDate) || "Hearing date TBD"}
+                      {t.roomNo || t.room ? ` · Room ${t.roomNo || t.room}` : ""}
+                      {t.cnr ? ` · CNR ${t.cnr}` : ""}
                     </span>
+                  </p>
+                  {fee > 0 ? (
+                    <p className="flex items-center gap-2 font-semibold">
+                      <HandCoins className="w-4 h-4 text-primary shrink-0" />
+                      ₹{fee.toLocaleString("en-IN")} held
+                      <span className="font-normal text-muted-foreground">· {urgency.label}</span>
+                    </p>
                   ) : null}
                 </div>
 
-                <div className="mb-4 relative z-10">
+                <div className="mt-4 mb-4">
                   <ProxyMissionTimeline task={t} />
                 </div>
 
-                <div className="space-y-2 mb-4 flex-1 relative z-10 text-sm text-muted-foreground">
-                  {(t.cnr || (t as any).CNR) && <div>CNR {(t as any).cnr}</div>}
-                  {(t.roomNo || t.room) && <div>Room {t.roomNo || t.room}</div>}
-                  {t.hearingDate && <div>Hearing {String(t.hearingDate).slice(0, 10)}</div>}
-                  {t.location || t.court ? (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-primary" />
-                      <span>{t.location || t.court}</span>
-                    </div>
-                  ) : null}
-                  {t.fee || t.amount ? (
-                    <div className="flex items-center gap-2 font-semibold text-foreground bg-accent/10 w-fit px-2 py-1 rounded-md">
-                      <HandCoins className="w-4 h-4" />
-                      <span>₹{t.fee || t.amount} escrowed · {urgency.label}</span>
-                    </div>
-                  ) : null}
-                  {(t.slaAfterAssign || urgency.slaAfterAssign) ? (
-                    <div>SLA: {t.slaAfterAssign || urgency.slaAfterAssign}</div>
-                  ) : null}
-                  <div>Proof: {t.proofStatus || "none"}{t.proofHash ? ` · ${String(t.proofHash).slice(0, 8)}…` : ""}{isProxy ? " — keep this updated" : ""}</div>
-                  <div>Escrow: {t.escrowStatus || "—"}</div>
-                  {t.posterProofDecision ? (
-                    <div>
-                      Main counsel: {t.posterProofDecision === "ok" ? "Satisfied" : "Not satisfied"}
-                      {t.posterProofReason ? ` — ${t.posterProofReason}` : ""}
-                    </div>
-                  ) : null}
-                  {(t.settlement || t.settlementPreview) ? (
-                    <div>
-                      Settlement: gross ₹{(t.settlement || t.settlementPreview)?.gross}
-                      {" → "}net ₹{(t.settlement || t.settlementPreview)?.netToProxy}
-                      {" "}(−10% platform −3% tax)
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-col gap-2 pt-4 border-t border-border mt-auto relative z-10">
+                <div className="mt-auto space-y-2 pt-3 border-t border-border">
+                  {/* Admin: assign */}
                   {isAdmin && pendingAdmin ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">LC action: review this paid posting, then assign proxy counsel. Escrow stays held.</p>
-                      <textarea
-                        value={queryNote[String(t.id)] || ""}
-                        onChange={(e) => setQueryNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
-                        placeholder="Raise query for main counsel (optional)…"
-                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
-                      />
-                      <button
-                        className="w-full border border-border font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2"
-                        disabled={busyId === String(t.id) || (queryNote[String(t.id)] || "").trim().length < 8}
-                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/raise-query`, {
-                          method: "POST",
-                          body: JSON.stringify({ query: queryNote[String(t.id)] }),
-                        }, "Query raised for main counsel")}
-                      >
-                        <MessageSquareText className="w-4 h-4" /> Raise query to main counsel
-                      </button>
                       <select
                         value={proxyByTask[String(t.id)] || ""}
                         onChange={(event) => setProxyByTask((current) => ({ ...current, [String(t.id)]: event.target.value }))}
                         className="w-full p-3 rounded-xl bg-background border border-border outline-none"
                       >
-                        <option value="">Select verified proxy counsel</option>
+                        <option value="">Choose advocate…</option>
                         {advocateList.map((advocate) => (
                           <option key={advocate.id} value={advocate.id}>
                             {advocate.name}{advocate.enrollmentNo ? ` · ${advocate.enrollmentNo}` : ""}
@@ -430,164 +416,145 @@ export function ProxyHub() {
                       <button
                         onClick={() => handleAssign(t.id)}
                         disabled={isAssigning || busyId === String(t.id) || !proxyByTask[String(t.id)]}
-                        className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl flex items-center justify-center gap-2"
+                        className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl flex items-center justify-center gap-2"
                       >
                         <UserRoundSearch className="w-5 h-5" />
-                        Assign proxy (LC)
+                        {isAssigning ? "Assigning…" : "Assign proxy"}
                       </button>
                     </div>
                   ) : null}
 
-                  {isPoster && t.status === "query_raised" ? (
+                  {/* Poster answering LC query */}
+                  {isPoster && String(t.status) === "query_raised" ? (
                     <div className="space-y-2">
-                      {t.adminQuery ? <p className="text-xs text-muted-foreground">Admin query: {t.adminQuery}</p> : null}
+                      {t.adminQuery ? <p className="text-xs text-muted-foreground">Question: {t.adminQuery}</p> : null}
                       <textarea
                         value={respondNote[String(t.id)] || ""}
                         onChange={(e) => setRespondNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
-                        placeholder="Update info for Admin…"
+                        placeholder="Your reply…"
                         className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
                       />
                       <button
-                        className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl"
+                        className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl"
                         disabled={busyId === String(t.id) || (respondNote[String(t.id)] || "").trim().length < 4}
                         onClick={() => runAction(t.id, `/api/tasks/${t.id}/respond-query`, {
                           method: "POST",
                           body: JSON.stringify({ response: respondNote[String(t.id)] }),
-                        }, "Returned to Open marketplace")}
+                        }, "Reply sent")}
                       >
-                        Respond & reopen
+                        Send reply
                       </button>
                     </div>
                   ) : null}
 
-                  {isAdvocate && marketplaceOpen && !isPoster && !isAdmin ? (
-                    <p className="text-xs text-muted-foreground">
-                      Peer accept is closed. Legal Connect assigns proxy counsel after payment review.
-                    </p>
-                  ) : null}
-
+                  {/* Proxy lifecycle — one clear button */}
                   {canLifecycle && acceptedLike && !t.conflictDeclaredAt ? (
                     <button
-                      className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
+                      className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
                       onClick={() => runAction(t.id, `/api/tasks/${t.id}/conflict-declare`, {
                         method: "POST",
                         body: JSON.stringify({ declared: true, note: "No conflict of interest for this appearance." }),
-                      }, "Conflict declaration signed")}
+                      }, "No conflict confirmed")}
                     >
-                      <ShieldCheck className="w-4 h-4" /> Declare no conflict
+                      <ShieldCheck className="w-4 h-4" /> Confirm no conflict
                     </button>
                   ) : null}
 
                   {canLifecycle && t.conflictDeclaredAt && !t.checkedInAt ? (
                     <button
-                      className="w-full border border-border rounded-xl py-2.5 font-semibold"
+                      className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                       disabled={busyId === String(t.id)}
-                      onClick={() => runAction(t.id, `/api/tasks/${t.id}/check-in`, { method: "POST", body: "{}" }, "Checked in · proof window open")}
+                      onClick={() => runAction(t.id, `/api/tasks/${t.id}/check-in`, { method: "POST", body: "{}" }, "Checked in")}
                     >
-                      Day-of check-in
+                      Check in at court
                     </button>
                   ) : null}
 
                   {canLifecycle && t.checkedInAt && !["submitted", "poster_approved", "approved"].includes(String(t.proofStatus || "")) ? (
                     <button
-                      className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
+                      className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
                       onClick={() => uploadProof(t)}
                     >
-                      <Camera className="w-4 h-4" /> {t.proofStatus === "rejected" ? "Re-upload order sheet" : "Upload order sheet"}
+                      <Camera className="w-4 h-4" />
+                      {t.proofStatus === "rejected" ? "Re-upload order sheet" : "Upload order sheet"}
                     </button>
                   ) : null}
 
+                  {/* Poster reviews proof */}
                   {isPoster && t.proofStatus === "submitted" ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Review the proxy order-sheet proof. Escrow stays held until you confirm satisfaction.</p>
                       <button
-                        className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 font-bold"
+                        className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                         disabled={busyId === String(t.id)}
                         onClick={() => runAction(t.id, `/api/tasks/${t.id}/proof-review`, {
                           method: "POST",
                           body: JSON.stringify({ decision: "ok" }),
-                        }, "Proof marked satisfactory")}
+                        }, "Proof confirmed")}
                       >
-                        <CheckCircle2 className="w-4 h-4 inline mr-1" /> Proof OK — satisfied
+                        <CheckCircle2 className="w-4 h-4 inline mr-1" /> Proof looks good
                       </button>
                       <textarea
                         value={proofRejectReason[String(t.id)] || ""}
                         onChange={(e) => setProofRejectReason((c) => ({ ...c, [String(t.id)]: e.target.value }))}
-                        placeholder="If not satisfied, state the reason…"
-                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
+                        placeholder="If not OK, say why…"
+                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[64px]"
                       />
                       <button
                         className="w-full border border-destructive/40 text-destructive font-semibold py-2.5 rounded-xl"
                         disabled={busyId === String(t.id) || (proofRejectReason[String(t.id)] || "").trim().length < 8}
                         onClick={() => runAction(t.id, `/api/tasks/${t.id}/proof-review`, {
                           method: "POST",
-                          body: JSON.stringify({
-                            decision: "not_ok",
-                            reason: proofRejectReason[String(t.id)],
-                          }),
-                        }, "Proof rejected — proxy must re-upload")}
+                          body: JSON.stringify({ decision: "not_ok", reason: proofRejectReason[String(t.id)] }),
+                        }, "Asked for fresh proof")}
                       >
-                        Not OK — request fresh proof
+                        Not OK — ask again
                       </button>
                     </div>
                   ) : null}
 
-                  {isAdmin && t.proofStatus === "submitted" ? (
+                  {/* Admin release / override */}
+                  {isAdmin && t.proofStatus === "submitted" && !isPoster ? (
                     <button
                       className="w-full border border-border rounded-xl py-2.5 font-semibold"
                       disabled={busyId === String(t.id)}
                       onClick={() => runAction(t.id, "/api/admin/task-action", {
                         method: "POST",
-                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved", reason: "Admin override while awaiting counsel" }),
-                      }, "Admin override · proof approved")}
+                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved", reason: "Admin override" }),
+                      }, "Proof approved")}
                     >
-                      Admin override: approve proof
+                      Approve proof (admin)
                     </button>
                   ) : null}
 
-                  {isAdmin && ["poster_approved", "approved"].includes(String(t.proofStatus || "")) && t.escrowStatus !== "Released" ? (
+                  {isAdmin && ["poster_approved", "approved"].includes(String(t.proofStatus || "")) && String(t.escrowStatus || "").toLowerCase() !== "released" ? (
                     <button
-                      className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 font-bold"
+                      className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                       disabled={busyId === String(t.id)}
                       onClick={() => {
-                        if (!window.confirm("Release escrow after deducting 10% platform fee + 3% app/GST tax? Net payout to proxy is manual (not automated Razorpay).")) return;
+                        if (!window.confirm("Release payment to proxy after 10% platform + 3% tax?")) return;
                         runAction(t.id, "/api/admin/task-action", {
                           method: "POST",
                           body: JSON.stringify({ taskId: t.id, action: "release_payment" }),
-                        }, "Completed · net funds released after tax");
+                        }, "Payment released");
                       }}
                     >
-                      Release net funds (after tax)
+                      Release payment
+                      {t.settlement?.netToProxy != null || t.settlementPreview?.netToProxy != null
+                        ? ` · ₹${Number(t.settlement?.netToProxy ?? t.settlementPreview?.netToProxy).toLocaleString("en-IN")} net`
+                        : ""}
                     </button>
                   ) : null}
 
-                  {(isPoster || isProxy || isAdmin) && !pendingAdmin ? (
-                    <div className="space-y-2">
-                      <textarea
-                        value={queryNote[String(t.id)] || ""}
-                        onChange={(e) => setQueryNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
-                        placeholder="Supervised inter-counsel Q&A (LC moderated)…"
-                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
-                      />
-                      <button
-                        className="w-full border border-border font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2"
-                        disabled={busyId === String(t.id) || (queryNote[String(t.id)] || "").trim().length < 4}
-                        onClick={() => runAction(t.id, `/api/proxy-tasks/${t.id}/qa`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            message: queryNote[String(t.id)],
-                            kind: isAdmin ? "lc_moderation" : "counsel_query",
-                          }),
-                        }, "Supervised Q&A posted")}
-                      >
-                        <MessageSquareText className="w-4 h-4" /> Post supervised Q&A
-                      </button>
-                    </div>
+                  {/* Waiting state — no button, just calm copy */}
+                  {!missionNeedsYou(t, myRole) && stage !== "escrow_released" && !(isAdmin && pendingAdmin) ? (
+                    <p className="text-sm text-muted-foreground text-center py-1">
+                      Waiting on {next.label.toLowerCase()} — {next.action.toLowerCase()}
+                    </p>
                   ) : null}
 
-                  {(isPoster || isProxy) && (t.escrowStatus === "Released" || /completed|closed|payment released/i.test(String(t.status || ""))) ? (
+                  {(isPoster || isProxy) && stage === "escrow_released" ? (
                     <button
                       className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
@@ -597,92 +564,103 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
-                  <div className="flex items-center gap-2">
-                    {canEditDetails ? (
-                      <button onClick={() => openEdit(t)} className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors" title="Edit mission details">
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                    ) : null}
-                    {(isAdmin || (isPoster && pendingAdmin)) ? (
-                      <button onClick={() => handleDelete(t.id)} disabled={isDeleting} className="p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors" title="Delete mission">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    ) : null}
-                  </div>
+                  <button
+                    type="button"
+                    className="w-full text-xs font-semibold text-muted-foreground py-1.5 flex items-center justify-center gap-1"
+                    onClick={() => setOpenDetails((c) => ({ ...c, [String(t.id)]: !detailsOpen }))}
+                  >
+                    {detailsOpen ? <>Hide details <ChevronUp className="w-3.5 h-3.5" /></> : <>More details <ChevronDown className="w-3.5 h-3.5" /></>}
+                  </button>
+
+                  {detailsOpen ? (
+                    <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-3 text-xs text-muted-foreground">
+                      <p>Due: {urgency.slaShort}</p>
+                      <p>Proof: {t.proofStatus || "not uploaded yet"}</p>
+                      <p>Payment hold: {t.escrowStatus || "—"}</p>
+                      {t.taskDescription ? <p className="text-foreground">Instructions: {t.taskDescription}</p> : null}
+
+                      {(isPoster || isProxy || isAdmin) && !pendingAdmin ? (
+                        <div className="space-y-2 pt-2 border-t border-border">
+                          <textarea
+                            value={queryNote[String(t.id)] || ""}
+                            onChange={(e) => setQueryNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
+                            placeholder="Optional note to Legal Connect…"
+                            className="w-full p-2.5 rounded-lg bg-background border border-border outline-none min-h-[60px] text-sm"
+                          />
+                          <button
+                            className="w-full border border-border font-semibold py-2 rounded-lg flex items-center justify-center gap-2 text-foreground"
+                            disabled={busyId === String(t.id) || (queryNote[String(t.id)] || "").trim().length < 4}
+                            onClick={() => runAction(t.id, `/api/proxy-tasks/${t.id}/qa`, {
+                              method: "POST",
+                              body: JSON.stringify({
+                                message: queryNote[String(t.id)],
+                                kind: isAdmin ? "lc_moderation" : "counsel_query",
+                              }),
+                            }, "Note posted")}
+                          >
+                            <MessageSquareText className="w-4 h-4" /> Send note
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {isAdmin && pendingAdmin ? (
+                        <div className="space-y-2 pt-2 border-t border-border">
+                          <textarea
+                            value={queryNote[String(t.id)] || ""}
+                            onChange={(e) => setQueryNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
+                            placeholder="Ask the poster a question (optional)…"
+                            className="w-full p-2.5 rounded-lg bg-background border border-border outline-none min-h-[60px] text-sm"
+                          />
+                          <button
+                            className="w-full border border-border font-semibold py-2 rounded-lg text-foreground"
+                            disabled={busyId === String(t.id) || (queryNote[String(t.id)] || "").trim().length < 8}
+                            onClick={() => runAction(t.id, `/api/tasks/${t.id}/raise-query`, {
+                              method: "POST",
+                              body: JSON.stringify({ query: queryNote[String(t.id)] }),
+                            }, "Question sent")}
+                          >
+                            Ask poster a question
+                          </button>
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-center gap-2 pt-1">
+                        {canEditDetails ? (
+                          <button
+                            onClick={() => {
+                              setEditingTask(t);
+                              setDialogOpen(true);
+                            }}
+                            className="p-2 text-muted-foreground hover:text-primary rounded-lg"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        ) : null}
+                        {(isAdmin || (isPoster && pendingAdmin)) ? (
+                          <button
+                            onClick={() => {
+                              if (confirm("Delete this mission?")) deleteTask({ id: Number(t.id) });
+                            }}
+                            disabled={isDeleting}
+                            className="p-2 text-muted-foreground hover:text-destructive rounded-lg"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : null}
+                        <span className="ml-auto text-[10px] opacity-60">{nextActionButtonLabel(t)}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       )}
 
       <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} editingTask={editingTask} />
-
-      <Dialog open={Boolean(acceptTask)} onOpenChange={(open) => !open && setAcceptTask(null)}>
-        <DialogContent className="sm:max-w-[480px] bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-serif">Counsel acceptance</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">{acceptTask?.title}</p>
-          <div className="space-y-3 pt-2">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Bar enrollment number</label>
-              <input
-                value={enrollmentNo}
-                onChange={(e) => setEnrollmentNo(e.target.value)}
-                placeholder="e.g. D/1234/2018"
-                className="w-full p-3 rounded-xl bg-background border border-border outline-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Estimated completion time</label>
-              <select
-                value={completionEta}
-                onChange={(e) => setCompletionEta(e.target.value)}
-                className="w-full p-3 rounded-xl bg-background border border-border outline-none"
-              >
-                {COMPLETION_TIMES.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </select>
-            </div>
-            <button
-              className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl"
-              disabled={!acceptTask || enrollmentNo.trim().length < 3 || busyId === String(acceptTask?.id || "")}
-              onClick={async () => {
-                if (!acceptTask) return;
-                await runAction(acceptTask.id, `/api/tasks/${acceptTask.id}/counsel-accept`, {
-                  method: "POST",
-                  body: JSON.stringify({ enrollmentNo, completionEta }),
-                }, "Mission accepted");
-                setAcceptTask(null);
-              }}
-            >
-              Confirm acceptance
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-function Briefcase(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
-      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-    </svg>
   );
 }
