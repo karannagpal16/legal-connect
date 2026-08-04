@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Plus,
   RefreshCw,
   ShieldCheck,
   UsersRound,
@@ -137,6 +138,9 @@ export function AdvocateDashboard() {
           <span className="lc-kicker">ADVOCATE PRACTICE DESK</span>
           <h2>{greetingFor()}, {name.replace(/^Adv\.\s*/i, "")}.</h2>
           <p>Your matters, chamber delegation and paid client intakes are synced here.</p>
+          <Link className="lc-button lc-button-gold" href="/advocate/proxy" style={{ marginTop: 14, display: "inline-flex" }}>
+            <Plus /> Post Proxy Task <ArrowRight />
+          </Link>
         </div>
         <blockquote><p>{quote.original}</p><cite>{quote.translation} <strong>{quote.source}</strong></cite></blockquote>
         <span className={`lc-verification-badge ${["approved", "verified"].includes(query.data?.profile.verificationStatus || "") ? "verified" : "pending"}`}><ShieldCheck /> Enrollment {query.data?.profile.verificationStatus}</span>
