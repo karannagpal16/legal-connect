@@ -22,6 +22,7 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
+import { CLIENT_ADVISORY_PRICING } from "@/lib/clientPricing";
 
 declare global {
   interface Window {
@@ -52,6 +53,15 @@ interface PaymentConfig {
   warning?: string;
   first_chat_free_available?: boolean;
   chat_amount?: number;
+  call_amount?: number;
+  video_amount?: number;
+  chat_unit?: string;
+  pricing?: {
+    first_chat_free?: boolean;
+    chat?: { amount: number; unit?: string; label?: string };
+    call?: { amount: number; unit?: string; label?: string };
+    video?: { amount: number; unit?: string; label?: string };
+  };
   all_features_free?: boolean;
   master_test_free?: boolean;
 }
@@ -61,12 +71,29 @@ function isIdentityApproved(status?: string | null) {
   return value === "approved" || value === "verified";
 }
 
-const PAID_CHAT_AMOUNT = 499;
+const PAID_CHAT_AMOUNT = CLIENT_ADVISORY_PRICING.chat.amount;
+const AUDIO_CALL_AMOUNT = CLIENT_ADVISORY_PRICING.call.amount;
+const VIDEO_CALL_AMOUNT = CLIENT_ADVISORY_PRICING.video.amount;
 
 const channelOptions: Record<ConsultationChannel, { title: string; detail: string; amount: number; icon: typeof Phone }> = {
-  chat: { title: "Secure chat", detail: "Written consultation in your matter room", amount: PAID_CHAT_AMOUNT, icon: MessageSquareText },
-  call: { title: "Counsel call", detail: "Scheduled private audio consultation", amount: 999, icon: Phone },
-  video: { title: "Video consultation", detail: "Scheduled private video consultation", amount: 1499, icon: Video },
+  chat: {
+    title: "Secure chat",
+    detail: CLIENT_ADVISORY_PRICING.chat.detail,
+    amount: PAID_CHAT_AMOUNT,
+    icon: MessageSquareText,
+  },
+  call: {
+    title: "Counsel call",
+    detail: CLIENT_ADVISORY_PRICING.call.detail,
+    amount: AUDIO_CALL_AMOUNT,
+    icon: Phone,
+  },
+  video: {
+    title: "Video consultation",
+    detail: CLIENT_ADVISORY_PRICING.video.detail,
+    amount: VIDEO_CALL_AMOUNT,
+    icon: Video,
+  },
 };
 
 const caseTypes = [
@@ -194,8 +221,23 @@ export function CounselIntake({
   const kycReady = masterFree || identityApproved;
   const firstChatFree = !masterFree && channel === "chat" && Boolean(paymentConfig?.first_chat_free_available);
   const everythingFree = masterFree || firstChatFree;
-  const payableAmount = everythingFree ? 0 : channelOptions[channel].amount;
+  const liveChannelAmount = (() => {
+    if (channel === "chat") return Number(paymentConfig?.pricing?.chat?.amount ?? paymentConfig?.chat_amount ?? channelOptions.chat.amount);
+    if (channel === "call") return Number(paymentConfig?.pricing?.call?.amount ?? paymentConfig?.call_amount ?? channelOptions.call.amount);
+    return Number(paymentConfig?.pricing?.video?.amount ?? paymentConfig?.video_amount ?? channelOptions.video.amount);
+  })();
+  const payableAmount = everythingFree ? 0 : liveChannelAmount;
   const selectedChannel = channelOptions[channel];
+  const channelPriceLabel = (() => {
+    if (channel === "chat") {
+      return paymentConfig?.pricing?.chat?.label
+        || `₹${liveChannelAmount.toLocaleString("en-IN")} / ${paymentConfig?.chat_unit || CLIENT_ADVISORY_PRICING.chat.unitLabel}`;
+    }
+    if (channel === "call") {
+      return paymentConfig?.pricing?.call?.label || `from ₹${liveChannelAmount.toLocaleString("en-IN")}`;
+    }
+    return paymentConfig?.pricing?.video?.label || `from ₹${liveChannelAmount.toLocaleString("en-IN")}`;
+  })();
   const heading = source === "sos" ? "Request urgent counsel" : "Book a counsel";
   const submitLabel = masterFree
     ? "Continue — owner free"
@@ -448,8 +490,11 @@ export function CounselIntake({
             {masterFree
               ? "Owner account — every client booking is free on this login."
               : firstChatFree
-                ? "Your first Secure chat is free — try Legal Connect, then continue with paid counsel if you need more."
-                : "Book a one-time advisory session. Full court representation is available only through LC Gateway retention — never by hiring an advocate directly in the app."}
+                ? "Your first Secure chat is free. After that: ₹99 / 2 mins. Audio from ₹299 · Video from ₹499."
+                : "Minimal prices: first chat free once, then ₹99 / 2 mins. Audio from ₹299 · Video from ₹499. Full court representation is only via LC Gateway retention."}
+          </p>
+          <p className="lc-ops-meta" style={{ marginTop: "0.5rem" }}>
+            First chat free · then ₹99 / 2 mins · call from ₹299 · video from ₹499
           </p>
           <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>
             No direct in-app hiring. After advisory, use Request LC Gateway retention for panel representation.
@@ -478,6 +523,16 @@ export function CounselIntake({
                 {availableChannels.map((value) => {
                   const option = channelOptions[value];
                   const freeBadge = masterFree || (value === "chat" && paymentConfig?.first_chat_free_available);
+                  const liveAmount = value === "chat"
+                    ? Number(paymentConfig?.pricing?.chat?.amount ?? paymentConfig?.chat_amount ?? option.amount)
+                    : value === "call"
+                      ? Number(paymentConfig?.pricing?.call?.amount ?? paymentConfig?.call_amount ?? option.amount)
+                      : Number(paymentConfig?.pricing?.video?.amount ?? paymentConfig?.video_amount ?? option.amount);
+                  const priceEm = value === "chat"
+                    ? (paymentConfig?.pricing?.chat?.label || `₹${liveAmount.toLocaleString("en-IN")} / 2 mins`)
+                    : value === "call"
+                      ? (paymentConfig?.pricing?.call?.label || `from ₹${liveAmount.toLocaleString("en-IN")}`)
+                      : (paymentConfig?.pricing?.video?.label || `from ₹${liveAmount.toLocaleString("en-IN")}`);
                   return (
                     <button key={value} type="button" className={channel === value ? "active" : ""} onClick={() => setChannel(value)}>
                       <option.icon />
@@ -487,11 +542,11 @@ export function CounselIntake({
                           {masterFree
                             ? "Free on owner login"
                             : freeBadge
-                              ? "First chat free — see how Legal Connect works"
+                              ? "First chat free — then ₹99 / 2 mins"
                               : option.detail}
                         </small>
                       </span>
-                      <em>{freeBadge ? "FREE" : `₹${option.amount.toLocaleString("en-IN")}`}</em>
+                      <em>{freeBadge ? "FREE" : priceEm}</em>
                     </button>
                   );
                 })}
@@ -555,7 +610,7 @@ export function CounselIntake({
               <dl>
                 <div><dt>Matter</dt><dd>{caseTitle}</dd></div>
                 <div><dt>Parties</dt><dd>{partyName} / {oppositeParty}</dd></div>
-                <div><dt>Consultation</dt><dd>{selectedChannel.title}</dd></div>
+                <div><dt>Consultation</dt><dd>{selectedChannel.title} · {channelPriceLabel}</dd></div>
                 <div><dt>Files</dt><dd>{files.length ? `${files.length} secure attachment${files.length > 1 ? "s" : ""}` : "No files attached"}</dd></div>
                 <div><dt>Assignment</dt><dd>Verified counsel selected by Legal Connect</dd></div>
               </dl>

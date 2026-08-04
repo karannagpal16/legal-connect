@@ -36,6 +36,45 @@ function computeProxySettlement(grossAmount) {
   };
 }
 
+/** ProxyHub posting time → escrow fee → SLA after LC assigns. */
+const PROXY_URGENCY_TIERS = {
+  urgent: {
+    id: "urgent",
+    label: "Urgent",
+    fee: 1299,
+    postingHint: "Need appearance soon (e.g. adjournment in ~15 minutes)",
+    slaAfterAssign: "Proxy must complete within 1 hour after LC assigns",
+    slaShort: "1 hour after assign",
+  },
+  priority: {
+    id: "priority",
+    label: "Priority · same day",
+    fee: 799,
+    postingHint: "Same business-day appearance",
+    slaAfterAssign: "Proxy must complete within the same business day after LC assigns",
+    slaShort: "Same business day",
+  },
+  standard: {
+    id: "standard",
+    label: "Standard · business hours",
+    fee: 499,
+    postingHint: "Next business day / normal court hours",
+    slaAfterAssign: "Proxy must complete next business day during court hours",
+    slaShort: "Next business day",
+  },
+};
+
+function resolveProxyUrgency(value) {
+  const raw = String(value || "").toLowerCase().trim();
+  if (raw === "urgent" || raw === "high" || raw === "asap") return "urgent";
+  if (raw === "priority" || raw === "same_day" || raw === "same-day") return "priority";
+  return "standard";
+}
+
+function proxyUrgencyMeta(value) {
+  return PROXY_URGENCY_TIERS[resolveProxyUrgency(value)];
+}
+
 function createStrategyFeatures(deps) {
   const {
     db,
@@ -85,6 +124,8 @@ function createStrategyFeatures(deps) {
     const passoverScript = String(body.passoverScript || body.passoverInstructions || body.taskDescription || "").trim();
     const appearanceType = String(body.appearanceType || body.taskType || "").trim();
     const hearingDate = String(body.hearingDate || body.date || "").trim();
+    const urgency = resolveProxyUrgency(body.urgency || body.timingTier || body.timing || "standard");
+    const urgencyMeta = proxyUrgencyMeta(urgency);
     const missing = [];
     if (!cnr || cnr.length < 8) missing.push("CNR number");
     if (!roomNo) missing.push("room number");
@@ -105,6 +146,11 @@ function createStrategyFeatures(deps) {
         passoverScript,
         appearanceType,
         hearingDate,
+        urgency,
+        timingTier: urgency,
+        slaAfterAssign: urgencyMeta.slaAfterAssign,
+        catalogFee: urgencyMeta.fee,
+        urgencyLabel: urgencyMeta.label,
       },
     };
   }
@@ -1779,7 +1825,17 @@ function createStrategyFeatures(deps) {
     saveTaskPatch,
     loadTask,
     computeProxySettlement,
+    proxyUrgencyMeta,
+    resolveProxyUrgency,
+    PROXY_URGENCY_TIERS,
   };
 }
 
-module.exports = { createStrategyFeatures, RULE36_PATTERNS, computeProxySettlement };
+module.exports = {
+  createStrategyFeatures,
+  RULE36_PATTERNS,
+  computeProxySettlement,
+  PROXY_URGENCY_TIERS,
+  resolveProxyUrgency,
+  proxyUrgencyMeta,
+};

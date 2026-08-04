@@ -7,7 +7,7 @@ const { spawnSync } = require("child_process");
 const config = require("./config");
 const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
-const { createStrategyFeatures, computeProxySettlement } = require("./strategy-features");
+const { createStrategyFeatures, computeProxySettlement, proxyUrgencyMeta, PROXY_URGENCY_TIERS } = require("./strategy-features");
 const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
 const { createPlatformEvents } = require("./platform-events");
@@ -1270,23 +1270,28 @@ function mapBooking(row) {
 }
 
 function mapTask(row) {
+  const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+    ? row.payload
+    : {};
+  // Payload is enrichment only — never let it overwrite column workflow fields
+  // (a stale payload.escrowStatus previously blocked LC proxy assignment).
   return dashboardTask({
+    ...payload,
     id: row.id,
-    title: row.title,
-    court: row.court,
-    taskType: row.task_type,
-    amount: row.amount,
-    fee: row.amount,
-    escrowStatus: row.escrow_status,
-    status: row.status,
-    postedBy: row.posted_by,
-    acceptedBy: row.accepted_by,
-    proofUrl: row.proof_url,
-    proofHash: row.proof_hash,
-    proofStatus: row.proof_status || "none",
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    ...(row.payload || {}),
+    title: row.title || payload.title,
+    court: row.court ?? payload.court ?? null,
+    taskType: row.task_type || payload.taskType || payload.appearanceType || null,
+    amount: row.amount != null ? row.amount : (payload.amount ?? null),
+    fee: row.amount != null ? row.amount : (payload.fee ?? payload.amount ?? null),
+    escrowStatus: row.escrow_status || payload.escrowStatus || "Not locked",
+    status: row.status || payload.status || "Open",
+    postedBy: row.posted_by || payload.postedBy || payload.user_id || null,
+    acceptedBy: row.accepted_by || payload.acceptedBy || payload.assignedProxyId || null,
+    proofUrl: row.proof_url || payload.proofUrl || null,
+    proofHash: row.proof_hash || payload.proofHash || null,
+    proofStatus: row.proof_status || payload.proofStatus || "none",
+    createdAt: row.created_at || payload.createdAt,
+    updatedAt: row.updated_at || payload.updatedAt,
   });
 }
 
@@ -1903,23 +1908,29 @@ function mapAuditLog(row) {
 }
 
 async function writeAuditLog(actor, action, targetType, targetId, message, payload = {}) {
+  const actorIdRaw = actor?.id || null;
+  const actorId = isUuid(actorIdRaw) ? String(actorIdRaw) : null;
   const audit = {
     id: `audit-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-    actorId: actor?.id || null,
+    actorId,
     actorRole: actor?.role || "system",
     action,
     targetType,
-    targetId: targetId || null,
+    targetId: targetId == null ? null : String(targetId),
     message,
     payload,
     createdAt: new Date().toISOString(),
   };
   if (db.dbAvailable) {
-    await db.query(
-      `INSERT INTO audit_logs (actor_id, actor_role, action, target_type, target_id, message, payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [audit.actorId, audit.actorRole, action, targetType, audit.targetId, message, JSON.stringify(payload)],
-    );
+    try {
+      await db.query(
+        `INSERT INTO audit_logs (actor_id, actor_role, action, target_type, target_id, message, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [audit.actorId, audit.actorRole, action, targetType, audit.targetId, message, JSON.stringify(payload)],
+      );
+    } catch (error) {
+      console.warn("writeAuditLog failed:", error?.message || error);
+    }
   } else {
     demoStore.auditLogs.unshift(audit);
   }
@@ -6142,9 +6153,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
-    const fee = numericAmount(body.fee || body.amount);
-    if (!fee || fee < 100) {
-      sendJson(res, 400, { ok: false, error: "Proxy mission fee must be at least ₹100." });
+    const urgencyMeta = proxyUrgencyMeta(body.urgency || body.timingTier);
+    // Prefer catalog fee from urgency tier when client omits/underpays.
+    const requestedFee = numericAmount(body.fee || body.amount);
+    const fee = Math.max(requestedFee || 0, Number(urgencyMeta.fee) || 499);
+    if (!fee || fee < Number(urgencyMeta.fee || 499)) {
+      sendJson(res, 400, {
+        ok: false,
+        error: `${urgencyMeta.label || "Standard"} proxy fee must be at least ₹${urgencyMeta.fee || 499}.`,
+      });
       return;
     }
     if (!body.title || !String(body.title).trim()) {
@@ -6253,7 +6270,15 @@ const server = http.createServer(async (req, res) => {
     }
     const taskTitle = String(body.title || body.missionTitle || `${posting.fields.appearanceType} · ${posting.fields.cnr}`).trim();
     const taskCourt = String(body.court || body.location || "").trim();
-    const fee = numericAmount(body.fee || body.amount);
+    const catalogFee = Number(posting.fields.catalogFee || PROXY_URGENCY_TIERS.standard.fee);
+    const fee = Math.max(numericAmount(body.fee || body.amount), catalogFee);
+    if (fee < catalogFee) {
+      sendJson(res, 400, {
+        ok: false,
+        error: `${posting.fields.urgencyLabel} fee must be at least ₹${catalogFee}.`,
+      });
+      return;
+    }
     const rule36Title = strategyFeatures.assertRule36Safe(taskTitle);
     if (!rule36Title.ok) {
       sendJson(res, 422, { ok: false, error: rule36Title.error });
@@ -6278,6 +6303,10 @@ const server = http.createServer(async (req, res) => {
       passoverInstructions: posting.fields.passoverScript.slice(0, 500),
       appearanceType: posting.fields.appearanceType,
       hearingDate: posting.fields.hearingDate,
+      urgency: posting.fields.urgency,
+      timingTier: posting.fields.timingTier,
+      slaAfterAssign: posting.fields.slaAfterAssign,
+      urgencyLabel: posting.fields.urgencyLabel,
       proofStatus: "none",
       transparencyLayer: "posting",
       workflowStatus: "pending_admin_review",
@@ -6340,7 +6369,17 @@ const server = http.createServer(async (req, res) => {
       ...status,
       first_chat_free_available: Boolean(authUser) && (masterFree || !firstChatUsed),
       first_chat_free_amount: 0,
-      chat_amount: 499,
+      chat_amount: 99,
+      call_amount: 299,
+      video_amount: 499,
+      chat_unit: "2 mins",
+      pricing: {
+        first_chat_free: true,
+        chat: { amount: 99, unit: "2 mins", label: "₹99 / 2 mins" },
+        call: { amount: 299, unit: "session", label: "from ₹299" },
+        video: { amount: 499, unit: "session", label: "from ₹499" },
+      },
+      proxy_urgency_tiers: PROXY_URGENCY_TIERS,
       all_features_free: masterFree,
       master_test_free: masterFree,
       chamber_plans: chamberPlanCatalog(),
@@ -7524,7 +7563,7 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    const PROXY_MIN_FEE = 400;
+    const PROXY_MIN_FEE = PROXY_URGENCY_TIERS.standard.fee;
     const feeAmount = numericAmount(body.amount || body.fee);
     const taskType = body.taskType || body.task_type || body.type || "Mission";
     const isProxyPost = ["Pass-over", "Adjournment", "Evidence", "Arguments", "Other", "Proxy", "Mission"].includes(String(taskType))
@@ -7532,13 +7571,14 @@ const server = http.createServer(async (req, res) => {
       || Boolean(body.proxyTask);
     let proxyFields = null;
     if (isProxyPost && authUser.role === "advocate") {
-      if (feeAmount < PROXY_MIN_FEE) {
-        sendJson(res, 400, { ok: false, error: `Proxy fee must be at least ₹${PROXY_MIN_FEE}.` });
-        return;
-      }
       const posting = strategyFeatures.validateProxyPostingFields(body);
       if (!posting.ok) {
         sendJson(res, 400, { ok: false, error: posting.error });
+        return;
+      }
+      const catalogFee = Number(posting.fields.catalogFee || PROXY_MIN_FEE);
+      if (feeAmount < catalogFee) {
+        sendJson(res, 400, { ok: false, error: `${posting.fields.urgencyLabel} fee must be at least ₹${catalogFee}.` });
         return;
       }
       proxyFields = posting.fields;

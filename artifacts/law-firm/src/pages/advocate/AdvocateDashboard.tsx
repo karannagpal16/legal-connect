@@ -6,9 +6,11 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   CalendarDays,
+  Camera,
   CheckCircle2,
   Clock3,
   HandCoins,
+  MapPin,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -17,9 +19,9 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { dailyQuote, greetingFor, workspaceRequest, type WorkspaceCase } from "@/lib/workspace";
-import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
 import { TaskDialog } from "@/components/forms/TaskDialog";
+import { humanProxyStatus, nextProxyActor, proxyUrgencyMeta, resolveProxyFlowStage } from "@/lib/proxyFlow";
 
 interface ChamberTask {
   id: string;
@@ -54,14 +56,23 @@ type ProxyDeskTask = {
   id: string | number;
   title?: string;
   taskDescription?: string;
+  taskType?: string;
+  appearanceType?: string;
   status?: string;
   fee?: string | number | null;
   amount?: number | null;
   location?: string | null;
   court?: string | null;
   cnr?: string | null;
+  room?: string | null;
+  roomNo?: string | null;
   hearingDate?: string | null;
   proofStatus?: string | null;
+  urgency?: string | null;
+  timingTier?: string | null;
+  slaAfterAssign?: string | null;
+  acceptedBy?: string | number | null;
+  postedBy?: string | number | null;
   createdAt?: string;
 };
 
@@ -127,9 +138,21 @@ export function AdvocateDashboard() {
     () => (Array.isArray(proxyQuery.data) ? proxyQuery.data : []) as ProxyDeskTask[],
     [proxyQuery.data],
   );
-  const pendingProxy = proxyTasks.filter((task) => {
+  const assignedByLc = useMemo(
+    () => proxyTasks.filter((task) => String(task.acceptedBy || "") === String(session?.user?.id || "")),
+    [proxyTasks, session?.user?.id],
+  );
+  const postedByMe = useMemo(
+    () => proxyTasks.filter((task) => String(task.postedBy || "") === String(session?.user?.id || "")),
+    [proxyTasks, session?.user?.id],
+  );
+  const pendingProxy = postedByMe.filter((task) => {
     const status = String(task.status || "").toLowerCase();
     return status.includes("pending") || status.includes("awaiting") || status.includes("query") || status === "open";
+  });
+  const assignedNeedsAction = assignedByLc.filter((task) => {
+    const stage = resolveProxyFlowStage(task);
+    return stage === "proxy_assigned" || stage === "proxy_checked_in" || stage === "proof_submitted";
   });
 
   if (query.isLoading) return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Opening your practice workspace...</p></div>;
@@ -141,6 +164,17 @@ export function AdvocateDashboard() {
     return status.includes("assigned") && !status.includes("accepted");
   });
   const heroAction = pickHeroAction([
+    assignedNeedsAction[0]
+      ? {
+          tone: "urgent" as const,
+          kicker: "Assigned by Legal Connect",
+          title: `${assignedNeedsAction[0].appearanceType || assignedNeedsAction[0].taskType || "Proxy"} · ${assignedNeedsAction[0].court || assignedNeedsAction[0].location || "Court"}`,
+          detail: `${proxyUrgencyMeta(assignedNeedsAction[0].urgency || assignedNeedsAction[0].timingTier).label} · ${nextProxyActor(assignedNeedsAction[0]).action}`,
+          ctaLabel: "Open assigned mission",
+          href: "/advocate/proxy",
+          icon: Camera,
+        }
+      : null,
     pendingAccept[0]
       ? {
           tone: "urgent" as const,
@@ -207,8 +241,8 @@ export function AdvocateDashboard() {
       <section className="lc-workspace-metrics">
         <div><BriefcaseBusiness /><span><strong>{activeCases.length}</strong><small>Active matters</small></span></div>
         <div><CalendarDays /><span><strong>{upcoming}</strong><small>Listed hearings</small></span></div>
-        <div><HandCoins /><span><strong>{proxyTasks.length}</strong><small>Proxy tasks posted</small></span></div>
-        <div><Clock3 /><span><strong>{openTasks.length}</strong><small>Open delegated tasks</small></span></div>
+        <div><HandCoins /><span><strong>{postedByMe.length}</strong><small>Proxy tasks posted</small></span></div>
+        <div><Camera /><span><strong>{assignedByLc.length}</strong><small>Assigned by LC</small></span></div>
       </section>
 
       <section className="lc-practice-grid">
@@ -279,6 +313,40 @@ export function AdvocateDashboard() {
         </div>
       </section>
 
+      <section className="lc-operational-panel" style={{ marginTop: 20 }} id="lc-assigned-proxy">
+        <header>
+          <div>
+            <span>Assigned by Legal Connect</span>
+            <h2>Your proxy missions — court, task &amp; proof</h2>
+          </div>
+          <Link href="/advocate/proxy">Open ProxyHub <ArrowRight /></Link>
+        </header>
+        <div className="lc-chamber-task-list" style={{ padding: 16 }}>
+          {assignedByLc.length ? assignedByLc.slice(0, 6).map((task) => {
+            const urgency = proxyUrgencyMeta(task.urgency || task.timingTier);
+            const next = nextProxyActor(task);
+            return (
+              <div key={String(task.id)}>
+                <span>
+                  <strong>{task.appearanceType || task.taskType || "Appearance"} · {task.court || task.location || "Court TBD"}</strong>
+                  <small>
+                    <MapPin style={{ width: 12, height: 12, display: "inline", verticalAlign: "middle" }} />{" "}
+                    {task.cnr ? `CNR ${task.cnr}` : "CNR pending"}
+                    {task.roomNo || task.room ? ` · Room ${task.roomNo || task.room}` : ""}
+                    {task.hearingDate ? ` · ${String(task.hearingDate).slice(0, 10)}` : ""}
+                    {" · "}{urgency.label} ({urgency.slaShort})
+                    {" · Next: "}{next.action}
+                  </small>
+                </span>
+                <em>{humanProxyStatus(task)}</em>
+              </div>
+            );
+          }) : (
+            <p className="lc-inline-empty">No proxy missions assigned to you yet. When LC assigns you, court, task type, urgency and proof steps appear here.</p>
+          )}
+        </div>
+      </section>
+
       <section className="lc-practice-grid" style={{ marginTop: 20 }}>
         <div className="lc-operational-panel" id="proxy-post-task">
           <header>
@@ -290,7 +358,7 @@ export function AdvocateDashboard() {
           </header>
           <div style={{ padding: 16 }}>
             <p className="lc-ops-meta" style={{ margin: 0 }}>
-              Post court details, CNR, room and a fee of at least ₹400. After payment, Legal Connect Admin reviews and assigns a proxy advocate.
+              Choose urgency when posting: Urgent ₹1,299 (1 hr after LC assign) · Priority ₹799 (same day) · Standard ₹499 (business hours). Assigned proxy must update with order-sheet proof.
             </p>
             <div className="lc-hero-button-row" style={{ marginTop: 12 }}>
               <button className="lc-button lc-button-primary" type="button" onClick={() => setPostTaskOpen(true)}>
@@ -299,20 +367,21 @@ export function AdvocateDashboard() {
               <Link className="lc-button" href="/advocate/proxy">View all missions</Link>
             </div>
             <div className="lc-chamber-task-list" style={{ marginTop: 16 }}>
-              {proxyTasks.slice(0, 5).map((task) => (
+              {postedByMe.slice(0, 5).map((task) => (
                 <div key={String(task.id)}>
                   <span>
                     <strong>{task.title || task.taskDescription || "Proxy appearance"}</strong>
                     <small>
                       {task.court || task.location || "Court TBD"}
                       {task.cnr ? ` · CNR ${task.cnr}` : ""}
+                      {task.urgency || task.timingTier ? ` · ${proxyUrgencyMeta(task.urgency || task.timingTier).label}` : ""}
                       {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                     </small>
                   </span>
                   <em>{proxyStatusLabel(task.status)}</em>
                 </div>
               ))}
-              {!proxyTasks.length && !proxyQuery.isLoading && (
+              {!postedByMe.length && !proxyQuery.isLoading && (
                 <p className="lc-inline-empty">No proxy tasks posted yet. Use Pay &amp; post task to create one.</p>
               )}
               {proxyQuery.isLoading && <p className="lc-inline-empty">Loading your ProxyHub posts…</p>}
@@ -361,12 +430,6 @@ export function AdvocateDashboard() {
           <Link className="lc-chamber-action" href="/advocate/updates"><CheckCircle2 /> Post update for LC review</Link>
         </div>
       </section>
-
-      <ActivityAuditTimeline
-        title="Assigned Matters · Live Broadcast"
-        emptyText="New assignments, stage syncs, chamber tasks and proxy accepts will appear here in real time."
-        limit={18}
-      />
 
       <section className="lc-practice-grid" style={{ marginTop: 20 }}>
         <div className="lc-operational-panel">

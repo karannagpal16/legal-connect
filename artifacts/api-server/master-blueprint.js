@@ -6,9 +6,9 @@
  */
 
 const ADVISORY_AMOUNTS = {
-  chat: 499,
-  call: 999,
-  video: 1499,
+  chat: 99,
+  call: 299,
+  video: 499,
 };
 
 const CONSULTATION_STATES = [
@@ -258,26 +258,33 @@ function createMasterBlueprint(deps) {
 
   async function loadTask(id) {
     if (db.dbAvailable) {
-      const result = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [id]);
+      const result = await db.query("SELECT * FROM tasks WHERE id::text = $1 LIMIT 1", [String(id)]);
       if (!result.rows[0]) return null;
       return mapTask(result.rows[0]);
     }
-    return (demoStore.tasks || []).find((row) => row.id === id) || null;
+    const task = (demoStore.tasks || []).find((row) => String(row.id) === String(id)) || null;
+    return task ? (mapTask ? mapTask(task) : task) : null;
   }
 
   async function patchTaskPayload(id, patch = {}, columns = {}) {
     if (!db.dbAvailable) {
-      const task = (demoStore.tasks || []).find((row) => row.id === id);
+      const task = (demoStore.tasks || []).find((row) => String(row.id) === String(id));
       if (!task) return null;
       Object.assign(task, columns);
+      if (columns.accepted_by != null) task.acceptedBy = columns.accepted_by;
+      if (columns.escrow_status != null) task.escrowStatus = columns.escrow_status;
+      if (columns.status != null) task.status = columns.status;
       task.payload = { ...(task.payload || {}), ...patch };
       return mapTask ? mapTask(task) : task;
     }
-    const current = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [id]);
+    const current = await db.query("SELECT * FROM tasks WHERE id::text = $1 LIMIT 1", [String(id)]);
     if (!current.rows[0]) return null;
-    const payload = { ...(current.rows[0].payload || {}), ...patch };
-    const sets = ["payload = $2", "updated_at = now()"];
-    const values = [id, JSON.stringify(payload)];
+    const existingPayload = current.rows[0].payload && typeof current.rows[0].payload === "object"
+      ? current.rows[0].payload
+      : {};
+    const payload = { ...existingPayload, ...patch };
+    const sets = ["payload = $2::jsonb", "updated_at = now()"];
+    const values = [current.rows[0].id, JSON.stringify(payload)];
     let idx = 3;
     if (columns.status != null) {
       sets.push(`status = $${idx++}`);
@@ -285,7 +292,7 @@ function createMasterBlueprint(deps) {
     }
     if (columns.accepted_by != null) {
       sets.push(`accepted_by = $${idx++}`);
-      values.push(columns.accepted_by);
+      values.push(String(columns.accepted_by));
     }
     if (columns.escrow_status != null) {
       sets.push(`escrow_status = $${idx++}`);
@@ -324,9 +331,9 @@ function createMasterBlueprint(deps) {
 
   async function bookAdvisory(req, res, body, authUser) {
     const channel = normalizeChannel(body.consultationChannel || body.channel || body.mode);
-    const amount = Number.isFinite(Number(body.amount))
-      ? Number(body.amount)
-      : ADVISORY_AMOUNTS[channel];
+    // Catalog amounts are authoritative — clients cannot underpay.
+    const catalogAmount = ADVISORY_AMOUNTS[channel] ?? ADVISORY_AMOUNTS.chat;
+    const amount = catalogAmount;
     const masterFree = await isMasterTestUser(authUser);
     const firstChatFree = channel === "chat" && Boolean(body.firstChatFree);
     if (!masterFree) {
@@ -743,76 +750,159 @@ function createMasterBlueprint(deps) {
   }
 
   async function assignProxy(req, res, taskId, body, authUser) {
-    if (!canSeeAll(authUser)) {
-      sendJson(res, 403, { ok: false, error: "Admin only." });
-      return;
-    }
-    const proxyId = body.proxyAdvocateId || body.advocateId || body.assignedTo || body.proxyId;
-    const proxyName = body.proxyAdvocateName || body.advocateName || body.assignedProxyName || body.proxyName;
-    if (!proxyId) {
-      sendJson(res, 400, { ok: false, error: "proxyAdvocateId is required." });
-      return;
-    }
-    const task = await loadTask(taskId);
-    if (!task) {
-      sendJson(res, 404, { ok: false, error: "Proxy task not found." });
-      return;
-    }
-    const escrow = String(task.escrowStatus || task.escrow_status || "").toLowerCase();
-    const amount = Number(task.amount || task.fee || 0);
-    if (!(escrow.includes("lock") || escrow.includes("held")) || !(amount > 0 || task.paymentVerified)) {
-      sendJson(res, 409, {
-        ok: false,
-        error: "Assign proxy only after funds are received and held in escrow.",
-        code: "ESCROW_REQUIRED",
+    try {
+      if (!canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Admin only." });
+        return;
+      }
+      const proxyId = String(body.proxyAdvocateId || body.advocateId || body.assignedTo || body.proxyId || "").trim();
+      const proxyName = String(
+        body.proxyAdvocateName || body.advocateName || body.assignedProxyName || body.proxyName || "",
+      ).trim() || "Panel proxy";
+      if (!proxyId) {
+        sendJson(res, 400, { ok: false, error: "Select a proxy counsel before assigning." });
+        return;
+      }
+
+      let task = null;
+      try {
+        task = await loadTask(taskId);
+      } catch (loadError) {
+        console.error("assign_proxy loadTask failed:", loadError?.message || loadError);
+        sendJson(res, 400, {
+          ok: false,
+          error: "Invalid proxy task id.",
+          detail: String(loadError?.message || loadError),
+        });
+        return;
+      }
+      if (!task) {
+        sendJson(res, 404, { ok: false, error: "Proxy task not found." });
+        return;
+      }
+
+      const escrow = String(task.escrowStatus || task.escrow_status || "").toLowerCase();
+      const amount = Number(task.amount || task.fee || 0);
+      const status = String(task.status || "").toLowerCase();
+      const fundsHeld = escrow.includes("lock")
+        || escrow.includes("held")
+        || amount > 0
+        || Boolean(task.paymentVerified || task.razorpayPaymentId);
+      if (!fundsHeld) {
+        sendJson(res, 409, {
+          ok: false,
+          error: "Assign proxy only after funds are received and held in escrow.",
+          code: "ESCROW_REQUIRED",
+          escrowStatus: task.escrowStatus || null,
+          amount,
+        });
+        return;
+      }
+
+      const alreadyAssigned = Boolean(task.acceptedBy || task.assignedProxyId);
+      const reassignable = /pending|awaiting|open|query/.test(status);
+      if (alreadyAssigned && String(task.acceptedBy || task.assignedProxyId) !== proxyId && !reassignable) {
+        sendJson(res, 409, {
+          ok: false,
+          error: "This mission already has an assigned proxy counsel.",
+          code: "ALREADY_ASSIGNED",
+        });
+        return;
+      }
+
+      let updated = null;
+      try {
+        updated = await patchTaskPayload(
+          taskId,
+          {
+            assignedProxyId: proxyId,
+            assignedProxyName: proxyName,
+            proxyAdvocateId: proxyId,
+            acceptedBy: proxyId,
+            assignedByAdmin: authUser.id,
+            assignedAt: new Date().toISOString(),
+            workflowStatus: "Accepted",
+            blueprintState: "proxy_assigned_by_lc",
+            assignmentStatus: "Assigned",
+          },
+          {
+            status: "Accepted",
+            accepted_by: proxyId,
+            escrow_status: task.escrowStatus || task.escrow_status || "Locked",
+          },
+        );
+      } catch (patchError) {
+        console.error("assign_proxy patch failed:", patchError?.message || patchError);
+        sendJson(res, 500, {
+          ok: false,
+          error: "Could not save the proxy assignment. Please retry.",
+          detail: String(patchError?.message || patchError),
+        });
+        return;
+      }
+      if (!updated) {
+        sendJson(res, 404, { ok: false, error: "Proxy task disappeared during assignment." });
+        return;
+      }
+
+      // Audit + notify are best-effort — never roll back a successful assignment.
+      try {
+        await writeAuditLog(
+          authUser,
+          "assign_proxy",
+          "task",
+          taskId,
+          `Proxy assigned by LC: ${proxyName || proxyId}`,
+          { proxyId, proxyName },
+        );
+      } catch (auditError) {
+        console.warn("assign_proxy audit failed:", auditError?.message || auditError);
+      }
+      try {
+        await notify({
+          eventType: "proxy_assigned",
+          title: "Proxy mission assigned",
+          message: `${proxyName} assigned by Legal Connect for the court mission.`,
+          recipients: await resolveRecipients([proxyId, task.postedBy || task.userId].filter(Boolean)),
+          payload: {
+            taskId,
+            lawyerId: proxyId,
+            lawyerName: proxyName,
+            actionType: "GENERIC_NAV",
+            targetUrl: `/advocate/proxy?taskId=${taskId}`,
+          },
+          sendEmail: true,
+          ctaLabel: "Open ProxyHub",
+          ctaUrl: portalUrl(`/advocate/proxy?taskId=${taskId}`),
+          priority: "high",
+        });
+      } catch (notifyError) {
+        console.warn("assign_proxy notify failed:", notifyError?.message || notifyError);
+      }
+
+      sendJson(res, 200, {
+        ok: true,
+        task: {
+          ...updated,
+          acceptedBy: proxyId,
+          assignedProxyId: proxyId,
+          assignedProxyName: proxyName,
+          status: "Accepted",
+          proxyState: "proxy_assigned_by_lc",
+        },
+        stateMachine: PROXY_STATES,
+        message: `${proxyName} assigned. Proxy must declare conflict, check in, and upload proof.`,
       });
-      return;
+    } catch (error) {
+      console.error("assign_proxy failed:", error?.message || error);
+      if (!res.headersSent) {
+        sendJson(res, 500, {
+          ok: false,
+          error: "Proxy assignment failed. Please retry.",
+          detail: String(error?.message || error),
+        });
+      }
     }
-    const updated = await patchTaskPayload(
-      taskId,
-      {
-        assignedProxyId: proxyId,
-        assignedProxyName: proxyName || null,
-        assignedByAdmin: authUser.id,
-        assignedAt: new Date().toISOString(),
-        workflowStatus: "Accepted",
-        blueprintState: "proxy_assigned_by_lc",
-      },
-      {
-        status: "Accepted",
-        accepted_by: proxyId,
-        escrow_status: task.escrowStatus || "Locked",
-      },
-    );
-    await writeAuditLog(
-      authUser,
-      "assign_proxy",
-      "task",
-      taskId,
-      `Proxy assigned by LC: ${proxyName || proxyId}`,
-      { proxyId, proxyName },
-    );
-    await notify({
-      eventType: "proxy_assigned",
-      title: "Proxy mission assigned",
-      message: `${proxyName || "Panel proxy"} assigned by Legal Connect for the court mission.`,
-      recipients: await resolveRecipients([proxyId, task.postedBy || task.userId].filter(Boolean)),
-      payload: {
-        taskId,
-        lawyerId: proxyId,
-        lawyerName: proxyName,
-        actionType: "GENERIC_NAV",
-        targetUrl: `/advocate/proxy?taskId=${taskId}`,
-      },
-      sendEmail: true,
-      ctaLabel: "Open ProxyHub",
-      ctaUrl: portalUrl(`/advocate/proxy?taskId=${taskId}`),
-    });
-    sendJson(res, 200, {
-      ok: true,
-      task: { ...updated, proxyState: "proxy_assigned_by_lc" },
-      stateMachine: PROXY_STATES,
-    });
   }
 
   async function proxyQa(req, res, taskId, body, authUser) {
@@ -1099,8 +1189,19 @@ function createMasterBlueprint(deps) {
         sendJson(res, 401, { ok: false, error: "Login is required." });
         return true;
       }
-      const body = await readBody(req);
-      await assignProxy(req, res, assignProxyMatch[1], body, authUser);
+      try {
+        const body = await readBody(req);
+        await assignProxy(req, res, decodeURIComponent(assignProxyMatch[1]), body, authUser);
+      } catch (error) {
+        console.error("assign-proxy route failed:", error?.message || error);
+        if (!res.headersSent) {
+          sendJson(res, 500, {
+            ok: false,
+            error: "Proxy assignment failed. Please retry.",
+            detail: String(error?.message || error),
+          });
+        }
+      }
       return true;
     }
 
