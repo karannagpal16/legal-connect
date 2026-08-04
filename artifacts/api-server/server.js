@@ -1561,6 +1561,9 @@ function inferNotificationAction(eventType, payload = {}, ctaUrl = null) {
       },
     };
   }
+  const bookingId = fromPayload.bookingId || fromPayload.intakeId || null;
+  const taskId = fromPayload.taskId || null;
+  const caseId = fromPayload.caseId || fromPayload.matterId || null;
   const table = {
     case_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client" },
     booking_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client" },
@@ -1577,6 +1580,23 @@ function inferNotificationAction(eventType, payload = {}, ctaUrl = null) {
     quest_completed: { actionType: "QUEST_ACTION", targetUrl: "/intern/quests" },
     proxy_proof_needed: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/advocate/proxy" },
     verification_pending: { actionType: "KYC_VERIFICATION", targetUrl: "/admin/verifications" },
+    advisory_booked: {
+      actionType: "ADMIN_ASSIGN",
+      targetUrl: bookingId ? `/admin/control?tab=intakes&bookingId=${bookingId}` : "/admin/control?tab=intakes",
+    },
+    retention_requested: {
+      actionType: "ADMIN_ASSIGN",
+      targetUrl: bookingId ? `/admin/control?tab=gateway&bookingId=${bookingId}` : "/admin/control?tab=gateway",
+    },
+    retention_terms_quoted: { actionType: "CASE_UPDATE", targetUrl: "/client/engagement" },
+    retention_panel_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client" },
+    retention_info_requested: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/client" },
+    proxy_assigned: {
+      actionType: "GENERIC_NAV",
+      targetUrl: taskId ? `/advocate/proxy?taskId=${taskId}` : "/advocate/proxy",
+    },
+    case_update_pending: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation" },
+    pending_update: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation" },
   };
   const mapped = table[event] || { actionType: "GENERIC_NAV", targetUrl: ctaUrl || null };
   return {

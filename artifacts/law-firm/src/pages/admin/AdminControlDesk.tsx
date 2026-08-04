@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BriefcaseBusiness,
@@ -18,12 +18,13 @@ import {
   UserRoundSearch,
   Wallet,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { AdminPendingUpdates } from "@/pages/admin/AdminPendingUpdates";
 import { AdminVerifications } from "@/pages/admin/AdminVerifications";
+import { onNotificationAction } from "@/lib/notificationBus";
 
 type Advocate = {
   id: string;
@@ -184,9 +185,38 @@ function advocateOptionLabel(advocate: Advocate) {
   return `${advocate.name} (${workload})${enrollment}${verified}`;
 }
 
+const OPS_TABS: OpsTab[] = ["intakes", "gateway", "proxy", "moderation", "verifications", "escrow", "cases", "lawbot"];
+
+function applyOpsDeepLink(
+  search: string,
+  setTab: (tab: OpsTab) => void,
+  setExpanded: (id: string) => void,
+  setSearch: (value: string) => void,
+  setFilter: (value: QuickFilter) => void,
+) {
+  const params = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  const nextTab = String(params.get("tab") || "").toLowerCase() as OpsTab;
+  if (OPS_TABS.includes(nextTab)) setTab(nextTab);
+
+  const bookingId = params.get("bookingId") || params.get("intakeId") || "";
+  const taskId = params.get("taskId") || "";
+  const caseId = params.get("caseId") || "";
+  const focusId = bookingId || taskId || caseId;
+  if (focusId) {
+    setExpanded(focusId);
+    setSearch(focusId);
+  }
+  if (nextTab === "gateway" || params.get("retention") === "1") setFilter("needs_lc");
+  if (nextTab === "proxy") setFilter("active_proxy");
+  if (nextTab === "escrow") setFilter("escrow_holds");
+  if (nextTab === "verifications") setFilter("pending_verify");
+}
+
 export function AdminControlDesk() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
+  const [location] = useLocation();
+  const searchString = useSearch();
   const [tab, setTab] = useState<OpsTab>("intakes");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<QuickFilter>("all");
@@ -205,6 +235,17 @@ export function AdminControlDesk() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [expanded, setExpanded] = useState<string>("");
+
+  useEffect(() => {
+    applyOpsDeepLink(searchString || window.location.search, setTab, setExpanded, setSearch, setFilter);
+  }, [location, searchString]);
+
+  useEffect(() => onNotificationAction((detail) => {
+    const url = detail.resolved.targetUrl || "";
+    if (!url.includes("/admin/control")) return;
+    const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+    applyOpsDeepLink(query, setTab, setExpanded, setSearch, setFilter);
+  }), []);
 
   const intakesQuery = useQuery({
     queryKey: ["admin-intakes"],
@@ -583,18 +624,15 @@ export function AdminControlDesk() {
         ))}
       </nav>
 
-      <ActivityAuditTimeline
-        title="Control Room · Live Status Broadcast"
-        emptyText="New intakes, lawyer assignments, proxy accepts and work-hold releases will stream here instantly."
-        limit={20}
-      />
-
       {error ? <div className="lc-form-error" role="alert">{error}</div> : null}
       {success ? (
         <div role="status" className="lc-ops-success">
           <CheckCircle2 className="h-4 w-4" /> {success}
         </div>
       ) : null}
+
+      <div className="lc-ops-desk-layout">
+      <div className="lc-ops-desk-main">
 
       {tab === "intakes" ? (
         <section className="space-y-4">
@@ -1198,6 +1236,19 @@ export function AdminControlDesk() {
           </div>
         </section>
       ) : null}
+
+      </div>
+
+      <aside className="lc-ops-live-panel" aria-label="Live Sync panel">
+        <ActivityAuditTimeline
+          panel
+          compact
+          title="Live Sync"
+          emptyText="Live intake, assignment and escrow updates appear here."
+          limit={6}
+        />
+      </aside>
+      </div>
     </div>
   );
 }
