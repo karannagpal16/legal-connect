@@ -7,9 +7,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
-import { humanProxyStatus } from "@/lib/proxyFlow";
-
-const PROXY_MIN_FEE = 400;
+import {
+  PROXY_MIN_FEE,
+  PROXY_URGENCY_TIERS,
+  humanProxyStatus,
+  proxyUrgencyMeta,
+  resolveProxyUrgency,
+  type ProxyUrgencyTier,
+} from "@/lib/proxyFlow";
 
 declare global {
   interface Window {
@@ -20,6 +25,7 @@ declare global {
 const taskSchema = z.object({
   taskDescription: z.string().min(12, "Passover script must be at least 12 characters"),
   taskType: z.enum(["Pass-over", "Adjournment", "Evidence", "Arguments", "Other"]),
+  urgency: z.enum(["urgent", "priority", "standard"]),
   fee: z.string().min(1, "Fee is required"),
   location: z.string().min(1, "Court / location is required"),
   cnr: z.string().min(8, "CNR number is required"),
@@ -38,6 +44,7 @@ function parseFee(value: string) {
 function mapEditingDefaults(editingTask: any): TaskFormValues {
   const hearingRaw = editingTask?.hearingDate || "";
   const hearingDate = hearingRaw ? String(hearingRaw).slice(0, 10) : "";
+  const urgency = resolveProxyUrgency(editingTask?.urgency || editingTask?.timingTier);
   return {
     taskDescription: String(
       editingTask?.passoverScript
@@ -49,7 +56,8 @@ function mapEditingDefaults(editingTask: any): TaskFormValues {
     taskType: (["Pass-over", "Adjournment", "Evidence", "Arguments", "Other"].includes(String(editingTask?.taskType || editingTask?.appearanceType))
       ? (editingTask?.taskType || editingTask?.appearanceType)
       : "Pass-over") as TaskFormValues["taskType"],
-    fee: String(editingTask?.fee ?? editingTask?.amount ?? PROXY_MIN_FEE),
+    urgency,
+    fee: String(editingTask?.fee ?? editingTask?.amount ?? PROXY_URGENCY_TIERS[urgency].fee),
     location: String(editingTask?.location || editingTask?.court || ""),
     cnr: String(editingTask?.cnr || "").toUpperCase(),
     room: String(editingTask?.room || editingTask?.roomNo || ""),
@@ -61,7 +69,8 @@ function mapEditingDefaults(editingTask: any): TaskFormValues {
 const emptyDefaults: TaskFormValues = {
   taskDescription: "",
   taskType: "Pass-over",
-  fee: String(PROXY_MIN_FEE),
+  urgency: "standard",
+  fee: String(PROXY_URGENCY_TIERS.standard.fee),
   location: "",
   cnr: "",
   room: "",
@@ -93,10 +102,18 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     defaultValues: emptyDefaults,
   });
 
+  const watchedUrgency = form.watch("urgency") as ProxyUrgencyTier;
+  const urgencyMeta = proxyUrgencyMeta(watchedUrgency);
+
   useEffect(() => {
     if (!open) return;
     form.reset(editingTask ? mapEditingDefaults(editingTask) : emptyDefaults);
   }, [editingTask, form, open]);
+
+  useEffect(() => {
+    if (!open || isEditing) return;
+    form.setValue("fee", String(urgencyMeta.fee), { shouldValidate: true });
+  }, [form, isEditing, open, urgencyMeta.fee]);
 
   const finishPosted = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -104,7 +121,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     form.reset(emptyDefaults);
     toast({
       title: "Proxy task posted",
-      description: "Payment held in escrow. Legal Connect will review and assign a proxy counsel.",
+      description: `${urgencyMeta.label}: escrow held. Legal Connect will review and assign a proxy counsel.`,
     });
   };
 
@@ -114,6 +131,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     paymentId?: string;
     signature?: string;
   }) => {
+    const urgency = resolveProxyUrgency(data.urgency);
     await workspaceRequest("/api/proxy-hub/verify-payment", session?.token, {
       method: "POST",
       body: JSON.stringify({
@@ -133,6 +151,9 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
         appearanceType: data.taskType,
         taskType: data.taskType,
         hearingDate: data.hearingDate,
+        urgency,
+        timingTier: urgency,
+        slaAfterAssign: PROXY_URGENCY_TIERS[urgency].slaAfterAssign,
         mode: payment.mode,
         razorpay_order_id: payment.orderId,
         razorpay_payment_id: payment.paymentId,
@@ -143,7 +164,9 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
   };
 
   const onSubmit = async (data: TaskFormValues) => {
-    const feeAmount = parseFee(data.fee);
+    const urgency = resolveProxyUrgency(data.urgency);
+    const catalogFee = PROXY_URGENCY_TIERS[urgency].fee;
+    const feeAmount = isEditing ? parseFee(data.fee) : catalogFee;
 
     if (isEditing) {
       if (!session?.token) {
@@ -152,7 +175,6 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
       }
       setSaving(true);
       try {
-        // Never rewrite workflow status from the edit form — preserve LC/proxy machine state.
         await workspaceRequest(`/api/tasks/${editingTask.id}`, session.token, {
           method: "PUT",
           body: JSON.stringify({
@@ -169,7 +191,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
             passoverScript: data.taskDescription,
             passoverInstructions: data.taskDescription,
             hearingDate: data.hearingDate,
-            // Fee already escrowed; keep amount stable on edit.
+            urgency: resolveProxyUrgency(editingTask?.urgency || data.urgency),
             fee: String(editingTask.fee ?? editingTask.amount ?? feeAmount),
             amount: Number(editingTask.amount ?? editingTask.fee ?? feeAmount),
           }),
@@ -192,7 +214,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     if (feeAmount < PROXY_MIN_FEE) {
       toast({
         title: `Minimum proxy fee is ₹${PROXY_MIN_FEE}`,
-        description: "Increase the fee, then pay to post for Admin assignment.",
+        description: "Select a timing tier, then pay to post for Admin assignment.",
         variant: "destructive",
       });
       return;
@@ -211,6 +233,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
           title: `${data.taskType} · ${String(data.cnr || "").trim().toUpperCase()}`,
           fee: feeAmount,
           amount: feeAmount,
+          urgency,
         }),
       });
 
@@ -326,15 +349,36 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Fee (min ₹{PROXY_MIN_FEE})</label>
-              <input
-                {...form.register("fee")}
-                readOnly={isEditing}
-                className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none read-only:opacity-70"
-                placeholder="400"
-              />
-              {isEditing ? <p className="text-[11px] text-muted-foreground">Escrowed fee cannot be changed after payment.</p> : null}
+              <label className="text-sm font-semibold">Posting time / urgency</label>
+              <select
+                {...form.register("urgency")}
+                disabled={isEditing}
+                className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none disabled:opacity-70"
+              >
+                {(Object.keys(PROXY_URGENCY_TIERS) as ProxyUrgencyTier[]).map((key) => {
+                  const tier = PROXY_URGENCY_TIERS[key];
+                  return (
+                    <option key={key} value={key}>
+                      {tier.label} · ₹{tier.fee.toLocaleString("en-IN")}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
+            <p><strong className="text-foreground">{urgencyMeta.label}</strong> — {urgencyMeta.postingHint}</p>
+            <p>After LC verifies &amp; assigns: <strong className="text-foreground">{urgencyMeta.slaAfterAssign}</strong></p>
+            <p>Escrow fee: <strong className="text-foreground">₹{urgencyMeta.fee.toLocaleString("en-IN")}</strong> (platform 10% + tax 3% deducted on release)</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold">Fee (set by urgency)</label>
+            <input
+              {...form.register("fee")}
+              readOnly
+              className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none opacity-80"
+            />
+            {isEditing ? <p className="text-[11px] text-muted-foreground">Escrowed fee and urgency cannot be changed after payment.</p> : null}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -364,7 +408,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
             <p className="text-sm text-destructive" role="alert">{String(Object.values(form.formState.errors)[0]?.message)}</p>
           )}
           <button type="submit" disabled={paying || saving} className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl mt-4 hover:opacity-90 transition-all text-lg shadow-lg shadow-primary/20 disabled:opacity-60">
-            {paying || saving ? "Processing..." : isEditing ? "Save mission details" : "Pay & Post Task"}
+            {paying || saving ? "Processing..." : isEditing ? "Save mission details" : `Pay ₹${urgencyMeta.fee.toLocaleString("en-IN")} & Post Task`}
           </button>
         </form>
       </DialogContent>

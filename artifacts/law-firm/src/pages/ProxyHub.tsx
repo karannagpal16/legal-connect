@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListTasks, useDeleteTask } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
-import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch, ShieldCheck, Camera, Star, MessageSquareText, CheckCircle2 } from "lucide-react";
+import { Plus, MapPin, HandCoins, Edit2, Trash2, UserRoundSearch, ShieldCheck, Camera, Star, MessageSquareText, CheckCircle2, Briefcase, Clock3 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge, TaskTypeBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
@@ -11,14 +11,20 @@ import { useAuth, normaliseRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { ProxyFlowBanner, ProxyMissionTimeline } from "@/components/proxy/ProxyFlowTimeline";
-import { canEditProxyMissionDetails, humanProxyStatus, resolveProxyFlowStage } from "@/lib/proxyFlow";
+import {
+  canEditProxyMissionDetails,
+  humanProxyStatus,
+  nextProxyActor,
+  proxyUrgencyMeta,
+  resolveProxyFlowStage,
+} from "@/lib/proxyFlow";
 
 const COMPLETION_TIMES = [
+  "Within 1 hour (urgent SLA)",
+  "Same business day",
+  "Next business day",
   "Within 24 hours",
   "1–2 days",
-  "3–5 days",
-  "1 week",
-  "2 weeks",
 ];
 
 type ProxyTask = Task & {
@@ -40,6 +46,11 @@ type ProxyTask = Task & {
   fee?: string | number;
   court?: string;
   title?: string;
+  urgency?: string;
+  timingTier?: string;
+  slaAfterAssign?: string;
+  urgencyLabel?: string;
+  appearanceType?: string;
   posterProofDecision?: string;
   posterProofReason?: string;
   settlement?: {
@@ -224,10 +235,12 @@ export function ProxyHub() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">
-            {isAdmin ? "Proxy Desk · LC assignment & escrow release" : "ProxyHub · Main counsel missions"}
+            {isAdmin ? "Proxy Desk · LC assignment & escrow release" : "ProxyHub · Main counsel & assigned missions"}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Systematic flow with full transparency between main counsel, Legal Connect, and proxy counsel.
+            {isAdmin
+              ? "Live Sync for Admin. Review urgency, assign proxy, and release escrow after proof."
+              : "Post with urgency pricing. If LC assigns you, see court, task type, SLA and upload proof here."}
           </p>
         </div>
         <button
@@ -243,6 +256,14 @@ export function ProxyHub() {
       </div>
 
       <ProxyFlowBanner />
+
+      {!isAdmin ? (
+        <div className="rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          Timing prices: <strong className="text-foreground">Urgent ₹1,299</strong> (1 hr after assign) ·{" "}
+          <strong className="text-foreground">Priority ₹799</strong> (same day) ·{" "}
+          <strong className="text-foreground">Standard ₹499</strong> (business hours). Assigned proxy must keep the mission updated with order-sheet proof.
+        </div>
+      ) : null}
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
         {["All", "Pending Admin", "Assigned", "Proof review", "Completed"].map((status) => (
@@ -260,12 +281,14 @@ export function ProxyHub() {
         ))}
       </div>
 
-      <ActivityAuditTimeline
-        title="ProxyHub · Live transparency feed"
-        emptyText="Posts, LC assignments, proof uploads and releases sync here for main counsel, LC and proxy."
-        limit={12}
-        compact
-      />
+      {isAdmin ? (
+        <ActivityAuditTimeline
+          title="ProxyHub · Live Sync"
+          emptyText="Posts, LC assignments, proof uploads and releases sync here for Admin."
+          limit={12}
+          compact
+        />
+      ) : null}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -291,14 +314,18 @@ export function ProxyHub() {
             const isProxy = String(t.acceptedBy || "") === String(userId || "");
             const isPoster = String(t.postedBy || "") === String(userId || "");
             const stage = resolveProxyFlowStage(t);
+            const urgency = proxyUrgencyMeta(t.urgency || t.timingTier);
+            const next = nextProxyActor(t);
             const acceptedLike = stage === "proxy_assigned" || stage === "proxy_checked_in" || t.status === "Accepted" || t.status === "Assigned" || t.status === "Checked In";
             const canLifecycle = isProxy || isAdmin;
             const canEditDetails = (isAdmin || isPoster) && canEditProxyMissionDetails(t);
-            const myRoleLabel = isAdmin ? "LC desk" : isPoster ? "You are main counsel" : isProxy ? "You are proxy counsel" : "Observer";
+            const myRoleLabel = isAdmin ? "LC desk" : isPoster ? "You are main counsel" : isProxy ? "You are proxy counsel · assigned by LC" : "Observer";
             return (
               <div
                 key={t.id}
-                className="bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-all shadow-sm flex flex-col group relative overflow-hidden"
+                className={`bg-card border rounded-2xl p-5 hover:border-primary/50 transition-all shadow-sm flex flex-col group relative overflow-hidden ${
+                  isProxy ? "border-primary/60 ring-1 ring-primary/20" : "border-border"
+                }`}
               >
                 {pendingAdmin && <div className="absolute top-0 right-0 w-16 h-16 bg-primary/10 rounded-bl-[100%] z-0" />}
 
@@ -309,7 +336,24 @@ export function ProxyHub() {
 
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2 relative z-10">{myRoleLabel}</p>
 
-                <h3 className="text-lg font-bold text-foreground mb-3 relative z-10 leading-snug">{t.taskDescription || t.title}</h3>
+                <h3 className="text-lg font-bold text-foreground mb-1 relative z-10 leading-snug">
+                  {(t.taskType || t.appearanceType || "Appearance") as string}
+                  {" · "}
+                  {t.location || t.court || "Court TBD"}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3 relative z-10 leading-snug">{t.taskDescription || t.title}</p>
+
+                <div className="mb-3 relative z-10 flex flex-wrap gap-2 text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-accent/15 px-2 py-1 text-foreground">
+                    <Clock3 className="w-3.5 h-3.5" />
+                    {urgency.label} · {urgency.slaShort}
+                  </span>
+                  {isProxy ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-foreground">
+                      Next: {next.action}
+                    </span>
+                  ) : null}
+                </div>
 
                 <div className="mb-4 relative z-10">
                   <ProxyMissionTimeline task={t} />
@@ -328,10 +372,13 @@ export function ProxyHub() {
                   {t.fee || t.amount ? (
                     <div className="flex items-center gap-2 font-semibold text-foreground bg-accent/10 w-fit px-2 py-1 rounded-md">
                       <HandCoins className="w-4 h-4" />
-                      <span>₹{t.fee || t.amount} escrowed</span>
+                      <span>₹{t.fee || t.amount} escrowed · {urgency.label}</span>
                     </div>
                   ) : null}
-                  <div>Proof: {t.proofStatus || "none"}{t.proofHash ? ` · ${String(t.proofHash).slice(0, 8)}…` : ""}</div>
+                  {(t.slaAfterAssign || urgency.slaAfterAssign) ? (
+                    <div>SLA: {t.slaAfterAssign || urgency.slaAfterAssign}</div>
+                  ) : null}
+                  <div>Proof: {t.proofStatus || "none"}{t.proofHash ? ` · ${String(t.proofHash).slice(0, 8)}…` : ""}{isProxy ? " — keep this updated" : ""}</div>
                   <div>Escrow: {t.escrowStatus || "—"}</div>
                   {t.posterProofDecision ? (
                     <div>

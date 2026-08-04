@@ -1,5 +1,57 @@
 /** Canonical ProxyHub Flow B stages shared by UI surfaces. */
 
+export type ProxyUrgencyTier = "urgent" | "priority" | "standard";
+
+export type ProxyUrgencyMeta = {
+  id: ProxyUrgencyTier;
+  label: string;
+  fee: number;
+  postingHint: string;
+  slaAfterAssign: string;
+  slaShort: string;
+};
+
+/** Posted timing → escrow fee → SLA once LC verifies & assigns. */
+export const PROXY_URGENCY_TIERS: Record<ProxyUrgencyTier, ProxyUrgencyMeta> = {
+  urgent: {
+    id: "urgent",
+    label: "Urgent",
+    fee: 1299,
+    postingHint: "Need appearance soon (e.g. adjournment in ~15 minutes)",
+    slaAfterAssign: "Proxy must complete within 1 hour after LC assigns",
+    slaShort: "1 hour after assign",
+  },
+  priority: {
+    id: "priority",
+    label: "Priority · same day",
+    fee: 799,
+    postingHint: "Same business-day appearance",
+    slaAfterAssign: "Proxy must complete within the same business day after LC assigns",
+    slaShort: "Same business day",
+  },
+  standard: {
+    id: "standard",
+    label: "Standard · business hours",
+    fee: 499,
+    postingHint: "Next business day / normal court hours",
+    slaAfterAssign: "Proxy must complete next business day during court hours",
+    slaShort: "Next business day",
+  },
+};
+
+export const PROXY_MIN_FEE = PROXY_URGENCY_TIERS.standard.fee;
+
+export function resolveProxyUrgency(value?: string | null): ProxyUrgencyTier {
+  const raw = String(value || "").toLowerCase().trim();
+  if (raw === "urgent" || raw === "high" || raw === "asap") return "urgent";
+  if (raw === "priority" || raw === "same_day" || raw === "same-day") return "priority";
+  return "standard";
+}
+
+export function proxyUrgencyMeta(value?: string | null): ProxyUrgencyMeta {
+  return PROXY_URGENCY_TIERS[resolveProxyUrgency(value)];
+}
+
 export type ProxyFlowStageId =
   | "posted_escrow"
   | "lc_review"

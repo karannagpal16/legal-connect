@@ -6,9 +6,9 @@
  */
 
 const ADVISORY_AMOUNTS = {
-  chat: 499,
-  call: 999,
-  video: 1499,
+  chat: 99,
+  call: 299,
+  video: 499,
 };
 
 const CONSULTATION_STATES = [
@@ -324,9 +324,9 @@ function createMasterBlueprint(deps) {
 
   async function bookAdvisory(req, res, body, authUser) {
     const channel = normalizeChannel(body.consultationChannel || body.channel || body.mode);
-    const amount = Number.isFinite(Number(body.amount))
-      ? Number(body.amount)
-      : ADVISORY_AMOUNTS[channel];
+    // Catalog amounts are authoritative — clients cannot underpay.
+    const catalogAmount = ADVISORY_AMOUNTS[channel] ?? ADVISORY_AMOUNTS.chat;
+    const amount = catalogAmount;
     const masterFree = await isMasterTestUser(authUser);
     const firstChatFree = channel === "chat" && Boolean(body.firstChatFree);
     if (!masterFree) {

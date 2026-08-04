@@ -343,8 +343,8 @@ export function ClientHome() {
             </button>
           </div>
           <p className="lc-ops-meta" style={{ marginTop: "0.75rem" }}>
-            One-time advisory only. You cannot hire an advocate directly in the app — full court representation
-            requires LC Gateway retention.
+            First chat free · then ₹99 / 2 mins · audio from ₹299 · video from ₹499. One-time advisory only —
+            full court representation requires LC Gateway retention (no direct in-app hiring).
           </p>
           {bookingGateNotice ? (
             <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>{bookingGateNotice}</p>
