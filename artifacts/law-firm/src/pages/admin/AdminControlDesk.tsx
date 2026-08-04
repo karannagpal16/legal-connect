@@ -557,7 +557,7 @@ export function AdminControlDesk() {
   const tabs: Array<{ id: OpsTab; label: string; count?: number }> = [
     { id: "intakes", label: "Intakes & Assignments", count: queue.length },
     { id: "gateway", label: "LC Gateway", count: gatewayQueue.length },
-    { id: "proxy", label: "Proxy Missions", count: tasks.length },
+    { id: "proxy", label: "Posted Proxy Tasks", count: tasks.length },
     { id: "moderation", label: "Counsel Updates", count: pendingLcCount },
     { id: "verifications", label: "Credential Verifications", count: pendingVerifyCount },
     { id: "escrow", label: "Escrow & Revenue", count: escrowTasks.length + heldBookings.length },
@@ -1048,11 +1048,11 @@ export function AdminControlDesk() {
 
       {tab === "proxy" ? (
         <section>
-          <h3>Proxy Missions · Assignment & Escrow</h3>
+          <h3>ProxyHub · Posted tasks</h3>
           <p className="text-muted-foreground" style={{ marginBottom: "1rem" }}>
-            Flow B: escrow_paid → proxy_assigned_by_lc → supervised Q&A → proof_approved → escrow_released.
+            Advocates pay &amp; post tasks here for LC review. Flow: escrow_paid → LC assign → supervised Q&amp;A → proof_approved → escrow_released.
           </p>
-          {!filteredTasks.length ? <p className="text-muted-foreground">No proxy missions need admin action.</p> : null}
+          {!filteredTasks.length ? <p className="text-muted-foreground">No posted proxy tasks need admin action right now.</p> : null}
           <div className="space-y-3">
             {filteredTasks.map((task) => {
               const pendingAssign = /awaiting|open|pending/i.test(String(task.status || ""));
