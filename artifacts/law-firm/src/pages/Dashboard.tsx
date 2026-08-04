@@ -256,7 +256,7 @@ export function Dashboard() {
       </div>
 
       <section className="lc-quick-grid" aria-label="Control room shortcuts">
-        <Link href="/admin/missions" className="lc-quick-action lc-tone-gold">
+        <Link href="/admin/missions" className="lc-quick-action lc-tone-gold lc-quick-action-gold">
           <span><Plus /></span>
           <div><strong>Post Proxy Task</strong><small>Create a proxy court appearance</small></div>
           <ArrowRight />
