@@ -36,12 +36,18 @@ export function MyDiary() {
     },
   });
 
-  const filteredCases = cases?.filter(
-    (c) =>
-      c.caseTitle.toLowerCase().includes(search.toLowerCase()) ||
-      c.caseNumber.toLowerCase().includes(search.toLowerCase()) ||
-      c.courtName.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCases = cases?.filter((c) => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return true;
+    const cnr = String((c as Case & { cnr?: string | null }).cnr || "");
+    return (
+      String(c.caseTitle || "").toLowerCase().includes(needle)
+      || String(c.caseNumber || "").toLowerCase().includes(needle)
+      || String(c.courtName || "").toLowerCase().includes(needle)
+      || cnr.toLowerCase().includes(needle)
+      || String(c.id || "").toLowerCase().includes(needle)
+    );
+  });
 
   const handleDelete = (id: number) => {
     if (confirm("Are you sure you want to delete this case?")) {
@@ -63,9 +69,9 @@ export function MyDiary() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">My Diary</h1>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Case register</h1>
           <p className="mt-1 text-muted-foreground">
-            Manage all your ongoing and pending matters.
+            Search and manage matters by title, case number, court, or CNR.
           </p>
         </div>
 
@@ -82,7 +88,7 @@ export function MyDiary() {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Search by case title, number, or court..."
+          placeholder="Search by title, case number, court, or CNR…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-12 pr-4 py-4 bg-card border-2 border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-base"

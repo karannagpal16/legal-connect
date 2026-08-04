@@ -1745,10 +1745,11 @@ function mapUser(row) {
 function inferNotificationAction(eventType, payload = {}, ctaUrl = null) {
   const event = String(eventType || "").toLowerCase();
   const fromPayload = payload && typeof payload === "object" ? payload : {};
+  const relativeCta = toRelativePortalPath(ctaUrl);
   if (fromPayload.actionType) {
     return {
       actionType: fromPayload.actionType,
-      targetUrl: fromPayload.targetUrl || ctaUrl || null,
+      targetUrl: toRelativePortalPath(fromPayload.targetUrl || ctaUrl) || relativeCta,
       actionPayload: fromPayload.actionPayload || {
         caseId: fromPayload.caseId || fromPayload.matterId || null,
         bookingId: fromPayload.bookingId || fromPayload.intakeId || null,
@@ -1766,6 +1767,7 @@ function inferNotificationAction(eventType, payload = {}, ctaUrl = null) {
   const caseId = fromPayload.caseId || fromPayload.matterId || null;
   const table = {
     case_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client" },
+    case_added: { actionType: "CASE_UPDATE", targetUrl: "/client" },
     booking_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client" },
     intake_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/advocate" },
     intake_info_requested: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/client" },
@@ -1774,12 +1776,18 @@ function inferNotificationAction(eventType, payload = {}, ctaUrl = null) {
     case_update_approved: { actionType: "CASE_UPDATE", targetUrl: "/client/updates" },
     payment_due: { actionType: "PAYMENT_REQUIRED", targetUrl: "/client/book" },
     payment_failed: { actionType: "PAYMENT_REQUIRED", targetUrl: "/client/book" },
+    payment_verified: { actionType: "CASE_UPDATE", targetUrl: "/client" },
     hearing_scheduled: { actionType: "HEARING_REMINDER", targetUrl: "/client" },
     clash_warning: { actionType: "HEARING_REMINDER", targetUrl: "/advocate/diary" },
     quest_assigned: { actionType: "QUEST_ACTION", targetUrl: "/intern/quests" },
     quest_completed: { actionType: "QUEST_ACTION", targetUrl: "/intern/quests" },
-    proxy_proof_needed: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/advocate/proxy" },
+    proxy_proof_needed: { actionType: "DOCUMENT_REQUIRED", targetUrl: taskId ? `/advocate/proxy?taskId=${taskId}` : "/advocate/proxy" },
+    proxy_proof_uploaded: { actionType: "GENERIC_NAV", targetUrl: taskId ? `/admin/missions?taskId=${taskId}` : "/admin/missions" },
+    proxy_proof_approved: { actionType: "GENERIC_NAV", targetUrl: taskId ? `/advocate/proxy?taskId=${taskId}` : "/advocate/proxy" },
+    proxy_escrow_released: { actionType: "GENERIC_NAV", targetUrl: taskId ? `/advocate/proxy?taskId=${taskId}` : "/advocate/proxy" },
     verification_pending: { actionType: "KYC_VERIFICATION", targetUrl: "/admin/verifications" },
+    identity_approved: { actionType: "CASE_UPDATE", targetUrl: "/client" },
+    identity_rejected: { actionType: "KYC_VERIFICATION", targetUrl: "/client" },
     advisory_booked: {
       actionType: "ADMIN_ASSIGN",
       targetUrl: bookingId ? `/admin/control?tab=intakes&bookingId=${bookingId}` : "/admin/control?tab=intakes",
@@ -1795,13 +1803,27 @@ function inferNotificationAction(eventType, payload = {}, ctaUrl = null) {
       actionType: "GENERIC_NAV",
       targetUrl: taskId ? `/advocate/proxy?taskId=${taskId}` : "/advocate/proxy",
     },
+    proxy_mission_assigned: {
+      actionType: "GENERIC_NAV",
+      targetUrl: taskId ? `/advocate/proxy?taskId=${taskId}` : "/advocate/proxy",
+    },
+    proxy_mission_posted: {
+      actionType: "ADMIN_ASSIGN",
+      targetUrl: taskId ? `/admin/missions?taskId=${taskId}` : "/admin/missions",
+    },
+    task_draft_submitted: {
+      actionType: "GENERIC_NAV",
+      targetUrl: taskId ? `/advocate/proxy?taskId=${taskId}` : "/advocate/proxy",
+    },
     case_update_pending: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation" },
+    case_update_pending_review: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation" },
+    case_update_held_for_lc: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation" },
     pending_update: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation" },
   };
-  const mapped = table[event] || { actionType: "GENERIC_NAV", targetUrl: ctaUrl || null };
+  const mapped = table[event] || { actionType: "GENERIC_NAV", targetUrl: relativeCta || null };
   return {
     actionType: mapped.actionType,
-    targetUrl: fromPayload.targetUrl || mapped.targetUrl || ctaUrl || null,
+    targetUrl: toRelativePortalPath(fromPayload.targetUrl || mapped.targetUrl || ctaUrl) || relativeCta,
     actionPayload: {
       caseId: fromPayload.caseId || fromPayload.matterId || null,
       bookingId: fromPayload.bookingId || fromPayload.intakeId || null,
@@ -1831,7 +1853,7 @@ function mapNotification(row) {
     channelLog: row.channel_log || row.channelLog || {},
     payload,
     actionType: action.actionType,
-    targetUrl: action.targetUrl,
+    targetUrl: toRelativePortalPath(action.targetUrl || payload.targetUrl) || action.targetUrl,
     actionPayload: action.actionPayload,
     createdAt: row.created_at ?? row.createdAt ?? null,
   };
@@ -1946,6 +1968,23 @@ function portalUrl(path = "/") {
   const base = String(config.publicAppUrl || "").replace(/\/$/, "");
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${base}${suffix}`;
+}
+
+/** In-app notification targets must be relative SPA paths — absolute URLs break wouter setLocation. */
+function toRelativePortalPath(url) {
+  if (url == null || url === "") return null;
+  const value = String(url).trim();
+  if (!value) return null;
+  try {
+    if (/^https?:\/\//i.test(value)) {
+      const parsed = new URL(value);
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+    }
+  } catch {
+    // fall through
+  }
+  if (value.startsWith("~")) return value.slice(1) || "/";
+  return value.startsWith("/") ? value : `/${value}`;
 }
 
 function buildEmailHtml({ title, message, ctaLabel, ctaUrl, recipientName }) {
@@ -2127,10 +2166,13 @@ async function notify({
   if (!list.length) return channelLog;
   const finalCtaUrl = ctaUrl || portalUrl("/");
   const actionMeta = inferNotificationAction(eventType, payload, finalCtaUrl);
+  const relativeTarget = toRelativePortalPath(
+    (payload && payload.targetUrl) || actionMeta.targetUrl || finalCtaUrl,
+  );
   const enrichedPayload = {
     ...(payload && typeof payload === "object" ? payload : {}),
     actionType: (payload && payload.actionType) || actionMeta.actionType,
-    targetUrl: (payload && payload.targetUrl) || actionMeta.targetUrl || finalCtaUrl,
+    targetUrl: relativeTarget || actionMeta.targetUrl || "/",
     actionPayload: (payload && payload.actionPayload) || actionMeta.actionPayload,
   };
   const jobs = [];

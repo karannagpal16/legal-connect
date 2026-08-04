@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useListTasks, useDeleteTask } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import {
@@ -16,8 +16,10 @@ import {
   Briefcase,
   ChevronDown,
   ChevronUp,
+  Search,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { StatusBadge, TaskTypeBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { TaskDialog } from "@/components/forms/TaskDialog";
@@ -25,6 +27,7 @@ import { useAuth, normaliseRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { ProxyFlowBanner, ProxyMissionTimeline } from "@/components/proxy/ProxyFlowTimeline";
+import { onNotificationAction } from "@/lib/notificationBus";
 import {
   canEditProxyMissionDetails,
   humanProxyStatus,
@@ -90,6 +93,8 @@ function missionNeedsYou(task: ProxyTask, role: ReturnType<typeof roleOnMission>
 export function ProxyHub() {
   const { data: tasks, isLoading } = useListTasks();
   const [filter, setFilter] = useState<SimpleFilter>("needs_you");
+  const [textSearch, setTextSearch] = useState("");
+  const [focusTaskId, setFocusTaskId] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [busyId, setBusyId] = useState("");
@@ -106,6 +111,32 @@ export function ProxyHub() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isAssigning, setIsAssigning] = useState(false);
+  const searchString = useSearch();
+
+  const applyTaskFocus = (taskId: string) => {
+    if (!taskId) return;
+    setFocusTaskId(taskId);
+    setTextSearch(taskId);
+    setFilter("all");
+    window.setTimeout(() => {
+      document.getElementById(`proxy-mission-${taskId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchString.startsWith("?") ? searchString : `?${searchString}`);
+    const taskId = params.get("taskId") || "";
+    if (taskId) applyTaskFocus(taskId);
+  }, [searchString]);
+
+  useEffect(() => onNotificationAction((detail) => {
+    const url = detail.resolved.targetUrl || "";
+    if (!url.includes("/proxy") && !url.includes("/missions")) return;
+    const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+    const params = new URLSearchParams(query);
+    const taskId = params.get("taskId") || detail.resolved.actionPayload?.taskId || "";
+    applyTaskFocus(taskId);
+  }), []);
 
   const advocates = useQuery({
     queryKey: ["admin-advocates-proxy"],
@@ -127,16 +158,39 @@ export function ProxyHub() {
   const allTasks = useMemo(() => (Array.isArray(tasks) ? (tasks as ProxyTask[]) : []), [tasks]);
 
   const filteredTasks = useMemo(() => {
+    const needle = textSearch.trim().toLowerCase();
     return allTasks.filter((task) => {
       const myRole = roleOnMission(task, userId, isAdmin);
       const stage = resolveProxyFlowStage(task);
       const needsYou = missionNeedsYou(task, myRole);
-      if (filter === "all") return true;
-      if (filter === "done") return stage === "escrow_released";
-      if (filter === "needs_you") return needsYou;
-      return !needsYou && stage !== "escrow_released";
+      let statusOk = true;
+      if (filter === "done") statusOk = stage === "escrow_released";
+      else if (filter === "needs_you") statusOk = needsYou;
+      else if (filter === "waiting") statusOk = !needsYou && stage !== "escrow_released";
+      // filter === "all" → statusOk stays true
+
+      if (!statusOk && !needle) return false;
+      if (!needle) return statusOk;
+
+      const haystack = [
+        task.title,
+        task.court,
+        task.cnr,
+        task.status,
+        task.assignedProxyName,
+        task.id,
+        task.appearanceType,
+        task.taskType,
+        task.hearingDate,
+        task.roomNo,
+        task.room,
+        humanProxyStatus(task),
+      ].map((value) => String(value || "").toLowerCase());
+      const matches = haystack.some((value) => value.includes(needle));
+      // Text ignores status pills so CNR / case lookups always surface the mission.
+      return matches;
     });
-  }, [allTasks, filter, isAdmin, userId]);
+  }, [allTasks, filter, isAdmin, userId, textSearch]);
 
   const counts = useMemo(() => {
     let needsYou = 0;
@@ -291,6 +345,20 @@ export function ProxyHub() {
         ))}
       </div>
 
+      <label className="relative block">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          value={textSearch}
+          onChange={(event) => {
+            setTextSearch(event.target.value);
+            if (focusTaskId) setFocusTaskId("");
+          }}
+          placeholder="Search CNR, court, mission title, proxy…"
+          aria-label="Search court missions"
+          className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-primary/40"
+        />
+      </label>
+
       {isAdmin ? (
         <div className="rounded-2xl border border-border bg-card">
           <button
@@ -324,10 +392,18 @@ export function ProxyHub() {
         <div className="text-center py-16 bg-card rounded-2xl border border-border">
           <Briefcase className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <h3 className="text-lg font-bold text-foreground">
-            {filter === "needs_you" ? "Nothing needs you right now" : "No missions here"}
+            {textSearch.trim()
+              ? "No missions match that search"
+              : filter === "needs_you"
+                ? "Nothing needs you right now"
+                : "No missions here"}
           </h3>
           <p className="text-muted-foreground mt-1 text-sm">
-            {isAdmin ? "New paid posts will show up under Needs you." : "Post a mission, or wait for Legal Connect to assign you one."}
+            {textSearch.trim()
+              ? "Try CNR, court name, or clear the search box."
+              : isAdmin
+                ? "New paid posts will show up under Needs you."
+                : "Post a mission, or wait for Legal Connect to assign you one."}
           </p>
         </div>
       ) : (
@@ -358,9 +434,14 @@ export function ProxyHub() {
 
             return (
               <article
+                id={`proxy-mission-${t.id}`}
                 key={t.id}
                 className={`bg-card border rounded-2xl p-5 flex flex-col shadow-sm ${
-                  isProxy || missionNeedsYou(t, myRole) ? "border-primary/50" : "border-border"
+                  String(focusTaskId) === String(t.id)
+                    ? "border-primary ring-2 ring-primary/30"
+                    : isProxy || missionNeedsYou(t, myRole)
+                      ? "border-primary/50"
+                      : "border-border"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-3">

@@ -107,6 +107,12 @@ type DeskTask = {
   assignedProxyName?: string;
   court?: string;
   clientName?: string;
+  cnr?: string;
+  taskType?: string;
+  taskDescription?: string;
+  appearanceType?: string;
+  hearingDate?: string;
+  location?: string;
   posterProofDecision?: string;
   posterProofReason?: string;
   settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
@@ -119,6 +125,7 @@ type DeskCase = {
   caseTitle?: string;
   caseNumber?: string;
   caseNo?: string;
+  cnr?: string;
   court?: string;
   courtName?: string;
   status?: string;
@@ -228,11 +235,14 @@ function applyOpsDeepLink(
   if (focusId) {
     setExpanded(focusId);
     setSearch(focusId);
+    // Clear sticky status pills so assigned/in-progress rows stay searchable.
+    setFilter("all");
+  } else {
+    if (nextTab === "gateway" || params.get("retention") === "1") setFilter("needs_lc");
+    if (nextTab === "proxy") setFilter("active_proxy");
+    if (nextTab === "escrow") setFilter("escrow_holds");
+    if (nextTab === "verifications") setFilter("pending_verify");
   }
-  if (nextTab === "gateway" || params.get("retention") === "1") setFilter("needs_lc");
-  if (nextTab === "proxy") setFilter("active_proxy");
-  if (nextTab === "escrow") setFilter("escrow_holds");
-  if (nextTab === "verifications") setFilter("pending_verify");
 }
 
 export function AdminControlDesk() {
@@ -265,7 +275,22 @@ export function AdminControlDesk() {
 
   useEffect(() => onNotificationAction((detail) => {
     const url = detail.resolved.targetUrl || "";
-    if (!url.includes("/admin/control")) return;
+    if (!url.includes("/admin/control") && !url.includes("/admin/missions") && !url.includes("/admin/cases")) return;
+    if (url.includes("/admin/missions")) {
+      const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+      const params = new URLSearchParams(query);
+      const taskId = params.get("taskId") || detail.resolved.actionPayload?.taskId || "";
+      if (taskId) {
+        setTab("proxy");
+        setExpanded(taskId);
+        setSearch(taskId);
+        setFilter("all");
+      } else {
+        setTab("proxy");
+        setFilter("all");
+      }
+      return;
+    }
     const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
     applyOpsDeepLink(query, setTab, setExpanded, setSearch, setFilter);
   }), []);
@@ -481,7 +506,9 @@ export function AdminControlDesk() {
   });
 
   const filteredIntakes = useMemo(() => {
-    let rows = queue;
+    const hasSearch = Boolean(search.trim());
+    // Searching should look across the full intake register, not only the action queue.
+    let rows = hasSearch ? intakes : queue;
     if (filter === "unassigned") rows = rows.filter((item) => !item.assignedAdvocateId);
     if (filter === "needs_lc") {
       rows = rows.filter((item) => {
@@ -497,14 +524,45 @@ export function AdminControlDesk() {
       item.id,
       item.intakeStatus,
       item.stageStatus,
+      item.caseTitle,
+      item.court,
+      item.oppositeParty,
+      item.partyName,
+      item.problemSummary,
+      item.particulars,
+      item.retentionStatus,
+      item.retention?.matterSummary,
+      item.productType,
     ], search));
-  }, [queue, filter, search]);
+  }, [queue, intakes, filter, search]);
+
+  const filteredGateway = useMemo(() => gatewayQueue.filter((item) => matchesQuery([
+    item.clientName,
+    item.legalIssueType,
+    item.serviceType,
+    item.assignedAdvocateName,
+    item.id,
+    item.caseTitle,
+    item.court,
+    item.retentionStatus,
+    item.retention?.status,
+    item.retention?.matterSummary,
+    item.productType,
+  ], search)), [gatewayQueue, search]);
 
   const filteredTasks = useMemo(() => {
-    let rows = filter === "active_proxy" || filter === "escrow_holds"
-      ? (filter === "escrow_holds" ? escrowTasks : tasks)
-      : tasks;
-    if (filter === "escrow_holds") rows = escrowTasks;
+    const hasSearch = Boolean(search.trim());
+    let rows: DeskTask[];
+    if (filter === "escrow_holds") {
+      rows = escrowTasks;
+    } else if (filter === "active_proxy" && !hasSearch) {
+      rows = tasks;
+    } else if (hasSearch) {
+      // Include assigned / accepted / completed passovers when searching by CNR, court, etc.
+      rows = allTasks;
+    } else {
+      rows = tasks;
+    }
     return rows.filter((task) => matchesQuery([
       task.title,
       task.court,
@@ -512,8 +570,16 @@ export function AdminControlDesk() {
       task.assignedProxyName,
       task.clientName,
       task.id,
+      task.cnr,
+      task.taskType,
+      task.taskDescription,
+      task.appearanceType,
+      task.hearingDate,
+      task.location,
+      task.proofStatus,
+      task.escrowStatus,
     ], search));
-  }, [tasks, escrowTasks, filter, search]);
+  }, [tasks, allTasks, escrowTasks, filter, search]);
 
   const filteredCases = useMemo(() => {
     let rows = cases;
@@ -525,12 +591,14 @@ export function AdminControlDesk() {
       item.title,
       item.caseNumber,
       item.caseNo,
+      item.cnr,
       item.court,
       item.courtName,
       item.clientName,
       item.assignedAdvocateName,
       item.id,
       item.status,
+      item.bookingId,
     ], search));
   }, [cases, filter, search]);
 
@@ -626,7 +694,7 @@ export function AdminControlDesk() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search clients, advocates, courts, case IDs, issue types…"
+            placeholder="Search CNR, case no, court, client, passover / proxy missions…"
             aria-label="Global ops search"
           />
         </label>
@@ -652,7 +720,10 @@ export function AdminControlDesk() {
             key={item.id}
             type="button"
             className={tab === item.id ? "is-active" : undefined}
-            onClick={() => setTab(item.id)}
+            onClick={() => {
+              setTab(item.id);
+              setFilter("all");
+            }}
           >
             {item.label}
             {item.count != null ? <em>{item.count}</em> : null}
@@ -937,8 +1008,8 @@ export function AdminControlDesk() {
               </p>
             </div>
           </div>
-          {!gatewayQueue.length ? <p className="text-muted-foreground">No LC Gateway retention requests in queue.</p> : null}
-          {gatewayQueue.map((intake) => {
+          {!filteredGateway.length ? <p className="text-muted-foreground">No LC Gateway retention requests in queue.</p> : null}
+          {filteredGateway.map((intake) => {
             const retentionState = String(intake.retentionStatus || intake.retention?.status || intake.stageStatus || "requested");
             const selectedAdvocate = advocates.find((item) => item.id === advocateByIntake[intake.id]);
             return (
@@ -1071,16 +1142,23 @@ export function AdminControlDesk() {
           <p className="lc-ops-meta" style={{ marginBottom: "1rem" }}>
             Assign a proxy for paid posts. After proof is confirmed, release payment.
           </p>
-          {!filteredTasks.length ? <p className="text-muted-foreground">No posted proxy tasks need admin action right now.</p> : null}
+          {!filteredTasks.length ? (
+            <p className="text-muted-foreground">
+              {search.trim() ? "No court missions match that search." : "No posted proxy tasks need admin action right now."}
+            </p>
+          ) : null}
           <div className="space-y-3">
             {filteredTasks.map((task) => {
               const pendingAssign = /awaiting|open|pending/i.test(String(task.status || ""));
               const selected = advocates.find((item) => item.id === proxyByTask[task.id]);
               return (
-                <article key={task.id} className="lc-ops-card">
+                <article key={task.id} className={`lc-ops-card ${expanded === task.id ? "is-expanded" : ""}`}>
                   <strong>{task.title || "Proxy mission"}</strong>
                   <p className="lc-ops-meta">
-                    {task.court || "Court TBD"} · {task.status}
+                    {task.court || "Court TBD"}
+                    {task.cnr ? ` · CNR ${task.cnr}` : ""}
+                    {task.appearanceType || task.taskType ? ` · ${task.appearanceType || task.taskType}` : ""}
+                    {" · "}{task.status}
                     {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                     {" · "}Proof {task.proofStatus || "none"} · Work hold {task.escrowStatus || "—"}
                     {task.assignedProxyName ? ` · Proxy: ${task.assignedProxyName}` : ""}
@@ -1239,12 +1317,13 @@ export function AdminControlDesk() {
           ) : null}
           <div className="space-y-3">
             {(filter === "escrow_holds" ? filteredTasks : escrowTasks.filter((task) => matchesQuery([
-              task.title, task.court, task.status, task.assignedProxyName, task.id,
+              task.title, task.court, task.status, task.assignedProxyName, task.id, task.cnr, task.taskType, task.appearanceType,
             ], search))).map((task) => (
               <article key={task.id} className="lc-ops-card">
                 <strong>{task.title || "Proxy mission"}</strong>
                 <p className="lc-ops-meta">
                   Hold {task.escrowStatus || "—"} · Proof {task.proofStatus || "none"} · {task.court || "Court TBD"}
+                  {task.cnr ? ` · CNR ${task.cnr}` : ""}
                   {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                 </p>
                 <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
@@ -1305,7 +1384,9 @@ export function AdminControlDesk() {
                 <article key={matter.id} className="lc-ops-card">
                   <strong>{matter.caseTitle || matter.title || "Untitled matter"}</strong>
                   <p className="lc-ops-meta">
-                    {matter.caseNumber || matter.caseNo || "Number pending"} · {matter.courtName || matter.court || "Court not listed"}
+                    {matter.caseNumber || matter.caseNo || "Number pending"}
+                    {matter.cnr ? ` · CNR ${matter.cnr}` : ""}
+                    {" · "}{matter.courtName || matter.court || "Court not listed"}
                     {" · "}{matter.status || "Active"}
                     {matter.clientName ? ` · ${matter.clientName}` : ""}
                     {matter.assignedAdvocateName ? ` · Counsel: ${matter.assignedAdvocateName}` : " · Unassigned"}

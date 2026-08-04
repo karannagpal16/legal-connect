@@ -70,6 +70,7 @@ function withQuery(base: string, params: Record<string, string | undefined>) {
 
 const EVENT_MAP: Record<string, Partial<ResolvedNotificationAction>> = {
   case_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client", overlay: "chat", ctaLabel: "Open case desk" },
+  case_added: { actionType: "CASE_UPDATE", targetUrl: "/client", overlay: "none", ctaLabel: "Open matter" },
   booking_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client", overlay: "chat", ctaLabel: "View assignment" },
   intake_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/advocate", overlay: "none", ctaLabel: "Open practice desk" },
   intake_info_requested: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/client", overlay: "documents", ctaLabel: "Upload documents" },
@@ -79,20 +80,31 @@ const EVENT_MAP: Record<string, Partial<ResolvedNotificationAction>> = {
   payment_due: { actionType: "PAYMENT_REQUIRED", targetUrl: "/client/book", overlay: "payment", ctaLabel: "Pay now" },
   payment_failed: { actionType: "PAYMENT_REQUIRED", targetUrl: "/client/book", overlay: "payment", ctaLabel: "Retry payment" },
   payment_locked: { actionType: "PAYMENT_REQUIRED", targetUrl: "/client", overlay: "payment", ctaLabel: "View payment" },
+  payment_verified: { actionType: "CASE_UPDATE", targetUrl: "/client", overlay: "none", ctaLabel: "Open workspace" },
   booking_confirmed: { actionType: "CASE_UPDATE", targetUrl: "/client", overlay: "none", ctaLabel: "Open workspace" },
   hearing_scheduled: { actionType: "HEARING_REMINDER", targetUrl: "/client", overlay: "hearing", ctaLabel: "View hearing" },
   clash_warning: { actionType: "HEARING_REMINDER", targetUrl: "/advocate/diary", overlay: "hearing", ctaLabel: "Open diary" },
   quest_assigned: { actionType: "QUEST_ACTION", targetUrl: "/intern/quests", overlay: "none", ctaLabel: "Start quest" },
   quest_completed: { actionType: "QUEST_ACTION", targetUrl: "/intern/quests", overlay: "none", ctaLabel: "View quests" },
   proxy_proof_needed: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/advocate/proxy", overlay: "documents", ctaLabel: "Upload proof" },
+  proxy_proof_uploaded: { actionType: "GENERIC_NAV", targetUrl: "/admin/missions", overlay: "none", ctaLabel: "Review proof" },
+  proxy_proof_approved: { actionType: "GENERIC_NAV", targetUrl: "/advocate/proxy", overlay: "none", ctaLabel: "Open Proxy Hub" },
+  proxy_escrow_released: { actionType: "GENERIC_NAV", targetUrl: "/advocate/proxy", overlay: "none", ctaLabel: "Open Proxy Hub" },
   proxy_assigned: { actionType: "GENERIC_NAV", targetUrl: "/advocate/proxy", overlay: "none", ctaLabel: "Open Proxy Hub" },
+  proxy_mission_assigned: { actionType: "GENERIC_NAV", targetUrl: "/advocate/proxy", overlay: "none", ctaLabel: "Open Proxy Hub" },
+  proxy_mission_posted: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/missions", overlay: "none", ctaLabel: "Open Missions" },
+  task_draft_submitted: { actionType: "GENERIC_NAV", targetUrl: "/advocate/proxy", overlay: "none", ctaLabel: "Open Proxy Hub" },
   verification_pending: { actionType: "KYC_VERIFICATION", targetUrl: "/admin/verifications", overlay: "none", ctaLabel: "Review KYC" },
+  identity_approved: { actionType: "CASE_UPDATE", targetUrl: "/client", overlay: "none", ctaLabel: "Open workspace" },
+  identity_rejected: { actionType: "KYC_VERIFICATION", targetUrl: "/client", overlay: "none", ctaLabel: "Fix verification" },
   advisory_booked: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=intakes", overlay: "none", ctaLabel: "Open intake" },
   retention_requested: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=gateway", overlay: "none", ctaLabel: "Open LC Gateway" },
   retention_terms_quoted: { actionType: "CASE_UPDATE", targetUrl: "/client/engagement", overlay: "none", ctaLabel: "View terms" },
   retention_panel_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client", overlay: "chat", ctaLabel: "Open matter" },
   retention_info_requested: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/client", overlay: "documents", ctaLabel: "Upload documents" },
   case_update_pending: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation", overlay: "none", ctaLabel: "Review counsel update" },
+  case_update_pending_review: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation", overlay: "none", ctaLabel: "Review counsel update" },
+  case_update_held_for_lc: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation", overlay: "none", ctaLabel: "Open LC review" },
   pending_update: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation", overlay: "none", ctaLabel: "Open LC review" },
 };
 
@@ -105,12 +117,10 @@ function adminDeepLink(
   const bookingId = payload.bookingId;
   const taskId = payload.taskId;
   const caseId = payload.caseId;
+  const pathOnly = currentUrl.split("?")[0] || currentUrl;
 
   if (eventType.includes("retention") || eventType.includes("gateway")) {
     return withQuery("/admin/control", { tab: "gateway", bookingId, intakeId: bookingId });
-  }
-  if (eventType.includes("proxy") || eventType.includes("mission") || taskId) {
-    return withQuery("/admin/control", { tab: "proxy", taskId });
   }
   if (eventType.includes("verif") || actionType === "KYC_VERIFICATION") {
     return "/admin/verifications";
@@ -121,14 +131,41 @@ function adminDeepLink(
   if (eventType.includes("escrow") || eventType.includes("payment") || eventType.includes("work_hold")) {
     return withQuery("/admin/control", { tab: "escrow", bookingId, taskId });
   }
+  if (
+    eventType.includes("proxy")
+    || eventType.includes("mission")
+    || eventType.includes("passover")
+    || pathOnly.includes("/missions")
+    || pathOnly.includes("/proxy")
+  ) {
+    return withQuery("/admin/missions", { taskId });
+  }
   if (eventType.includes("advisory") || eventType.includes("intake") || eventType.includes("booking") || bookingId) {
     return withQuery("/admin/control", { tab: "intakes", bookingId, intakeId: bookingId });
   }
   if (caseId) {
     return withQuery("/admin/control", { tab: "cases", caseId });
   }
+  if (taskId) {
+    return withQuery("/admin/missions", { taskId });
+  }
   if (currentUrl.startsWith("/admin")) return currentUrl;
   return "/admin/control";
+}
+
+function stripToPath(url: string) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+  try {
+    if (/^https?:\/\//i.test(value)) {
+      const parsed = new URL(value);
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || "";
+    }
+  } catch {
+    // ignore
+  }
+  if (value.startsWith("~")) return value.slice(1) || "/";
+  return value;
 }
 
 export function resolveNotificationAction(
@@ -143,7 +180,7 @@ export function resolveNotificationAction(
   const mapped = EVENT_MAP[eventType] || {};
   const explicitType = String(item.actionType || payload.actionType || mapped.actionType || "GENERIC_NAV") as NotificationActionType;
 
-  let targetUrl = String(item.targetUrl || payload.targetUrl || mapped.targetUrl || "");
+  let targetUrl = stripToPath(String(item.targetUrl || payload.targetUrl || mapped.targetUrl || ""));
   if (!targetUrl) {
     if (role === "advocate") targetUrl = "/advocate";
     else if (role === "admin") targetUrl = "/admin/control";
@@ -258,7 +295,7 @@ export function resolveNotificationAction(
 
   return {
     actionType: explicitType,
-    targetUrl,
+    targetUrl: stripToPath(targetUrl) || targetUrl,
     overlay: role === "client" || !role
       ? overlay
       : overlay,

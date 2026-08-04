@@ -43,7 +43,7 @@ import {
   type NotificationOverlayState,
 } from "@/components/layout/ActionableNotificationOverlay";
 import { emitNotificationAction } from "@/lib/notificationBus";
-import { appPath } from "@/lib/appPath";
+import { appPath, spaLocation } from "@/lib/appPath";
 
 interface NavItem {
   label: string;
@@ -275,7 +275,7 @@ export function PortalLayout({
     // Always emit so destination pages can open the exact tab / record.
     emitNotificationAction(detail);
     if (resolved.overlay === "none" || requiredRole === "admin" || requiredRole === "intern") {
-      setLocation(appPath(resolved.targetUrl));
+      setLocation(spaLocation(resolved.targetUrl));
       return;
     }
     // Client/advocate overlay actions still confirm before navigation.
@@ -375,7 +375,7 @@ export function PortalLayout({
       <ActionableNotificationOverlay
         state={notifyAction}
         onClose={() => setNotifyAction(null)}
-        onNavigate={(url) => setLocation(appPath(url))}
+        onNavigate={(url) => setLocation(spaLocation(url))}
       />
     </div>
   );
