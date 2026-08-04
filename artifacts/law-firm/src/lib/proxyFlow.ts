@@ -18,24 +18,24 @@ export const PROXY_URGENCY_TIERS: Record<ProxyUrgencyTier, ProxyUrgencyMeta> = {
     label: "Urgent",
     fee: 1299,
     postingHint: "Need appearance soon (e.g. adjournment in ~15 minutes)",
-    slaAfterAssign: "Proxy must complete within 1 hour after LC assigns",
-    slaShort: "1 hour after assign",
+    slaAfterAssign: "Finish within 1 hour after you are assigned",
+    slaShort: "Due in 1 hour",
   },
   priority: {
     id: "priority",
-    label: "Priority · same day",
+    label: "Same day",
     fee: 799,
     postingHint: "Same business-day appearance",
-    slaAfterAssign: "Proxy must complete within the same business day after LC assigns",
-    slaShort: "Same business day",
+    slaAfterAssign: "Finish the same business day after you are assigned",
+    slaShort: "Due today",
   },
   standard: {
     id: "standard",
-    label: "Standard · business hours",
+    label: "Standard",
     fee: 499,
     postingHint: "Next business day / normal court hours",
-    slaAfterAssign: "Proxy must complete next business day during court hours",
-    slaShort: "Next business day",
+    slaAfterAssign: "Finish next business day during court hours",
+    slaShort: "Due next court day",
   },
 };
 
@@ -74,52 +74,52 @@ export type ProxyFlowStage = {
 export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
   {
     id: "posted_escrow",
-    label: "Paid & posted",
+    label: "Paid",
     actor: "main_counsel",
-    actorLabel: "Main counsel",
-    detail: "CNR, court details and fee escrowed via Razorpay.",
+    actorLabel: "You posted",
+    detail: "Fee held safely until the work is done.",
   },
   {
     id: "lc_review",
-    label: "LC review / assign",
+    label: "Needs assign",
     actor: "lc",
     actorLabel: "Legal Connect",
-    detail: "Admin reviews, raises query if needed, then assigns proxy.",
+    detail: "Pick a verified advocate for this court date.",
   },
   {
     id: "proxy_assigned",
-    label: "Proxy assigned",
+    label: "Assigned",
     actor: "proxy",
-    actorLabel: "Proxy counsel",
-    detail: "Assigned counsel declares no conflict, then appears.",
+    actorLabel: "Proxy",
+    detail: "Proxy confirms no conflict, then goes to court.",
   },
   {
     id: "proxy_checked_in",
-    label: "Checked in",
+    label: "In court",
     actor: "proxy",
-    actorLabel: "Proxy counsel",
-    detail: "Day-of check-in opens the order-sheet proof window.",
+    actorLabel: "Proxy",
+    detail: "Checked in — upload the order sheet next.",
   },
   {
     id: "proof_submitted",
-    label: "Proof uploaded",
+    label: "Proof in",
     actor: "proxy",
-    actorLabel: "Proxy counsel",
-    detail: "Order sheet / proof hash submitted. Escrow stays locked.",
+    actorLabel: "Proxy",
+    detail: "Waiting for the posting counsel to confirm.",
   },
   {
     id: "counsel_ok",
-    label: "Main counsel OK",
+    label: "Confirmed",
     actor: "main_counsel",
-    actorLabel: "Main counsel",
-    detail: "Poster confirms satisfaction (or rejects with reason).",
+    actorLabel: "Poster",
+    detail: "Ready for Legal Connect to release payment.",
   },
   {
     id: "escrow_released",
-    label: "Net released",
+    label: "Paid out",
     actor: "lc",
     actorLabel: "Legal Connect",
-    detail: "LC releases net after 10% platform + 3% tax (manual payout).",
+    detail: "Net amount released after platform fee and tax.",
   },
 ];
 
@@ -204,30 +204,47 @@ export function nextProxyActor(task: ProxyFlowTaskLike): { actor: ProxyFlowActor
   const status = norm(task.status);
 
   if (stage === "escrow_released") {
-    return { actor: "system", label: "Complete", action: "Mission closed. Rate counterpart if you have not." };
+    return { actor: "system", label: "Done", action: "Mission finished." };
   }
   if (stage === "counsel_ok") {
-    return { actor: "lc", label: "Legal Connect", action: "Release net funds after 10% platform + 3% tax." };
+    return { actor: "lc", label: "Legal Connect", action: "Release payment to proxy." };
   }
   if (stage === "proof_submitted") {
-    return { actor: "main_counsel", label: "Main counsel", action: "Review proof — mark OK or Not OK with reason." };
+    return { actor: "main_counsel", label: "Poster", action: "Check the order sheet — OK or not OK." };
   }
   if (stage === "proxy_checked_in" || proof === "rejected") {
-    return { actor: "proxy", label: "Proxy counsel", action: proof === "rejected" ? "Re-upload a fresh order sheet." : "Upload order-sheet proof." };
+    return { actor: "proxy", label: "Proxy", action: proof === "rejected" ? "Upload a fresh order sheet." : "Upload the order sheet." };
   }
   if (stage === "proxy_assigned") {
     if (!task.conflictDeclaredAt) {
-      return { actor: "proxy", label: "Proxy counsel", action: "Declare no conflict of interest." };
+      return { actor: "proxy", label: "Proxy", action: "Confirm no conflict of interest." };
     }
-    return { actor: "proxy", label: "Proxy counsel", action: "Day-of court check-in." };
+    return { actor: "proxy", label: "Proxy", action: "Check in at court." };
   }
   if (status.includes("query")) {
-    return { actor: "main_counsel", label: "Main counsel", action: "Respond to LC query so review can continue." };
+    return { actor: "main_counsel", label: "Poster", action: "Answer Legal Connect’s question." };
   }
   if (stage === "lc_review" || stage === "posted_escrow") {
-    return { actor: "lc", label: "Legal Connect", action: "Review posting and assign a verified proxy counsel." };
+    return { actor: "lc", label: "Legal Connect", action: "Assign a proxy advocate." };
   }
-  return { actor: "lc", label: "Legal Connect", action: "Continue mission supervision." };
+  return { actor: "lc", label: "Legal Connect", action: "Continue supervision." };
+}
+
+/** Plain button label for the person who should act now. */
+export function nextActionButtonLabel(task: ProxyFlowTaskLike): string {
+  const stage = resolveProxyFlowStage(task);
+  const proof = norm(task.proofStatus);
+  if (stage === "counsel_ok") return "Release payment";
+  if (stage === "proof_submitted") return "Review proof";
+  if (stage === "proxy_checked_in" || proof === "rejected") {
+    return proof === "rejected" ? "Re-upload order sheet" : "Upload order sheet";
+  }
+  if (stage === "proxy_assigned") {
+    return task.conflictDeclaredAt ? "Check in at court" : "Confirm no conflict";
+  }
+  if (norm(task.status).includes("query")) return "Answer question";
+  if (stage === "lc_review" || stage === "posted_escrow") return "Assign proxy";
+  return "Open mission";
 }
 
 export function canEditProxyMissionDetails(task: ProxyFlowTaskLike): boolean {

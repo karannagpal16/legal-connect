@@ -1,55 +1,70 @@
 import { PROXY_FLOW_STAGES, nextProxyActor, proxyFlowIndex, type ProxyFlowTaskLike } from "@/lib/proxyFlow";
+import { useState } from "react";
 
+/** Compact how-it-works — collapsed by default to keep the desk calm. */
 export function ProxyFlowBanner() {
+  const [open, setOpen] = useState(false);
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="mb-4">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Transparent ProxyHub flow</p>
-        <h2 className="text-xl font-serif font-bold text-foreground mt-1">Main counsel → Legal Connect → Proxy</h2>
-        <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-          Every mission follows the same supervised path. Escrow stays locked until main counsel is satisfied and LC releases net funds after platform fee and tax.
-        </p>
-      </div>
-      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        {PROXY_FLOW_STAGES.map((stage, index) => (
-          <li key={stage.id} className="rounded-xl border border-border/80 bg-background/70 p-3">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              {index + 1}. {stage.actorLabel}
-            </span>
-            <strong className="block text-sm text-foreground mt-1">{stage.label}</strong>
-            <small className="block text-xs text-muted-foreground mt-1 leading-snug">{stage.detail}</small>
-          </li>
-        ))}
-      </ol>
+    <section className="rounded-2xl border border-border bg-card px-4 py-3">
+      <button
+        type="button"
+        className="w-full flex items-center justify-between gap-3 text-left"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <div>
+          <p className="text-sm font-semibold text-foreground">How court missions work</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Pay → Legal Connect assigns → Proxy appears &amp; uploads proof → You confirm → Money released
+          </p>
+        </div>
+        <span className="text-xs font-bold text-primary whitespace-nowrap">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open ? (
+        <ol className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 border-t border-border pt-3">
+          {[
+            { n: "1", t: "Post & pay", d: "Court, CNR, room, timing" },
+            { n: "2", t: "LC assigns", d: "Verified proxy counsel" },
+            { n: "3", t: "Appear & proof", d: "Check-in + order sheet" },
+            { n: "4", t: "Confirm & pay out", d: "OK → net funds released" },
+          ].map((step) => (
+            <li key={step.n} className="rounded-xl bg-background/70 px-3 py-2">
+              <span className="text-[11px] font-bold text-muted-foreground">{step.n}</span>
+              <strong className="block text-sm text-foreground">{step.t}</strong>
+              <small className="text-xs text-muted-foreground">{step.d}</small>
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </section>
   );
 }
 
+/** Tiny progress dots — no jargon labels on the card face. */
 export function ProxyMissionTimeline({ task }: { task: ProxyFlowTaskLike }) {
   const current = proxyFlowIndex(task);
   const next = nextProxyActor(task);
 
   return (
-    <div className="space-y-3">
-      <div className="flex gap-1.5" aria-label="Mission progress">
+    <div className="space-y-2">
+      <div className="flex gap-1" aria-label="Mission progress">
         {PROXY_FLOW_STAGES.map((stage, index) => {
           const done = index < current;
           const active = index === current;
           return (
             <div
               key={stage.id}
-              title={`${stage.actorLabel}: ${stage.label}`}
+              title={stage.label}
               className={`h-1.5 flex-1 rounded-full ${
-                done ? "bg-primary" : active ? "bg-primary/60" : "bg-muted"
+                done ? "bg-primary" : active ? "bg-primary/55" : "bg-muted"
               }`}
             />
           );
         })}
       </div>
-      <div className="rounded-xl border border-border bg-background/80 px-3 py-2 text-xs">
-        <strong className="text-foreground">Next · {next.label}</strong>
-        <p className="text-muted-foreground mt-0.5">{next.action}</p>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">Next:</span> {next.action}
+      </p>
     </div>
   );
 }

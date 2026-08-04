@@ -1067,10 +1067,9 @@ export function AdminControlDesk() {
 
       {tab === "proxy" ? (
         <section>
-          <h3>ProxyHub · Posted tasks</h3>
-          <p className="text-muted-foreground" style={{ marginBottom: "1rem" }}>
-            Systematic path: Main counsel pays &amp; posts → LC reviews / assigns proxy → Proxy conflict + check-in + proof →
-            Main counsel OK/Not OK → LC releases net after 10% platform + 3% tax. Escrow stays locked until release.
+          <h3>Court missions · Posted tasks</h3>
+          <p className="lc-ops-meta" style={{ marginBottom: "1rem" }}>
+            Assign a proxy for paid posts. After proof is confirmed, release payment.
           </p>
           {!filteredTasks.length ? <p className="text-muted-foreground">No posted proxy tasks need admin action right now.</p> : null}
           <div className="space-y-3">
