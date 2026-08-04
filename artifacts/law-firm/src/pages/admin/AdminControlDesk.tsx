@@ -1056,7 +1056,8 @@ export function AdminControlDesk() {
         <section>
           <h3>ProxyHub · Posted tasks</h3>
           <p className="text-muted-foreground" style={{ marginBottom: "1rem" }}>
-            Advocates pay &amp; post tasks here for LC review. Flow: escrow_paid → LC assign → supervised Q&amp;A → proof_approved → escrow_released.
+            Systematic path: Main counsel pays &amp; posts → LC reviews / assigns proxy → Proxy conflict + check-in + proof →
+            Main counsel OK/Not OK → LC releases net after 10% platform + 3% tax. Escrow stays locked until release.
           </p>
           {!filteredTasks.length ? <p className="text-muted-foreground">No posted proxy tasks need admin action right now.</p> : null}
           <div className="space-y-3">
