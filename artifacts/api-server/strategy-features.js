@@ -1180,14 +1180,22 @@ function createStrategyFeatures(deps) {
           proofSubmittedAt: new Date().toISOString(),
           proofSubmittedBy: authUser.id,
           transparencyLayer: "proof",
+          lcProofStatus: "pending",
+          posterProofDecision: null,
         },
       });
-      await notifyTaskLayer(updated, {
+      // LC verifies first — notify admins only (not the posting counsel yet).
+      const adminRecipients = await resolveAdminRecipients();
+      await notify({
         eventType: "proxy_proof_submitted",
-        title: "Proof submitted for main counsel review",
-        message: `Order sheet proof was uploaded for ${updated.title || "the mission"}. Escrow stays locked until the posting counsel marks proof satisfactory, then LC Admin releases net funds after taxes.`,
+        title: "Proxy proof awaits LC verification",
+        message: `Order sheet uploaded for ${updated.title || "the mission"}. Verify it, then it will be sent to the posting counsel.`,
+        recipients: adminRecipients,
+        payload: { taskId: proofMatch[1], proofStatus: "submitted" },
+        sendEmail: true,
+        ctaLabel: "Open Missions",
+        ctaUrl: portalUrl(`/admin/missions?taskId=${proofMatch[1]}`),
         priority: "high",
-        includeAdmins: true,
       });
       sendJson(res, 200, { ok: true, task: updated });
       return true;
@@ -1214,8 +1222,14 @@ function createStrategyFeatures(deps) {
         return true;
       }
       const proofStatus = String(task.proofStatus || task.proof_status || "").toLowerCase();
-      if (proofStatus !== "submitted") {
-        sendJson(res, 409, { ok: false, error: "Proof is not awaiting main counsel review." });
+      // Poster reviews only after LC has verified the upload.
+      if (proofStatus !== "lc_verified") {
+        sendJson(res, 409, {
+          ok: false,
+          error: proofStatus === "submitted"
+            ? "Legal Connect Admin must verify this proof before the posting counsel can review it."
+            : "Proof is not awaiting posting counsel review.",
+        });
         return true;
       }
       if (!["ok", "approved", "satisfied", "not_ok", "rejected", "unsatisfied"].includes(decision)) {

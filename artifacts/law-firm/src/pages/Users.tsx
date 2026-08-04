@@ -46,8 +46,10 @@ export function Users() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Firm Members</h1>
-          <p className="mt-1 text-muted-foreground">Manage advocates, interns, and proxy network.</p>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Directory & contacts</h1>
+          <p className="mt-1 text-muted-foreground">
+            Contact details, practice areas, chamber / address, and last login for clients, advocates, interns, and admins.
+          </p>
         </div>
         <button 
           onClick={() => { setEditingUser(null); setDialogOpen(true); }}
@@ -104,17 +106,35 @@ export function Users() {
                     <span>{u.phone}</span>
                   </div>
                 )}
+                {(u as User & { practiceAreas?: string }).practiceAreas ? (
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-primary/70" />
+                    <span className="truncate">Practice: {(u as User & { practiceAreas?: string }).practiceAreas}</span>
+                  </div>
+                ) : null}
                 {u.barId && (
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-primary/70" />
                     <span>{u.barId}</span>
                   </div>
                 )}
-                {u.locationBase && (
+                {(u.locationBase || (u as User & { officeAddress?: string }).officeAddress) && (
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-primary/70" />
-                    <span>{u.locationBase}</span>
+                    <span>{(u as User & { officeAddress?: string }).officeAddress || u.locationBase}</span>
                   </div>
+                )}
+                {(u as User & { lastLoginAt?: string | null }).lastLoginAt ? (
+                  <p className="text-xs pt-1">
+                    Last login: {new Date(String((u as User & { lastLoginAt?: string }).lastLoginAt)).toLocaleString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                ) : (
+                  <p className="text-xs pt-1">Last login: not recorded yet</p>
                 )}
               </div>
 
