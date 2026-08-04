@@ -56,6 +56,11 @@ interface PaymentConfig {
   master_test_free?: boolean;
 }
 
+function isIdentityApproved(status?: string | null) {
+  const value = String(status || "").toLowerCase();
+  return value === "approved" || value === "verified";
+}
+
 const PAID_CHAT_AMOUNT = 499;
 
 const channelOptions: Record<ConsultationChannel, { title: string; detail: string; amount: number; icon: typeof Phone }> = {
@@ -122,20 +127,28 @@ async function loadRazorpay() {
 }
 
 async function uploadBookingFiles(bookingId: string, files: File[], token?: string | null) {
+  const failures: string[] = [];
   for (const file of files) {
-    const response = await fetch(`/api/bookings/${bookingId}/attachments`, {
-      method: "POST",
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-        "X-File-Name": encodeURIComponent(file.name),
-        "X-File-Size": String(file.size),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: file,
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `${file.name} could not be uploaded.`);
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/attachments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "X-File-Name": encodeURIComponent(file.name),
+          "X-File-Size": String(file.size),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: file,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        failures.push(payload.error || file.name);
+      }
+    } catch {
+      failures.push(file.name);
+    }
   }
+  return failures;
 }
 
 export function CounselIntake({
@@ -170,12 +183,15 @@ export function CounselIntake({
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<{ id: string; receiptNo?: string; amount: number; caseId?: string } | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
+  const [identityApproved, setIdentityApproved] = useState(false);
+  const [checkingIdentity, setCheckingIdentity] = useState(true);
 
   const masterFree = Boolean(
     paymentConfig?.all_features_free
     || paymentConfig?.master_test_free
     || normalizeEmail(session?.user?.email) === "karannagpal16@gmail.com",
   );
+  const kycReady = masterFree || identityApproved;
   const firstChatFree = !masterFree && channel === "chat" && Boolean(paymentConfig?.first_chat_free_available);
   const everythingFree = masterFree || firstChatFree;
   const payableAmount = everythingFree ? 0 : channelOptions[channel].amount;
@@ -212,6 +228,18 @@ export function CounselIntake({
       .catch(() => {
         if (active) setPaymentConfig({ first_chat_free_available: true, mode: "unknown" });
       });
+    setCheckingIdentity(true);
+    workspaceRequest<{ profile?: { verificationStatus?: string } }>("/api/workspaces/client", session?.token)
+      .then((workspace) => {
+        if (!active) return;
+        setIdentityApproved(isIdentityApproved(workspace?.profile?.verificationStatus));
+      })
+      .catch(() => {
+        if (active) setIdentityApproved(false);
+      })
+      .finally(() => {
+        if (active) setCheckingIdentity(false);
+      });
     return () => {
       active = false;
     };
@@ -242,6 +270,10 @@ export function CounselIntake({
   const reviewIntake = (event: FormEvent) => {
     event.preventDefault();
     setError("");
+    if (!kycReady) {
+      setError("Aadhaar verification must be approved by Legal Connect before booking counsel.");
+      return;
+    }
     if (particulars.trim().length < 30) {
       setError("Add at least 30 characters describing the facts, dates and help required.");
       return;
@@ -270,7 +302,29 @@ export function CounselIntake({
     onComplete?.();
   };
 
+  const finishFreeAssignment = async (booking: any, extras?: { receiptNo?: string; caseId?: string }) => {
+    setReceipt({
+      id: booking.id,
+      receiptNo: extras?.receiptNo || booking.receiptNo,
+      amount: payableAmount,
+      caseId: extras?.caseId || initialCaseId || undefined,
+    });
+    setStage("assignment");
+    setPaymentConfig((current) => (
+      current
+        ? { ...current, first_chat_free_available: false, all_features_free: masterFree, master_test_free: masterFree }
+        : current
+    ));
+    await queryClient.invalidateQueries({ queryKey: ["client-workspace"] });
+    onComplete?.();
+    setBusy(false);
+  };
+
   const beginPayment = async () => {
+    if (!kycReady) {
+      setError("Aadhaar verification must be approved by Legal Connect before booking counsel.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -303,8 +357,25 @@ export function CounselIntake({
         }),
       });
       const booking = bookingResponse.consultation || bookingResponse;
+      const freePath = bookingResponse.paymentRequired === false
+        || bookingResponse.alreadyPaid === true
+        || String(booking.paymentStatus || "").toLowerCase() === "paid"
+        || payableAmount === 0
+        || everythingFree;
 
-      if (files.length && !session?.demo) await uploadBookingFiles(booking.id, files, session?.token);
+      // Soft-fail attachments so free/paid booking is not killed by upload issues.
+      if (files.length && !session?.demo) {
+        const failures = await uploadBookingFiles(booking.id, files, session?.token);
+        if (failures.length) {
+          console.warn("Attachment upload soft-failed:", failures);
+        }
+      }
+
+      // Free / already-paid path: skip Razorpay create-order (fixes first-chat race).
+      if (freePath) {
+        await finishFreeAssignment(booking);
+        return;
+      }
 
       const order = await workspaceRequest<any>("/api/payments/create-order", session?.token, {
         method: "POST",
@@ -321,22 +392,8 @@ export function CounselIntake({
       });
 
       // Free path must never open Razorpay — including when order_id is absent.
-      if (isCompOrder(order, payableAmount)) {
-        setReceipt({
-          id: booking.id,
-          receiptNo: order.receipt || booking.receiptNo,
-          amount: payableAmount,
-          caseId: order.caseId || initialCaseId || undefined,
-        });
-        setStage("assignment");
-        setPaymentConfig((current) => (
-          current
-            ? { ...current, first_chat_free_available: false, all_features_free: masterFree, master_test_free: masterFree }
-            : current
-        ));
-        await queryClient.invalidateQueries({ queryKey: ["client-workspace"] });
-        onComplete?.();
-        setBusy(false);
+      if (isCompOrder(order, payableAmount) || order.alreadyPaid || order.payment_status === "paid") {
+        await finishFreeAssignment(booking, { receiptNo: order.receipt || booking.receiptNo, caseId: order.caseId });
         return;
       }
       if (!order.order_id || !order.key_id) throw new Error("Secure payment order could not be created.");
@@ -397,6 +454,11 @@ export function CounselIntake({
           <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>
             No direct in-app hiring. After advisory, use Request LC Gateway retention for panel representation.
           </p>
+          {!checkingIdentity && !kycReady ? (
+            <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>
+              Aadhaar verification is required before booking. Complete identity verification and wait for Legal Connect approval.
+            </p>
+          ) : null}
         </div>
         {onClose && <button className="lc-icon-command" onClick={onClose} aria-label="Close counsel booking"><X /></button>}
       </header>
@@ -472,7 +534,10 @@ export function CounselIntake({
               </span>
             </label>
             {error && <div className="lc-form-error"><AlertTriangle /> {error}</div>}
-            <button className="lc-button lc-button-primary" type="submit">{submitLabel} <ArrowRight /></button>
+            <button className="lc-button lc-button-primary" type="submit" disabled={checkingIdentity || !kycReady}>
+              {checkingIdentity ? <Loader2 className="lc-spin" /> : null}
+              {!kycReady && !checkingIdentity ? "Complete Aadhaar verification first" : <>{submitLabel} <ArrowRight /></>}
+            </button>
           </motion.form>
         )}
 
@@ -531,9 +596,9 @@ export function CounselIntake({
               )}
 
               {error && <div className="lc-form-error"><AlertTriangle /> {error}</div>}
-              <button className="lc-button lc-button-primary lc-button-full" onClick={beginPayment} disabled={busy}>
+              <button className="lc-button lc-button-primary lc-button-full" onClick={beginPayment} disabled={busy || !kycReady}>
                 {busy ? <Loader2 className="lc-spin" /> : everythingFree ? <Gift /> : <IndianRupee />}
-                {everythingFree ? "Start free booking" : "Pay securely"}
+                {!kycReady ? "Complete Aadhaar verification first" : everythingFree ? "Start free booking" : "Pay securely"}
               </button>
             </div>
           </motion.section>

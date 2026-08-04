@@ -297,6 +297,30 @@ function createMasterBlueprint(deps) {
     return mapTask(result.rows[0]);
   }
 
+  async function clientIdentityApproved(authUser) {
+    if (!authUser) return false;
+    if (await isMasterTestUser(authUser)) return true;
+    if (!db.dbAvailable) return true;
+    try {
+      const userId = String(authUser.id || "");
+      const result = await db.query(
+        `SELECT
+           COALESCE(
+             (SELECT iv.status FROM identity_verifications iv
+              WHERE iv.user_id::text = $1 AND iv.credential_kind = 'aadhaar'
+              ORDER BY iv.created_at DESC LIMIT 1),
+             (SELECT pc.verification_status FROM profile_clients pc WHERE pc.user_id::text = $1),
+             'pending'
+           ) AS status`,
+        [userId],
+      );
+      const status = String(result.rows[0]?.status || "pending").toLowerCase();
+      return status === "approved" || status === "verified";
+    } catch {
+      return false;
+    }
+  }
+
   async function bookAdvisory(req, res, body, authUser) {
     const channel = normalizeChannel(body.consultationChannel || body.channel || body.mode);
     const amount = Number.isFinite(Number(body.amount))
@@ -304,6 +328,18 @@ function createMasterBlueprint(deps) {
       : ADVISORY_AMOUNTS[channel];
     const masterFree = await isMasterTestUser(authUser);
     const firstChatFree = channel === "chat" && Boolean(body.firstChatFree);
+    if (!masterFree) {
+      const kycOk = await clientIdentityApproved(authUser);
+      if (!kycOk) {
+        sendJson(res, 403, {
+          ok: false,
+          error: "Aadhaar verification must be approved by Legal Connect before booking counsel.",
+          code: "AADHAAR_REQUIRED",
+          nextStep: { action: "complete_kyc", href: "/client", message: "Upload Aadhaar and wait for LC approval." },
+        });
+        return;
+      }
+    }
     const serviceType = body.serviceType || `1-time advisory (${channel})`;
     const bookingBody = {
       ...body,
@@ -320,6 +356,13 @@ function createMasterBlueprint(deps) {
       stageStatus: masterFree || firstChatFree ? "paid_escrow_hold" : "draft",
       source: body.source || "master-blueprint-advisory",
       retentionEligible: true,
+      caseTitle: body.caseTitle || body.legalIssueType || serviceType,
+      clientName: body.clientName || authUser.name || "Client",
+      partyName: body.partyName || body.clientName || authUser.name || null,
+      oppositeParty: body.oppositeParty || null,
+      problemSummary: body.problemSummary || body.particulars || null,
+      particulars: body.particulars || body.problemSummary || null,
+      attachedFiles: Array.isArray(body.attachedFiles) ? body.attachedFiles : [],
     };
 
     if (!db.dbAvailable) {
@@ -339,13 +382,20 @@ function createMasterBlueprint(deps) {
           mode: "advisory",
         });
       }
+      const freeActivated = Boolean(masterFree || firstChatFree);
       sendJson(res, 201, {
         ok: true,
         consultation: {
           ...booking,
           consultationState: consultationStateFromBooking(booking),
+          consultationChannel: channel,
+          productType: "advisory",
+          paymentStatus: freeActivated ? "paid" : booking.paymentStatus,
         },
-        nextStep: masterFree || firstChatFree
+        paymentRequired: !freeActivated,
+        alreadyPaid: freeActivated,
+        amount: bookingBody.amount,
+        nextStep: freeActivated
           ? {
               action: "open_advisory_room",
               href: "/client",
@@ -396,28 +446,35 @@ function createMasterBlueprint(deps) {
       saved.id,
       "1-time advisory session booked via Master Blueprint API",
       { channel, amount: bookingBody.amount },
-    );
+    ).catch(() => undefined);
 
-    const recipients = [
-      ...(await resolveRecipients([authUser.id])),
-      ...(await resolveAdminRecipients()),
-    ];
-    await notify({
-      eventType: "advisory_booked",
-      title: "1-time advisory session booked",
-      message: `${authUser.name || "Client"} booked a ${channel} advisory. LC Gateway retention remains available after the session.`,
-      recipients,
-      payload: {
-        bookingId: saved.id,
-        consultationChannel: channel,
-        actionType: "CASE_UPDATE",
-        targetUrl: `/admin/control?tab=intakes&bookingId=${saved.id}`,
-      },
-      sendEmail: true,
-      ctaLabel: "Open Ops Command",
-      ctaUrl: portalUrl(`/admin/control?tab=intakes&bookingId=${saved.id}`),
-    });
+    try {
+      const recipients = [
+        ...(await resolveRecipients([authUser.id])),
+        ...(await resolveAdminRecipients()),
+      ];
+      await notify({
+        eventType: "advisory_booked",
+        title: "1-time advisory session booked",
+        message: `${bookingBody.clientName || authUser.name || "Client"} booked ${bookingBody.caseTitle || "advisory"} (${channel}). Assign counsel from Ops Command.`,
+        recipients,
+        payload: {
+          bookingId: saved.id,
+          consultationChannel: channel,
+          caseTitle: bookingBody.caseTitle,
+          oppositeParty: bookingBody.oppositeParty,
+          actionType: "ADMIN_ASSIGN",
+          targetUrl: `/admin/control?tab=intakes&bookingId=${saved.id}`,
+        },
+        sendEmail: true,
+        ctaLabel: "Open Ops Command",
+        ctaUrl: portalUrl(`/admin/control?tab=intakes&bookingId=${saved.id}`),
+      });
+    } catch (notifyError) {
+      console.warn("advisory_booked notify failed:", notifyError?.message || notifyError);
+    }
 
+    const freeActivated = Boolean(masterFree || firstChatFree);
     sendJson(res, 201, {
       ok: true,
       consultation: {
@@ -425,8 +482,10 @@ function createMasterBlueprint(deps) {
         consultationState: consultationStateFromBooking(saved),
         consultationChannel: channel,
         productType: "advisory",
+        paymentStatus: freeActivated ? "paid" : saved.paymentStatus,
       },
-      paymentRequired: !(masterFree || firstChatFree),
+      paymentRequired: !freeActivated,
+      alreadyPaid: freeActivated,
       amount: bookingBody.amount,
       nextStep: masterFree || firstChatFree
         ? {

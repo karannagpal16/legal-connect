@@ -34,6 +34,14 @@ type Advocate = {
   activeCasesCount?: number;
 };
 
+type IntakeAttachment = {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  downloadPath?: string;
+};
+
 type Intake = {
   id: string;
   clientName?: string;
@@ -55,6 +63,15 @@ type Intake = {
     requestedAt?: string;
   } | null;
   productType?: string;
+  caseTitle?: string;
+  oppositeParty?: string;
+  partyName?: string;
+  problemSummary?: string;
+  particulars?: string;
+  consultationChannel?: string;
+  court?: string;
+  attachedFiles?: Array<{ name?: string; type?: string; size?: number }>;
+  attachments?: IntakeAttachment[];
   missingDocuments?: string[];
   lastLcNote?: string | null;
   rejectionReason?: string | null;
@@ -650,9 +667,11 @@ export function AdminControlDesk() {
                 >
                   <div className="lc-ops-card-head">
                     <div>
-                      <strong>{intake.clientName || "Client intake"}</strong>
+                      <strong>{intake.caseTitle || intake.legalIssueType || intake.serviceType || "Client intake"}</strong>
                       <p>
-                        {intake.legalIssueType || intake.serviceType || "Counsel request"}
+                        Client: {intake.clientName || "—"}
+                        {intake.oppositeParty ? ` · Opposite: ${intake.oppositeParty}` : ""}
+                        {intake.consultationChannel ? ` · ${intake.consultationChannel}` : ""}
                         {" · "}
                         {intake.pipeline?.stageLabel || intake.intakeStatus || intake.stageStatus || intake.paymentStatus || intake.status || "Pending"}
                         {intake.pipeline?.stageOrder ? ` · Stage ${intake.pipeline.stageOrder}/${intake.pipeline.totalStages || 7}` : ""}
@@ -670,6 +689,11 @@ export function AdminControlDesk() {
                       ) : (
                         <p className="lc-ops-meta warn">Unassigned — select advocate by live workload</p>
                       )}
+                      {(intake.attachments?.length || intake.attachedFiles?.length) ? (
+                        <p className="lc-ops-meta">
+                          PDFs/files: {intake.attachments?.length || intake.attachedFiles?.length}
+                        </p>
+                      ) : null}
                       {intake.lastLcNote ? <p className="lc-ops-meta">Last LC note: {intake.lastLcNote}</p> : null}
                     </div>
                     <Scale className="h-5 w-5 opacity-50" />
@@ -678,6 +702,62 @@ export function AdminControlDesk() {
 
                 {open ? (
                   <div className="lc-ops-actions">
+                    <div className="lc-ops-action-block">
+                      <h4><FileSearch className="h-4 w-4" /> Case card</h4>
+                      <dl className="lc-ops-stack" style={{ gap: "0.35rem" }}>
+                        <p className="lc-ops-meta"><strong>Case:</strong> {intake.caseTitle || intake.legalIssueType || intake.serviceType || "—"}</p>
+                        <p className="lc-ops-meta"><strong>Client:</strong> {intake.clientName || "—"}{intake.partyName && intake.partyName !== intake.clientName ? ` (${intake.partyName})` : ""}</p>
+                        <p className="lc-ops-meta"><strong>Opposite party:</strong> {intake.oppositeParty || "—"}</p>
+                        <p className="lc-ops-meta"><strong>Channel / court:</strong> {intake.consultationChannel || "—"}{intake.court ? ` · ${intake.court}` : ""}</p>
+                        <p className="lc-ops-meta"><strong>Status:</strong> {intake.intakeStatus || intake.stageStatus || intake.paymentStatus || intake.status || "—"}</p>
+                        <p className="lc-ops-meta"><strong>Notes:</strong> {intake.problemSummary || intake.particulars || "No particulars recorded."}</p>
+                      </dl>
+                      {(intake.attachments && intake.attachments.length > 0) ? (
+                        <div className="lc-ops-stack" style={{ marginTop: "0.75rem" }}>
+                          <p className="lc-ops-meta"><strong>Uploaded PDFs / files</strong></p>
+                          {intake.attachments.map((file) => (
+                            <a
+                              key={file.id}
+                              className="lc-button"
+                              style={{ width: "fit-content" }}
+                              href={file.downloadPath || `#`}
+                              onClick={async (event) => {
+                                if (!file.downloadPath || !session?.token) return;
+                                event.preventDefault();
+                                try {
+                                  const response = await fetch(file.downloadPath, {
+                                    headers: { Authorization: `Bearer ${session.token}` },
+                                  });
+                                  if (!response.ok) throw new Error("Download failed");
+                                  const blob = await response.blob();
+                                  const href = URL.createObjectURL(blob);
+                                  const anchor = document.createElement("a");
+                                  anchor.href = href;
+                                  anchor.download = file.fileName;
+                                  anchor.click();
+                                  URL.revokeObjectURL(href);
+                                } catch {
+                                  setError(`Could not download ${file.fileName}`);
+                                }
+                              }}
+                            >
+                              <FileSearch className="h-4 w-4" /> {file.fileName}
+                              {file.sizeBytes ? ` (${Math.max(1, Math.round(file.sizeBytes / 1024))} KB)` : ""}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (intake.attachedFiles && intake.attachedFiles.length > 0) ? (
+                        <div className="lc-ops-stack" style={{ marginTop: "0.75rem" }}>
+                          <p className="lc-ops-meta"><strong>Declared files</strong> (upload pending or metadata only)</p>
+                          {intake.attachedFiles.map((file, index) => (
+                            <p key={`${file.name || "file"}-${index}`} className="lc-ops-meta">{file.name || "Untitled file"}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="lc-ops-meta" style={{ marginTop: "0.75rem" }}>No PDFs uploaded yet.</p>
+                      )}
+                    </div>
+
                     <div className="lc-ops-action-block row">
                       <button
                         className="lc-button"

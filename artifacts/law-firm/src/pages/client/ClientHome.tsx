@@ -91,6 +91,7 @@ export function ClientHome() {
   const [highlightPulse, setHighlightPulse] = useState(false);
   const [retentionNotice, setRetentionNotice] = useState("");
   const [retentionError, setRetentionError] = useState("");
+  const [bookingGateNotice, setBookingGateNotice] = useState("");
   const quote = dailyQuote();
   const query = useQuery({
     queryKey: ["client-workspace", session?.user.id],
@@ -100,6 +101,11 @@ export function ClientHome() {
   });
   const cases = Array.isArray(query.data?.cases) ? query.data.cases : [];
   const bookings = Array.isArray(query.data?.bookings) ? query.data.bookings : [];
+  const identityApproved = ["approved", "verified"].includes(
+    String(query.data?.profile?.verificationStatus || "").toLowerCase(),
+  );
+  const masterBypass = String(session?.user?.email || "").trim().toLowerCase() === "karannagpal16@gmail.com";
+  const canBookCounsel = identityApproved || masterBypass;
 
   const requestRetention = useMutation({
     mutationFn: (bookingId: string) =>
@@ -215,6 +221,11 @@ export function ClientHome() {
   };
 
   const openBooking = (channel: ConsultationChannel = "call", matter?: WorkspaceCase) => {
+    if (!canBookCounsel) {
+      setBookingGateNotice("Aadhaar verification must be approved by Legal Connect before booking counsel.");
+      return;
+    }
+    setBookingGateNotice("");
     setBooking({ open: true, channel, caseId: matter?.id, caseTitle: matter?.caseTitle });
   };
 
@@ -320,7 +331,9 @@ export function ClientHome() {
               : <>Tell us what happened and we will assign verified counsel after <LegalTerm term="LC Review" onOpenDictionary={(term) => { setDictionaryQuery(term); setDictionaryOpen(true); }}>LC Review</LegalTerm>.</>}
           </p>
           <div className="lc-hero-button-row">
-            <button className="lc-button lc-button-primary" onClick={() => openBooking()}><Gavel /> Book 1-time advisory <ArrowRight /></button>
+            <button className="lc-button lc-button-primary" onClick={() => openBooking()} disabled={!canBookCounsel}>
+              <Gavel /> {canBookCounsel ? <>Book 1-time advisory <ArrowRight /></> : "Complete Aadhaar first"}
+            </button>
             <Link className="lc-button" href="/client/lawbot">Ask LawBot</Link>
             <button
               className="lc-button"
@@ -333,6 +346,13 @@ export function ClientHome() {
             One-time advisory only. You cannot hire an advocate directly in the app — full court representation
             requires LC Gateway retention.
           </p>
+          {bookingGateNotice ? (
+            <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>{bookingGateNotice}</p>
+          ) : !canBookCounsel ? (
+            <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>
+              Upload Aadhaar and wait for Legal Connect approval before booking counsel.
+            </p>
+          ) : null}
         </div>
         <div className={`lc-live-notice tone-${notices[noticeIndex]?.tone || "navy"}`} aria-live="polite">
           <AnimatePresence mode="wait">

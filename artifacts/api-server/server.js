@@ -3421,6 +3421,23 @@ const server = http.createServer(async (req, res) => {
       visibility: "private",
       payload: { role: user.role, emailMasked: maskEmail(user.email), phoneMasked: maskPhone(user.phone), consentRecorded: privacyConsent },
     });
+    if (!isReviewLogin && String(user.role || "").toLowerCase() !== "admin") {
+      await notify({
+        eventType: "user_signed_in",
+        title: "User signed in",
+        message: `${user.name || email || phone || "User"} (${user.role}) connected to Legal Connect.`,
+        recipients: await resolveAdminRecipients(),
+        payload: {
+          userId: user.id,
+          role: user.role,
+          actionType: "GENERIC_NAV",
+          targetUrl: "/admin/control",
+        },
+        sendEmail: false,
+        ctaLabel: "Open Ops Command",
+        ctaUrl: portalUrl("/admin/control"),
+      }).catch(() => undefined);
+    }
     sendJson(res, 200, {
       ok: true,
       token,
@@ -4111,6 +4128,30 @@ const server = http.createServer(async (req, res) => {
         ORDER BY "activeCasesCount" ASC, u.name ASC
       `, [MASTER_TEST_LOGIN.email]).catch(() => db.query(`SELECT id, name, email, phone FROM users WHERE role = 'advocate' ORDER BY name ASC`)),
     ]);
+    const bookingIds = bookings.rows.map((row) => row.id).filter(Boolean);
+    const attachmentsByBooking = new Map();
+    if (bookingIds.length) {
+      const attachmentRows = await db.query(
+        `SELECT id, booking_id, file_name, mime_type, size_bytes, created_at
+         FROM booking_attachments
+         WHERE booking_id = ANY($1::uuid[])
+         ORDER BY created_at DESC`,
+        [bookingIds],
+      ).catch(() => ({ rows: [] }));
+      for (const file of attachmentRows.rows || []) {
+        const list = attachmentsByBooking.get(file.booking_id) || [];
+        list.push({
+          id: file.id,
+          fileName: file.file_name,
+          mimeType: file.mime_type,
+          sizeBytes: file.size_bytes,
+          createdAt: file.created_at,
+          downloadPath: `/api/bookings/attachments/${file.id}/download`,
+        });
+        attachmentsByBooking.set(file.booking_id, list);
+      }
+    }
+
     sendJson(res, 200, {
       ok: true,
       intakes: bookings.rows.map((row) => {
@@ -4122,12 +4163,22 @@ const server = http.createServer(async (req, res) => {
           || (["payment_pending", "Pending", "pending"].includes(String(mapped.paymentStatus || "")) ? "draft" : null)
           || mapped.paymentStatus
           || "draft";
+        const attachments = attachmentsByBooking.get(row.id) || [];
         return {
           ...mapped,
           intakeStatus,
           productType: payload.productType || mapped.productType || null,
           retention: payload.retention || mapped.retention || null,
           retentionStatus: payload.retentionStatus || payload.retention?.status || mapped.retentionStatus || null,
+          caseTitle: payload.caseTitle || mapped.caseTitle || mapped.legalIssueType || mapped.serviceType || null,
+          oppositeParty: payload.oppositeParty || mapped.oppositeParty || null,
+          partyName: payload.partyName || mapped.partyName || null,
+          problemSummary: payload.problemSummary || payload.particulars || mapped.problemSummary || null,
+          particulars: payload.particulars || payload.problemSummary || mapped.particulars || null,
+          consultationChannel: payload.consultationChannel || mapped.consultationChannel || null,
+          court: payload.court || mapped.court || null,
+          attachedFiles: payload.attachedFiles || [],
+          attachments,
           pipeline: pipelineProgress(intakeStatus),
           sla: slaClock(row.verified_at || row.created_at || mapped.verifiedAt || mapped.createdAt, INTAKE_SLA_MS),
           missingDocuments: payload.missingDocuments || [],
@@ -6019,6 +6070,33 @@ const server = http.createServer(async (req, res) => {
     // Zero-amount / developer / first-chat free — never call Razorpay.
     // Client-supplied masterTestFree flags are ignored unless the signed-in user is the developer account.
     if (authUser && (masterFree || wantsFirstChatFree || amount === 0)) {
+      const bookingId = body.bookingId || body.booking_id;
+      // Idempotent: book-advisory may have already activated the free booking.
+      if (bookingId && db.dbAvailable && isUuid(String(bookingId))) {
+        const existing = await db.query(
+          "SELECT payment_status, payload FROM bookings WHERE id = $1 LIMIT 1",
+          [bookingId],
+        ).catch(() => ({ rows: [] }));
+        const row = existing.rows[0];
+        const paid = ["paid", "demo-verified", "review-inspection"].includes(String(row?.payment_status || "").toLowerCase());
+        if (paid) {
+          sendJson(res, 200, {
+            ok: true,
+            success: true,
+            mode: masterFree ? "master_test_free" : "first_chat_free",
+            provider: "legal-connect",
+            status: "free",
+            payment_status: "paid",
+            work_hold_status: "active",
+            amount: 0,
+            currency: "INR",
+            receipt: body.receiptNo || body.receipt_no || `LC-FREE-${Date.now()}`,
+            bookingId,
+            message: "Free booking already confirmed.",
+          });
+          return;
+        }
+      }
       if (masterFree) {
         const claimed = await claimFreeBooking(authUser, body, "master_test_free");
         sendJson(res, claimed.status, claimed.ok ? claimed.body : { ok: false, error: claimed.error });
@@ -6035,7 +6113,6 @@ const server = http.createServer(async (req, res) => {
         }
         if (await userHasUsedFirstChat(authUser.id)) {
           // Still allow zero-amount retry to complete an already-activated free booking.
-          const bookingId = body.bookingId || body.booking_id;
           if (bookingId) {
             const claimed = await claimFreeBooking(authUser, body, "first_chat_free");
             if (claimed.ok) {
@@ -6807,6 +6884,46 @@ const server = http.createServer(async (req, res) => {
     });
     demoStore.bookings.push(booking);
     sendJson(res, 201, dashboardBooking(booking));
+    return;
+  }
+
+  const bookingAttachmentDownloadMatch = url.pathname.match(/^\/api\/bookings\/attachments\/([^/]+)\/download$/);
+  if (bookingAttachmentDownloadMatch && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 503, { error: "Secure file storage is not available." });
+      return;
+    }
+    const attachmentId = bookingAttachmentDownloadMatch[1];
+    const attachmentResult = await db.query(
+      `SELECT ba.*, b.user_id AS booking_user_id
+       FROM booking_attachments ba
+       JOIN bookings b ON b.id = ba.booking_id
+       WHERE ba.id = $1
+       LIMIT 1`,
+      [attachmentId],
+    );
+    const row = attachmentResult.rows[0];
+    if (!row) {
+      sendJson(res, 404, { error: "Attachment not found." });
+      return;
+    }
+    const databaseUserId = await resolveDatabaseUserId(authUser);
+    if (!canSeeAll(authUser) && String(row.booking_user_id) !== String(databaseUserId)) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": row.mime_type || "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${safeAttachmentName(row.file_name)}"`,
+      "Content-Length": String(row.size_bytes || (row.file_data ? row.file_data.length : 0)),
+      "Cache-Control": "private, no-store",
+    });
+    res.end(row.file_data);
     return;
   }
 
@@ -8330,7 +8447,23 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendSms: false,
       ctaLabel: 'Open your workspace',
       ctaUrl: portalUrl(`/${role}`),
-    });
+    }).catch(() => undefined);
+    await notify({
+      eventType: 'user_registered',
+      title: 'New user signed up',
+      message: `${name} registered as ${role}. Review identity / Aadhaar on Verifications if needed.`,
+      recipients: await resolveAdminRecipients(),
+      payload: {
+        role,
+        userId: user.id,
+        actionType: 'KYC_VERIFICATION',
+        targetUrl: role === 'client' ? '/admin/verifications' : '/admin/control',
+      },
+      sendEmail: true,
+      ctaLabel: 'Open Admin Ops',
+      ctaUrl: portalUrl(role === 'client' ? '/admin/verifications' : '/admin/control'),
+      priority: 'high',
+    }).catch(() => undefined);
     sendJson(res, 201, { ok: true, token, user: strictPublicUser(user), message: 'Account created. Identity review is pending.' });
     return true;
   }
@@ -8359,6 +8492,23 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const token = strictSignJwt(user);
     await saveSessionToken(user, token);
     await writeAuditLog(user, 'jwt_login', 'user', user.id, 'Strict JWT login completed.', { role: user.role, emailMasked: maskEmail(user.email) });
+    if (String(user.role || '').toLowerCase() !== 'admin') {
+      await notify({
+        eventType: 'user_signed_in',
+        title: 'User signed in',
+        message: `${user.name || email} (${user.role}) connected to Legal Connect.`,
+        recipients: await resolveAdminRecipients(),
+        payload: {
+          userId: user.id,
+          role: user.role,
+          actionType: 'GENERIC_NAV',
+          targetUrl: '/admin/control',
+        },
+        sendEmail: false,
+        ctaLabel: 'Open Ops Command',
+        ctaUrl: portalUrl('/admin/control'),
+      }).catch(() => undefined);
+    }
     sendJson(res, 200, { ok: true, token, user: strictPublicUser(user) });
     return true;
   }
