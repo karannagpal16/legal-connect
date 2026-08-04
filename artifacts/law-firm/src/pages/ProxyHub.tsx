@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth, normaliseRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
+import { ProxyFlowBanner, ProxyMissionTimeline } from "@/components/proxy/ProxyFlowTimeline";
+import { canEditProxyMissionDetails, humanProxyStatus, resolveProxyFlowStage } from "@/lib/proxyFlow";
 
 const COMPLETION_TIMES = [
   "Within 24 hours",
@@ -96,13 +98,14 @@ export function ProxyHub() {
 
   const filteredTasks = (tasks as ProxyTask[] | undefined)?.filter((t) => {
     if (filter === "All") return true;
-    if (filter === "Pending Admin") {
-      return ["pending_admin_review", "query_raised", "Awaiting Admin Assignment"].includes(String(t.status));
-    }
-    if (filter === "Open") return t.status === "Open";
-    if (filter === "Accepted") return t.status === "Accepted" || t.status === "Assigned";
-    if (filter === "Proof Uploaded") return t.status === "Proof Uploaded" || t.status === "Proof Submitted" || t.proofStatus === "submitted";
-    if (filter === "Completed") return t.status === "Completed" || /payment released|closed/i.test(String(t.status));
+    const stage = resolveProxyFlowStage(t);
+    if (filter === "Pending Admin") return stage === "lc_review" || stage === "posted_escrow";
+    if (filter === "Assigned") return stage === "proxy_assigned" || stage === "proxy_checked_in";
+    if (filter === "Proof review") return stage === "proof_submitted" || stage === "counsel_ok";
+    if (filter === "Completed") return stage === "escrow_released";
+    if (filter === "Open") return String(t.status) === "Open";
+    if (filter === "Accepted") return t.status === "Accepted" || t.status === "Assigned" || stage === "proxy_assigned";
+    if (filter === "Proof Uploaded") return stage === "proof_submitted" || t.proofStatus === "submitted";
     return t.status === filter;
   });
 
@@ -221,10 +224,10 @@ export function ProxyHub() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">
-            {isAdmin ? "Proxy Desk · Assign → Proof → Taxed release" : "ProxyHub · Pay, post & track"}
+            {isAdmin ? "Proxy Desk · LC assignment & escrow release" : "ProxyHub · Main counsel missions"}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Pay &amp; post → funds held → LC assigns proxy → proof upload → main counsel OK/Not OK → LC releases net after 10% platform + 3% tax.
+            Systematic flow with full transparency between main counsel, Legal Connect, and proxy counsel.
           </p>
         </div>
         <button
@@ -239,8 +242,10 @@ export function ProxyHub() {
         </button>
       </div>
 
+      <ProxyFlowBanner />
+
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {["All", "Pending Admin", "Open", "Accepted", "Checked In", "Proof Uploaded", "Completed"].map((status) => (
+        {["All", "Pending Admin", "Assigned", "Proof review", "Completed"].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -256,8 +261,8 @@ export function ProxyHub() {
       </div>
 
       <ActivityAuditTimeline
-        title="ProxyHub · Live Acceptance Feed"
-        emptyText="Posted missions, accepts and proof uploads sync here across ProxyHub, Chamber Vault and Admin Desk."
+        title="ProxyHub · Live transparency feed"
+        emptyText="Posts, LC assignments, proof uploads and releases sync here for main counsel, LC and proxy."
         limit={12}
         compact
       />
@@ -279,12 +284,17 @@ export function ProxyHub() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTasks?.map((t) => {
-            const pendingAdmin = ["pending_admin_review", "query_raised", "Awaiting Admin Assignment"].includes(String(t.status));
+            const pendingAdmin = ["pending_admin_review", "query_raised", "Awaiting Admin Assignment"].includes(String(t.status))
+              || resolveProxyFlowStage(t) === "lc_review"
+              || resolveProxyFlowStage(t) === "posted_escrow";
             const marketplaceOpen = t.status === "Open";
             const isProxy = String(t.acceptedBy || "") === String(userId || "");
             const isPoster = String(t.postedBy || "") === String(userId || "");
-            const acceptedLike = t.status === "Accepted" || t.status === "Assigned" || t.status === "Checked In" || t.status === "Proof Uploaded" || t.status === "Proof Submitted";
+            const stage = resolveProxyFlowStage(t);
+            const acceptedLike = stage === "proxy_assigned" || stage === "proxy_checked_in" || t.status === "Accepted" || t.status === "Assigned" || t.status === "Checked In";
             const canLifecycle = isProxy || isAdmin;
+            const canEditDetails = (isAdmin || isPoster) && canEditProxyMissionDetails(t);
+            const myRoleLabel = isAdmin ? "LC desk" : isPoster ? "You are main counsel" : isProxy ? "You are proxy counsel" : "Observer";
             return (
               <div
                 key={t.id}
@@ -292,12 +302,19 @@ export function ProxyHub() {
               >
                 {pendingAdmin && <div className="absolute top-0 right-0 w-16 h-16 bg-primary/10 rounded-bl-[100%] z-0" />}
 
-                <div className="flex justify-between items-start mb-3 relative z-10">
+                <div className="flex justify-between items-start mb-3 relative z-10 gap-2">
                   <TaskTypeBadge type={t.taskType || "Other"} />
-                  <StatusBadge status={t.status} />
+                  <StatusBadge status={String(t.status || humanProxyStatus(t))} task={t} />
                 </div>
 
-                <h3 className="text-lg font-bold text-foreground mb-2 relative z-10 leading-snug">{t.taskDescription || t.title}</h3>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2 relative z-10">{myRoleLabel}</p>
+
+                <h3 className="text-lg font-bold text-foreground mb-3 relative z-10 leading-snug">{t.taskDescription || t.title}</h3>
+
+                <div className="mb-4 relative z-10">
+                  <ProxyMissionTimeline task={t} />
+                </div>
+
                 <div className="space-y-2 mb-4 flex-1 relative z-10 text-sm text-muted-foreground">
                   {(t.cnr || (t as any).CNR) && <div>CNR {(t as any).cnr}</div>}
                   {(t.roomNo || t.room) && <div>Room {t.roomNo || t.room}</div>}
@@ -311,7 +328,7 @@ export function ProxyHub() {
                   {t.fee || t.amount ? (
                     <div className="flex items-center gap-2 font-semibold text-foreground bg-accent/10 w-fit px-2 py-1 rounded-md">
                       <HandCoins className="w-4 h-4" />
-                      <span>₹{t.fee || t.amount}</span>
+                      <span>₹{t.fee || t.amount} escrowed</span>
                     </div>
                   ) : null}
                   <div>Proof: {t.proofStatus || "none"}{t.proofHash ? ` · ${String(t.proofHash).slice(0, 8)}…` : ""}</div>
@@ -324,7 +341,7 @@ export function ProxyHub() {
                   ) : null}
                   {(t.settlement || t.settlementPreview) ? (
                     <div>
-                      Settlement preview: gross ₹{(t.settlement || t.settlementPreview)?.gross}
+                      Settlement: gross ₹{(t.settlement || t.settlementPreview)?.gross}
                       {" → "}net ₹{(t.settlement || t.settlementPreview)?.netToProxy}
                       {" "}(−10% platform −3% tax)
                     </div>
@@ -334,17 +351,11 @@ export function ProxyHub() {
                 <div className="flex flex-col gap-2 pt-4 border-t border-border mt-auto relative z-10">
                   {isAdmin && pendingAdmin ? (
                     <div className="space-y-2">
-                      <button
-                        className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl flex items-center justify-center gap-2"
-                        disabled={busyId === String(t.id)}
-                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/admin-approve`, { method: "POST", body: "{}" }, "Marketplace Open")}
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Approve → Open marketplace
-                      </button>
+                      <p className="text-xs text-muted-foreground">LC action: review this paid posting, then assign proxy counsel. Escrow stays held.</p>
                       <textarea
                         value={queryNote[String(t.id)] || ""}
                         onChange={(e) => setQueryNote((c) => ({ ...c, [String(t.id)]: e.target.value }))}
-                        placeholder="Raise query for poster…"
+                        placeholder="Raise query for main counsel (optional)…"
                         className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
                       />
                       <button
@@ -353,16 +364,16 @@ export function ProxyHub() {
                         onClick={() => runAction(t.id, `/api/tasks/${t.id}/raise-query`, {
                           method: "POST",
                           body: JSON.stringify({ query: queryNote[String(t.id)] }),
-                        }, "Query raised")}
+                        }, "Query raised for main counsel")}
                       >
-                        <MessageSquareText className="w-4 h-4" /> Raise query
+                        <MessageSquareText className="w-4 h-4" /> Raise query to main counsel
                       </button>
                       <select
                         value={proxyByTask[String(t.id)] || ""}
                         onChange={(event) => setProxyByTask((current) => ({ ...current, [String(t.id)]: event.target.value }))}
                         className="w-full p-3 rounded-xl bg-background border border-border outline-none"
                       >
-                        <option value="">Or assign proxy directly</option>
+                        <option value="">Select verified proxy counsel</option>
                         {advocateList.map((advocate) => (
                           <option key={advocate.id} value={advocate.id}>
                             {advocate.name}{advocate.enrollmentNo ? ` · ${advocate.enrollmentNo}` : ""}
@@ -372,10 +383,10 @@ export function ProxyHub() {
                       <button
                         onClick={() => handleAssign(t.id)}
                         disabled={isAssigning || busyId === String(t.id) || !proxyByTask[String(t.id)]}
-                        className="w-full border border-border font-bold py-2.5 rounded-xl flex items-center justify-center gap-2"
+                        className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl flex items-center justify-center gap-2"
                       >
                         <UserRoundSearch className="w-5 h-5" />
-                        Assign Proxy
+                        Assign proxy (LC)
                       </button>
                     </div>
                   ) : null}
@@ -402,17 +413,10 @@ export function ProxyHub() {
                     </div>
                   ) : null}
 
-                  {isAdvocate && marketplaceOpen && !isPoster ? (
-                    <button
-                      className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl"
-                      onClick={() => {
-                        setAcceptTask(t);
-                        setEnrollmentNo("");
-                        setCompletionEta(COMPLETION_TIMES[0]);
-                      }}
-                    >
-                      Accept mission
-                    </button>
+                  {isAdvocate && marketplaceOpen && !isPoster && !isAdmin ? (
+                    <p className="text-xs text-muted-foreground">
+                      Peer accept is closed. Legal Connect assigns proxy counsel after payment review.
+                    </p>
                   ) : null}
 
                   {canLifecycle && acceptedLike && !t.conflictDeclaredAt ? (
@@ -547,16 +551,16 @@ export function ProxyHub() {
                   ) : null}
 
                   <div className="flex items-center gap-2">
-                    {(isAdmin || pendingAdmin || marketplaceOpen) && (
-                      <>
-                        <button onClick={() => openEdit(t)} className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors">
-                          <Edit2 className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => handleDelete(t.id)} disabled={isDeleting} className="p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors">
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </>
-                    )}
+                    {canEditDetails ? (
+                      <button onClick={() => openEdit(t)} className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors" title="Edit mission details">
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                    ) : null}
+                    {(isAdmin || (isPoster && pendingAdmin)) ? (
+                      <button onClick={() => handleDelete(t.id)} disabled={isDeleting} className="p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors" title="Delete mission">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>

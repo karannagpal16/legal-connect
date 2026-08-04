@@ -6956,22 +6956,39 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const body = await readBody(req);
+      const escrowLocked = /held|lock|escrow/i.test(String(current.escrowStatus || ""));
       const next = {
         ...current,
         ...body,
         title: body.title ?? body.taskDescription ?? current.taskDescription,
         court: body.court ?? body.location ?? current.location,
         taskType: body.taskType ?? body.task_type ?? current.taskType,
-        amount: numericAmount(body.amount ?? body.fee, numericAmount(current.amount ?? current.fee)),
-        status: body.status ?? current.status,
-        acceptedBy: body.acceptedBy ?? body.accepted_by ?? body.assignedToId ?? current.acceptedBy,
+        // Escrowed amount and workflow status move only through dedicated ProxyHub/LC actions.
+        amount: escrowLocked
+          ? numericAmount(current.amount ?? current.fee)
+          : numericAmount(body.amount ?? body.fee, numericAmount(current.amount ?? current.fee)),
+        status: current.status,
+        acceptedBy: current.acceptedBy,
+        escrowStatus: current.escrowStatus,
+      };
+      const payload = {
+        ...(current.payload && typeof current.payload === "object" ? current.payload : {}),
+        ...next,
+        cnr: body.cnr ?? current.cnr ?? current.payload?.cnr,
+        room: body.room ?? body.roomNo ?? current.room ?? current.roomNo,
+        roomNo: body.roomNo ?? body.room ?? current.roomNo ?? current.room,
+        itemNo: body.itemNo ?? current.itemNo,
+        hearingDate: body.hearingDate ?? current.hearingDate,
+        passoverScript: body.passoverScript ?? body.taskDescription ?? current.passoverScript,
+        appearanceType: body.appearanceType ?? body.taskType ?? current.appearanceType,
+        user_id: current.postedBy,
       };
       const result = await db.query(
         `UPDATE tasks
          SET title = $2, court = $3, task_type = $4, amount = $5, escrow_status = $6, status = $7, accepted_by = $8, proof_url = $9, payload = $10, updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, next.proofUrl || body.proof_url || null, JSON.stringify({ ...next, user_id: current.postedBy })],
+        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, next.proofUrl || body.proof_url || current.proofUrl || null, JSON.stringify(payload)],
       );
       const updatedTask = mapTask(result.rows[0]);
       const proofAdded = Boolean((body.proofUrl || body.proof_url) && !(current.proofUrl));
@@ -7018,13 +7035,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
+    const escrowLocked = /held|lock|escrow/i.test(String(task.escrowStatus || ""));
     Object.assign(task, body, {
       title: body.title ?? body.taskDescription ?? task.title,
       court: body.court ?? body.location ?? task.court,
       taskType: body.taskType ?? body.task_type ?? task.taskType,
-      amount: numericAmount(body.amount ?? body.fee, numericAmount(task.amount ?? task.fee)),
-      status: body.status ?? task.status,
-      acceptedBy: body.acceptedBy ?? body.accepted_by ?? body.assignedToId ?? task.acceptedBy,
+      amount: escrowLocked
+        ? numericAmount(task.amount ?? task.fee)
+        : numericAmount(body.amount ?? body.fee, numericAmount(task.amount ?? task.fee)),
+      // Preserve workflow machine; dedicated endpoints advance status.
+      status: task.status,
+      acceptedBy: task.acceptedBy,
+      escrowStatus: task.escrowStatus,
+      cnr: body.cnr ?? task.cnr,
+      room: body.room ?? body.roomNo ?? task.room,
+      roomNo: body.roomNo ?? body.room ?? task.roomNo,
+      hearingDate: body.hearingDate ?? task.hearingDate,
+      passoverScript: body.passoverScript ?? body.taskDescription ?? task.passoverScript,
       updatedAt: new Date().toISOString(),
     });
     sendJson(res, 200, dashboardTask(task));
