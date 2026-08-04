@@ -32,6 +32,12 @@ type Advocate = {
   enrollmentNo?: string | null;
   verificationStatus?: string | null;
   activeCasesCount?: number;
+  email?: string | null;
+  phone?: string | null;
+  practiceAreas?: string | null;
+  officeAddress?: string | null;
+  practiceCourts?: string | null;
+  lastLoginAt?: string | null;
 };
 
 type IntakeAttachment = {
@@ -113,6 +119,8 @@ type DeskTask = {
   appearanceType?: string;
   hearingDate?: string;
   location?: string;
+  passoverScript?: string;
+  interests?: Array<{ userId?: string; name?: string; interested?: boolean; at?: string }>;
   posterProofDecision?: string;
   posterProofReason?: string;
   settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
@@ -207,12 +215,13 @@ function advocateOptionLabel(advocate: Advocate) {
   const count = Number(advocate.activeCasesCount || 0);
   const workload = `${count} active case${count === 1 ? "" : "s"}`;
   const enrollment = advocate.enrollmentNo ? ` · ${advocate.enrollmentNo}` : "";
+  const practice = advocate.practiceAreas ? ` · ${advocate.practiceAreas}` : "";
   const verified = /approved|verified/i.test(String(advocate.verificationStatus || ""))
     ? " · Verified"
     : advocate.verificationStatus
       ? ` · ${advocate.verificationStatus}`
       : "";
-  return `${advocate.name} (${workload})${enrollment}${verified}`;
+  return `${advocate.name} (${workload})${enrollment}${practice}${verified}`;
 }
 
 const OPS_TABS: OpsTab[] = ["intakes", "gateway", "proxy", "moderation", "verifications", "escrow", "cases", "lawbot"];
@@ -1173,14 +1182,38 @@ export function AdminControlDesk() {
                   <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
                     {pendingAssign ? (
                       <>
+                        {(task.interests || []).filter((entry) => entry.interested !== false).length ? (
+                          <p className="lc-ops-meta" style={{ width: "100%" }}>
+                            Interested: {(task.interests || []).filter((entry) => entry.interested !== false).map((entry) => entry.name || entry.userId).join(", ")}
+                          </p>
+                        ) : (
+                          <p className="lc-ops-meta" style={{ width: "100%" }}>No interest yet from the open board.</p>
+                        )}
+                        {(task.passoverScript || task.taskDescription) ? (
+                          <p className="lc-ops-meta" style={{ width: "100%" }}>
+                            Counsel notes: {task.passoverScript || task.taskDescription}
+                          </p>
+                        ) : null}
                         <select
                           value={proxyByTask[task.id] || ""}
                           onChange={(event) => setProxyByTask((current) => ({ ...current, [task.id]: event.target.value }))}
                         >
                           <option value="">Select proxy counsel</option>
-                          {advocates.map((advocate) => (
-                            <option key={advocate.id} value={advocate.id}>{advocateOptionLabel(advocate)}</option>
-                          ))}
+                          {[...advocates].sort((a, b) => {
+                            const interested = (task.interests || []).filter((entry) => entry.interested !== false);
+                            const aInt = interested.some((entry) => String(entry.userId) === String(a.id)) ? 0 : 1;
+                            const bInt = interested.some((entry) => String(entry.userId) === String(b.id)) ? 0 : 1;
+                            return aInt - bInt;
+                          }).map((advocate) => {
+                            const interested = (task.interests || []).some((entry) => entry.interested !== false && String(entry.userId) === String(advocate.id));
+                            return (
+                              <option key={advocate.id} value={advocate.id}>
+                                {interested ? "★ " : ""}{advocateOptionLabel(advocate)}
+                                {advocate.phone ? ` · ${advocate.phone}` : ""}
+                                {advocate.officeAddress ? ` · ${advocate.officeAddress}` : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                         <button
                           className="lc-button lc-button-primary"
@@ -1199,13 +1232,12 @@ export function AdminControlDesk() {
                       </>
                     ) : null}
                     {task.proofStatus === "submitted" ? (
-                      <button
-                        className="lc-button"
-                        disabled={taskAction.isPending}
-                        onClick={() => taskAction.mutate({ taskId: task.id, action: "mark_proof_approved" })}
-                      >
-                        Admin override: approve proof
+                      <button className="lc-button lc-button-primary" disabled={taskAction.isPending} onClick={() => taskAction.mutate({ taskId: task.id, action: "mark_proof_approved", reason: "LC verified order sheet" })}>
+                        Verify proof & send to counsel
                       </button>
+                    ) : null}
+                    {task.proofStatus === "lc_verified" ? (
+                      <p className="lc-ops-meta">LC verified — waiting for posting counsel OK.</p>
                     ) : null}
                     {["poster_approved", "approved"].includes(String(task.proofStatus || "")) && String(task.escrowStatus || "").toLowerCase() !== "released" ? (
                       <button

@@ -59,11 +59,18 @@ type ProxyTask = Task & {
   assignedProxyName?: string;
   posterProofDecision?: string;
   posterProofReason?: string;
+  passoverScript?: string;
+  passoverInstructions?: string;
+  taskDescription?: string;
+  teaserOnly?: boolean;
+  interestStatus?: "interested" | "declined" | null;
+  interestCount?: number;
+  interests?: Array<{ userId?: string; name?: string; interested?: boolean; at?: string; note?: string | null }>;
   settlement?: { netToProxy?: number; gross?: number };
   settlementPreview?: { netToProxy?: number; gross?: number };
 };
 
-type SimpleFilter = "needs_you" | "waiting" | "done" | "all";
+type SimpleFilter = "needs_you" | "waiting" | "available" | "done" | "all";
 
 function formatHearing(value?: string | null) {
   if (!value) return null;
@@ -80,14 +87,19 @@ function roleOnMission(task: ProxyTask, userId?: string | number, isAdmin?: bool
 }
 
 function missionNeedsYou(task: ProxyTask, role: ReturnType<typeof roleOnMission>) {
+  if (task.teaserOnly) return task.interestStatus !== "interested" && task.interestStatus !== "declined";
   const stage = resolveProxyFlowStage(task);
   const next = nextProxyActor(task);
   if (role === "admin") {
-    return next.actor === "lc" || (stage === "proof_submitted" && !task.posterProofDecision);
+    return next.actor === "lc" || stage === "proof_submitted";
   }
   if (role === "proxy") return next.actor === "proxy";
   if (role === "poster") return next.actor === "main_counsel" || String(task.status || "").toLowerCase().includes("query");
   return false;
+}
+
+function counselNotes(task: ProxyTask) {
+  return String(task.passoverScript || task.passoverInstructions || task.taskDescription || "").trim();
 }
 
 export function ProxyHub() {
@@ -163,10 +175,12 @@ export function ProxyHub() {
       const myRole = roleOnMission(task, userId, isAdmin);
       const stage = resolveProxyFlowStage(task);
       const needsYou = missionNeedsYou(task, myRole);
+      const isAvailable = Boolean(task.teaserOnly) || (!task.acceptedBy && !isAdmin && myRole === "other");
       let statusOk = true;
       if (filter === "done") statusOk = stage === "escrow_released";
-      else if (filter === "needs_you") statusOk = needsYou;
-      else if (filter === "waiting") statusOk = !needsYou && stage !== "escrow_released";
+      else if (filter === "needs_you") statusOk = needsYou && !task.teaserOnly;
+      else if (filter === "available") statusOk = Boolean(task.teaserOnly) || (isAvailable && stage === "lc_review");
+      else if (filter === "waiting") statusOk = !needsYou && !task.teaserOnly && stage !== "escrow_released";
       // filter === "all" → statusOk stays true
 
       if (!statusOk && !needle) return false;
@@ -184,10 +198,10 @@ export function ProxyHub() {
         task.hearingDate,
         task.roomNo,
         task.room,
+        counselNotes(task),
         humanProxyStatus(task),
       ].map((value) => String(value || "").toLowerCase());
       const matches = haystack.some((value) => value.includes(needle));
-      // Text ignores status pills so CNR / case lookups always surface the mission.
       return matches;
     });
   }, [allTasks, filter, isAdmin, userId, textSearch]);
@@ -196,14 +210,16 @@ export function ProxyHub() {
     let needsYou = 0;
     let waiting = 0;
     let done = 0;
+    let available = 0;
     for (const task of allTasks) {
       const myRole = roleOnMission(task, userId, isAdmin);
       const stage = resolveProxyFlowStage(task);
-      if (stage === "escrow_released") done += 1;
+      if (task.teaserOnly) available += 1;
+      else if (stage === "escrow_released") done += 1;
       else if (missionNeedsYou(task, myRole)) needsYou += 1;
       else waiting += 1;
     }
-    return { needsYou, waiting, done, all: allTasks.length };
+    return { needsYou, waiting, done, all: allTasks.length, available };
   }, [allTasks, isAdmin, userId]);
 
   const refresh = async () => {
@@ -296,6 +312,7 @@ export function ProxyHub() {
 
   const filters: Array<{ id: SimpleFilter; label: string; count: number }> = [
     { id: "needs_you", label: "Needs you", count: counts.needsYou },
+    ...(!isAdmin ? [{ id: "available" as const, label: "Open board", count: counts.available }] : []),
     { id: "waiting", label: "Waiting", count: counts.waiting },
     { id: "done", label: "Done", count: counts.done },
     { id: "all", label: "All", count: counts.all },
@@ -421,16 +438,24 @@ export function ProxyHub() {
             const canEditDetails = (isAdmin || isPoster) && canEditProxyMissionDetails(t);
             const detailsOpen = Boolean(openDetails[String(t.id)]);
             const fee = Number(t.amount ?? t.fee ?? 0);
+            const notes = counselNotes(t);
+            const interested = (t.interests || []).filter((entry) => entry.interested !== false);
             const assignedName = t.assignedProxyName
               || advocateList.find((a) => a.id === String(t.acceptedBy || ""))?.name
               || (t.acceptedBy ? "Assigned proxy" : null);
-            const whoLine = isAdmin
-              ? (assignedName ? `Proxy: ${assignedName}` : "Waiting for assignment")
-              : isProxy
-                ? "Assigned to you"
-                : isPoster
-                  ? (assignedName ? `Proxy: ${assignedName}` : "Waiting for Legal Connect")
-                  : "Court mission";
+            const whoLine = t.teaserOnly
+              ? (t.interestStatus === "interested"
+                ? "You marked interest — waiting for Legal Connect"
+                : t.interestStatus === "declined"
+                  ? "You passed on this mission"
+                  : "Open for interest — limited details until assigned")
+              : isAdmin
+                ? (assignedName ? `Proxy: ${assignedName}` : `Waiting for assignment${interested.length ? ` · ${interested.length} interested` : ""}`)
+                : isProxy
+                  ? "Assigned to you"
+                  : isPoster
+                    ? (assignedName ? `Proxy: ${assignedName}` : "Waiting for Legal Connect")
+                    : "Court mission";
 
             return (
               <article
@@ -446,7 +471,7 @@ export function ProxyHub() {
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <TaskTypeBadge type={String(t.taskType || t.appearanceType || "Other")} />
-                  <StatusBadge status={String(t.status || humanProxyStatus(t))} task={t} />
+                  <StatusBadge status={String(t.teaserOnly ? "Open board" : t.status || humanProxyStatus(t))} task={t} />
                 </div>
 
                 <h3 className="text-xl font-serif font-bold text-foreground leading-snug">
@@ -456,43 +481,97 @@ export function ProxyHub() {
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">{whoLine}</p>
 
-                <div className="mt-3 space-y-1.5 text-sm text-foreground">
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="w-4 h-4 text-primary shrink-0" />
-                    <span>
-                      {formatHearing(t.hearingDate) || "Hearing date TBD"}
-                      {t.roomNo || t.room ? ` · Room ${t.roomNo || t.room}` : ""}
-                      {t.cnr ? ` · CNR ${t.cnr}` : ""}
-                    </span>
-                  </p>
-                  {fee > 0 ? (
-                    <p className="flex items-center gap-2 font-semibold">
-                      <HandCoins className="w-4 h-4 text-primary shrink-0" />
-                      ₹{fee.toLocaleString("en-IN")} held
-                      <span className="font-normal text-muted-foreground">· {urgency.label}</span>
-                    </p>
-                  ) : null}
-                </div>
+                {t.teaserOnly ? (
+                  <div className="mt-4 mb-2 rounded-xl bg-muted/40 border border-border p-3 text-sm text-muted-foreground">
+                    Court and appearance type only. Full counsel notes, CNR, room, and fee unlock after Legal Connect assigns you.
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-3 space-y-1.5 text-sm text-foreground">
+                      <p className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="w-4 h-4 text-primary shrink-0" />
+                        <span>
+                          {formatHearing(t.hearingDate) || "Hearing date TBD"}
+                          {t.roomNo || t.room ? ` · Room ${t.roomNo || t.room}` : ""}
+                          {t.cnr ? ` · CNR ${t.cnr}` : ""}
+                        </span>
+                      </p>
+                      {fee > 0 ? (
+                        <p className="flex items-center gap-2 font-semibold">
+                          <HandCoins className="w-4 h-4 text-primary shrink-0" />
+                          ₹{fee.toLocaleString("en-IN")} held
+                          <span className="font-normal text-muted-foreground">· {urgency.label}</span>
+                        </p>
+                      ) : null}
+                      {(isProxy || isAdmin || isPoster) && notes ? (
+                        <p className="rounded-lg bg-primary/5 border border-primary/15 p-2.5 text-foreground">
+                          <span className="font-semibold text-primary">Main counsel notes: </span>
+                          {notes}
+                        </p>
+                      ) : null}
+                    </div>
 
-                <div className="mt-4 mb-4">
-                  <ProxyMissionTimeline task={t} />
-                </div>
+                    <div className="mt-4 mb-4">
+                      <ProxyMissionTimeline task={t} />
+                    </div>
+                  </>
+                )}
 
                 <div className="mt-auto space-y-2 pt-3 border-t border-border">
-                  {/* Admin: assign */}
-                  {isAdmin && pendingAdmin ? (
+                  {/* Open board — interest */}
+                  {t.teaserOnly ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        className="bg-primary text-primary-foreground font-bold py-3 rounded-xl"
+                        disabled={busyId === String(t.id) || t.interestStatus === "interested"}
+                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/interest`, {
+                          method: "POST",
+                          body: JSON.stringify({ interested: true }),
+                        }, "Interest sent to Legal Connect")}
+                      >
+                        {t.interestStatus === "interested" ? "Interested" : "I'm interested"}
+                      </button>
+                      <button
+                        className="border border-border font-semibold py-3 rounded-xl"
+                        disabled={busyId === String(t.id) || t.interestStatus === "declined"}
+                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/interest`, {
+                          method: "POST",
+                          body: JSON.stringify({ interested: false }),
+                        }, "Marked as not interested")}
+                      >
+                        {t.interestStatus === "declined" ? "Passed" : "Not interested"}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {/* Admin: assign — prefer interested advocates */}
+                  {isAdmin && pendingAdmin && !t.teaserOnly ? (
                     <div className="space-y-2">
+                      {interested.length ? (
+                        <p className="text-xs text-muted-foreground">
+                          Interested: {interested.map((entry) => entry.name || entry.userId).join(", ")}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No interest yet — you can still assign any verified advocate.</p>
+                      )}
                       <select
                         value={proxyByTask[String(t.id)] || ""}
                         onChange={(event) => setProxyByTask((current) => ({ ...current, [String(t.id)]: event.target.value }))}
                         className="w-full p-3 rounded-xl bg-background border border-border outline-none"
                       >
                         <option value="">Choose advocate…</option>
-                        {advocateList.map((advocate) => (
-                          <option key={advocate.id} value={advocate.id}>
-                            {advocate.name}{advocate.enrollmentNo ? ` · ${advocate.enrollmentNo}` : ""}
-                          </option>
-                        ))}
+                        {[...advocateList].sort((a, b) => {
+                          const aInt = interested.some((entry) => String(entry.userId) === String(a.id)) ? 0 : 1;
+                          const bInt = interested.some((entry) => String(entry.userId) === String(b.id)) ? 0 : 1;
+                          return aInt - bInt;
+                        }).map((advocate) => {
+                          const isInt = interested.some((entry) => String(entry.userId) === String(advocate.id));
+                          return (
+                            <option key={advocate.id} value={advocate.id}>
+                              {isInt ? "★ " : ""}{advocate.name}{advocate.enrollmentNo ? ` · ${advocate.enrollmentNo}` : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                       <button
                         onClick={() => handleAssign(t.id)}
@@ -506,7 +585,7 @@ export function ProxyHub() {
                   ) : null}
 
                   {/* Poster answering LC query */}
-                  {isPoster && String(t.status) === "query_raised" ? (
+                  {!t.teaserOnly && isPoster && String(t.status) === "query_raised" ? (
                     <div className="space-y-2">
                       {t.adminQuery ? <p className="text-xs text-muted-foreground">Question: {t.adminQuery}</p> : null}
                       <textarea
@@ -529,7 +608,7 @@ export function ProxyHub() {
                   ) : null}
 
                   {/* Proxy lifecycle — one clear button */}
-                  {canLifecycle && acceptedLike && !t.conflictDeclaredAt ? (
+                  {!t.teaserOnly && canLifecycle && acceptedLike && !t.conflictDeclaredAt ? (
                     <button
                       className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
@@ -542,7 +621,7 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
-                  {canLifecycle && t.conflictDeclaredAt && !t.checkedInAt ? (
+                  {!t.teaserOnly && canLifecycle && t.conflictDeclaredAt && !t.checkedInAt ? (
                     <button
                       className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                       disabled={busyId === String(t.id)}
@@ -552,7 +631,7 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
-                  {canLifecycle && t.checkedInAt && !["submitted", "poster_approved", "approved"].includes(String(t.proofStatus || "")) ? (
+                  {!t.teaserOnly && canLifecycle && t.checkedInAt && !["submitted", "lc_verified", "poster_approved", "approved"].includes(String(t.proofStatus || "")) ? (
                     <button
                       className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
@@ -563,9 +642,10 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
-                  {/* Poster reviews proof */}
-                  {isPoster && t.proofStatus === "submitted" ? (
+                  {/* Poster reviews proof — only after LC verification */}
+                  {!t.teaserOnly && isPoster && t.proofStatus === "lc_verified" ? (
                     <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Legal Connect verified this order sheet. Confirm it looks good.</p>
                       <button
                         className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                         disabled={busyId === String(t.id)}
@@ -595,21 +675,21 @@ export function ProxyHub() {
                     </div>
                   ) : null}
 
-                  {/* Admin release / override */}
-                  {isAdmin && t.proofStatus === "submitted" && !isPoster ? (
+                  {/* LC verifies proof first, then forwards to poster */}
+                  {!t.teaserOnly && isAdmin && t.proofStatus === "submitted" ? (
                     <button
-                      className="w-full border border-border rounded-xl py-2.5 font-semibold"
+                      className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                       disabled={busyId === String(t.id)}
                       onClick={() => runAction(t.id, "/api/admin/task-action", {
                         method: "POST",
-                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved", reason: "Admin override" }),
-                      }, "Proof approved")}
+                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved", reason: "LC verified order sheet" }),
+                      }, "Proof verified — sent to posting counsel")}
                     >
-                      Approve proof (admin)
+                      Verify proof & send to counsel
                     </button>
                   ) : null}
 
-                  {isAdmin && ["poster_approved", "approved"].includes(String(t.proofStatus || "")) && String(t.escrowStatus || "").toLowerCase() !== "released" ? (
+                  {!t.teaserOnly && isAdmin && ["poster_approved", "approved"].includes(String(t.proofStatus || "")) && String(t.escrowStatus || "").toLowerCase() !== "released" ? (
                     <button
                       className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                       disabled={busyId === String(t.id)}
@@ -629,13 +709,13 @@ export function ProxyHub() {
                   ) : null}
 
                   {/* Waiting state — no button, just calm copy */}
-                  {!missionNeedsYou(t, myRole) && stage !== "escrow_released" && !(isAdmin && pendingAdmin) ? (
+                  {!t.teaserOnly && !missionNeedsYou(t, myRole) && stage !== "escrow_released" && !(isAdmin && pendingAdmin) ? (
                     <p className="text-sm text-muted-foreground text-center py-1">
                       Waiting on {next.label.toLowerCase()} — {next.action.toLowerCase()}
                     </p>
                   ) : null}
 
-                  {(isPoster || isProxy) && stage === "escrow_released" ? (
+                  {!t.teaserOnly && (isPoster || isProxy) && stage === "escrow_released" ? (
                     <button
                       className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
@@ -645,6 +725,7 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
+                  {!t.teaserOnly ? (
                   <button
                     type="button"
                     className="w-full text-xs font-semibold text-muted-foreground py-1.5 flex items-center justify-center gap-1"
@@ -652,13 +733,15 @@ export function ProxyHub() {
                   >
                     {detailsOpen ? <>Hide details <ChevronUp className="w-3.5 h-3.5" /></> : <>More details <ChevronDown className="w-3.5 h-3.5" /></>}
                   </button>
+                  ) : null}
 
-                  {detailsOpen ? (
+                  {!t.teaserOnly && detailsOpen ? (
                     <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-3 text-xs text-muted-foreground">
                       <p>Due: {urgency.slaShort}</p>
                       <p>Proof: {t.proofStatus || "not uploaded yet"}</p>
                       <p>Payment hold: {t.escrowStatus || "—"}</p>
-                      {t.taskDescription ? <p className="text-foreground">Instructions: {t.taskDescription}</p> : null}
+                      {notes ? <p className="text-foreground"><strong>Main counsel notes:</strong> {notes}</p> : null}
+                      {next.label ? <p>Next actor: {next.label} — {next.action}</p> : null}
 
                       {(isPoster || isProxy || isAdmin) && !pendingAdmin ? (
                         <div className="space-y-2 pt-2 border-t border-border">

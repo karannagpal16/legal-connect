@@ -15,18 +15,20 @@ export function ProxyFlowBanner() {
         <div>
           <p className="text-sm font-semibold text-foreground">How court missions work</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Pay → Legal Connect assigns → Proxy appears &amp; uploads proof → You confirm → Money released
+            Post → advocates mark interest → LC assigns → proxy uploads proof → LC verifies → poster confirms → payout
           </p>
         </div>
         <span className="text-xs font-bold text-primary whitespace-nowrap">{open ? "Hide" : "Show"}</span>
       </button>
       {open ? (
-        <ol className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 border-t border-border pt-3">
+        <ol className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 border-t border-border pt-3">
           {[
-            { n: "1", t: "Post & pay", d: "Court, CNR, room, timing" },
-            { n: "2", t: "LC assigns", d: "Verified proxy counsel" },
-            { n: "3", t: "Appear & proof", d: "Check-in + order sheet" },
-            { n: "4", t: "Confirm & pay out", d: "OK → net funds released" },
+            { n: "1", t: "Post & pay", d: "Court + appearance only on the open board" },
+            { n: "2", t: "Interest", d: "Advocates mark interested / not" },
+            { n: "3", t: "LC assigns", d: "Full counsel notes unlock for proxy" },
+            { n: "4", t: "Court + proof", d: "Check-in and upload order sheet" },
+            { n: "5", t: "LC verifies", d: "Admin checks proof, then sends to poster" },
+            { n: "6", t: "Confirm & pay", d: "Poster OK → net funds released" },
           ].map((step) => (
             <li key={step.n} className="rounded-xl bg-background/70 px-3 py-2">
               <span className="text-[11px] font-bold text-muted-foreground">{step.n}</span>

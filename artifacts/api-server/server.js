@@ -1437,13 +1437,59 @@ async function canAccessStoredCase(authUser, caseRow) {
 }
 
 function dashboardTask(item) {
+  const script = item.passoverScript || item.passoverInstructions || item.taskDescription || null;
   return {
     ...item,
-    taskDescription: item.taskDescription || item.title || "Court mission",
+    passoverScript: script || item.passoverScript || null,
+    passoverInstructions: item.passoverInstructions || script || null,
+    taskDescription: script || item.taskDescription || item.title || "Court mission",
     location: item.location || item.court || null,
     fee: item.fee == null ? (item.amount == null ? null : String(item.amount)) : String(item.fee),
     createdAt: item.createdAt || new Date().toISOString(),
   };
+}
+
+/** Open-board teaser for advocates who are not yet assigned — court + appearance only. */
+function toProxyTeaser(task, viewerId) {
+  const interests = Array.isArray(task.interests)
+    ? task.interests
+    : (Array.isArray(task.payload?.interests) ? task.payload.interests : []);
+  const mine = interests.find((entry) => String(entry.userId) === String(viewerId || ""));
+  const appearance = task.taskType || task.appearanceType || "Court mission";
+  const court = task.court || task.location || "Court TBD";
+  return {
+    id: task.id,
+    title: `${appearance} · ${court}`,
+    court,
+    location: court,
+    taskType: appearance,
+    appearanceType: appearance,
+    urgency: task.urgency || task.timingTier || "standard",
+    timingTier: task.timingTier || task.urgency || "standard",
+    status: task.status || "Open",
+    escrowStatus: "Open for interest",
+    proofStatus: "none",
+    teaserOnly: true,
+    interestStatus: mine ? (mine.interested === false ? "declined" : "interested") : null,
+    interestCount: interests.filter((entry) => entry.interested !== false).length,
+    createdAt: task.createdAt || task.created_at || new Date().toISOString(),
+  };
+}
+
+function isOpenProxyBoardTask(task) {
+  const status = String(task.status || "").toLowerCase();
+  const accepted = task.acceptedBy || task.accepted_by;
+  if (accepted) return false;
+  return status === "open"
+    || status.includes("awaiting admin")
+    || status.includes("pending_admin")
+    || status === "pending_admin_review";
+}
+
+function taskInterestList(task) {
+  if (Array.isArray(task.interests)) return task.interests;
+  if (Array.isArray(task.payload?.interests)) return task.payload.interests;
+  return [];
 }
 
 function numericAmount(value, fallback = 0) {
@@ -1458,6 +1504,12 @@ function dashboardUser(item) {
     ...item,
     role: roleMap[String(item.role || "").toLowerCase()] || item.role || "Proxy",
     email: item.email || "",
+    phone: item.phone || item.phoneMasked || null,
+    practiceAreas: item.practiceAreas || item.practice_areas || "",
+    officeAddress: item.officeAddress || item.office_address || item.address || "",
+    locationBase: item.locationBase || item.officeAddress || item.office_address || item.address || item.practiceCourts || "",
+    barId: item.barId || item.enrollmentNo || item.enrollment_no || null,
+    lastLoginAt: item.lastLoginAt || item.last_login_at || null,
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
   };
 }
@@ -3669,6 +3721,12 @@ const server = http.createServer(async (req, res) => {
       visibility: "private",
       payload: { role: user.role, emailMasked: maskEmail(user.email), phoneMasked: maskPhone(user.phone), consentRecorded: privacyConsent },
     });
+    if (db.dbAvailable && user?.id) {
+      await db.query("UPDATE users SET last_login_at = now() WHERE id = $1", [user.id]).catch(() => undefined);
+      user.lastLoginAt = new Date().toISOString();
+    } else if (user) {
+      user.lastLoginAt = new Date().toISOString();
+    }
     if (!isReviewLogin && String(user.role || "").toLowerCase() !== "admin") {
       await notify({
         eventType: "user_signed_in",
@@ -3862,9 +3920,12 @@ const server = http.createServer(async (req, res) => {
           pa.enrollment_no AS "enrollmentNo",
           pa.state_bar_council AS "stateBarCouncil",
           pa.practice_courts AS "practiceCourts",
+          pa.practice_areas AS "practiceAreas",
+          pa.office_address AS "officeAddress",
           pa.years_practice AS "yearsPractice",
           pa.verification_status AS "verificationStatus",
           pa.bar_council_id AS "barCouncilId",
+          u.last_login_at AS "lastLoginAt",
           (
             SELECT COUNT(*)::int FROM cases c
             WHERE (
@@ -3887,21 +3948,26 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, result.rows.map((row) => ({
         id: row.id,
         name: row.name,
+        email: row.email || null,
+        phone: row.phone || null,
         emailMasked: maskEmail(row.email),
         phoneMasked: maskPhone(row.phone),
         enrollmentNo: row.enrollmentNo || "Pending",
         stateBarCouncil: row.stateBarCouncil || "Not recorded",
         practiceCourts: row.practiceCourts || "",
+        practiceAreas: row.practiceAreas || "",
+        officeAddress: row.officeAddress || "",
         yearsPractice: Number(row.yearsPractice || 0),
         verificationStatus: row.verificationStatus || "pending",
+        lastLoginAt: row.lastLoginAt || null,
         activeCasesCount: Number(row.activeCasesCount || 0) + Number(row.activeIntakeCount || 0),
       })));
       return;
     }
     // Demo fallback — synthetic bar-verified advocate list
     sendJson(res, 200, [
-      { id: "demo-advocate", name: "Adv. Rishika Nagpal", emailMasked: "r****@demo.legal-connect.in", phoneMasked: "+91 ****00002", enrollmentNo: "D/1482/2018", stateBarCouncil: "Bar Council of Delhi", practiceCourts: "Delhi High Court, Saket, Tis Hazari, Rohini", yearsPractice: 8, verificationStatus: "approved", activeCasesCount: 3 },
-      { id: "demo-advocate-2", name: "Adv. Aarav Mehta", emailMasked: "a****@example.in", phoneMasked: "+91 ****00099", enrollmentNo: "D/2104/2019", stateBarCouncil: "Bar Council of Delhi", practiceCourts: "Delhi High Court, Saket", yearsPractice: 5, verificationStatus: "approved", activeCasesCount: 1 },
+      { id: "demo-advocate", name: "Adv. Rishika Nagpal", email: "rishika@demo.legal-connect.in", phone: "+91 9800000002", emailMasked: "r****@demo.legal-connect.in", phoneMasked: "+91 ****00002", enrollmentNo: "D/1482/2018", stateBarCouncil: "Bar Council of Delhi", practiceCourts: "Delhi High Court, Saket, Tis Hazari, Rohini", practiceAreas: "Civil, Consumer", officeAddress: "Chamber 14, Saket Court Complex", yearsPractice: 8, verificationStatus: "approved", lastLoginAt: new Date().toISOString(), activeCasesCount: 3 },
+      { id: "demo-advocate-2", name: "Adv. Aarav Mehta", email: "aarav@example.in", phone: "+91 9800000099", emailMasked: "a****@example.in", phoneMasked: "+91 ****00099", enrollmentNo: "D/2104/2019", stateBarCouncil: "Bar Council of Delhi", practiceCourts: "Delhi High Court, Saket", practiceAreas: "Criminal", officeAddress: "Chamber 22, Saket", yearsPractice: 5, verificationStatus: "approved", lastLoginAt: null, activeCasesCount: 1 },
     ]);
     return;
   }
@@ -4814,8 +4880,64 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (db.dbAvailable) {
-      const result = await db.query("SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC");
-      sendJson(res, 200, result.rows.map(dashboardUser));
+      const result = await db.query(`
+        SELECT
+          u.id,
+          u.name,
+          u.email,
+          u.phone,
+          u.role,
+          u.created_at,
+          u.last_login_at,
+          COALESCE(pa.practice_areas, '') AS practice_areas,
+          COALESCE(pa.office_address, '') AS office_address,
+          COALESCE(pa.enrollment_no, '') AS enrollment_no,
+          COALESCE(pa.practice_courts, '') AS practice_courts,
+          COALESCE(pa.years_practice, 0) AS years_practice,
+          COALESCE(pa.verification_status, '') AS advocate_verification,
+          COALESCE(pc.address, '') AS client_address,
+          COALESCE(pc.verification_status, '') AS client_verification,
+          COALESCE(pi.law_school_name, '') AS law_school_name,
+          COALESCE(pi.study_year, '') AS study_year,
+          COALESCE(pi.college_id_no, '') AS college_id_no,
+          COALESCE(pi.verification_status, '') AS intern_verification
+        FROM users u
+        LEFT JOIN profile_advocates pa ON pa.user_id = u.id
+        LEFT JOIN profile_clients pc ON pc.user_id = u.id
+        LEFT JOIN profile_interns pi ON pi.user_id = u.id
+        ORDER BY u.last_login_at DESC NULLS LAST, u.created_at DESC
+      `);
+      sendJson(res, 200, result.rows.map((row) => {
+        const role = String(row.role || "").toLowerCase();
+        const contactAddress = role === "advocate"
+          ? row.office_address
+          : role === "client"
+            ? row.client_address
+            : role === "intern"
+              ? row.law_school_name
+              : row.office_address || row.client_address || "";
+        return dashboardUser({
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone,
+          role: row.role,
+          createdAt: row.created_at,
+          lastLoginAt: row.last_login_at,
+          practiceAreas: row.practice_areas || "",
+          officeAddress: row.office_address || "",
+          enrollmentNo: row.enrollment_no || "",
+          practiceCourts: row.practice_courts || "",
+          yearsPractice: Number(row.years_practice || 0),
+          lawSchoolName: row.law_school_name || "",
+          studyYear: row.study_year || "",
+          collegeIdNo: row.college_id_no || "",
+          address: contactAddress || "",
+          locationBase: contactAddress || row.practice_courts || "",
+          barId: row.enrollment_no || row.college_id_no || null,
+          verificationStatus: row.advocate_verification || row.client_verification || row.intern_verification || null,
+        });
+      }));
       return;
     }
     sendJson(res, 200, demoStore.users.map(dashboardUser));
@@ -5863,10 +5985,19 @@ const server = http.createServer(async (req, res) => {
       let escrowStatus = body.paymentLockStatus || body.payment_lock_status || null;
       let proofStatusUpdate = null;
       let settlement = null;
+      let lcVerifiedNow = false;
       if (body.action === "mark_proof_approved") {
-        // Admin override only — preferred path is main counsel proof-review.
-        proofStatusUpdate = "poster_approved";
-        escrowStatus = escrowStatus || "Locked";
+        // LC verification gate — then posting counsel reviews, then release.
+        const currentProof = String(currentTask?.proofStatus || "").toLowerCase();
+        if (currentProof === "submitted") {
+          proofStatusUpdate = "lc_verified";
+          escrowStatus = escrowStatus || "Locked";
+          lcVerifiedNow = true;
+        } else {
+          // Override when already past LC gate (or re-approve).
+          proofStatusUpdate = "poster_approved";
+          escrowStatus = escrowStatus || "Locked";
+        }
       }
       if (body.action === "release_payment") {
         escrowStatus = "Released";
@@ -5877,6 +6008,38 @@ const server = http.createServer(async (req, res) => {
       const acceptedByUpdate = (body.action === "assign_lawyer" || body.action === "assign_intern") && assignAdvocateId
         ? assignAdvocateId
         : null;
+      const proofPayload = body.action === "mark_proof_approved"
+        ? (lcVerifiedNow
+          ? {
+              lastAdminAction: "lc_proof_verified",
+              transparencyLayer: "lc_proof_review",
+              lcProofStatus: "verified",
+              lcProofVerifiedAt: new Date().toISOString(),
+              lcProofVerifiedBy: authUser.id,
+              lcProofNote: body.reason || null,
+            }
+          : {
+              lastAdminAction: "mark_proof_approved",
+              transparencyLayer: "proof_review",
+              proofReviewedAt: new Date().toISOString(),
+              posterProofDecision: "ok",
+              posterProofReason: body.reason || "Admin override approval",
+            })
+        : {
+            lastAdminAction: body.action || null,
+            transparencyLayer: body.action === "release_payment" ? "escrow_release" : "admin",
+            assignedProxyName: assignAdvocateName || undefined,
+            assignmentStatus: acceptedByUpdate ? "Assigned" : undefined,
+            assignedByAdmin: acceptedByUpdate ? true : undefined,
+            settlement: settlement || undefined,
+            settlementReleasedAt: settlement ? new Date().toISOString() : undefined,
+            settlementReleasedBy: settlement ? authUser.id : undefined,
+          };
+      const statusForUpdate = lcVerifiedNow
+        ? "Proof Verified by LC"
+        : (body.action === "mark_proof_approved" && proofStatusUpdate === "poster_approved"
+          ? "Proof Approved by Counsel"
+          : nextStatus);
       const result = await db.query(
         `UPDATE tasks
          SET status = $2,
@@ -5888,15 +6051,11 @@ const server = http.createServer(async (req, res) => {
          WHERE id = $1 RETURNING *`,
         [
           body.taskId,
-          nextStatus,
+          statusForUpdate,
           escrowStatus,
           proofStatusUpdate,
           JSON.stringify({
-            lastAdminAction: body.action || null,
-            transparencyLayer: body.action === "release_payment" ? "escrow_release" : body.action === "mark_proof_approved" ? "proof_review" : "admin",
-            proofReviewedAt: body.action === "mark_proof_approved" ? new Date().toISOString() : undefined,
-            posterProofDecision: body.action === "mark_proof_approved" ? "ok" : undefined,
-            posterProofReason: body.action === "mark_proof_approved" ? (body.reason || "Admin override approval") : undefined,
+            ...proofPayload,
             assignedProxyName: assignAdvocateName || undefined,
             assignmentStatus: acceptedByUpdate ? "Assigned" : undefined,
             assignedByAdmin: acceptedByUpdate ? true : undefined,
@@ -5932,15 +6091,25 @@ const server = http.createServer(async (req, res) => {
       });
       if (result.rows[0] && (body.action === "mark_proof_approved" || body.action === "release_payment")) {
         const mapped = mapTask(result.rows[0]);
-        await strategyFeatures.notifyTaskLayer(mapped, {
-          eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
-          title: body.action === "release_payment" ? "Funds released after tax deduction" : "Proof approved (Admin override)",
-          message: body.action === "release_payment" && settlement
-            ? `${mapped.title || "Proxy mission"} work hold released. Gross ₹${settlement.gross.toLocaleString("en-IN")} − platform ₹${settlement.platformFee.toLocaleString("en-IN")} − tax ₹${settlement.appTaxGst.toLocaleString("en-IN")} = net ₹${settlement.netToProxy.toLocaleString("en-IN")} to proxy. Payout is manual (not automated Razorpay).`
-            : `${mapped.title || "Proxy mission"} proof was approved by Admin override. Main counsel satisfaction is preferred; Admin may now release net funds after taxes.`,
-          priority: "high",
-          sendSms: false,
-        });
+        if (lcVerifiedNow) {
+          await strategyFeatures.notifyTaskLayer(mapped, {
+            eventType: "proxy_proof_lc_verified",
+            title: "Proof verified by Legal Connect — review your mission",
+            message: `LC verified the order sheet for ${mapped.title || "the mission"}. Posting counsel can now confirm OK / not OK.`,
+            priority: "high",
+            sendSms: true,
+          });
+        } else {
+          await strategyFeatures.notifyTaskLayer(mapped, {
+            eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
+            title: body.action === "release_payment" ? "Funds released after tax deduction" : "Proof approved (Admin override)",
+            message: body.action === "release_payment" && settlement
+              ? `${mapped.title || "Proxy mission"} work hold released. Gross ₹${settlement.gross.toLocaleString("en-IN")} − platform ₹${settlement.platformFee.toLocaleString("en-IN")} − tax ₹${settlement.appTaxGst.toLocaleString("en-IN")} = net ₹${settlement.netToProxy.toLocaleString("en-IN")} to proxy. Payout is manual (not automated Razorpay).`
+              : `${mapped.title || "Proxy mission"} proof was approved by Admin override. Admin may now release net funds after taxes.`,
+            priority: "high",
+            sendSms: false,
+          });
+        }
       }
       sendJson(res, 200, {
         ok: true,
@@ -6894,12 +7063,42 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, []);
         return;
       }
-      const result = canSeeAll(authUser)
-        ? await db.query("SELECT * FROM tasks ORDER BY created_at DESC")
-        : authUser.role === "intern"
-          ? await db.query("SELECT * FROM tasks WHERE status = 'Open' OR accepted_by = $1 OR payload->>'assignedIntern' = $1 ORDER BY created_at DESC", [authUser.id])
-          : await db.query("SELECT * FROM tasks WHERE posted_by = $1 OR accepted_by = $1 OR payload->>'user_id' = $1 ORDER BY created_at DESC", [authUser.id]);
-      sendJson(res, 200, result.rows.map(mapTask));
+      let rows;
+      if (canSeeAll(authUser)) {
+        rows = (await db.query("SELECT * FROM tasks ORDER BY created_at DESC")).rows;
+      } else if (authUser.role === "intern") {
+        rows = (await db.query(
+          "SELECT * FROM tasks WHERE status = 'Open' OR accepted_by = $1 OR payload->>'assignedIntern' = $1 ORDER BY created_at DESC",
+          [authUser.id],
+        )).rows;
+      } else {
+        // Own missions + open board (unassigned paid posts) for interest.
+        rows = (await db.query(
+          `SELECT * FROM tasks
+           WHERE posted_by = $1
+              OR accepted_by = $1
+              OR payload->>'user_id' = $1
+              OR (
+                accepted_by IS NULL
+                AND (
+                  lower(status) IN ('open', 'awaiting admin assignment', 'pending_admin_review')
+                  OR lower(status) LIKE 'awaiting%'
+                )
+              )
+           ORDER BY created_at DESC`,
+          [authUser.id],
+        )).rows;
+      }
+      const mapped = rows.map((row) => {
+        const task = mapTask(row);
+        if (canSeeAll(authUser)) return task;
+        const isOwner = String(task.postedBy || "") === String(authUser.id);
+        const isProxy = String(task.acceptedBy || "") === String(authUser.id);
+        if (isOwner || isProxy) return task;
+        if (isOpenProxyBoardTask(task)) return toProxyTeaser(task, authUser.id);
+        return null;
+      }).filter(Boolean);
+      sendJson(res, 200, mapped);
       return;
     }
     if (!authUser) {
@@ -6910,8 +7109,112 @@ const server = http.createServer(async (req, res) => {
       ? demoStore.tasks
       : authUser.role === "intern"
         ? demoStore.tasks.filter((item) => item.status === "Open" || item.acceptedBy === authUser.id || item.assignedIntern === authUser.id)
-        : demoStore.tasks.filter((item) => item.postedBy === authUser.id || item.acceptedBy === authUser.id || item.status === "Open");
-    sendJson(res, 200, visibleTasks.map(dashboardTask));
+        : demoStore.tasks.filter((item) => item.postedBy === authUser.id || item.acceptedBy === authUser.id || isOpenProxyBoardTask(item));
+    sendJson(res, 200, visibleTasks.map((item) => {
+      const task = dashboardTask(item);
+      if (canSeeAll(authUser)) return task;
+      if (String(task.postedBy || "") === String(authUser.id) || String(task.acceptedBy || "") === String(authUser.id)) return task;
+      if (isOpenProxyBoardTask(task)) return toProxyTeaser(task, authUser.id);
+      return task;
+    }));
+    return;
+  }
+
+  if (url.pathname.endsWith("/interest") && url.pathname.startsWith("/api/tasks/") && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    if (String(authUser.role || "").toLowerCase() !== "advocate" && !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Only advocates can express interest in proxy missions." });
+      return;
+    }
+    const id = url.pathname.split("/").at(-2);
+    const body = await readBody(req);
+    const interested = body.interested !== false && body.interested !== "false" && String(body.decision || "").toLowerCase() !== "decline";
+    const note = String(body.note || "").trim().slice(0, 280);
+
+    const upsertInterest = (task) => {
+      const interests = taskInterestList(task).filter((entry) => String(entry.userId) !== String(authUser.id));
+      interests.push({
+        userId: authUser.id,
+        name: authUser.name || "Advocate",
+        interested,
+        note: note || null,
+        at: new Date().toISOString(),
+      });
+      return interests;
+    };
+
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM tasks WHERE id = $1", [id]);
+      if (!existing.rows[0]) {
+        sendJson(res, 404, { error: "Task not found" });
+        return;
+      }
+      const current = mapTask(existing.rows[0]);
+      if (!isOpenProxyBoardTask(current) && String(current.acceptedBy || "") !== String(authUser.id)) {
+        sendJson(res, 409, { error: "This mission is no longer open for interest." });
+        return;
+      }
+      if (String(current.postedBy || "") === String(authUser.id)) {
+        sendJson(res, 400, { error: "You cannot express interest in your own posted mission." });
+        return;
+      }
+      const interests = upsertInterest(current);
+      const result = await db.query(
+        `UPDATE tasks
+         SET payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, JSON.stringify({ interests })],
+      );
+      await writeAuditLog(authUser, interested ? "proxy_interest" : "proxy_interest_decline", "task", id, interested ? "Advocate interested in proxy mission" : "Advocate declined proxy mission", {
+        advocateId: authUser.id,
+      }).catch(() => undefined);
+      if (interested) {
+        await notify({
+          eventType: "proxy_interest",
+          title: "Advocate interested in proxy mission",
+          message: `${authUser.name || "An advocate"} is interested in ${current.title || "a court mission"} (${current.court || "court TBD"}).`,
+          recipients: await resolveAdminRecipients(),
+          payload: { taskId: id, advocateId: authUser.id, advocateName: authUser.name },
+          sendEmail: false,
+          ctaLabel: "Open Missions",
+          ctaUrl: portalUrl(`/admin/missions?taskId=${id}`),
+          priority: "normal",
+        }).catch(() => undefined);
+      }
+      const mapped = mapTask(result.rows[0]);
+      sendJson(res, 200, {
+        ok: true,
+        interested,
+        task: canSeeAll(authUser) || String(mapped.acceptedBy || "") === String(authUser.id) || String(mapped.postedBy || "") === String(authUser.id)
+          ? mapped
+          : toProxyTeaser(mapped, authUser.id),
+        interests: interests.filter((entry) => entry.interested !== false).map((entry) => ({
+          userId: entry.userId,
+          name: entry.name,
+          at: entry.at,
+        })),
+      });
+      return;
+    }
+
+    const task = demoStore.tasks.find((item) => String(item.id) === String(id));
+    if (!task) {
+      sendJson(res, 404, { error: "Task not found" });
+      return;
+    }
+    if (!isOpenProxyBoardTask(task)) {
+      sendJson(res, 409, { error: "This mission is no longer open for interest." });
+      return;
+    }
+    task.interests = upsertInterest(task);
+    task.updatedAt = new Date().toISOString();
+    sendJson(res, 200, { ok: true, interested, task: toProxyTeaser(dashboardTask(task), authUser.id) });
     return;
   }
 
@@ -8330,6 +8633,7 @@ async function initializeStrictAuthSchema() {
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at timestamptz');
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at timestamptz');
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz');
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at timestamptz');
   await db.query('CREATE INDEX IF NOT EXISTS users_role_id_idx ON users (role_id)');
   await db.query('CREATE INDEX IF NOT EXISTS users_email_lookup_idx ON users (lower(email)) WHERE email IS NOT NULL');
   for (const roleName of ['admin', 'advocate', 'client', 'intern']) {

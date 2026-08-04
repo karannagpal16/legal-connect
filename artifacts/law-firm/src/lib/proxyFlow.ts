@@ -58,6 +58,7 @@ export type ProxyFlowStageId =
   | "proxy_assigned"
   | "proxy_checked_in"
   | "proof_submitted"
+  | "lc_verified"
   | "counsel_ok"
   | "escrow_released";
 
@@ -84,14 +85,14 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
     label: "Needs assign",
     actor: "lc",
     actorLabel: "Legal Connect",
-    detail: "Pick a verified advocate for this court date.",
+    detail: "Interested advocates surface here — LC picks one.",
   },
   {
     id: "proxy_assigned",
     label: "Assigned",
     actor: "proxy",
     actorLabel: "Proxy",
-    detail: "Proxy confirms no conflict, then goes to court.",
+    detail: "Proxy sees full counsel notes, confirms no conflict, then goes to court.",
   },
   {
     id: "proxy_checked_in",
@@ -102,10 +103,17 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
   },
   {
     id: "proof_submitted",
-    label: "Proof in",
-    actor: "proxy",
-    actorLabel: "Proxy",
-    detail: "Waiting for the posting counsel to confirm.",
+    label: "LC checks proof",
+    actor: "lc",
+    actorLabel: "Legal Connect",
+    detail: "Admin verifies the order sheet, then sends it to the posting counsel.",
+  },
+  {
+    id: "lc_verified",
+    label: "Counsel review",
+    actor: "main_counsel",
+    actorLabel: "Poster",
+    detail: "Posting counsel confirms OK or asks for a fresh scan.",
   },
   {
     id: "counsel_ok",
@@ -164,7 +172,11 @@ export function resolveProxyFlowStage(task: ProxyFlowTaskLike): ProxyFlowStageId
     return "counsel_ok";
   }
 
-  if (proof === "submitted" || status.includes("proof")) {
+  if (proof === "lc_verified") {
+    return "lc_verified";
+  }
+
+  if (proof === "submitted" || (status.includes("proof") && !status.includes("approved") && !status.includes("verified"))) {
     return "proof_submitted";
   }
 
@@ -209,8 +221,11 @@ export function nextProxyActor(task: ProxyFlowTaskLike): { actor: ProxyFlowActor
   if (stage === "counsel_ok") {
     return { actor: "lc", label: "Legal Connect", action: "Release payment to proxy." };
   }
-  if (stage === "proof_submitted") {
+  if (stage === "lc_verified") {
     return { actor: "main_counsel", label: "Poster", action: "Check the order sheet — OK or not OK." };
+  }
+  if (stage === "proof_submitted") {
+    return { actor: "lc", label: "Legal Connect", action: "Verify the order sheet, then send it to the posting counsel." };
   }
   if (stage === "proxy_checked_in" || proof === "rejected") {
     return { actor: "proxy", label: "Proxy", action: proof === "rejected" ? "Upload a fresh order sheet." : "Upload the order sheet." };
@@ -225,7 +240,7 @@ export function nextProxyActor(task: ProxyFlowTaskLike): { actor: ProxyFlowActor
     return { actor: "main_counsel", label: "Poster", action: "Answer Legal Connect’s question." };
   }
   if (stage === "lc_review" || stage === "posted_escrow") {
-    return { actor: "lc", label: "Legal Connect", action: "Assign a proxy advocate." };
+    return { actor: "lc", label: "Legal Connect", action: "Assign from interested advocates." };
   }
   return { actor: "lc", label: "Legal Connect", action: "Continue supervision." };
 }
@@ -235,7 +250,8 @@ export function nextActionButtonLabel(task: ProxyFlowTaskLike): string {
   const stage = resolveProxyFlowStage(task);
   const proof = norm(task.proofStatus);
   if (stage === "counsel_ok") return "Release payment";
-  if (stage === "proof_submitted") return "Review proof";
+  if (stage === "lc_verified") return "Review proof";
+  if (stage === "proof_submitted") return "Verify proof (LC)";
   if (stage === "proxy_checked_in" || proof === "rejected") {
     return proof === "rejected" ? "Re-upload order sheet" : "Upload order sheet";
   }
