@@ -198,7 +198,7 @@ export function CounselIntake({
   const selectedChannel = channelOptions[channel];
   const heading = source === "sos" ? "Request urgent counsel" : "Book a counsel";
   const submitLabel = masterFree
-    ? "Continue — master test free"
+    ? "Continue — owner free"
     : firstChatFree
       ? "Continue — first chat free"
       : source === "sos"
@@ -446,7 +446,7 @@ export function CounselIntake({
           <h2>{heading}</h2>
           <p>
             {masterFree
-              ? "Master test account — every client booking is free on this login."
+              ? "Owner account — every client booking is free on this login."
               : firstChatFree
                 ? "Your first Secure chat is free — try Legal Connect, then continue with paid counsel if you need more."
                 : "Book a one-time advisory session. Full court representation is available only through LC Gateway retention — never by hiring an advocate directly in the app."}
@@ -485,7 +485,7 @@ export function CounselIntake({
                         <strong>{option.title}</strong>
                         <small>
                           {masterFree
-                            ? "Free on master test login"
+                            ? "Free on owner login"
                             : freeBadge
                               ? "First chat free — see how Legal Connect works"
                               : option.detail}
@@ -564,7 +564,7 @@ export function CounselIntake({
                 <strong>{everythingFree ? "FREE" : `₹${payableAmount.toLocaleString("en-IN")}`}</strong>
               </div>
               {masterFree ? (
-                <p><Gift /> Master test login — chat, call and video bookings are free for karannagpal16@gmail.com.</p>
+                <p><Gift /> Owner account — chat, call and video bookings are free on this login.</p>
               ) : firstChatFree ? (
                 <p><Gift /> Your first Secure chat is on us so you can see how Legal Connect works. Later chats are ₹{PAID_CHAT_AMOUNT}.</p>
               ) : (
