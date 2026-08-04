@@ -339,13 +339,26 @@ export function AdminControlDesk() {
   });
 
   const assignProxy = useMutation({
-    mutationFn: ({ taskId, advocateId, advocateName }: { taskId: string; advocateId: string; advocateName: string }) =>
-      workspaceRequest(`/api/admin/proxy-tasks/${taskId}/assign-proxy`, session?.token, {
-        method: "POST",
-        body: JSON.stringify({ proxyAdvocateId: advocateId, proxyAdvocateName: advocateName }),
-      }),
+    mutationFn: async ({ taskId, advocateId, advocateName }: { taskId: string; advocateId: string; advocateName: string }) => {
+      try {
+        return await workspaceRequest(`/api/admin/proxy-tasks/${taskId}/assign-proxy`, session?.token, {
+          method: "POST",
+          body: JSON.stringify({ proxyAdvocateId: advocateId, proxyAdvocateName: advocateName }),
+        });
+      } catch (primaryError) {
+        // Fallback to the legacy admin accept path if the blueprint assign route fails.
+        try {
+          return await workspaceRequest(`/api/tasks/${taskId}/accept`, session?.token, {
+            method: "POST",
+            body: JSON.stringify({ proxyAdvocateId: advocateId, proxyAdvocateName: advocateName }),
+          });
+        } catch {
+          throw primaryError;
+        }
+      }
+    },
     onSuccess: () => {
-      setSuccess("Proxy counsel assigned by LC (proxy_assigned_by_lc).");
+      setSuccess("Proxy counsel assigned by LC. They must declare conflict, check in, and upload proof.");
       setError("");
       refresh();
     },
@@ -1095,13 +1108,16 @@ export function AdminControlDesk() {
                         <button
                           className="lc-button lc-button-primary"
                           disabled={assignProxy.isPending || !proxyByTask[task.id]}
-                          onClick={() => assignProxy.mutate({
-                            taskId: String(task.id),
-                            advocateId: proxyByTask[task.id],
-                            advocateName: selected?.name || "Proxy counsel",
-                          })}
+                          onClick={() => {
+                            setError("");
+                            assignProxy.mutate({
+                              taskId: String(task.id),
+                              advocateId: String(proxyByTask[task.id]),
+                              advocateName: selected?.name || "Proxy counsel",
+                            });
+                          }}
                         >
-                          Assign proxy (funds held)
+                          {assignProxy.isPending ? "Assigning…" : "Assign proxy (funds held)"}
                         </button>
                       </>
                     ) : null}

@@ -1270,23 +1270,28 @@ function mapBooking(row) {
 }
 
 function mapTask(row) {
+  const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+    ? row.payload
+    : {};
+  // Payload is enrichment only — never let it overwrite column workflow fields
+  // (a stale payload.escrowStatus previously blocked LC proxy assignment).
   return dashboardTask({
+    ...payload,
     id: row.id,
-    title: row.title,
-    court: row.court,
-    taskType: row.task_type,
-    amount: row.amount,
-    fee: row.amount,
-    escrowStatus: row.escrow_status,
-    status: row.status,
-    postedBy: row.posted_by,
-    acceptedBy: row.accepted_by,
-    proofUrl: row.proof_url,
-    proofHash: row.proof_hash,
-    proofStatus: row.proof_status || "none",
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    ...(row.payload || {}),
+    title: row.title || payload.title,
+    court: row.court ?? payload.court ?? null,
+    taskType: row.task_type || payload.taskType || payload.appearanceType || null,
+    amount: row.amount != null ? row.amount : (payload.amount ?? null),
+    fee: row.amount != null ? row.amount : (payload.fee ?? payload.amount ?? null),
+    escrowStatus: row.escrow_status || payload.escrowStatus || "Not locked",
+    status: row.status || payload.status || "Open",
+    postedBy: row.posted_by || payload.postedBy || payload.user_id || null,
+    acceptedBy: row.accepted_by || payload.acceptedBy || payload.assignedProxyId || null,
+    proofUrl: row.proof_url || payload.proofUrl || null,
+    proofHash: row.proof_hash || payload.proofHash || null,
+    proofStatus: row.proof_status || payload.proofStatus || "none",
+    createdAt: row.created_at || payload.createdAt,
+    updatedAt: row.updated_at || payload.updatedAt,
   });
 }
 
@@ -1903,23 +1908,29 @@ function mapAuditLog(row) {
 }
 
 async function writeAuditLog(actor, action, targetType, targetId, message, payload = {}) {
+  const actorIdRaw = actor?.id || null;
+  const actorId = isUuid(actorIdRaw) ? String(actorIdRaw) : null;
   const audit = {
     id: `audit-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-    actorId: actor?.id || null,
+    actorId,
     actorRole: actor?.role || "system",
     action,
     targetType,
-    targetId: targetId || null,
+    targetId: targetId == null ? null : String(targetId),
     message,
     payload,
     createdAt: new Date().toISOString(),
   };
   if (db.dbAvailable) {
-    await db.query(
-      `INSERT INTO audit_logs (actor_id, actor_role, action, target_type, target_id, message, payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [audit.actorId, audit.actorRole, action, targetType, audit.targetId, message, JSON.stringify(payload)],
-    );
+    try {
+      await db.query(
+        `INSERT INTO audit_logs (actor_id, actor_role, action, target_type, target_id, message, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [audit.actorId, audit.actorRole, action, targetType, audit.targetId, message, JSON.stringify(payload)],
+      );
+    } catch (error) {
+      console.warn("writeAuditLog failed:", error?.message || error);
+    }
   } else {
     demoStore.auditLogs.unshift(audit);
   }
