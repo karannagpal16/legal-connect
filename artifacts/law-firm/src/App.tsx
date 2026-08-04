@@ -61,7 +61,6 @@ const AdvocateChat = lazyNamed(() => import("@/pages/advocate/AdvocateChat"), "A
 const AdvocateLawBot = lazyNamed(() => import("@/pages/advocate/AdvocateLawBot"), "AdvocateLawBot");
 const AdvocateJudges = lazyNamed(() => import("@/pages/advocate/AdvocateJudges"), "AdvocateJudges");
 const ChamberVault = lazyNamed(() => import("@/pages/advocate/ChamberVault"), "ChamberVault");
-const AdvocateCaseTracker = lazyNamed(() => import("@/pages/advocate/AdvocateCaseTracker"), "AdvocateCaseTracker");
 const AdminVerifications = lazyNamed(() => import("@/pages/admin/AdminVerifications"), "AdminVerifications");
 const AdminPendingUpdates = lazyNamed(() => import("@/pages/admin/AdminPendingUpdates"), "AdminPendingUpdates");
 const AdminControlDesk = lazyNamed(() => import("@/pages/admin/AdminControlDesk"), "AdminControlDesk");
@@ -75,7 +74,6 @@ const InternBadges = lazyNamed(() => import("@/pages/intern/InternBadges"), "Int
 const InternLibrary = lazyNamed(() => import("@/pages/intern/InternLibrary"), "InternLibrary");
 const InternDoubtPortal = lazyNamed(() => import("@/pages/intern/InternDoubtPortal"), "InternDoubtPortal");
 const InternAIAssistant = lazyNamed(() => import("@/pages/intern/InternAIAssistant"), "InternAIAssistant");
-const InternCaseTracker = lazyNamed(() => import("@/pages/intern/InternCaseTracker"), "InternCaseTracker");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -220,7 +218,7 @@ function AdvocatePortal() {
             <Route path="/advocate/chat" component={AdvocateChat} />
             <Route path="/advocate/lawbot" component={AdvocateLawBot} />
             <Route path="/advocate/judges" component={AdvocateJudges} />
-            <Route path="/advocate/cases" component={AdvocateCaseTracker} />
+            <Route path="/advocate/cases" component={MyDiary} />
             <Route path="/advocate/updates" component={CaseUpdatesBoard} />
             <Route path="/advocate/login"><Redirect to="/login" /></Route>
             <Route path="/advocate/onboarding"><Redirect to="/advocate" /></Route>
@@ -248,7 +246,7 @@ function InternPortal() {
             <Route path="/intern/doubts" component={InternDoubtPortal} />
             <Route path="/intern/ai-assistant" component={InternAIAssistant} />
             <Route path="/intern/library" component={InternLibrary} />
-            <Route path="/intern/cases" component={InternCaseTracker} />
+            <Route path="/intern/cases" component={MyDiary} />
             <Route path="/intern/login"><Redirect to="/login" /></Route>
             <Route path="/intern/onboarding"><Redirect to="/intern" /></Route>
             <Route path="/intern/verification-pending"><Redirect to="/intern" /></Route>
