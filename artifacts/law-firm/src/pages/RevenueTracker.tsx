@@ -1,29 +1,53 @@
 import { useGetRevenueAnalytics } from "@workspace/api-client-react";
 import { formatINR } from "@/lib/utils";
-import { TrendingUp, Briefcase, Landmark, Trophy, Target, Award, Users } from "lucide-react";
+import { TrendingUp, Briefcase, Landmark, Trophy, Target, Award, Users, HandCoins } from "lucide-react";
+import { Redirect } from "wouter";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
+import { normaliseRole, useAuth } from "@/lib/auth";
 
-// Mock data for the chart to make it look active
 const mockChartData = [
-  { name: 'Jan', revenue: 1500000 },
-  { name: 'Feb', revenue: 1800000 },
-  { name: 'Mar', revenue: 1600000 },
-  { name: 'Apr', revenue: 2100000 },
-  { name: 'May', revenue: 2500000 },
-  { name: 'Jun', revenue: 2800000 },
+  { name: "Jan", revenue: 1500000 },
+  { name: "Feb", revenue: 1800000 },
+  { name: "Mar", revenue: 1600000 },
+  { name: "Apr", revenue: 2100000 },
+  { name: "May", revenue: 2500000 },
+  { name: "Jun", revenue: 2800000 },
 ];
 
+type ParticipantRow = {
+  id: string;
+  name: string;
+  role?: string;
+  clientTaskRevenue?: number;
+  proxyEarned?: number;
+  proxyPosted?: number;
+  clientSpend?: number;
+  totalEarned?: number;
+  totalSpent?: number;
+};
+
 export function RevenueTracker() {
-  const { data: analytics, isLoading } = useGetRevenueAnalytics();
+  const { session, ready } = useAuth();
+  const role = normaliseRole(session?.user?.role);
+  const { data: analytics, isLoading } = useGetRevenueAnalytics({
+    query: { enabled: role === "admin" },
+  });
+
+  if (!ready) return null;
+  if (role !== "admin") {
+    return <Redirect to={role === "advocate" ? "/advocate/revenue" : `/${role}`} />;
+  }
 
   if (isLoading) {
-    return <div className="animate-pulse space-y-6">
-      <div className="h-10 w-64 bg-card rounded" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="h-48 bg-card rounded-2xl" />
-        <div className="h-48 bg-card rounded-2xl" />
+    return (
+      <div className="animate-pulse space-y-6">
+        <div className="h-10 w-64 bg-card rounded" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="h-48 bg-card rounded-2xl" />
+          <div className="h-48 bg-card rounded-2xl" />
+        </div>
       </div>
-    </div>;
+    );
   }
 
   const {
@@ -32,10 +56,23 @@ export function RevenueTracker() {
     marketplaceProfit = 0,
     singaporeGoal = 38000000,
     totalUsers = 0,
-    completedProxyTasks = 0
-  } = analytics || {};
+    completedProxyTasks = 0,
+    advocateEarnings = [],
+    userSpend = [],
+  } = (analytics || {}) as {
+    totalActiveCases?: number;
+    totalManagedRevenue?: number;
+    marketplaceProfit?: number;
+    singaporeGoal?: number;
+    totalUsers?: number;
+    completedProxyTasks?: number;
+    advocateEarnings?: ParticipantRow[];
+    userSpend?: ParticipantRow[];
+  };
 
   const progressPercentage = Math.min(100, Math.max(0, (totalManagedRevenue / singaporeGoal) * 100));
+  const advocateRows = Array.isArray(advocateEarnings) ? advocateEarnings : [];
+  const userRows = Array.isArray(userSpend) ? userSpend : [];
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
@@ -44,11 +81,12 @@ export function RevenueTracker() {
           <TrendingUp className="w-8 h-8 text-primary" />
           Founder Analytics
         </h1>
-        <p className="mt-2 text-muted-foreground text-lg">Private revenue tracker and expansion goals.</p>
+        <p className="mt-2 text-muted-foreground text-lg">
+          Private revenue tracker, participant earnings, and Singapore expansion goals. Admin only.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Total Managed Revenue */}
         <div className="bg-gradient-to-br from-card to-background border border-border rounded-3xl p-8 shadow-xl relative overflow-hidden group">
           <div className="absolute right-0 top-0 w-32 h-32 bg-primary/5 rounded-bl-full transition-transform duration-500 group-hover:scale-125" />
           <div className="flex items-center gap-3 mb-6 relative z-10">
@@ -65,7 +103,6 @@ export function RevenueTracker() {
           </div>
         </div>
 
-        {/* Marketplace Profit */}
         <div className="bg-gradient-to-br from-card to-background border border-border rounded-3xl p-8 shadow-xl relative overflow-hidden group">
           <div className="absolute right-0 top-0 w-32 h-32 bg-accent/5 rounded-bl-full transition-transform duration-500 group-hover:scale-125" />
           <div className="flex items-center gap-3 mb-6 relative z-10">
@@ -83,7 +120,6 @@ export function RevenueTracker() {
         </div>
       </div>
 
-      {/* Singapore Goal */}
       <div className="bg-card border border-border rounded-3xl p-8 shadow-lg">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -99,7 +135,7 @@ export function RevenueTracker() {
         </div>
 
         <div className="relative h-6 bg-background rounded-full overflow-hidden border border-border">
-          <div 
+          <div
             className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-accent transition-all duration-1000 ease-out"
             style={{ width: `${progressPercentage}%` }}
           >
@@ -112,7 +148,57 @@ export function RevenueTracker() {
         </div>
       </div>
 
-      {/* Quick Stats & Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <HandCoins className="w-5 h-5 text-primary" />
+            <div>
+              <h3 className="text-lg font-bold">Advocate earnings</h3>
+              <p className="text-sm text-muted-foreground">Client intakes + proxy net released</p>
+            </div>
+          </div>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {advocateRows.length ? advocateRows.map((row) => (
+              <div key={row.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-0">
+                <div>
+                  <p className="font-semibold">{row.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Client {formatINR(row.clientTaskRevenue || 0)} · Proxy {formatINR(row.proxyEarned || 0)}
+                    {(row.proxyPosted || 0) > 0 ? ` · Posted ${formatINR(row.proxyPosted || 0)}` : ""}
+                  </p>
+                </div>
+                <strong>{formatINR(row.totalEarned || 0)}</strong>
+              </div>
+            )) : (
+              <p className="text-sm text-muted-foreground">No advocate client or proxy earnings recorded yet.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <Users className="w-5 h-5 text-primary" />
+            <div>
+              <h3 className="text-lg font-bold">User spend</h3>
+              <p className="text-sm text-muted-foreground">Client booking payments on the app</p>
+            </div>
+          </div>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {userRows.length ? userRows.map((row) => (
+              <div key={row.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-0">
+                <div>
+                  <p className="font-semibold">{row.name}</p>
+                  <p className="text-xs text-muted-foreground">Client / counsel bookings</p>
+                </div>
+                <strong>{formatINR(row.clientSpend || row.totalSpent || 0)}</strong>
+              </div>
+            )) : (
+              <p className="text-sm text-muted-foreground">No client booking spend recorded yet.</p>
+            )}
+          </div>
+        </section>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 flex flex-col gap-4">
           <div className="bg-card border border-border rounded-2xl p-6 flex items-center justify-between">
@@ -145,14 +231,14 @@ export function RevenueTracker() {
               <AreaChart data={mockChartData}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                  formatter={(value: number) => [formatINR(value), 'Revenue']}
+                <Tooltip
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px" }}
+                  formatter={(value: number) => [formatINR(value), "Revenue"]}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
               </AreaChart>
@@ -165,5 +251,10 @@ export function RevenueTracker() {
 }
 
 function BookOpen(props: any) {
-  return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
 }

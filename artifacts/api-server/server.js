@@ -7,7 +7,7 @@ const { spawnSync } = require("child_process");
 const config = require("./config");
 const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
-const { createStrategyFeatures } = require("./strategy-features");
+const { createStrategyFeatures, computeProxySettlement } = require("./strategy-features");
 const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
 const { createPlatformEvents } = require("./platform-events");
@@ -1462,13 +1462,108 @@ function internalUserRole(role) {
   return roleMap[role] || String(role || "client").toLowerCase();
 }
 
-function revenueAnalytics(cases, tasks, users) {
+function isProxyReleased(task) {
+  const status = String(task.status || "").toLowerCase();
+  return Boolean(
+    task.settlementReleasedAt
+    || task.settlement
+    || /payment released|escrow_released|completed|closed/.test(status),
+  );
+}
+
+function participantRevenueLedger(tasks, bookings, users) {
+  const ledger = new Map();
+  const ensure = (id, fallback = {}) => {
+    const key = String(id || "").trim();
+    if (!key) return null;
+    if (!ledger.has(key)) {
+      ledger.set(key, {
+        id: key,
+        name: fallback.name || "User",
+        role: internalUserRole(fallback.role || fallback.userRole || "client"),
+        clientTaskRevenue: 0,
+        proxyEarned: 0,
+        proxyPosted: 0,
+        clientSpend: 0,
+      });
+    } else if (fallback.name && ledger.get(key).name === "User") {
+      ledger.get(key).name = fallback.name;
+    }
+    return ledger.get(key);
+  };
+
+  for (const user of users || []) {
+    ensure(user.id, user);
+  }
+
+  for (const booking of bookings || []) {
+    const amount = numericAmount(booking.amount);
+    if (!amount) continue;
+    const paid = /paid|verified|active|assigned|accepted|completed|released/i.test(
+      String(booking.paymentStatus || booking.status || booking.intakeStatus || ""),
+    );
+    if (!paid && !booking.razorpayPaymentId) continue;
+    const client = ensure(booking.userId || booking.user_id, { name: booking.clientName, role: "client" });
+    if (client) client.clientSpend += amount;
+    const advocateId = booking.assignedAdvocateId || booking.lawyerId || booking.advocateId;
+    const advocate = ensure(advocateId, {
+      name: booking.assignedAdvocateName || booking.lawyerName,
+      role: "advocate",
+    });
+    if (advocate) advocate.clientTaskRevenue += amount;
+  }
+
+  for (const task of tasks || []) {
+    const gross = numericAmount(task.amount ?? task.fee);
+    if (!gross) continue;
+    const settlement = task.settlement && typeof task.settlement === "object"
+      ? task.settlement
+      : computeProxySettlement(gross);
+    const poster = ensure(task.postedBy || task.posted_by, { role: "advocate" });
+    if (poster) poster.proxyPosted += gross;
+    const proxy = ensure(task.acceptedBy || task.accepted_by || task.proxyAdvocateId, {
+      name: task.assignedProxyName || task.proxyAdvocateName,
+      role: "advocate",
+    });
+    if (proxy && isProxyReleased(task)) {
+      proxy.proxyEarned += numericAmount(settlement.netToProxy, Math.round(gross * 0.87));
+    }
+  }
+
+  const rows = [...ledger.values()].map((row) => ({
+    ...row,
+    totalEarned: row.clientTaskRevenue + row.proxyEarned,
+    totalSpent: row.clientSpend + row.proxyPosted,
+  }));
+
+  return {
+    advocates: rows
+      .filter((row) => row.role === "advocate")
+      .filter((row) => row.totalEarned > 0 || row.proxyPosted > 0)
+      .sort((a, b) => b.totalEarned - a.totalEarned)
+      .slice(0, 40),
+    users: rows
+      .filter((row) => row.role === "client")
+      .filter((row) => row.clientSpend > 0)
+      .sort((a, b) => b.clientSpend - a.clientSpend)
+      .slice(0, 40),
+  };
+}
+
+function revenueAnalytics(cases, tasks, users, bookings = []) {
   const activeCases = cases.filter((item) => item.status === "Active");
-  const completedTasks = tasks.filter((item) => item.status === "Completed");
+  const completedTasks = tasks.filter((item) => {
+    const status = String(item.status || "").toLowerCase();
+    return status === "completed" || isProxyReleased(item);
+  });
   const openTasks = tasks.filter((item) => item.status === "Open");
-  const marketplaceProfit = completedTasks.reduce((sum, item) => sum + Number(item.amount || item.fee || 0) * 0.1, 0);
+  const marketplaceProfit = completedTasks.reduce((sum, item) => {
+    const gross = numericAmount(item.amount ?? item.fee);
+    return sum + (item.settlement?.platformFee ?? Math.round(gross * 0.1));
+  }, 0);
   const totalManagedRevenue = activeCases.length * 50000;
   const singaporeGoal = 38000000;
+  const participants = participantRevenueLedger(tasks, bookings, users);
   return {
     totalActiveCases: activeCases.length,
     totalManagedRevenue,
@@ -1478,6 +1573,106 @@ function revenueAnalytics(cases, tasks, users) {
     singaporeProgress: Math.min(100, ((totalManagedRevenue + marketplaceProfit) / singaporeGoal) * 100),
     totalUsers: users.length,
     openProxyTasks: openTasks.length,
+    advocateEarnings: participants.advocates,
+    userSpend: participants.users,
+  };
+}
+
+function myAppEarnings(authUser, tasks, bookings) {
+  const userId = String(authUser.id);
+  const role = String(authUser.role || "").toLowerCase();
+  const clientIntakes = [];
+  const proxyAsPoster = [];
+  const proxyAsCounsel = [];
+
+  for (const booking of bookings || []) {
+    const amount = numericAmount(booking.amount);
+    const assigned = String(booking.assignedAdvocateId || booking.lawyerId || "") === userId;
+    const owned = String(booking.userId || booking.user_id || "") === userId;
+    if (role === "advocate" && assigned) {
+      clientIntakes.push({
+        id: booking.id,
+        kind: "client_intake",
+        title: booking.clientName || booking.legalIssueType || "Client intake",
+        detail: booking.legalIssueType || booking.serviceType || "Counsel request",
+        amount,
+        status: booking.intakeStatus || booking.paymentStatus || booking.status || "paid",
+        createdAt: booking.createdAt || booking.created_at || null,
+      });
+    }
+    if ((role === "client" || role === "proxy") && owned) {
+      clientIntakes.push({
+        id: booking.id,
+        kind: "client_payment",
+        title: booking.legalIssueType || booking.serviceType || "Counsel booking",
+        detail: booking.assignedAdvocateName || "Awaiting counsel",
+        amount,
+        status: booking.paymentStatus || booking.status || "paid",
+        createdAt: booking.createdAt || booking.created_at || null,
+      });
+    }
+  }
+
+  for (const task of tasks || []) {
+    const gross = numericAmount(task.amount ?? task.fee);
+    const settlement = task.settlement && typeof task.settlement === "object"
+      ? task.settlement
+      : computeProxySettlement(gross);
+    const title = task.title || task.taskDescription || "Proxy appearance";
+    const detail = [task.court || task.location, task.cnr ? `CNR ${task.cnr}` : null].filter(Boolean).join(" · ");
+    if (String(task.postedBy || task.posted_by || "") === userId) {
+      proxyAsPoster.push({
+        id: task.id,
+        kind: "proxy_posted",
+        title,
+        detail,
+        amount: gross,
+        status: task.status,
+        createdAt: task.createdAt || task.created_at || null,
+      });
+    }
+    if (String(task.acceptedBy || task.accepted_by || task.proxyAdvocateId || "") === userId) {
+      proxyAsCounsel.push({
+        id: task.id,
+        kind: "proxy_earned",
+        title,
+        detail,
+        amount: isProxyReleased(task)
+          ? numericAmount(settlement.netToProxy, Math.round(gross * 0.87))
+          : numericAmount(settlement.netToProxy, Math.round(gross * 0.87)),
+        gross,
+        platformFee: numericAmount(settlement.platformFee),
+        appTaxGst: numericAmount(settlement.appTaxGst),
+        released: isProxyReleased(task),
+        status: task.status,
+        createdAt: task.createdAt || task.created_at || null,
+      });
+    }
+  }
+
+  const clientRevenue = clientIntakes.reduce((sum, row) => sum + row.amount, 0);
+  const proxyEarned = proxyAsCounsel
+    .filter((row) => row.released)
+    .reduce((sum, row) => sum + row.amount, 0);
+  const proxyPosted = proxyAsPoster.reduce((sum, row) => sum + row.amount, 0);
+  const clientSpend = role === "client" || role === "proxy"
+    ? clientIntakes.reduce((sum, row) => sum + row.amount, 0)
+    : 0;
+
+  return {
+    ok: true,
+    role: role === "rna" ? "admin" : role,
+    summary: {
+      clientTaskRevenue: role === "advocate" ? clientRevenue : 0,
+      proxyEarned,
+      proxyPosted,
+      clientSpend,
+      totalEarned: (role === "advocate" ? clientRevenue : 0) + proxyEarned,
+      totalSpent: clientSpend + proxyPosted,
+    },
+    clientIntakes,
+    proxyAsPoster,
+    proxyAsCounsel,
   };
 }
 
@@ -4801,15 +4996,84 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (db.dbAvailable) {
-      const [cases, tasks, users] = await Promise.all([
+      const [cases, tasks, users, bookings] = await Promise.all([
         db.query("SELECT * FROM cases"),
         db.query("SELECT * FROM tasks"),
-        db.query("SELECT id FROM users"),
+        db.query("SELECT id, name, role FROM users"),
+        db.query("SELECT * FROM bookings"),
       ]);
-      sendJson(res, 200, revenueAnalytics(cases.rows.map(mapCase), tasks.rows.map(mapTask), users.rows));
+      sendJson(
+        res,
+        200,
+        revenueAnalytics(
+          cases.rows.map(mapCase),
+          tasks.rows.map(mapTask),
+          users.rows.map(mapUser),
+          bookings.rows.map(mapBooking),
+        ),
+      );
       return;
     }
-    sendJson(res, 200, revenueAnalytics(demoStore.cases.map(dashboardCase), demoStore.tasks.map(dashboardTask), demoStore.users));
+    sendJson(
+      res,
+      200,
+      revenueAnalytics(
+        demoStore.cases.map(dashboardCase),
+        demoStore.tasks.map(dashboardTask),
+        demoStore.users,
+        demoStore.bookings.map(dashboardBooking),
+      ),
+    );
+    return;
+  }
+
+  if (url.pathname === "/api/analytics/my-earnings" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const role = String(authUser.role || "").toLowerCase();
+    if (!["advocate", "client", "proxy"].includes(role)) {
+      sendJson(res, 403, { error: "Personal earnings are available for advocates and clients." });
+      return;
+    }
+    if (db.dbAvailable) {
+      const databaseUserId = await resolveDatabaseUserId(authUser);
+      if (!databaseUserId) {
+        sendJson(res, 401, { error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const [tasksResult, bookingsResult] = await Promise.all([
+        db.query(
+          "SELECT * FROM tasks WHERE posted_by = $1 OR accepted_by = $1 OR payload->>'proxyAdvocateId' = $1 ORDER BY created_at DESC",
+          [String(databaseUserId)],
+        ),
+        role === "advocate"
+          ? db.query(
+            "SELECT * FROM bookings WHERE payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC",
+            [String(databaseUserId)],
+          )
+          : db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [databaseUserId]),
+      ]);
+      sendJson(
+        res,
+        200,
+        myAppEarnings(
+          { ...authUser, id: String(databaseUserId) },
+          tasksResult.rows.map(mapTask),
+          bookingsResult.rows.map(mapBooking),
+        ),
+      );
+      return;
+    }
+    const tasks = demoStore.tasks.filter(
+      (item) => item.postedBy === authUser.id || item.acceptedBy === authUser.id || item.proxyAdvocateId === authUser.id,
+    );
+    const bookings = role === "advocate"
+      ? demoStore.bookings.filter((item) => item.assignedAdvocateId === authUser.id || item.assignedTo === authUser.id)
+      : demoStore.bookings.filter((item) => item.userId === authUser.id);
+    sendJson(res, 200, myAppEarnings(authUser, tasks.map(dashboardTask), bookings.map(dashboardBooking)));
     return;
   }
 

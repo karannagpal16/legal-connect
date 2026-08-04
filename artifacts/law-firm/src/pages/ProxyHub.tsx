@@ -227,18 +227,16 @@ export function ProxyHub() {
             Pay &amp; post → funds held → LC assigns proxy → proof upload → main counsel OK/Not OK → LC releases net after 10% platform + 3% tax.
           </p>
         </div>
-        {!isAdmin && (
-          <button
-            onClick={() => {
-              setEditingTask(null);
-              setDialogOpen(true);
-            }}
-            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-4 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:-translate-y-1 hover:shadow-xl min-h-[48px]"
-          >
-            <Plus className="w-5 h-5" />
-            Pay & Post Task
-          </button>
-        )}
+        <button
+          onClick={() => {
+            setEditingTask(null);
+            setDialogOpen(true);
+          }}
+          className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-4 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:-translate-y-1 hover:shadow-xl min-h-[48px]"
+        >
+          <Plus className="w-5 h-5" />
+          Pay & Post Task
+        </button>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">

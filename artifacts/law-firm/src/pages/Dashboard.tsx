@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetRevenueAnalytics,
   useListBookings,
@@ -16,6 +17,7 @@ import {
   Gavel,
   HeartPulse,
   Library,
+  Plus,
   Scale,
   ShieldCheck,
   Users,
@@ -26,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { asArray, caseCourt, caseNumber, caseTitle, objectNumber } from "@/lib/data";
 import { DashboardIntro, DashboardPanel, EmptyState, MetricCard, StatusPill } from "@/components/dashboard/DashboardParts";
 import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
+import { TaskDialog } from "@/components/forms/TaskDialog";
 import { workspaceRequest } from "@/lib/workspace";
 
 type VerificationRow = {
@@ -45,6 +48,8 @@ function safeStatus(item: unknown) {
 
 export function Dashboard() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [postTaskOpen, setPostTaskOpen] = useState(false);
   const { data: cases = [], isLoading: casesLoading } = useListCases();
   const { data: bookings = [], isLoading: bookingsLoading } = useListBookings();
   const { data: tasks = [], isLoading: tasksLoading } = useListTasks();
@@ -153,6 +158,14 @@ export function Dashboard() {
         action={{ label: "Open Ops Command", href: "/admin/control", icon: Gavel }}
       />
 
+      <div className="lc-hero-button-row" style={{ marginTop: 4, marginBottom: 8 }}>
+        <button className="lc-button lc-button-primary" type="button" onClick={() => setPostTaskOpen(true)}>
+          <Plus /> Pay &amp; post proxy task
+        </button>
+        <Link className="lc-button" href="/admin/missions">Open ProxyHub</Link>
+        <Link className="lc-button" href="/admin/control?tab=proxy">Assign from Ops</Link>
+      </div>
+
       <div className="lc-metric-grid lc-metric-grid-four">
         <MetricCard label="Users" value={userList.length} detail="Registered platform accounts" icon={Users} loading={usersLoading} />
         <MetricCard label="Active cases" value={activeCases.length} detail="Matters currently in progress" icon={Scale} tone="gold" loading={casesLoading} />
@@ -245,7 +258,10 @@ export function Dashboard() {
             />
           )}
           <div className="lc-hero-button-row" style={{ marginTop: 12 }}>
-            <Link className="lc-button lc-button-primary" href="/admin/control?tab=proxy">Assign from Ops</Link>
+            <button className="lc-button lc-button-primary" type="button" onClick={() => setPostTaskOpen(true)}>
+              <Plus /> Pay &amp; post task
+            </button>
+            <Link className="lc-button" href="/admin/control?tab=proxy">Assign from Ops</Link>
             <Link className="lc-button" href="/admin/missions">Open all missions</Link>
           </div>
         </DashboardPanel>
@@ -400,6 +416,17 @@ export function Dashboard() {
           <ArrowRight />
         </Link>
       </section>
+
+      <TaskDialog
+        open={postTaskOpen}
+        onOpenChange={(open: boolean) => {
+          setPostTaskOpen(open);
+          if (!open) {
+            queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+          }
+        }}
+        editingTask={null}
+      />
     </div>
   );
 }
