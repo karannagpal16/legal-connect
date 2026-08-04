@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetRevenueAnalytics,
   useListBookings,
@@ -16,6 +17,7 @@ import {
   Gavel,
   HeartPulse,
   Library,
+  Plus,
   Scale,
   ShieldCheck,
   Users,
@@ -26,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { asArray, caseCourt, caseNumber, caseTitle, objectNumber } from "@/lib/data";
 import { DashboardIntro, DashboardPanel, EmptyState, MetricCard, StatusPill } from "@/components/dashboard/DashboardParts";
 import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
+import { TaskDialog } from "@/components/forms/TaskDialog";
 import { workspaceRequest } from "@/lib/workspace";
 
 type VerificationRow = {
@@ -45,6 +48,8 @@ function safeStatus(item: unknown) {
 
 export function Dashboard() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [postTaskOpen, setPostTaskOpen] = useState(false);
   const { data: cases = [], isLoading: casesLoading } = useListCases();
   const { data: bookings = [], isLoading: bookingsLoading } = useListBookings();
   const { data: tasks = [], isLoading: tasksLoading } = useListTasks();
@@ -70,7 +75,29 @@ export function Dashboard() {
   });
   const openTasks = taskList.filter((item) => {
     const status = safeStatus(item).toLowerCase();
-    return status === "open" || status === "awaiting_admin_assignment" || status === "paid";
+    return (
+      status === "open"
+      || status === "awaiting_admin_assignment"
+      || status === "pending_admin_review"
+      || status === "query_raised"
+      || status === "paid"
+      || status.includes("awaiting")
+      || status.includes("pending_admin")
+    );
+  });
+  const postedProxyTasks = taskList.filter((item) => {
+    const status = safeStatus(item).toLowerCase();
+    return (
+      status === "pending_admin_review"
+      || status === "query_raised"
+      || status === "awaiting_admin_assignment"
+      || status === "open"
+      || status.includes("awaiting")
+      || status.includes("pending")
+      || status === "accepted"
+      || status.includes("assign")
+      || status.includes("proof")
+    );
   });
   const pendingVerifications = verificationList.filter((item) => safeStatus(item) === "pending");
   const advocates = userList.filter((item) => String((item as { role?: string }).role || "").toLowerCase() === "advocate");
@@ -88,6 +115,17 @@ export function Dashboard() {
           icon: Gavel,
         }
       : null,
+    openTasks.length
+      ? {
+          tone: "action" as const,
+          kicker: "ProxyHub · Posted tasks",
+          title: `${openTasks.length} proxy task${openTasks.length === 1 ? "" : "s"} need LC review / assign`,
+          detail: "Review paid postings, assign proxy counsel, approve proof, or release work holds.",
+          ctaLabel: "Review posted tasks",
+          href: "/admin/control?tab=proxy",
+          icon: BriefcaseBusiness,
+        }
+      : null,
     pendingVerifications.length
       ? {
           tone: "action" as const,
@@ -97,17 +135,6 @@ export function Dashboard() {
           ctaLabel: "Review verifications",
           href: "/admin/verifications",
           icon: ShieldCheck,
-        }
-      : null,
-    openTasks.length
-      ? {
-          tone: "action" as const,
-          kicker: "Proxy desk",
-          title: `${openTasks.length} proxy mission${openTasks.length === 1 ? "" : "s"} need admin action`,
-          detail: "Assign proxy counsel, approve proof, or release work holds.",
-          ctaLabel: "Open missions",
-          href: "/admin/missions",
-          icon: BriefcaseBusiness,
         }
       : null,
     {
@@ -130,6 +157,14 @@ export function Dashboard() {
         description="Assign counsel, update clients as Legal Connect supervisor, and control tasks and escrow from one desk."
         action={{ label: "Open Ops Command", href: "/admin/control", icon: Gavel }}
       />
+
+      <div className="lc-hero-button-row" style={{ marginTop: 4, marginBottom: 8 }}>
+        <button className="lc-button lc-button-primary" type="button" onClick={() => setPostTaskOpen(true)}>
+          <Plus /> Pay &amp; post proxy task
+        </button>
+        <Link className="lc-button" href="/admin/missions">Open ProxyHub</Link>
+        <Link className="lc-button" href="/admin/control?tab=proxy">Assign from Ops</Link>
+      </div>
 
       <div className="lc-metric-grid lc-metric-grid-four">
         <MetricCard label="Users" value={userList.length} detail="Registered platform accounts" icon={Users} loading={usersLoading} />
@@ -173,6 +208,67 @@ export function Dashboard() {
         </DashboardPanel>
 
         <DashboardPanel
+          title="ProxyHub · Posted tasks"
+          detail="Paid proxy postings waiting for LC review, assignment, proof or escrow release"
+          action={{ label: "Open proxy desk", href: "/admin/control?tab=proxy" }}
+        >
+          {postedProxyTasks.length ? (
+            <div className="lc-data-list">
+              {postedProxyTasks.slice(0, 6).map((item) => {
+                const row = item as {
+                  id: string | number;
+                  title?: string;
+                  taskDescription?: string;
+                  court?: string;
+                  location?: string;
+                  status?: string;
+                  amount?: number;
+                  fee?: string | number;
+                  cnr?: string;
+                  proofStatus?: string;
+                };
+                const status = safeStatus(row).toLowerCase();
+                const needsAssign = status.includes("pending") || status.includes("awaiting") || status === "open" || status.includes("query");
+                return (
+                  <div className="lc-data-row" key={String(row.id)}>
+                    <span className="lc-data-icon"><BriefcaseBusiness /></span>
+                    <div>
+                      <strong>{row.title || row.taskDescription || "Proxy appearance"}</strong>
+                      <small>
+                        {row.court || row.location || "Court TBD"}
+                        {row.cnr ? ` · CNR ${row.cnr}` : ""}
+                        {row.amount != null || row.fee != null ? ` · ₹${Number(row.amount ?? row.fee).toLocaleString("en-IN")}` : ""}
+                        {" · "}
+                        {safeStatus(row) || "Posted"}
+                        {row.proofStatus && row.proofStatus !== "none" ? ` · Proof ${row.proofStatus}` : ""}
+                      </small>
+                    </div>
+                    <StatusPill tone={needsAssign ? "warning" : "success"}>
+                      {needsAssign ? "Review" : "Track"}
+                    </StatusPill>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={BriefcaseBusiness}
+              title="No posted proxy tasks"
+              description="When advocates pay & post ProxyHub tasks, they appear here for LC review and assignment."
+            />
+          )}
+          <div className="lc-hero-button-row" style={{ marginTop: 12 }}>
+            <button className="lc-button lc-button-primary" type="button" onClick={() => setPostTaskOpen(true)}>
+              <Plus /> Pay &amp; post task
+            </button>
+            <Link className="lc-button" href="/admin/control?tab=proxy">Assign from Ops</Link>
+            <Link className="lc-button" href="/admin/missions">Open all missions</Link>
+          </div>
+        </DashboardPanel>
+      </div>
+
+      <div className="lc-dashboard-columns">
+        <DashboardPanel
           title="Bar & university verification"
           detail="Advocate enrollment and intern student ID audits"
           action={{ label: "Open verification portal", href: "/admin/verifications" }}
@@ -194,9 +290,7 @@ export function Dashboard() {
             <EmptyState icon={ShieldCheck} title="No pending audits" description="Advocate bar and intern campus credentials are clear." />
           )}
         </DashboardPanel>
-      </div>
 
-      <div className="lc-dashboard-columns">
         <DashboardPanel
           title="Escrow payout governance"
           detail="Client fees held in trust until work completion"
@@ -221,7 +315,7 @@ export function Dashboard() {
               <span><BriefcaseBusiness /></span>
               <p>
                 <strong>{openTasks.length}</strong>
-                <small>Proxy payouts pending assignment</small>
+                <small>Proxy posts needing LC action</small>
               </p>
             </div>
           </div>
@@ -229,7 +323,9 @@ export function Dashboard() {
             Release payouts from Revenue after advocate work completion and client rating confirmation.
           </p>
         </DashboardPanel>
+      </div>
 
+      <div className="lc-dashboard-columns">
         <DashboardPanel
           title="360° platform activity"
           detail="Recent matters and commercial movement"
@@ -252,6 +348,35 @@ export function Dashboard() {
             <EmptyState icon={Scale} title="No cases yet" description="Cases created by the team will stream into this monitor." />
           )}
         </DashboardPanel>
+
+        <DashboardPanel
+          title="System health"
+          detail="Control-room readiness for live operations"
+        >
+          <div className="lc-admin-summary">
+            <div>
+              <span><HeartPulse /></span>
+              <p>
+                <strong>{session?.token ? "Online" : "Offline"}</strong>
+                <small>Admin session / API auth</small>
+              </p>
+            </div>
+            <div>
+              <span><Activity /></span>
+              <p>
+                <strong>{verifications.isError ? "Degraded" : "Ready"}</strong>
+                <small>Verification service</small>
+              </p>
+            </div>
+            <div>
+              <span><BarChart3 /></span>
+              <p>
+                <strong>{analytics ? "Synced" : "Waiting"}</strong>
+                <small>Revenue analytics feed</small>
+              </p>
+            </div>
+          </div>
+        </DashboardPanel>
       </div>
 
       <section className="lc-quick-grid" aria-label="Control room shortcuts">
@@ -265,9 +390,14 @@ export function Dashboard() {
           <div><strong>Credential portal</strong><small>Bar Council & campus ID review</small></div>
           <ArrowRight />
         </Link>
+        <Link href="/admin/control?tab=proxy" className="lc-quick-action lc-tone-green">
+          <span><BriefcaseBusiness /></span>
+          <div><strong>Posted proxy tasks</strong><small>Review, assign & release escrow</small></div>
+          <ArrowRight />
+        </Link>
         <Link href="/admin/missions" className="lc-quick-action lc-tone-green">
           <span><BriefcaseBusiness /></span>
-          <div><strong>Proxy assignment</strong><small>Match paid proxy tasks to advocates</small></div>
+          <div><strong>Proxy missions</strong><small>Full ProxyHub lifecycle desk</small></div>
           <ArrowRight />
         </Link>
         <Link href="/admin/revenue" className="lc-quick-action lc-tone-red">
@@ -287,31 +417,16 @@ export function Dashboard() {
         </Link>
       </section>
 
-      <DashboardPanel title="System health" detail="Control-room readiness for live operations">
-        <div className="lc-admin-summary">
-          <div>
-            <span><HeartPulse /></span>
-            <p>
-              <strong>{session?.token ? "Online" : "Offline"}</strong>
-              <small>Admin session / API auth</small>
-            </p>
-          </div>
-          <div>
-            <span><Activity /></span>
-            <p>
-              <strong>{verifications.isError ? "Degraded" : "Ready"}</strong>
-              <small>Verification service</small>
-            </p>
-          </div>
-          <div>
-            <span><BarChart3 /></span>
-            <p>
-              <strong>{analytics ? "Synced" : "Waiting"}</strong>
-              <small>Revenue analytics feed</small>
-            </p>
-          </div>
-        </div>
-      </DashboardPanel>
+      <TaskDialog
+        open={postTaskOpen}
+        onOpenChange={(open: boolean) => {
+          setPostTaskOpen(open);
+          if (!open) {
+            queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+          }
+        }}
+        editingTask={null}
+      />
     </div>
   );
 }

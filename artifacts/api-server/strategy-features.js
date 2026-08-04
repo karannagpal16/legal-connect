@@ -18,6 +18,24 @@ const RULE36_PATTERNS = [
   /\bno\s+win\s+no\s+fee\b/i,
 ];
 
+function computeProxySettlement(grossAmount) {
+  const gross = Math.max(0, Math.round(Number(grossAmount) || 0));
+  const platformFee = Math.round(gross * 0.1);
+  const appTaxGst = Math.round(gross * 0.03);
+  const netToProxy = Math.max(0, gross - platformFee - appTaxGst);
+  return {
+    currency: "INR",
+    gross,
+    platformFee,
+    platformFeePct: 10,
+    appTaxGst,
+    appTaxGstPct: 3,
+    netToProxy,
+    advocatePct: 87,
+    note: "Platform fee 10% + app/GST tax 3%. Net payable to proxy counsel after LC Admin release (manual settlement).",
+  };
+}
+
 function createStrategyFeatures(deps) {
   const {
     db,
@@ -1120,12 +1138,105 @@ function createStrategyFeatures(deps) {
       });
       await notifyTaskLayer(updated, {
         eventType: "proxy_proof_submitted",
-        title: "Proof submitted for review",
-        message: `Order sheet proof was uploaded for ${updated.title || "the mission"}. Escrow stays locked until Admin approval.`,
+        title: "Proof submitted for main counsel review",
+        message: `Order sheet proof was uploaded for ${updated.title || "the mission"}. Escrow stays locked until the posting counsel marks proof satisfactory, then LC Admin releases net funds after taxes.`,
         priority: "high",
         includeAdmins: true,
       });
       sendJson(res, 200, { ok: true, task: updated });
+      return true;
+    }
+
+    const proofReviewMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/proof-review$/);
+    if (proofReviewMatch && req.method === "POST") {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Login is required." });
+        return true;
+      }
+      const task = await loadTask(proofReviewMatch[1]);
+      if (!task) {
+        sendJson(res, 404, { ok: false, error: "Task not found." });
+        return true;
+      }
+      const body = await readBody(req);
+      const decision = String(body.decision || body.verdict || "").trim().toLowerCase();
+      const reason = String(body.reason || body.note || "").trim();
+      const isPoster = String(task.postedBy || task.payload?.postedBy || "") === String(authUser.id || "");
+      if (!isPoster && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only the posting counsel (or LC Admin) can review proof." });
+        return true;
+      }
+      const proofStatus = String(task.proofStatus || task.proof_status || "").toLowerCase();
+      if (proofStatus !== "submitted") {
+        sendJson(res, 409, { ok: false, error: "Proof is not awaiting main counsel review." });
+        return true;
+      }
+      if (!["ok", "approved", "satisfied", "not_ok", "rejected", "unsatisfied"].includes(decision)) {
+        sendJson(res, 400, { ok: false, error: "decision must be ok or not_ok." });
+        return true;
+      }
+      const satisfied = ["ok", "approved", "satisfied"].includes(decision);
+      if (!satisfied && reason.length < 8) {
+        sendJson(res, 400, { ok: false, error: "State the reason (at least 8 characters) when proof is not satisfactory." });
+        return true;
+      }
+      if (satisfied) {
+        const settlement = computeProxySettlement(task.amount || task.fee || 0);
+        const updated = await saveTaskPatch(proofReviewMatch[1], {
+          status: "Proof Approved by Counsel",
+          proofStatus: "poster_approved",
+          escrowStatus: task.escrowStatus || "Locked",
+          payloadPatch: {
+            posterProofDecision: "ok",
+            posterProofReason: reason || null,
+            posterProofReviewedAt: new Date().toISOString(),
+            posterProofReviewedBy: authUser.id,
+            settlementPreview: settlement,
+            transparencyLayer: "poster_proof_review",
+            blueprintState: "proof_approved",
+          },
+        });
+        await writeAuditLog(authUser, "proxy_proof_poster_ok", "task", proofReviewMatch[1], "Main counsel satisfied with proxy proof", {
+          decision: "ok",
+        });
+        await notifyTaskLayer(updated, {
+          eventType: "proxy_proof_poster_approved",
+          title: "Main counsel approved proof",
+          message: `${updated.title || "Proxy mission"} proof was marked satisfactory. LC Admin can now release ₹${settlement.netToProxy.toLocaleString("en-IN")} net (after 10% platform + 3% tax) for manual settlement.`,
+          priority: "high",
+          includeAdmins: true,
+        });
+        sendJson(res, 200, { ok: true, decision: "ok", task: updated, settlement });
+        return true;
+      }
+
+      const updated = await saveTaskPatch(proofReviewMatch[1], {
+        status: "Proof Rejected",
+        proofStatus: "rejected",
+        escrowStatus: task.escrowStatus || "Locked",
+        payloadPatch: {
+          posterProofDecision: "not_ok",
+          posterProofReason: reason,
+          posterProofReviewedAt: new Date().toISOString(),
+          posterProofReviewedBy: authUser.id,
+          proofWindow: "reopen",
+          transparencyLayer: "poster_proof_review",
+        },
+      });
+      await writeAuditLog(authUser, "proxy_proof_poster_reject", "task", proofReviewMatch[1], "Main counsel rejected proxy proof", {
+        decision: "not_ok",
+        reason,
+      });
+      await notifyTaskLayer(updated, {
+        eventType: "proxy_proof_poster_rejected",
+        title: "Proof not accepted — re-upload required",
+        message: `Posting counsel rejected the proof for ${updated.title || "the mission"}: ${reason}. Escrow remains locked. Proxy counsel must upload a fresh order sheet.`,
+        priority: "high",
+        includeAdmins: true,
+        sendSms: true,
+      });
+      sendJson(res, 200, { ok: true, decision: "not_ok", task: updated, reason });
       return true;
     }
 
@@ -1667,7 +1778,8 @@ function createStrategyFeatures(deps) {
     notifyTaskLayer,
     saveTaskPatch,
     loadTask,
+    computeProxySettlement,
   };
 }
 
-module.exports = { createStrategyFeatures, RULE36_PATTERNS };
+module.exports = { createStrategyFeatures, RULE36_PATTERNS, computeProxySettlement };

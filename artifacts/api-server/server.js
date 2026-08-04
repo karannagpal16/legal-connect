@@ -7,7 +7,7 @@ const { spawnSync } = require("child_process");
 const config = require("./config");
 const db = require("./db");
 const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedForPortal } = require("./portal-auth");
-const { createStrategyFeatures } = require("./strategy-features");
+const { createStrategyFeatures, computeProxySettlement } = require("./strategy-features");
 const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
 const { createPlatformEvents } = require("./platform-events");
@@ -1462,13 +1462,108 @@ function internalUserRole(role) {
   return roleMap[role] || String(role || "client").toLowerCase();
 }
 
-function revenueAnalytics(cases, tasks, users) {
+function isProxyReleased(task) {
+  const status = String(task.status || "").toLowerCase();
+  return Boolean(
+    task.settlementReleasedAt
+    || task.settlement
+    || /payment released|escrow_released|completed|closed/.test(status),
+  );
+}
+
+function participantRevenueLedger(tasks, bookings, users) {
+  const ledger = new Map();
+  const ensure = (id, fallback = {}) => {
+    const key = String(id || "").trim();
+    if (!key) return null;
+    if (!ledger.has(key)) {
+      ledger.set(key, {
+        id: key,
+        name: fallback.name || "User",
+        role: internalUserRole(fallback.role || fallback.userRole || "client"),
+        clientTaskRevenue: 0,
+        proxyEarned: 0,
+        proxyPosted: 0,
+        clientSpend: 0,
+      });
+    } else if (fallback.name && ledger.get(key).name === "User") {
+      ledger.get(key).name = fallback.name;
+    }
+    return ledger.get(key);
+  };
+
+  for (const user of users || []) {
+    ensure(user.id, user);
+  }
+
+  for (const booking of bookings || []) {
+    const amount = numericAmount(booking.amount);
+    if (!amount) continue;
+    const paid = /paid|verified|active|assigned|accepted|completed|released/i.test(
+      String(booking.paymentStatus || booking.status || booking.intakeStatus || ""),
+    );
+    if (!paid && !booking.razorpayPaymentId) continue;
+    const client = ensure(booking.userId || booking.user_id, { name: booking.clientName, role: "client" });
+    if (client) client.clientSpend += amount;
+    const advocateId = booking.assignedAdvocateId || booking.lawyerId || booking.advocateId;
+    const advocate = ensure(advocateId, {
+      name: booking.assignedAdvocateName || booking.lawyerName,
+      role: "advocate",
+    });
+    if (advocate) advocate.clientTaskRevenue += amount;
+  }
+
+  for (const task of tasks || []) {
+    const gross = numericAmount(task.amount ?? task.fee);
+    if (!gross) continue;
+    const settlement = task.settlement && typeof task.settlement === "object"
+      ? task.settlement
+      : computeProxySettlement(gross);
+    const poster = ensure(task.postedBy || task.posted_by, { role: "advocate" });
+    if (poster) poster.proxyPosted += gross;
+    const proxy = ensure(task.acceptedBy || task.accepted_by || task.proxyAdvocateId, {
+      name: task.assignedProxyName || task.proxyAdvocateName,
+      role: "advocate",
+    });
+    if (proxy && isProxyReleased(task)) {
+      proxy.proxyEarned += numericAmount(settlement.netToProxy, Math.round(gross * 0.87));
+    }
+  }
+
+  const rows = [...ledger.values()].map((row) => ({
+    ...row,
+    totalEarned: row.clientTaskRevenue + row.proxyEarned,
+    totalSpent: row.clientSpend + row.proxyPosted,
+  }));
+
+  return {
+    advocates: rows
+      .filter((row) => row.role === "advocate")
+      .filter((row) => row.totalEarned > 0 || row.proxyPosted > 0)
+      .sort((a, b) => b.totalEarned - a.totalEarned)
+      .slice(0, 40),
+    users: rows
+      .filter((row) => row.role === "client")
+      .filter((row) => row.clientSpend > 0)
+      .sort((a, b) => b.clientSpend - a.clientSpend)
+      .slice(0, 40),
+  };
+}
+
+function revenueAnalytics(cases, tasks, users, bookings = []) {
   const activeCases = cases.filter((item) => item.status === "Active");
-  const completedTasks = tasks.filter((item) => item.status === "Completed");
+  const completedTasks = tasks.filter((item) => {
+    const status = String(item.status || "").toLowerCase();
+    return status === "completed" || isProxyReleased(item);
+  });
   const openTasks = tasks.filter((item) => item.status === "Open");
-  const marketplaceProfit = completedTasks.reduce((sum, item) => sum + Number(item.amount || item.fee || 0) * 0.1, 0);
+  const marketplaceProfit = completedTasks.reduce((sum, item) => {
+    const gross = numericAmount(item.amount ?? item.fee);
+    return sum + (item.settlement?.platformFee ?? Math.round(gross * 0.1));
+  }, 0);
   const totalManagedRevenue = activeCases.length * 50000;
   const singaporeGoal = 38000000;
+  const participants = participantRevenueLedger(tasks, bookings, users);
   return {
     totalActiveCases: activeCases.length,
     totalManagedRevenue,
@@ -1478,6 +1573,106 @@ function revenueAnalytics(cases, tasks, users) {
     singaporeProgress: Math.min(100, ((totalManagedRevenue + marketplaceProfit) / singaporeGoal) * 100),
     totalUsers: users.length,
     openProxyTasks: openTasks.length,
+    advocateEarnings: participants.advocates,
+    userSpend: participants.users,
+  };
+}
+
+function myAppEarnings(authUser, tasks, bookings) {
+  const userId = String(authUser.id);
+  const role = String(authUser.role || "").toLowerCase();
+  const clientIntakes = [];
+  const proxyAsPoster = [];
+  const proxyAsCounsel = [];
+
+  for (const booking of bookings || []) {
+    const amount = numericAmount(booking.amount);
+    const assigned = String(booking.assignedAdvocateId || booking.lawyerId || "") === userId;
+    const owned = String(booking.userId || booking.user_id || "") === userId;
+    if (role === "advocate" && assigned) {
+      clientIntakes.push({
+        id: booking.id,
+        kind: "client_intake",
+        title: booking.clientName || booking.legalIssueType || "Client intake",
+        detail: booking.legalIssueType || booking.serviceType || "Counsel request",
+        amount,
+        status: booking.intakeStatus || booking.paymentStatus || booking.status || "paid",
+        createdAt: booking.createdAt || booking.created_at || null,
+      });
+    }
+    if ((role === "client" || role === "proxy") && owned) {
+      clientIntakes.push({
+        id: booking.id,
+        kind: "client_payment",
+        title: booking.legalIssueType || booking.serviceType || "Counsel booking",
+        detail: booking.assignedAdvocateName || "Awaiting counsel",
+        amount,
+        status: booking.paymentStatus || booking.status || "paid",
+        createdAt: booking.createdAt || booking.created_at || null,
+      });
+    }
+  }
+
+  for (const task of tasks || []) {
+    const gross = numericAmount(task.amount ?? task.fee);
+    const settlement = task.settlement && typeof task.settlement === "object"
+      ? task.settlement
+      : computeProxySettlement(gross);
+    const title = task.title || task.taskDescription || "Proxy appearance";
+    const detail = [task.court || task.location, task.cnr ? `CNR ${task.cnr}` : null].filter(Boolean).join(" · ");
+    if (String(task.postedBy || task.posted_by || "") === userId) {
+      proxyAsPoster.push({
+        id: task.id,
+        kind: "proxy_posted",
+        title,
+        detail,
+        amount: gross,
+        status: task.status,
+        createdAt: task.createdAt || task.created_at || null,
+      });
+    }
+    if (String(task.acceptedBy || task.accepted_by || task.proxyAdvocateId || "") === userId) {
+      proxyAsCounsel.push({
+        id: task.id,
+        kind: "proxy_earned",
+        title,
+        detail,
+        amount: isProxyReleased(task)
+          ? numericAmount(settlement.netToProxy, Math.round(gross * 0.87))
+          : numericAmount(settlement.netToProxy, Math.round(gross * 0.87)),
+        gross,
+        platformFee: numericAmount(settlement.platformFee),
+        appTaxGst: numericAmount(settlement.appTaxGst),
+        released: isProxyReleased(task),
+        status: task.status,
+        createdAt: task.createdAt || task.created_at || null,
+      });
+    }
+  }
+
+  const clientRevenue = clientIntakes.reduce((sum, row) => sum + row.amount, 0);
+  const proxyEarned = proxyAsCounsel
+    .filter((row) => row.released)
+    .reduce((sum, row) => sum + row.amount, 0);
+  const proxyPosted = proxyAsPoster.reduce((sum, row) => sum + row.amount, 0);
+  const clientSpend = role === "client" || role === "proxy"
+    ? clientIntakes.reduce((sum, row) => sum + row.amount, 0)
+    : 0;
+
+  return {
+    ok: true,
+    role: role === "rna" ? "admin" : role,
+    summary: {
+      clientTaskRevenue: role === "advocate" ? clientRevenue : 0,
+      proxyEarned,
+      proxyPosted,
+      clientSpend,
+      totalEarned: (role === "advocate" ? clientRevenue : 0) + proxyEarned,
+      totalSpent: clientSpend + proxyPosted,
+    },
+    clientIntakes,
+    proxyAsPoster,
+    proxyAsCounsel,
   };
 }
 
@@ -3421,6 +3616,23 @@ const server = http.createServer(async (req, res) => {
       visibility: "private",
       payload: { role: user.role, emailMasked: maskEmail(user.email), phoneMasked: maskPhone(user.phone), consentRecorded: privacyConsent },
     });
+    if (!isReviewLogin && String(user.role || "").toLowerCase() !== "admin") {
+      await notify({
+        eventType: "user_signed_in",
+        title: "User signed in",
+        message: `${user.name || email || phone || "User"} (${user.role}) connected to Legal Connect.`,
+        recipients: await resolveAdminRecipients(),
+        payload: {
+          userId: user.id,
+          role: user.role,
+          actionType: "GENERIC_NAV",
+          targetUrl: "/admin/control",
+        },
+        sendEmail: false,
+        ctaLabel: "Open Ops Command",
+        ctaUrl: portalUrl("/admin/control"),
+      }).catch(() => undefined);
+    }
     sendJson(res, 200, {
       ok: true,
       token,
@@ -4111,6 +4323,30 @@ const server = http.createServer(async (req, res) => {
         ORDER BY "activeCasesCount" ASC, u.name ASC
       `, [MASTER_TEST_LOGIN.email]).catch(() => db.query(`SELECT id, name, email, phone FROM users WHERE role = 'advocate' ORDER BY name ASC`)),
     ]);
+    const bookingIds = bookings.rows.map((row) => row.id).filter(Boolean);
+    const attachmentsByBooking = new Map();
+    if (bookingIds.length) {
+      const attachmentRows = await db.query(
+        `SELECT id, booking_id, file_name, mime_type, size_bytes, created_at
+         FROM booking_attachments
+         WHERE booking_id = ANY($1::uuid[])
+         ORDER BY created_at DESC`,
+        [bookingIds],
+      ).catch(() => ({ rows: [] }));
+      for (const file of attachmentRows.rows || []) {
+        const list = attachmentsByBooking.get(file.booking_id) || [];
+        list.push({
+          id: file.id,
+          fileName: file.file_name,
+          mimeType: file.mime_type,
+          sizeBytes: file.size_bytes,
+          createdAt: file.created_at,
+          downloadPath: `/api/bookings/attachments/${file.id}/download`,
+        });
+        attachmentsByBooking.set(file.booking_id, list);
+      }
+    }
+
     sendJson(res, 200, {
       ok: true,
       intakes: bookings.rows.map((row) => {
@@ -4122,12 +4358,22 @@ const server = http.createServer(async (req, res) => {
           || (["payment_pending", "Pending", "pending"].includes(String(mapped.paymentStatus || "")) ? "draft" : null)
           || mapped.paymentStatus
           || "draft";
+        const attachments = attachmentsByBooking.get(row.id) || [];
         return {
           ...mapped,
           intakeStatus,
           productType: payload.productType || mapped.productType || null,
           retention: payload.retention || mapped.retention || null,
           retentionStatus: payload.retentionStatus || payload.retention?.status || mapped.retentionStatus || null,
+          caseTitle: payload.caseTitle || mapped.caseTitle || mapped.legalIssueType || mapped.serviceType || null,
+          oppositeParty: payload.oppositeParty || mapped.oppositeParty || null,
+          partyName: payload.partyName || mapped.partyName || null,
+          problemSummary: payload.problemSummary || payload.particulars || mapped.problemSummary || null,
+          particulars: payload.particulars || payload.problemSummary || mapped.particulars || null,
+          consultationChannel: payload.consultationChannel || mapped.consultationChannel || null,
+          court: payload.court || mapped.court || null,
+          attachedFiles: payload.attachedFiles || [],
+          attachments,
           pipeline: pipelineProgress(intakeStatus),
           sla: slaClock(row.verified_at || row.created_at || mapped.verifiedAt || mapped.createdAt, INTAKE_SLA_MS),
           missingDocuments: payload.missingDocuments || [],
@@ -4750,15 +4996,84 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (db.dbAvailable) {
-      const [cases, tasks, users] = await Promise.all([
+      const [cases, tasks, users, bookings] = await Promise.all([
         db.query("SELECT * FROM cases"),
         db.query("SELECT * FROM tasks"),
-        db.query("SELECT id FROM users"),
+        db.query("SELECT id, name, role FROM users"),
+        db.query("SELECT * FROM bookings"),
       ]);
-      sendJson(res, 200, revenueAnalytics(cases.rows.map(mapCase), tasks.rows.map(mapTask), users.rows));
+      sendJson(
+        res,
+        200,
+        revenueAnalytics(
+          cases.rows.map(mapCase),
+          tasks.rows.map(mapTask),
+          users.rows.map(mapUser),
+          bookings.rows.map(mapBooking),
+        ),
+      );
       return;
     }
-    sendJson(res, 200, revenueAnalytics(demoStore.cases.map(dashboardCase), demoStore.tasks.map(dashboardTask), demoStore.users));
+    sendJson(
+      res,
+      200,
+      revenueAnalytics(
+        demoStore.cases.map(dashboardCase),
+        demoStore.tasks.map(dashboardTask),
+        demoStore.users,
+        demoStore.bookings.map(dashboardBooking),
+      ),
+    );
+    return;
+  }
+
+  if (url.pathname === "/api/analytics/my-earnings" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const role = String(authUser.role || "").toLowerCase();
+    if (!["advocate", "client", "proxy"].includes(role)) {
+      sendJson(res, 403, { error: "Personal earnings are available for advocates and clients." });
+      return;
+    }
+    if (db.dbAvailable) {
+      const databaseUserId = await resolveDatabaseUserId(authUser);
+      if (!databaseUserId) {
+        sendJson(res, 401, { error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const [tasksResult, bookingsResult] = await Promise.all([
+        db.query(
+          "SELECT * FROM tasks WHERE posted_by = $1 OR accepted_by = $1 OR payload->>'proxyAdvocateId' = $1 ORDER BY created_at DESC",
+          [String(databaseUserId)],
+        ),
+        role === "advocate"
+          ? db.query(
+            "SELECT * FROM bookings WHERE payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC",
+            [String(databaseUserId)],
+          )
+          : db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [databaseUserId]),
+      ]);
+      sendJson(
+        res,
+        200,
+        myAppEarnings(
+          { ...authUser, id: String(databaseUserId) },
+          tasksResult.rows.map(mapTask),
+          bookingsResult.rows.map(mapBooking),
+        ),
+      );
+      return;
+    }
+    const tasks = demoStore.tasks.filter(
+      (item) => item.postedBy === authUser.id || item.acceptedBy === authUser.id || item.proxyAdvocateId === authUser.id,
+    );
+    const bookings = role === "advocate"
+      ? demoStore.bookings.filter((item) => item.assignedAdvocateId === authUser.id || item.assignedTo === authUser.id)
+      : demoStore.bookings.filter((item) => item.userId === authUser.id);
+    sendJson(res, 200, myAppEarnings(authUser, tasks.map(dashboardTask), bookings.map(dashboardBooking)));
     return;
   }
 
@@ -5476,24 +5791,33 @@ const server = http.createServer(async (req, res) => {
       const existingTask = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [body.taskId]);
       const currentTask = existingTask.rows[0] ? mapTask(existingTask.rows[0]) : null;
       if (body.action === "release_payment") {
-        const proofStatus = currentTask?.proofStatus || currentTask?.proof_status || "none";
-        if (!currentTask?.proofHash && proofStatus !== "approved") {
-          sendJson(res, 409, { ok: false, error: "Escrow cannot unlock until order-sheet proof is uploaded and approved." });
+        const proofStatus = String(currentTask?.proofStatus || currentTask?.proof_status || "none").toLowerCase();
+        const posterDecision = String(currentTask?.posterProofDecision || currentTask?.payload?.posterProofDecision || "").toLowerCase();
+        const escrow = String(currentTask?.escrowStatus || currentTask?.escrow_status || "").toLowerCase();
+        if (!(escrow.includes("lock") || escrow.includes("held"))) {
+          sendJson(res, 409, { ok: false, error: "No locked escrow funds are available to release." });
           return;
         }
-        if (proofStatus !== "approved") {
-          sendJson(res, 409, { ok: false, error: "Approve proof before releasing escrow." });
+        if (!["poster_approved", "approved"].includes(proofStatus) && posterDecision !== "ok") {
+          sendJson(res, 409, {
+            ok: false,
+            error: "Release only after the main counsel marks proof as satisfactory (or Admin override approval).",
+            code: "POSTER_PROOF_REQUIRED",
+          });
           return;
         }
       }
       let escrowStatus = body.paymentLockStatus || body.payment_lock_status || null;
       let proofStatusUpdate = null;
+      let settlement = null;
       if (body.action === "mark_proof_approved") {
-        proofStatusUpdate = "approved";
+        // Admin override only — preferred path is main counsel proof-review.
+        proofStatusUpdate = "poster_approved";
         escrowStatus = escrowStatus || "Locked";
       }
       if (body.action === "release_payment") {
         escrowStatus = "Released";
+        settlement = strategyFeatures.computeProxySettlement(currentTask?.amount || currentTask?.fee || 0);
       }
       const assignAdvocateId = body.advocateId || body.proxyAdvocateId || body.acceptedBy || null;
       const assignAdvocateName = body.advocateName || body.proxyAdvocateName || body.assigneeName || null;
@@ -5518,39 +5842,58 @@ const server = http.createServer(async (req, res) => {
             lastAdminAction: body.action || null,
             transparencyLayer: body.action === "release_payment" ? "escrow_release" : body.action === "mark_proof_approved" ? "proof_review" : "admin",
             proofReviewedAt: body.action === "mark_proof_approved" ? new Date().toISOString() : undefined,
+            posterProofDecision: body.action === "mark_proof_approved" ? "ok" : undefined,
+            posterProofReason: body.action === "mark_proof_approved" ? (body.reason || "Admin override approval") : undefined,
             assignedProxyName: assignAdvocateName || undefined,
             assignmentStatus: acceptedByUpdate ? "Assigned" : undefined,
             assignedByAdmin: acceptedByUpdate ? true : undefined,
+            settlement: settlement || undefined,
+            settlementReleasedAt: settlement ? new Date().toISOString() : undefined,
+            settlementReleasedBy: settlement ? authUser.id : undefined,
           }),
           acceptedByUpdate,
         ],
       );
-      await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
+      await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, {
+        action: body.action,
+        status: nextStatus,
+        settlement,
+      });
       await createReceipt({
         userId: authUser?.id || null,
         actor: authUser,
-        receiptType: "admin_task_action",
-        title: "RNA/Admin action receipt",
-        message: `Task action saved: ${nextStatus}`,
+        receiptType: body.action === "release_payment" ? "proxy_escrow_release" : "admin_task_action",
+        title: body.action === "release_payment" ? "Proxy escrow release receipt" : "RNA/Admin action receipt",
+        message: body.action === "release_payment" && settlement
+          ? `Gross ₹${settlement.gross} → platform ₹${settlement.platformFee} → tax ₹${settlement.appTaxGst} → net to proxy ₹${settlement.netToProxy}. Manual settlement required.`
+          : `Task action saved: ${nextStatus}`,
         status: nextStatus,
         targetType: "task",
         targetId: body.taskId,
         visibility: "team",
-        payload: { action: body.action, paymentLockStatus: body.paymentLockStatus || body.payment_lock_status || null },
+        payload: {
+          action: body.action,
+          paymentLockStatus: body.paymentLockStatus || body.payment_lock_status || null,
+          settlement,
+        },
       });
       if (result.rows[0] && (body.action === "mark_proof_approved" || body.action === "release_payment")) {
         const mapped = mapTask(result.rows[0]);
         await strategyFeatures.notifyTaskLayer(mapped, {
           eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
-          title: body.action === "release_payment" ? "Work hold released" : "Proof approved",
-          message: body.action === "release_payment"
-            ? `${mapped.title || "Proxy mission"} work hold was released after proof review. Payout/settlement is processed manually by Admin — this is not an automated Razorpay transfer.`
-            : `${mapped.title || "Proxy mission"} proof was approved. Admin can now release the work hold for manual settlement.`,
+          title: body.action === "release_payment" ? "Funds released after tax deduction" : "Proof approved (Admin override)",
+          message: body.action === "release_payment" && settlement
+            ? `${mapped.title || "Proxy mission"} work hold released. Gross ₹${settlement.gross.toLocaleString("en-IN")} − platform ₹${settlement.platformFee.toLocaleString("en-IN")} − tax ₹${settlement.appTaxGst.toLocaleString("en-IN")} = net ₹${settlement.netToProxy.toLocaleString("en-IN")} to proxy. Payout is manual (not automated Razorpay).`
+            : `${mapped.title || "Proxy mission"} proof was approved by Admin override. Main counsel satisfaction is preferred; Admin may now release net funds after taxes.`,
           priority: "high",
           sendSms: false,
         });
       }
-      sendJson(res, 200, { ok: true, task: result.rows[0] ? mapTask(result.rows[0]) : null });
+      sendJson(res, 200, {
+        ok: true,
+        task: result.rows[0] ? mapTask(result.rows[0]) : null,
+        settlement,
+      });
       return;
     }
     await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId || "demo-task", `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
@@ -6019,6 +6362,33 @@ const server = http.createServer(async (req, res) => {
     // Zero-amount / developer / first-chat free — never call Razorpay.
     // Client-supplied masterTestFree flags are ignored unless the signed-in user is the developer account.
     if (authUser && (masterFree || wantsFirstChatFree || amount === 0)) {
+      const bookingId = body.bookingId || body.booking_id;
+      // Idempotent: book-advisory may have already activated the free booking.
+      if (bookingId && db.dbAvailable && isUuid(String(bookingId))) {
+        const existing = await db.query(
+          "SELECT payment_status, payload FROM bookings WHERE id = $1 LIMIT 1",
+          [bookingId],
+        ).catch(() => ({ rows: [] }));
+        const row = existing.rows[0];
+        const paid = ["paid", "demo-verified", "review-inspection"].includes(String(row?.payment_status || "").toLowerCase());
+        if (paid) {
+          sendJson(res, 200, {
+            ok: true,
+            success: true,
+            mode: masterFree ? "master_test_free" : "first_chat_free",
+            provider: "legal-connect",
+            status: "free",
+            payment_status: "paid",
+            work_hold_status: "active",
+            amount: 0,
+            currency: "INR",
+            receipt: body.receiptNo || body.receipt_no || `LC-FREE-${Date.now()}`,
+            bookingId,
+            message: "Free booking already confirmed.",
+          });
+          return;
+        }
+      }
       if (masterFree) {
         const claimed = await claimFreeBooking(authUser, body, "master_test_free");
         sendJson(res, claimed.status, claimed.ok ? claimed.body : { ok: false, error: claimed.error });
@@ -6035,7 +6405,6 @@ const server = http.createServer(async (req, res) => {
         }
         if (await userHasUsedFirstChat(authUser.id)) {
           // Still allow zero-amount retry to complete an already-activated free booking.
-          const bookingId = body.bookingId || body.booking_id;
           if (bookingId) {
             const claimed = await claimFreeBooking(authUser, body, "first_chat_free");
             if (claimed.ok) {
@@ -6807,6 +7176,46 @@ const server = http.createServer(async (req, res) => {
     });
     demoStore.bookings.push(booking);
     sendJson(res, 201, dashboardBooking(booking));
+    return;
+  }
+
+  const bookingAttachmentDownloadMatch = url.pathname.match(/^\/api\/bookings\/attachments\/([^/]+)\/download$/);
+  if (bookingAttachmentDownloadMatch && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 503, { error: "Secure file storage is not available." });
+      return;
+    }
+    const attachmentId = bookingAttachmentDownloadMatch[1];
+    const attachmentResult = await db.query(
+      `SELECT ba.*, b.user_id AS booking_user_id
+       FROM booking_attachments ba
+       JOIN bookings b ON b.id = ba.booking_id
+       WHERE ba.id = $1
+       LIMIT 1`,
+      [attachmentId],
+    );
+    const row = attachmentResult.rows[0];
+    if (!row) {
+      sendJson(res, 404, { error: "Attachment not found." });
+      return;
+    }
+    const databaseUserId = await resolveDatabaseUserId(authUser);
+    if (!canSeeAll(authUser) && String(row.booking_user_id) !== String(databaseUserId)) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": row.mime_type || "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${safeAttachmentName(row.file_name)}"`,
+      "Content-Length": String(row.size_bytes || (row.file_data ? row.file_data.length : 0)),
+      "Cache-Control": "private, no-store",
+    });
+    res.end(row.file_data);
     return;
   }
 
@@ -8330,7 +8739,23 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendSms: false,
       ctaLabel: 'Open your workspace',
       ctaUrl: portalUrl(`/${role}`),
-    });
+    }).catch(() => undefined);
+    await notify({
+      eventType: 'user_registered',
+      title: 'New user signed up',
+      message: `${name} registered as ${role}. Review identity / Aadhaar on Verifications if needed.`,
+      recipients: await resolveAdminRecipients(),
+      payload: {
+        role,
+        userId: user.id,
+        actionType: 'KYC_VERIFICATION',
+        targetUrl: role === 'client' ? '/admin/verifications' : '/admin/control',
+      },
+      sendEmail: true,
+      ctaLabel: 'Open Admin Ops',
+      ctaUrl: portalUrl(role === 'client' ? '/admin/verifications' : '/admin/control'),
+      priority: 'high',
+    }).catch(() => undefined);
     sendJson(res, 201, { ok: true, token, user: strictPublicUser(user), message: 'Account created. Identity review is pending.' });
     return true;
   }
@@ -8359,6 +8784,23 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const token = strictSignJwt(user);
     await saveSessionToken(user, token);
     await writeAuditLog(user, 'jwt_login', 'user', user.id, 'Strict JWT login completed.', { role: user.role, emailMasked: maskEmail(user.email) });
+    if (String(user.role || '').toLowerCase() !== 'admin') {
+      await notify({
+        eventType: 'user_signed_in',
+        title: 'User signed in',
+        message: `${user.name || email} (${user.role}) connected to Legal Connect.`,
+        recipients: await resolveAdminRecipients(),
+        payload: {
+          userId: user.id,
+          role: user.role,
+          actionType: 'GENERIC_NAV',
+          targetUrl: '/admin/control',
+        },
+        sendEmail: false,
+        ctaLabel: 'Open Ops Command',
+        ctaUrl: portalUrl('/admin/control'),
+      }).catch(() => undefined);
+    }
     sendJson(res, 200, { ok: true, token, user: strictPublicUser(user) });
     return true;
   }

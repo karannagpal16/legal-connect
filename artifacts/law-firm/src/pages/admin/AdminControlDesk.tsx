@@ -34,6 +34,14 @@ type Advocate = {
   activeCasesCount?: number;
 };
 
+type IntakeAttachment = {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  downloadPath?: string;
+};
+
 type Intake = {
   id: string;
   clientName?: string;
@@ -55,6 +63,15 @@ type Intake = {
     requestedAt?: string;
   } | null;
   productType?: string;
+  caseTitle?: string;
+  oppositeParty?: string;
+  partyName?: string;
+  problemSummary?: string;
+  particulars?: string;
+  consultationChannel?: string;
+  court?: string;
+  attachedFiles?: Array<{ name?: string; type?: string; size?: number }>;
+  attachments?: IntakeAttachment[];
   missingDocuments?: string[];
   lastLcNote?: string | null;
   rejectionReason?: string | null;
@@ -90,6 +107,10 @@ type DeskTask = {
   assignedProxyName?: string;
   court?: string;
   clientName?: string;
+  posterProofDecision?: string;
+  posterProofReason?: string;
+  settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
+  settlementPreview?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
 };
 
 type DeskCase = {
@@ -153,13 +174,15 @@ function needsSupervision(item: Intake) {
 
 function isProxyActionable(task: DeskTask) {
   const status = String(task.status || "").toLowerCase();
+  const proof = String(task.proofStatus || "").toLowerCase();
   return status.includes("awaiting")
     || status === "pending_admin_review"
     || status === "query_raised"
     || status === "open"
     || status.includes("proof")
-    || task.proofStatus === "submitted"
-    || (task.proofStatus === "approved" && String(task.escrowStatus || "").toLowerCase() !== "released");
+    || proof === "submitted"
+    || proof === "rejected"
+    || ((proof === "approved" || proof === "poster_approved") && String(task.escrowStatus || "").toLowerCase() !== "released");
 }
 
 function isEscrowHeld(task: DeskTask) {
@@ -540,7 +563,7 @@ export function AdminControlDesk() {
   const tabs: Array<{ id: OpsTab; label: string; count?: number }> = [
     { id: "intakes", label: "Intakes & Assignments", count: queue.length },
     { id: "gateway", label: "LC Gateway", count: gatewayQueue.length },
-    { id: "proxy", label: "Proxy Missions", count: tasks.length },
+    { id: "proxy", label: "Posted Proxy Tasks", count: tasks.length },
     { id: "moderation", label: "Counsel Updates", count: pendingLcCount },
     { id: "verifications", label: "Credential Verifications", count: pendingVerifyCount },
     { id: "escrow", label: "Escrow & Revenue", count: escrowTasks.length + heldBookings.length },
@@ -650,9 +673,11 @@ export function AdminControlDesk() {
                 >
                   <div className="lc-ops-card-head">
                     <div>
-                      <strong>{intake.clientName || "Client intake"}</strong>
+                      <strong>{intake.caseTitle || intake.legalIssueType || intake.serviceType || "Client intake"}</strong>
                       <p>
-                        {intake.legalIssueType || intake.serviceType || "Counsel request"}
+                        Client: {intake.clientName || "—"}
+                        {intake.oppositeParty ? ` · Opposite: ${intake.oppositeParty}` : ""}
+                        {intake.consultationChannel ? ` · ${intake.consultationChannel}` : ""}
                         {" · "}
                         {intake.pipeline?.stageLabel || intake.intakeStatus || intake.stageStatus || intake.paymentStatus || intake.status || "Pending"}
                         {intake.pipeline?.stageOrder ? ` · Stage ${intake.pipeline.stageOrder}/${intake.pipeline.totalStages || 7}` : ""}
@@ -670,6 +695,11 @@ export function AdminControlDesk() {
                       ) : (
                         <p className="lc-ops-meta warn">Unassigned — select advocate by live workload</p>
                       )}
+                      {(intake.attachments?.length || intake.attachedFiles?.length) ? (
+                        <p className="lc-ops-meta">
+                          PDFs/files: {intake.attachments?.length || intake.attachedFiles?.length}
+                        </p>
+                      ) : null}
                       {intake.lastLcNote ? <p className="lc-ops-meta">Last LC note: {intake.lastLcNote}</p> : null}
                     </div>
                     <Scale className="h-5 w-5 opacity-50" />
@@ -678,6 +708,62 @@ export function AdminControlDesk() {
 
                 {open ? (
                   <div className="lc-ops-actions">
+                    <div className="lc-ops-action-block">
+                      <h4><FileSearch className="h-4 w-4" /> Case card</h4>
+                      <dl className="lc-ops-stack" style={{ gap: "0.35rem" }}>
+                        <p className="lc-ops-meta"><strong>Case:</strong> {intake.caseTitle || intake.legalIssueType || intake.serviceType || "—"}</p>
+                        <p className="lc-ops-meta"><strong>Client:</strong> {intake.clientName || "—"}{intake.partyName && intake.partyName !== intake.clientName ? ` (${intake.partyName})` : ""}</p>
+                        <p className="lc-ops-meta"><strong>Opposite party:</strong> {intake.oppositeParty || "—"}</p>
+                        <p className="lc-ops-meta"><strong>Channel / court:</strong> {intake.consultationChannel || "—"}{intake.court ? ` · ${intake.court}` : ""}</p>
+                        <p className="lc-ops-meta"><strong>Status:</strong> {intake.intakeStatus || intake.stageStatus || intake.paymentStatus || intake.status || "—"}</p>
+                        <p className="lc-ops-meta"><strong>Notes:</strong> {intake.problemSummary || intake.particulars || "No particulars recorded."}</p>
+                      </dl>
+                      {(intake.attachments && intake.attachments.length > 0) ? (
+                        <div className="lc-ops-stack" style={{ marginTop: "0.75rem" }}>
+                          <p className="lc-ops-meta"><strong>Uploaded PDFs / files</strong></p>
+                          {intake.attachments.map((file) => (
+                            <a
+                              key={file.id}
+                              className="lc-button"
+                              style={{ width: "fit-content" }}
+                              href={file.downloadPath || `#`}
+                              onClick={async (event) => {
+                                if (!file.downloadPath || !session?.token) return;
+                                event.preventDefault();
+                                try {
+                                  const response = await fetch(file.downloadPath, {
+                                    headers: { Authorization: `Bearer ${session.token}` },
+                                  });
+                                  if (!response.ok) throw new Error("Download failed");
+                                  const blob = await response.blob();
+                                  const href = URL.createObjectURL(blob);
+                                  const anchor = document.createElement("a");
+                                  anchor.href = href;
+                                  anchor.download = file.fileName;
+                                  anchor.click();
+                                  URL.revokeObjectURL(href);
+                                } catch {
+                                  setError(`Could not download ${file.fileName}`);
+                                }
+                              }}
+                            >
+                              <FileSearch className="h-4 w-4" /> {file.fileName}
+                              {file.sizeBytes ? ` (${Math.max(1, Math.round(file.sizeBytes / 1024))} KB)` : ""}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (intake.attachedFiles && intake.attachedFiles.length > 0) ? (
+                        <div className="lc-ops-stack" style={{ marginTop: "0.75rem" }}>
+                          <p className="lc-ops-meta"><strong>Declared files</strong> (upload pending or metadata only)</p>
+                          {intake.attachedFiles.map((file, index) => (
+                            <p key={`${file.name || "file"}-${index}`} className="lc-ops-meta">{file.name || "Untitled file"}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="lc-ops-meta" style={{ marginTop: "0.75rem" }}>No PDFs uploaded yet.</p>
+                      )}
+                    </div>
+
                     <div className="lc-ops-action-block row">
                       <button
                         className="lc-button"
@@ -968,11 +1054,11 @@ export function AdminControlDesk() {
 
       {tab === "proxy" ? (
         <section>
-          <h3>Proxy Missions · Assignment & Escrow</h3>
+          <h3>ProxyHub · Posted tasks</h3>
           <p className="text-muted-foreground" style={{ marginBottom: "1rem" }}>
-            Flow B: escrow_paid → proxy_assigned_by_lc → supervised Q&A → proof_approved → escrow_released.
+            Advocates pay &amp; post tasks here for LC review. Flow: escrow_paid → LC assign → supervised Q&amp;A → proof_approved → escrow_released.
           </p>
-          {!filteredTasks.length ? <p className="text-muted-foreground">No proxy missions need admin action.</p> : null}
+          {!filteredTasks.length ? <p className="text-muted-foreground">No posted proxy tasks need admin action right now.</p> : null}
           <div className="space-y-3">
             {filteredTasks.map((task) => {
               const pendingAssign = /awaiting|open|pending/i.test(String(task.status || ""));
@@ -985,6 +1071,13 @@ export function AdminControlDesk() {
                     {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                     {" · "}Proof {task.proofStatus || "none"} · Work hold {task.escrowStatus || "—"}
                     {task.assignedProxyName ? ` · Proxy: ${task.assignedProxyName}` : ""}
+                    {task.posterProofDecision ? ` · Main counsel: ${task.posterProofDecision === "ok" ? "Satisfied" : "Not satisfied"}` : ""}
+                    {task.posterProofReason ? ` (${task.posterProofReason})` : ""}
+                    {task.settlement?.netToProxy != null
+                      ? ` · Net after tax ₹${Number(task.settlement.netToProxy).toLocaleString("en-IN")}`
+                      : task.settlementPreview?.netToProxy != null
+                        ? ` · Net preview ₹${Number(task.settlementPreview.netToProxy).toLocaleString("en-IN")}`
+                        : ""}
                   </p>
                   <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
                     {pendingAssign ? (
@@ -1007,29 +1100,29 @@ export function AdminControlDesk() {
                             advocateName: selected?.name || "Proxy counsel",
                           })}
                         >
-                          Assign proxy
+                          Assign proxy (funds held)
                         </button>
                       </>
                     ) : null}
                     {task.proofStatus === "submitted" ? (
                       <button
-                        className="lc-button lc-button-primary"
+                        className="lc-button"
                         disabled={taskAction.isPending}
                         onClick={() => taskAction.mutate({ taskId: task.id, action: "mark_proof_approved" })}
                       >
-                        Approve proof
+                        Admin override: approve proof
                       </button>
                     ) : null}
-                    {task.proofStatus === "approved" && String(task.escrowStatus || "").toLowerCase() !== "released" ? (
+                    {["poster_approved", "approved"].includes(String(task.proofStatus || "")) && String(task.escrowStatus || "").toLowerCase() !== "released" ? (
                       <button
                         className="lc-button lc-button-primary"
                         disabled={taskAction.isPending}
                         onClick={() => {
-                          if (!window.confirm("Release the work hold for manual settlement? This does not send an automated Razorpay payout.")) return;
+                          if (!window.confirm("Release escrow after 10% platform fee + 3% app/GST tax? Net payout to proxy is manual.")) return;
                           taskAction.mutate({ taskId: task.id, action: "release_payment" });
                         }}
                       >
-                        Release work hold
+                        Release net funds (after tax)
                       </button>
                     ) : null}
                     <Link className="lc-button" href="/admin/missions">Open missions</Link>

@@ -46,6 +46,7 @@ const ClientConnectChat = lazyNamed(() => import("@/pages/client/ClientConnectCh
 const ClientWellness = lazyNamed(() => import("@/pages/client/ClientWellness"), "ClientWellness");
 const ClientRightsFeed = lazyNamed(() => import("@/pages/client/ClientRightsFeed"), "ClientRightsFeed");
 const ClientCaseTracker = lazyNamed(() => import("@/pages/client/ClientCaseTracker"), "ClientCaseTracker");
+const ClientPayments = lazyNamed(() => import("@/pages/client/ClientPayments"), "ClientPayments");
 
 const AdvocateDashboard = lazyNamed(() => import("@/pages/advocate/AdvocateDashboard"), "AdvocateDashboard");
 const AdvocateCalls = lazyNamed(() => import("@/pages/advocate/AdvocateCalls"), "AdvocateCalls");
@@ -181,6 +182,7 @@ function ClientPortal() {
             <Route path="/client/rights" component={ClientRightsFeed} />
             <Route path="/client/cases" component={ClientCaseTracker} />
             <Route path="/client/book" component={ClientBookAdvocate} />
+            <Route path="/client/payments" component={ClientPayments} />
             <Route path="/client/reminders" component={ClientReminders} />
             <Route path="/client/legal-guide" component={ClientLegalGuide} />
             <Route path="/client/diy-docs" component={ClientDIYDocs} />

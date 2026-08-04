@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ArrowRight,
@@ -31,6 +31,26 @@ const roles: Array<{
   { role: "admin", label: "Admin", detail: "Platform control", icon: LayoutDashboard },
 ];
 
+const OWNER_EMAIL = "karannagpal16@gmail.com";
+const OWNER_DESK_KEY = "lc_owner_desk";
+
+function readOwnerDeskUnlocked(params: URLSearchParams) {
+  if (typeof window === "undefined") return false;
+  if (params.get("owner") === "1" || params.get("ops") === "1") {
+    try {
+      window.sessionStorage.setItem(OWNER_DESK_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    return true;
+  }
+  try {
+    return window.sessionStorage.getItem(OWNER_DESK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function Login() {
   const [, setLocation] = useLocation();
   const { session, login, register } = useAuth();
@@ -39,14 +59,15 @@ export function Login() {
     [],
   );
   const requestedRole = normaliseRole(params.get("role"));
+  const [ownerDesk, setOwnerDesk] = useState(false);
   const [mode, setMode] = useState<"login" | "register">(
     params.get("mode") === "register" ? "register" : "login",
   );
   const [role, setRole] = useState<AppRole>(requestedRole);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("karannagpal16@gmail.com");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("Karan1605!");
+  const [password, setPassword] = useState("");
   const [address, setAddress] = useState("");
   const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [enrollmentNo, setEnrollmentNo] = useState("");
@@ -63,6 +84,14 @@ export function Login() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    const unlocked = readOwnerDeskUnlocked(params);
+    setOwnerDesk(unlocked);
+    if (unlocked) {
+      setEmail(OWNER_EMAIL);
+    }
+  }, [params]);
+
   const selectMode = (next: "login" | "register") => {
     setMode(next);
     if (next === "register" && role === "admin") setRole("client");
@@ -73,19 +102,22 @@ export function Login() {
     window.location.assign(roleHome(next.user.role));
   };
 
-  const handleMasterPortal = async (portalRole: AppRole) => {
+  const handleOwnerPortal = async (portalRole: AppRole) => {
     setError("");
+    if (!password.trim()) {
+      setError("Enter your owner password, then choose a portal.");
+      return;
+    }
     setBusy(portalRole);
     setRole(portalRole);
     try {
-      // Master card: same credentials open Client, Advocate, Intern, and Admin — all paid features free.
       enterSession(await login({
-        email: "karannagpal16@gmail.com",
-        password: "Karan1605!",
+        email: OWNER_EMAIL,
+        password,
         role: portalRole,
       }));
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Master portal login is unavailable.");
+      setError(requestError instanceof Error ? requestError.message : "Owner portal login is unavailable.");
     } finally {
       setBusy(null);
     }
@@ -172,7 +204,11 @@ export function Login() {
           <div className="lc-login-heading">
             <span className="lc-kicker">SECURE ACCESS</span>
             <h2>{mode === "login" ? "Welcome back" : "Create your workspace"}</h2>
-            <p>{mode === "login" ? "Pick a portal role, then sign in. Master card credentials are prefilled for operator access." : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}</p>
+            <p>
+              {mode === "login"
+                ? "Pick a portal role, then sign in with your Legal Connect credentials."
+                : "Complete the identity fields for your role. Legal Connect reviews professional credentials."}
+            </p>
           </div>
 
           <div className="lc-role-picker" aria-label="Select a role">
@@ -328,18 +364,23 @@ export function Login() {
             </button>
           </form>
 
-          <div className="lc-demo-divider"><span>master card · all portals free</span></div>
-          <div className="lc-demo-grid">
-            {roles.map((item) => (
-              <button key={item.role} onClick={() => handleMasterPortal(item.role)} disabled={Boolean(busy)}>
-                {busy === item.role ? <Loader2 className="lc-spin" /> : <item.icon />}
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-          <p className="lc-demo-note">
-            Master card (<strong>karannagpal16@gmail.com</strong>) opens Client, Advocate, Intern, and Admin. All paid features are free on this account.
-          </p>
+          {ownerDesk && mode === "login" ? (
+            <>
+              <div className="lc-demo-divider"><span>owner desk · private</span></div>
+              <div className="lc-demo-grid">
+                {roles.map((item) => (
+                  <button key={item.role} onClick={() => handleOwnerPortal(item.role)} disabled={Boolean(busy)}>
+                    {busy === item.role ? <Loader2 className="lc-spin" /> : <item.icon />}
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="lc-demo-note">
+                Owner desk only. Enter your password above, then open any portal. Paid features stay free on this account.
+              </p>
+            </>
+          ) : null}
+
           <p className="lc-demo-note">
             <Link href="/privacy">Privacy</Link>
             {" · "}

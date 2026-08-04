@@ -13,6 +13,7 @@ import { RevenueTracker } from "@/pages/RevenueTracker";
 import { LegalLibrary } from "@/pages/LegalLibrary";
 import { ClientHome } from "@/pages/client/ClientHome";
 import { ClientCaseTracker } from "@/pages/client/ClientCaseTracker";
+import { ClientPayments } from "@/pages/client/ClientPayments";
 import { ClientBookAdvocate } from "@/pages/client/ClientBookAdvocate";
 import { ClientChat } from "@/pages/client/ClientChat";
 import { ClientLawBot } from "@/pages/client/ClientLawBot";
@@ -64,6 +65,7 @@ const pages: Array<[string, React.ComponentType]> = [
   ["/admin/library", LegalLibrary],
   ["/client", ClientHome],
   ["/client/cases", ClientCaseTracker],
+  ["/client/payments", ClientPayments],
   ["/client/book", ClientBookAdvocate],
   ["/client/chat", ClientChat],
   ["/client/lawbot", ClientLawBot],
