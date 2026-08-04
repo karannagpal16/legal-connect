@@ -5527,24 +5527,33 @@ const server = http.createServer(async (req, res) => {
       const existingTask = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [body.taskId]);
       const currentTask = existingTask.rows[0] ? mapTask(existingTask.rows[0]) : null;
       if (body.action === "release_payment") {
-        const proofStatus = currentTask?.proofStatus || currentTask?.proof_status || "none";
-        if (!currentTask?.proofHash && proofStatus !== "approved") {
-          sendJson(res, 409, { ok: false, error: "Escrow cannot unlock until order-sheet proof is uploaded and approved." });
+        const proofStatus = String(currentTask?.proofStatus || currentTask?.proof_status || "none").toLowerCase();
+        const posterDecision = String(currentTask?.posterProofDecision || currentTask?.payload?.posterProofDecision || "").toLowerCase();
+        const escrow = String(currentTask?.escrowStatus || currentTask?.escrow_status || "").toLowerCase();
+        if (!(escrow.includes("lock") || escrow.includes("held"))) {
+          sendJson(res, 409, { ok: false, error: "No locked escrow funds are available to release." });
           return;
         }
-        if (proofStatus !== "approved") {
-          sendJson(res, 409, { ok: false, error: "Approve proof before releasing escrow." });
+        if (!["poster_approved", "approved"].includes(proofStatus) && posterDecision !== "ok") {
+          sendJson(res, 409, {
+            ok: false,
+            error: "Release only after the main counsel marks proof as satisfactory (or Admin override approval).",
+            code: "POSTER_PROOF_REQUIRED",
+          });
           return;
         }
       }
       let escrowStatus = body.paymentLockStatus || body.payment_lock_status || null;
       let proofStatusUpdate = null;
+      let settlement = null;
       if (body.action === "mark_proof_approved") {
-        proofStatusUpdate = "approved";
+        // Admin override only — preferred path is main counsel proof-review.
+        proofStatusUpdate = "poster_approved";
         escrowStatus = escrowStatus || "Locked";
       }
       if (body.action === "release_payment") {
         escrowStatus = "Released";
+        settlement = strategyFeatures.computeProxySettlement(currentTask?.amount || currentTask?.fee || 0);
       }
       const assignAdvocateId = body.advocateId || body.proxyAdvocateId || body.acceptedBy || null;
       const assignAdvocateName = body.advocateName || body.proxyAdvocateName || body.assigneeName || null;
@@ -5569,39 +5578,58 @@ const server = http.createServer(async (req, res) => {
             lastAdminAction: body.action || null,
             transparencyLayer: body.action === "release_payment" ? "escrow_release" : body.action === "mark_proof_approved" ? "proof_review" : "admin",
             proofReviewedAt: body.action === "mark_proof_approved" ? new Date().toISOString() : undefined,
+            posterProofDecision: body.action === "mark_proof_approved" ? "ok" : undefined,
+            posterProofReason: body.action === "mark_proof_approved" ? (body.reason || "Admin override approval") : undefined,
             assignedProxyName: assignAdvocateName || undefined,
             assignmentStatus: acceptedByUpdate ? "Assigned" : undefined,
             assignedByAdmin: acceptedByUpdate ? true : undefined,
+            settlement: settlement || undefined,
+            settlementReleasedAt: settlement ? new Date().toISOString() : undefined,
+            settlementReleasedBy: settlement ? authUser.id : undefined,
           }),
           acceptedByUpdate,
         ],
       );
-      await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });
+      await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, {
+        action: body.action,
+        status: nextStatus,
+        settlement,
+      });
       await createReceipt({
         userId: authUser?.id || null,
         actor: authUser,
-        receiptType: "admin_task_action",
-        title: "RNA/Admin action receipt",
-        message: `Task action saved: ${nextStatus}`,
+        receiptType: body.action === "release_payment" ? "proxy_escrow_release" : "admin_task_action",
+        title: body.action === "release_payment" ? "Proxy escrow release receipt" : "RNA/Admin action receipt",
+        message: body.action === "release_payment" && settlement
+          ? `Gross ₹${settlement.gross} → platform ₹${settlement.platformFee} → tax ₹${settlement.appTaxGst} → net to proxy ₹${settlement.netToProxy}. Manual settlement required.`
+          : `Task action saved: ${nextStatus}`,
         status: nextStatus,
         targetType: "task",
         targetId: body.taskId,
         visibility: "team",
-        payload: { action: body.action, paymentLockStatus: body.paymentLockStatus || body.payment_lock_status || null },
+        payload: {
+          action: body.action,
+          paymentLockStatus: body.paymentLockStatus || body.payment_lock_status || null,
+          settlement,
+        },
       });
       if (result.rows[0] && (body.action === "mark_proof_approved" || body.action === "release_payment")) {
         const mapped = mapTask(result.rows[0]);
         await strategyFeatures.notifyTaskLayer(mapped, {
           eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
-          title: body.action === "release_payment" ? "Work hold released" : "Proof approved",
-          message: body.action === "release_payment"
-            ? `${mapped.title || "Proxy mission"} work hold was released after proof review. Payout/settlement is processed manually by Admin — this is not an automated Razorpay transfer.`
-            : `${mapped.title || "Proxy mission"} proof was approved. Admin can now release the work hold for manual settlement.`,
+          title: body.action === "release_payment" ? "Funds released after tax deduction" : "Proof approved (Admin override)",
+          message: body.action === "release_payment" && settlement
+            ? `${mapped.title || "Proxy mission"} work hold released. Gross ₹${settlement.gross.toLocaleString("en-IN")} − platform ₹${settlement.platformFee.toLocaleString("en-IN")} − tax ₹${settlement.appTaxGst.toLocaleString("en-IN")} = net ₹${settlement.netToProxy.toLocaleString("en-IN")} to proxy. Payout is manual (not automated Razorpay).`
+            : `${mapped.title || "Proxy mission"} proof was approved by Admin override. Main counsel satisfaction is preferred; Admin may now release net funds after taxes.`,
           priority: "high",
           sendSms: false,
         });
       }
-      sendJson(res, 200, { ok: true, task: result.rows[0] ? mapTask(result.rows[0]) : null });
+      sendJson(res, 200, {
+        ok: true,
+        task: result.rows[0] ? mapTask(result.rows[0]) : null,
+        settlement,
+      });
       return;
     }
     await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId || "demo-task", `Task action saved: ${nextStatus}`, { action: body.action, status: nextStatus });

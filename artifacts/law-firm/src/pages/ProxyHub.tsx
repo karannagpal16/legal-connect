@@ -34,6 +34,24 @@ type ProxyTask = Task & {
   adminQuery?: string;
   barEnrollment?: string;
   completionEta?: string;
+  amount?: number;
+  fee?: string | number;
+  court?: string;
+  title?: string;
+  posterProofDecision?: string;
+  posterProofReason?: string;
+  settlement?: {
+    gross?: number;
+    platformFee?: number;
+    appTaxGst?: number;
+    netToProxy?: number;
+  };
+  settlementPreview?: {
+    gross?: number;
+    platformFee?: number;
+    appTaxGst?: number;
+    netToProxy?: number;
+  };
 };
 
 export function ProxyHub() {
@@ -48,6 +66,7 @@ export function ProxyHub() {
   const [completionEta, setCompletionEta] = useState(COMPLETION_TIMES[0]);
   const [queryNote, setQueryNote] = useState<Record<string, string>>({});
   const [respondNote, setRespondNote] = useState<Record<string, string>>({});
+  const [proofRejectReason, setProofRejectReason] = useState<Record<string, string>>({});
   const { session } = useAuth();
   const role = normaliseRole(session?.user?.role);
   const isAdmin = role === "admin";
@@ -176,7 +195,7 @@ export function ProxyHub() {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Proof upload failed.");
         await refresh();
-        toast({ title: "Proof submitted", description: "Layer 4: awaiting Admin review before escrow unlock." });
+        toast({ title: "Proof submitted", description: "Awaiting main counsel satisfaction. Escrow stays locked." });
       } catch (error) {
         toast({ title: "Proof upload failed", description: (error as Error).message, variant: "destructive" });
       } finally {
@@ -202,10 +221,10 @@ export function ProxyHub() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">
-            {isAdmin ? "Proxy Desk · Review → Marketplace → Escrow" : "ProxyHub · Status Progression"}
+            {isAdmin ? "Proxy Desk · Assign → Proof → Taxed release" : "ProxyHub · Pay, post & track"}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            pending_admin_review → Open marketplace → Counsel accept → Proof Uploaded → Completed & escrow released.
+            Pay &amp; post → funds held → LC assigns proxy → proof upload → main counsel OK/Not OK → LC releases net after 10% platform + 3% tax.
           </p>
         </div>
         {!isAdmin && (
@@ -299,6 +318,19 @@ export function ProxyHub() {
                   ) : null}
                   <div>Proof: {t.proofStatus || "none"}{t.proofHash ? ` · ${String(t.proofHash).slice(0, 8)}…` : ""}</div>
                   <div>Escrow: {t.escrowStatus || "—"}</div>
+                  {t.posterProofDecision ? (
+                    <div>
+                      Main counsel: {t.posterProofDecision === "ok" ? "Satisfied" : "Not satisfied"}
+                      {t.posterProofReason ? ` — ${t.posterProofReason}` : ""}
+                    </div>
+                  ) : null}
+                  {(t.settlement || t.settlementPreview) ? (
+                    <div>
+                      Settlement preview: gross ₹{(t.settlement || t.settlementPreview)?.gross}
+                      {" → "}net ₹{(t.settlement || t.settlementPreview)?.netToProxy}
+                      {" "}(−10% platform −3% tax)
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-col gap-2 pt-4 border-t border-border mt-auto relative z-10">
@@ -408,39 +440,77 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
-                  {canLifecycle && t.checkedInAt && t.proofStatus !== "submitted" && t.proofStatus !== "approved" ? (
+                  {canLifecycle && t.checkedInAt && !["submitted", "poster_approved", "approved"].includes(String(t.proofStatus || "")) ? (
                     <button
                       className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
                       onClick={() => uploadProof(t)}
                     >
-                      <Camera className="w-4 h-4" /> Upload order sheet
+                      <Camera className="w-4 h-4" /> {t.proofStatus === "rejected" ? "Re-upload order sheet" : "Upload order sheet"}
                     </button>
+                  ) : null}
+
+                  {isPoster && t.proofStatus === "submitted" ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Review the proxy order-sheet proof. Escrow stays held until you confirm satisfaction.</p>
+                      <button
+                        className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 font-bold"
+                        disabled={busyId === String(t.id)}
+                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/proof-review`, {
+                          method: "POST",
+                          body: JSON.stringify({ decision: "ok" }),
+                        }, "Proof marked satisfactory")}
+                      >
+                        <CheckCircle2 className="w-4 h-4 inline mr-1" /> Proof OK — satisfied
+                      </button>
+                      <textarea
+                        value={proofRejectReason[String(t.id)] || ""}
+                        onChange={(e) => setProofRejectReason((c) => ({ ...c, [String(t.id)]: e.target.value }))}
+                        placeholder="If not satisfied, state the reason…"
+                        className="w-full p-3 rounded-xl bg-background border border-border outline-none min-h-[72px]"
+                      />
+                      <button
+                        className="w-full border border-destructive/40 text-destructive font-semibold py-2.5 rounded-xl"
+                        disabled={busyId === String(t.id) || (proofRejectReason[String(t.id)] || "").trim().length < 8}
+                        onClick={() => runAction(t.id, `/api/tasks/${t.id}/proof-review`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            decision: "not_ok",
+                            reason: proofRejectReason[String(t.id)],
+                          }),
+                        }, "Proof rejected — proxy must re-upload")}
+                      >
+                        Not OK — request fresh proof
+                      </button>
+                    </div>
                   ) : null}
 
                   {isAdmin && t.proofStatus === "submitted" ? (
                     <button
-                      className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 font-bold"
+                      className="w-full border border-border rounded-xl py-2.5 font-semibold"
                       disabled={busyId === String(t.id)}
                       onClick={() => runAction(t.id, "/api/admin/task-action", {
                         method: "POST",
-                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved" }),
-                      }, "Proof approved")}
+                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved", reason: "Admin override while awaiting counsel" }),
+                      }, "Admin override · proof approved")}
                     >
-                      Approve proof
+                      Admin override: approve proof
                     </button>
                   ) : null}
 
-                  {isAdmin && t.proofStatus === "approved" && t.escrowStatus !== "Released" ? (
+                  {isAdmin && ["poster_approved", "approved"].includes(String(t.proofStatus || "")) && t.escrowStatus !== "Released" ? (
                     <button
                       className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 font-bold"
                       disabled={busyId === String(t.id)}
-                      onClick={() => runAction(t.id, "/api/admin/task-action", {
-                        method: "POST",
-                        body: JSON.stringify({ taskId: t.id, action: "release_payment" }),
-                      }, "Completed · escrow released")}
+                      onClick={() => {
+                        if (!window.confirm("Release escrow after deducting 10% platform fee + 3% app/GST tax? Net payout to proxy is manual (not automated Razorpay).")) return;
+                        runAction(t.id, "/api/admin/task-action", {
+                          method: "POST",
+                          body: JSON.stringify({ taskId: t.id, action: "release_payment" }),
+                        }, "Completed · net funds released after tax");
+                      }}
                     >
-                      Release escrow
+                      Release net funds (after tax)
                     </button>
                   ) : null}
 

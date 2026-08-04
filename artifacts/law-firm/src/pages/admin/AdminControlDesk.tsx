@@ -107,6 +107,10 @@ type DeskTask = {
   assignedProxyName?: string;
   court?: string;
   clientName?: string;
+  posterProofDecision?: string;
+  posterProofReason?: string;
+  settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
+  settlementPreview?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
 };
 
 type DeskCase = {
@@ -170,13 +174,15 @@ function needsSupervision(item: Intake) {
 
 function isProxyActionable(task: DeskTask) {
   const status = String(task.status || "").toLowerCase();
+  const proof = String(task.proofStatus || "").toLowerCase();
   return status.includes("awaiting")
     || status === "pending_admin_review"
     || status === "query_raised"
     || status === "open"
     || status.includes("proof")
-    || task.proofStatus === "submitted"
-    || (task.proofStatus === "approved" && String(task.escrowStatus || "").toLowerCase() !== "released");
+    || proof === "submitted"
+    || proof === "rejected"
+    || ((proof === "approved" || proof === "poster_approved") && String(task.escrowStatus || "").toLowerCase() !== "released");
 }
 
 function isEscrowHeld(task: DeskTask) {
@@ -1065,6 +1071,13 @@ export function AdminControlDesk() {
                     {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                     {" · "}Proof {task.proofStatus || "none"} · Work hold {task.escrowStatus || "—"}
                     {task.assignedProxyName ? ` · Proxy: ${task.assignedProxyName}` : ""}
+                    {task.posterProofDecision ? ` · Main counsel: ${task.posterProofDecision === "ok" ? "Satisfied" : "Not satisfied"}` : ""}
+                    {task.posterProofReason ? ` (${task.posterProofReason})` : ""}
+                    {task.settlement?.netToProxy != null
+                      ? ` · Net after tax ₹${Number(task.settlement.netToProxy).toLocaleString("en-IN")}`
+                      : task.settlementPreview?.netToProxy != null
+                        ? ` · Net preview ₹${Number(task.settlementPreview.netToProxy).toLocaleString("en-IN")}`
+                        : ""}
                   </p>
                   <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
                     {pendingAssign ? (
@@ -1087,29 +1100,29 @@ export function AdminControlDesk() {
                             advocateName: selected?.name || "Proxy counsel",
                           })}
                         >
-                          Assign proxy
+                          Assign proxy (funds held)
                         </button>
                       </>
                     ) : null}
                     {task.proofStatus === "submitted" ? (
                       <button
-                        className="lc-button lc-button-primary"
+                        className="lc-button"
                         disabled={taskAction.isPending}
                         onClick={() => taskAction.mutate({ taskId: task.id, action: "mark_proof_approved" })}
                       >
-                        Approve proof
+                        Admin override: approve proof
                       </button>
                     ) : null}
-                    {task.proofStatus === "approved" && String(task.escrowStatus || "").toLowerCase() !== "released" ? (
+                    {["poster_approved", "approved"].includes(String(task.proofStatus || "")) && String(task.escrowStatus || "").toLowerCase() !== "released" ? (
                       <button
                         className="lc-button lc-button-primary"
                         disabled={taskAction.isPending}
                         onClick={() => {
-                          if (!window.confirm("Release the work hold for manual settlement? This does not send an automated Razorpay payout.")) return;
+                          if (!window.confirm("Release escrow after 10% platform fee + 3% app/GST tax? Net payout to proxy is manual.")) return;
                           taskAction.mutate({ taskId: task.id, action: "release_payment" });
                         }}
                       >
-                        Release work hold
+                        Release net funds (after tax)
                       </button>
                     ) : null}
                     <Link className="lc-button" href="/admin/missions">Open missions</Link>

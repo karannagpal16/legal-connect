@@ -40,18 +40,19 @@ Goal: free/paid booking never dies with a generic 500; Admin sees a complete cas
 
 ## Phase 4 — ProxyHub polish
 
-Already structurally live. Remaining UX:
-
-- [ ] Advocate ProxyHub clearly shows “Awaiting LC review”
-- [ ] Admin Proxy tab assignment + supervised Q&A (done)
-- [ ] Proof → approve → work-hold release (done; manual settlement)
+- [x] Advocate ProxyHub post-task on dashboard
+- [x] Admin sees posted tasks + assign after funds held
+- [x] Main counsel proof OK / Not OK + reason
+- [x] Escrow held until counsel satisfied
+- [x] LC Admin release after 10% platform + 3% tax (settlement receipt)
+- [x] Proof → approve → work-hold release (manual settlement)
 
 ## Phase 5 — Public paid launch
 
 - [ ] Razorpay **live** keys (`rzp_live_…`)
 - [ ] Webhook secret on `/api/payments/webhook`
 - [ ] Confirm `/api/payments/config` → `mode: live`
-- [ ] One real payment smoke test
+- [ ] One real payment smoke test (advisory + proxy)
 - [ ] `ALLOW_MASTER_TEST_LOGIN=false`
 
 ---

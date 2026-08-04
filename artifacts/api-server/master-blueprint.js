@@ -133,7 +133,8 @@ function proxyStateFromTask(task = {}) {
   const proof = String(task.proofStatus || task.proof_status || "").toLowerCase();
   const status = String(task.status || task.workflowStatus || "").toLowerCase();
   if (escrow.includes("released")) return "escrow_released";
-  if (proof.includes("approved") || status.includes("completed")) return "proof_approved";
+  if (proof.includes("poster_approved") || proof.includes("approved") || status.includes("completed")) return "proof_approved";
+  if (proof.includes("rejected")) return "proof_uploaded";
   if (proof.includes("submitted") || proof.includes("uploaded") || status.includes("proof")) return "proof_uploaded";
   if (status.includes("check")) return "checked_in";
   if (status.includes("accepted") || status.includes("assigned") || task.acceptedBy || task.assignedProxyName) {
@@ -755,6 +756,16 @@ function createMasterBlueprint(deps) {
     const task = await loadTask(taskId);
     if (!task) {
       sendJson(res, 404, { ok: false, error: "Proxy task not found." });
+      return;
+    }
+    const escrow = String(task.escrowStatus || task.escrow_status || "").toLowerCase();
+    const amount = Number(task.amount || task.fee || 0);
+    if (!(escrow.includes("lock") || escrow.includes("held")) || !(amount > 0 || task.paymentVerified)) {
+      sendJson(res, 409, {
+        ok: false,
+        error: "Assign proxy only after funds are received and held in escrow.",
+        code: "ESCROW_REQUIRED",
+      });
       return;
     }
     const updated = await patchTaskPayload(
