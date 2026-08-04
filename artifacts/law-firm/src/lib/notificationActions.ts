@@ -58,6 +58,16 @@ function num(value: unknown) {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function withQuery(base: string, params: Record<string, string | undefined>) {
+  const path = base.split("?")[0] || base;
+  const search = new URLSearchParams(base.includes("?") ? base.split("?")[1] : "");
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const qs = search.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
 const EVENT_MAP: Record<string, Partial<ResolvedNotificationAction>> = {
   case_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client", overlay: "chat", ctaLabel: "Open case desk" },
   booking_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client", overlay: "chat", ctaLabel: "View assignment" },
@@ -77,7 +87,49 @@ const EVENT_MAP: Record<string, Partial<ResolvedNotificationAction>> = {
   proxy_proof_needed: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/advocate/proxy", overlay: "documents", ctaLabel: "Upload proof" },
   proxy_assigned: { actionType: "GENERIC_NAV", targetUrl: "/advocate/proxy", overlay: "none", ctaLabel: "Open Proxy Hub" },
   verification_pending: { actionType: "KYC_VERIFICATION", targetUrl: "/admin/verifications", overlay: "none", ctaLabel: "Review KYC" },
+  advisory_booked: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=intakes", overlay: "none", ctaLabel: "Open intake" },
+  retention_requested: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=gateway", overlay: "none", ctaLabel: "Open LC Gateway" },
+  retention_terms_quoted: { actionType: "CASE_UPDATE", targetUrl: "/client/engagement", overlay: "none", ctaLabel: "View terms" },
+  retention_panel_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client", overlay: "chat", ctaLabel: "Open matter" },
+  retention_info_requested: { actionType: "DOCUMENT_REQUIRED", targetUrl: "/client", overlay: "documents", ctaLabel: "Upload documents" },
+  case_update_pending: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation", overlay: "none", ctaLabel: "Review counsel update" },
+  pending_update: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=moderation", overlay: "none", ctaLabel: "Open LC review" },
 };
+
+function adminDeepLink(
+  eventType: string,
+  actionType: string,
+  payload: NotificationActionPayload,
+  currentUrl: string,
+) {
+  const bookingId = payload.bookingId;
+  const taskId = payload.taskId;
+  const caseId = payload.caseId;
+
+  if (eventType.includes("retention") || eventType.includes("gateway")) {
+    return withQuery("/admin/control", { tab: "gateway", bookingId, intakeId: bookingId });
+  }
+  if (eventType.includes("proxy") || eventType.includes("mission") || taskId) {
+    return withQuery("/admin/control", { tab: "proxy", taskId });
+  }
+  if (eventType.includes("verif") || actionType === "KYC_VERIFICATION") {
+    return "/admin/verifications";
+  }
+  if (eventType.includes("pending") || eventType.includes("moderat") || eventType.includes("counsel_update")) {
+    return withQuery("/admin/control", { tab: "moderation", caseId });
+  }
+  if (eventType.includes("escrow") || eventType.includes("payment") || eventType.includes("work_hold")) {
+    return withQuery("/admin/control", { tab: "escrow", bookingId, taskId });
+  }
+  if (eventType.includes("advisory") || eventType.includes("intake") || eventType.includes("booking") || bookingId) {
+    return withQuery("/admin/control", { tab: "intakes", bookingId, intakeId: bookingId });
+  }
+  if (caseId) {
+    return withQuery("/admin/control", { tab: "cases", caseId });
+  }
+  if (currentUrl.startsWith("/admin")) return currentUrl;
+  return "/admin/control";
+}
 
 export function resolveNotificationAction(
   item: ActionableNotification,
@@ -99,15 +151,6 @@ export function resolveNotificationAction(
     else targetUrl = "/client";
   }
 
-  // Role-safe redirects for shared event types
-  if (role === "advocate" && ["/client", "/client/updates", "/client/book"].includes(targetUrl)) {
-    targetUrl = eventType.includes("proxy") ? "/advocate/proxy" : "/advocate";
-  }
-  if (role === "admin" && targetUrl.startsWith("/client")) targetUrl = "/admin/control";
-  if (role === "intern" && (targetUrl.startsWith("/client") || targetUrl.startsWith("/advocate"))) {
-    targetUrl = "/intern/quests";
-  }
-
   const actionPayload: NotificationActionPayload = {
     caseId: str(payload.caseId || payload.matterId),
     bookingId: str(payload.bookingId || payload.intakeId),
@@ -121,7 +164,20 @@ export function resolveNotificationAction(
     tab: str(payload.tab),
   };
 
-  const overlay = (mapped.overlay
+  // Role-safe redirects for shared event types
+  if (role === "advocate" && ["/client", "/client/updates", "/client/book", "/client/engagement"].includes(targetUrl.split("?")[0])) {
+    targetUrl = eventType.includes("proxy")
+      ? withQuery("/advocate/proxy", { taskId: actionPayload.taskId })
+      : withQuery("/advocate", { caseId: actionPayload.caseId, bookingId: actionPayload.bookingId });
+  }
+  if (role === "admin") {
+    targetUrl = adminDeepLink(eventType, explicitType, actionPayload, targetUrl);
+  }
+  if (role === "intern" && (targetUrl.startsWith("/client") || targetUrl.startsWith("/advocate") || targetUrl.startsWith("/admin"))) {
+    targetUrl = withQuery("/intern/quests", { questId: actionPayload.questId });
+  }
+
+  let overlay = (mapped.overlay
     || (explicitType === "PAYMENT_REQUIRED" ? "payment"
       : explicitType === "DOCUMENT_REQUIRED" ? "documents"
         : explicitType === "LAWYER_ASSIGNED" || explicitType === "CHAT_MESSAGE" ? "chat"
@@ -131,57 +187,82 @@ export function resolveNotificationAction(
   // Build deep-link query so ClientHome can open the exact tab/modal.
   if (role === "client" || !role) {
     if (explicitType === "PAYMENT_REQUIRED") {
-      const params = new URLSearchParams();
-      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
-      params.set("tab", "payments");
-      params.set("action", "pay");
-      if (actionPayload.amount != null) params.set("amount", String(actionPayload.amount));
-      targetUrl = `/client?${params.toString()}`;
+      targetUrl = withQuery("/client", {
+        caseId: actionPayload.caseId,
+        tab: "payments",
+        action: "pay",
+        amount: actionPayload.amount != null ? String(actionPayload.amount) : undefined,
+      });
       actionPayload.tab = "payments";
     } else if (explicitType === "DOCUMENT_REQUIRED") {
-      const params = new URLSearchParams();
-      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
-      params.set("tab", "documents");
-      params.set("action", "upload");
-      if (actionPayload.docType) params.set("docType", actionPayload.docType);
-      targetUrl = `/client?${params.toString()}`;
+      targetUrl = withQuery("/client", {
+        caseId: actionPayload.caseId,
+        tab: "documents",
+        action: "upload",
+        docType: actionPayload.docType,
+      });
       actionPayload.tab = "documents";
     } else if (explicitType === "LAWYER_ASSIGNED" || explicitType === "CHAT_MESSAGE") {
-      const params = new URLSearchParams();
-      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
-      params.set("tab", "communications");
-      params.set("action", "chat");
-      targetUrl = `/client?${params.toString()}`;
+      targetUrl = withQuery("/client", {
+        caseId: actionPayload.caseId,
+        tab: "communications",
+        action: "chat",
+      });
       actionPayload.tab = "communications";
     } else if (explicitType === "CASE_UPDATE") {
-      const params = new URLSearchParams();
-      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
-      params.set("tab", "overview");
-      params.set("action", "highlight");
-      targetUrl = `/client?${params.toString()}`;
-      actionPayload.tab = "overview";
+      if (targetUrl.startsWith("/client/updates") || targetUrl.startsWith("/client/engagement")) {
+        // keep dedicated destination pages
+      } else {
+        targetUrl = withQuery("/client", {
+          caseId: actionPayload.caseId,
+          tab: "overview",
+          action: "highlight",
+        });
+        actionPayload.tab = "overview";
+      }
     } else if (explicitType === "HEARING_REMINDER") {
-      const params = new URLSearchParams();
-      if (actionPayload.caseId) params.set("caseId", actionPayload.caseId);
-      params.set("tab", "overview");
-      params.set("action", "hearing");
-      targetUrl = `/client?${params.toString()}`;
+      targetUrl = withQuery("/client", {
+        caseId: actionPayload.caseId,
+        tab: "overview",
+        action: "hearing",
+      });
       actionPayload.tab = "overview";
     } else if (actionPayload.caseId && targetUrl.startsWith("/client")) {
-      const params = new URLSearchParams();
-      params.set("caseId", actionPayload.caseId);
-      if (actionPayload.tab) params.set("tab", actionPayload.tab);
-      targetUrl = `/client?${params.toString()}`;
+      targetUrl = withQuery(targetUrl, {
+        caseId: actionPayload.caseId,
+        tab: actionPayload.tab,
+      });
     }
   }
+
+  // Admin / intern: always jump straight to the linked page (no confirmation overlay).
+  if (role === "admin" || role === "intern") {
+    overlay = "none";
+  } else if (role === "advocate") {
+    // Advocates go directly unless it is a true payment/document modal action on their own desk.
+    if (!(overlay === "payment" || overlay === "documents")) overlay = "none";
+  }
+
+  const ctaByType: Partial<Record<NotificationActionType, string>> = {
+    PAYMENT_REQUIRED: "Pay now",
+    DOCUMENT_REQUIRED: "Upload documents",
+    LAWYER_ASSIGNED: "Open assignment",
+    CASE_UPDATE: "Open update",
+    HEARING_REMINDER: "View hearing",
+    CHAT_MESSAGE: "Open messages",
+    KYC_VERIFICATION: "Review KYC",
+    ADMIN_ASSIGN: "Open Ops Command",
+    QUEST_ACTION: "Open quest",
+    GENERIC_NAV: "Open linked page",
+  };
 
   return {
     actionType: explicitType,
     targetUrl,
     overlay: role === "client" || !role
       ? overlay
-      : (overlay === "payment" || overlay === "chat" || overlay === "documents" || overlay === "hearing" ? overlay : "none"),
+      : overlay,
     actionPayload,
-    ctaLabel: mapped.ctaLabel || "Open",
+    ctaLabel: mapped.ctaLabel || ctaByType[explicitType] || "Open linked page",
   };
 }

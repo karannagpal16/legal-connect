@@ -269,13 +269,13 @@ export function PortalLayout({
   const handleNotificationAction = (item: PortalNotification) => {
     const resolved = resolveNotificationAction(item, requiredRole);
     const detail = { title: item.title, message: item.message, resolved };
-    if (resolved.overlay === "none") {
-      // Direct navigate + page-level handler (no confirmation overlay).
-      emitNotificationAction(detail);
+    // Always emit so destination pages can open the exact tab / record.
+    emitNotificationAction(detail);
+    if (resolved.overlay === "none" || requiredRole === "admin" || requiredRole === "intern") {
       setLocation(appPath(resolved.targetUrl));
       return;
     }
-    // Overlay actions emit only when the user confirms the CTA.
+    // Client/advocate overlay actions still confirm before navigation.
     setNotifyAction(detail);
   };
   const role = normaliseRole(session?.user.role || requiredRole);

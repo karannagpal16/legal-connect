@@ -411,11 +411,11 @@ function createMasterBlueprint(deps) {
         bookingId: saved.id,
         consultationChannel: channel,
         actionType: "CASE_UPDATE",
-        targetUrl: "/admin/control",
+        targetUrl: `/admin/control?tab=intakes&bookingId=${saved.id}`,
       },
       sendEmail: true,
       ctaLabel: "Open Ops Command",
-      ctaUrl: portalUrl("/admin/control"),
+      ctaUrl: portalUrl(`/admin/control?tab=intakes&bookingId=${saved.id}`),
     });
 
     sendJson(res, 201, {
@@ -545,12 +545,12 @@ function createMasterBlueprint(deps) {
       payload: {
         bookingId,
         actionType: "CASE_UPDATE",
-        targetUrl: "/admin/control",
+        targetUrl: `/admin/control?tab=gateway&bookingId=${bookingId}`,
         retentionStatus: "requested",
       },
       sendEmail: true,
       ctaLabel: "Open Gateway desk",
-      ctaUrl: portalUrl("/admin/control"),
+      ctaUrl: portalUrl(`/admin/control?tab=gateway&bookingId=${bookingId}`),
       priority: "high",
     });
 
@@ -727,10 +727,16 @@ function createMasterBlueprint(deps) {
       title: "Proxy mission assigned",
       message: `${proxyName || "Panel proxy"} assigned by Legal Connect for the court mission.`,
       recipients: await resolveRecipients([proxyId, task.postedBy || task.userId].filter(Boolean)),
-      payload: { taskId, lawyerId: proxyId, lawyerName: proxyName, actionType: "QUEST_ACTION" },
+      payload: {
+        taskId,
+        lawyerId: proxyId,
+        lawyerName: proxyName,
+        actionType: "GENERIC_NAV",
+        targetUrl: `/advocate/proxy?taskId=${taskId}`,
+      },
       sendEmail: true,
       ctaLabel: "Open ProxyHub",
-      ctaUrl: portalUrl("/advocate/proxy"),
+      ctaUrl: portalUrl(`/advocate/proxy?taskId=${taskId}`),
     });
     sendJson(res, 200, {
       ok: true,
