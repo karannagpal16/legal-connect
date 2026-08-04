@@ -917,6 +917,23 @@
 .lc-practice-row small { color: var(--lc-muted); font-size: 9px; }
 .lc-practice-row select, .lc-vault-task-table select { height: 34px; border: 1px solid #d9dee5; border-radius: 6px; padding: 0 8px; background: #fff; color: #253044; font-size: 10px; }
 .lc-practice-row-head { min-height: 38px; background: #f5f6f7; color: var(--lc-muted); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.lc-earnings-table { display: grid; overflow-x: auto; }
+.lc-earnings-row { display: grid; min-width: 640px; min-height: 58px; grid-template-columns: 110px minmax(150px, .9fr) minmax(180px, 1.3fr) 120px 120px; gap: 12px; align-items: center; padding: 9px 16px; border-bottom: 1px solid #e9ecef; }
+.lc-earnings-row:last-child { border-bottom: 0; }
+.lc-earnings-row > span { display: grid; min-width: 0; gap: 3px; }
+.lc-earnings-row strong, .lc-earnings-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-earnings-row strong { font-size: 11px; }
+.lc-earnings-row small { color: var(--lc-muted); font-size: 9px; }
+.lc-earnings-row-head { min-height: 38px; background: #f5f6f7; color: var(--lc-muted); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.lc-earnings-amount { justify-items: end; text-align: right; font-variant-numeric: tabular-nums; }
+.lc-earnings-tag { display: inline-flex; width: max-content; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 9px; font-weight: 800; font-style: normal; text-transform: uppercase; letter-spacing: .02em; }
+.lc-earnings-tag.released { background: #eaf4ef; color: var(--lc-green); }
+.lc-earnings-tag.escrow { background: #f7f0dd; color: var(--lc-gold-dark); }
+.lc-earnings-tag.advisory { background: #edf1f5; color: var(--lc-navy); }
+.lc-earnings-tag.proxy { background: #f0ecfa; color: #6b4fa8; }
+@media (max-width: 720px) {
+  .lc-earnings-row { grid-template-columns: 90px minmax(120px, 1fr) minmax(150px, 1.2fr) 110px 110px; }
+}
 .lc-sync-button { display: inline-flex; min-height: 33px; align-items: center; justify-content: center; gap: 5px; border: 1px solid #d1bd8c; border-radius: 6px; background: #f8f3e8; color: #775b22; font-size: 9px; font-weight: 800; }
 .lc-sync-button:disabled { cursor: not-allowed; opacity: .45; }
 .lc-sync-button svg { width: 13px; }

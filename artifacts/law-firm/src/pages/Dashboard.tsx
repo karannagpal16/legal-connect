@@ -16,6 +16,7 @@ import {
   Gavel,
   HeartPulse,
   Library,
+  Plus,
   Scale,
   ShieldCheck,
   Users,
@@ -255,6 +256,11 @@ export function Dashboard() {
       </div>
 
       <section className="lc-quick-grid" aria-label="Control room shortcuts">
+        <Link href="/admin/missions" className="lc-quick-action lc-tone-gold">
+          <span><Plus /></span>
+          <div><strong>Post Proxy Task</strong><small>Create a proxy court appearance</small></div>
+          <ArrowRight />
+        </Link>
         <Link href="/admin/bookings" className="lc-quick-action lc-tone-gold">
           <span><CalendarDays /></span>
           <div><strong>Intake desk</strong><small>Assign counsel to paid bookings</small></div>

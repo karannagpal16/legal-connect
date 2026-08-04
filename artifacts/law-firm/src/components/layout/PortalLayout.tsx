@@ -24,6 +24,7 @@ import {
   Target,
   Users,
   Vault,
+  Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -73,6 +74,7 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "Court diary", href: "/advocate/diary", icon: BookOpen },
     { label: "Proxy Hub", href: "/advocate/proxy", icon: BriefcaseBusiness },
     { label: "Bookings", href: "/advocate/bookings", icon: CalendarDays },
+    { label: "Earnings", href: "/advocate/revenue", icon: Wallet },
     { label: "LawBot", href: "/advocate/lawbot", icon: Sparkles },
     { label: "Library", href: "/advocate/library", icon: Library },
   ],
