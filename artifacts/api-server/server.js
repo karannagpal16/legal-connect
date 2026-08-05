@@ -6414,27 +6414,42 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const Razorpay = require("razorpay");
-      const rzp = new Razorpay({ key_id: config.razorpayKeyId, key_secret: config.razorpayKeySecret });
-      const receiptId = `proxy_${Date.now()}_${authUser.id?.toString().slice(0, 8) || "anon"}`;
-      const order = await rzp.orders.create({
-        amount: fee * 100,
+      const orderResult = await createRazorpayOrder({
+        amount: fee,
         currency: "INR",
-        receipt: receiptId,
-        notes: { missionTitle: String(body.title).trim(), postedBy: authUser.id, role: "proxy-hub" },
+        receipt: `proxy_${Date.now()}`.slice(0, 40),
+        notes: {
+          missionTitle: String(body.title).trim().slice(0, 120),
+          postedBy: String(authUser.id || ""),
+          role: "proxy-hub",
+          urgency: urgencyMeta.id || "standard",
+        },
       });
+      if (!orderResult.ok || !orderResult.order?.id) {
+        sendJson(res, 502, {
+          ok: false,
+          error: orderResult.error_message || "Payment gateway order creation failed. Please try again.",
+          detail: orderResult.error_message || null,
+        });
+        return;
+      }
+      const order = orderResult.order;
       await writeAuditLog(authUser, "proxy_hub_order_created", "proxy_hub", order.id, `ProxyHub order created for mission: ${body.title}`, { orderId: order.id, fee });
       sendJson(res, 200, {
         ok: true,
         mode: "razorpay",
         orderId: order.id,
         amount: order.amount,
-        currency: order.currency,
+        currency: order.currency || "INR",
         keyId: config.razorpayKeyId,
         description: String(body.title).trim(),
       });
     } catch (error) {
-      sendJson(res, 502, { ok: false, error: "Payment gateway order creation failed. Please try again.", detail: error.message });
+      sendJson(res, 502, {
+        ok: false,
+        error: "Payment gateway order creation failed. Please try again.",
+        detail: error?.message || String(error),
+      });
     }
     return;
   }
@@ -6474,6 +6489,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Payment is verified — create the proxy task
+    try {
     const posting = strategyFeatures.validateProxyPostingFields(body);
     if (!posting.ok) {
       sendJson(res, 400, { ok: false, error: posting.error });
@@ -6544,7 +6560,7 @@ const server = http.createServer(async (req, res) => {
           sendEmail: true,
           ctaLabel: "Open ProxyHub",
           ctaUrl: portalUrl("/advocate/proxy"),
-        });
+        }).catch(() => undefined);
       }
       sendJson(res, 201, { ok: true, task: mapTask(result.rows[0]), paymentVerified: task.paymentVerified });
       return;
@@ -6564,9 +6580,16 @@ const server = http.createServer(async (req, res) => {
         sendEmail: true,
         ctaLabel: "Open ProxyHub",
         ctaUrl: portalUrl("/advocate/proxy"),
-      });
+      }).catch(() => undefined);
     }
     sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: "demo" });
+    } catch (error) {
+      sendJson(res, 500, {
+        ok: false,
+        error: "Payment was accepted but the mission could not be saved. Contact Legal Connect with your payment id.",
+        detail: error?.message || String(error),
+      });
+    }
     return;
   }
 

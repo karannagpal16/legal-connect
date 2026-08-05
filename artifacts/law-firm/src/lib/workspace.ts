@@ -142,7 +142,9 @@ export async function workspaceRequest<T>(path: string, token?: string | null, i
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || payload.message || "This request could not be completed.");
+    const base = payload.error || payload.message || "This request could not be completed.";
+    const detail = payload.detail && String(payload.detail) !== String(base) ? ` (${payload.detail})` : "";
+    throw new Error(`${base}${detail}`);
   }
   return payload as T;
 }
