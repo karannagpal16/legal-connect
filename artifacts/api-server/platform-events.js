@@ -171,17 +171,7 @@ function createPlatformEvents({ db, config }) {
       if (normalizedTargets[key]) audienceSet.add(String(normalizedTargets[key]));
     }
     for (const item of extraAudience || []) if (item) audienceSet.add(String(item));
-    if (
-      [
-        EVENT_TYPES.PROXY_MISSION_POSTED,
-        EVENT_TYPES.PROXY_MISSION_ACCEPTED,
-        EVENT_TYPES.PROXY_PROOF_UPLOADED,
-        EVENT_TYPES.CHAMBER_TASK_DELEGATED,
-      ].includes(type)
-    ) {
-      audienceSet.add("role:advocate");
-      audienceSet.add("role:intern");
-    }
+    // Proxy/chamber events stay with assigned parties + admins (set above) — never broadcast firm-wide.
     if (
       [
         EVENT_TYPES.INTAKE_SUBMITTED_AND_PAID,
@@ -190,7 +180,6 @@ function createPlatformEvents({ db, config }) {
         EVENT_TYPES.STAGE_ADVANCED_BY_ADVOCATE,
         EVENT_TYPES.COURT_FEE_PAID,
         EVENT_TYPES.REQUEST_ENTERTAINED,
-        EVENT_TYPES.PROXY_PROOF_UPLOADED,
       ].includes(type)
     ) {
       audienceSet.add("role:client");
