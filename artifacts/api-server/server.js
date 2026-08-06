@@ -19,6 +19,18 @@ const {
   INTAKE_SLA_MS,
 } = require("./supervised-pipeline");
 const { LEGAL_DICTIONARY, searchLegalDictionary } = require("./legal-dictionary-data");
+const {
+  resolveSessionSecret,
+  encryptBuffer,
+  decryptBuffer,
+  clientIp,
+  rateLimit,
+  applySecurityHeaders,
+  setAuthUser,
+  getCachedAuthUser,
+  timingSafeEqualString,
+  redactSecrets,
+} = require("./security");
 
 const platformEvents = createPlatformEvents({ db, config });
 const supervisedPipeline = createSupervisedPipeline({ db });
@@ -27,15 +39,11 @@ const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
 const frontendPublicDir = path.join(__dirname, "..", "law-firm", "public");
 const SERVER_STARTED_AT = new Date().toISOString();
-const sessionSecretMaterial = process.env.SESSION_SECRET
-  || process.env.JWT_SECRET
-  || config.razorpayWebhookSecret
-  || config.dbUrl;
-const SESSION_SECRET = sessionSecretMaterial || "legal-connect-local-session-secret";
-
-if (config.nodeEnv === "production" && !process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
-  console.warn("SESSION_SECRET/JWT_SECRET is not configured; using a stable deployment secret fallback.");
-}
+const SESSION_SECRET = resolveSessionSecret({
+  nodeEnv: config.nodeEnv,
+  razorpayWebhookSecret: config.razorpayWebhookSecret,
+  dbUrl: config.dbUrl,
+});
 
 function appVersionPayload() {
   const candidates = ["index.html"]
@@ -309,7 +317,7 @@ function encodeSession(user) {
     isReviewAccount: Boolean(user.isReviewAccount),
     reviewRoles: Array.isArray(user.reviewRoles) ? user.reviewRoles.filter((role) => REVIEW_ROLES.includes(role)) : undefined,
     iat: issuedAt,
-    exp: issuedAt + 1000 * 60 * 60 * 24 * 30,
+    exp: issuedAt + 1000 * 60 * 60 * 24 * 7,
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
@@ -320,11 +328,16 @@ function sessionTokenHash(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
 }
 
+function rawAuthToken(req) {
+  const header = req?.headers?.authorization || req?.headers?.["x-legal-connect-token"] || "";
+  return String(header).replace(/^Bearer\s+/i, "").trim();
+}
+
 async function saveSessionToken(user, token) {
   if (!db.dbAvailable || !user?.id || !token) return;
   await db.query(
     `INSERT INTO sessions (user_id, token_hash, expires_at, payload)
-     VALUES ($1, $2, now() + interval '30 days', $3)`,
+     VALUES ($1, $2, now() + interval '7 days', $3)`,
     [
       user.id,
       sessionTokenHash(token),
@@ -336,17 +349,22 @@ async function saveSessionToken(user, token) {
   );
 }
 
+async function revokeSessionToken(token) {
+  if (!db.dbAvailable || !token) return;
+  await db.query(
+    `UPDATE sessions SET revoked_at = now()
+     WHERE token_hash = $1 AND revoked_at IS NULL`,
+    [sessionTokenHash(token)],
+  ).catch(() => undefined);
+}
+
 function decodeSession(token) {
   if (!token) return null;
   try {
-    const clean = token.replace(/^Bearer\s+/i, "");
+    const clean = String(token).replace(/^Bearer\s+/i, "");
     const [encoded, signature] = clean.split(".");
-    if (!encoded || !signature) {
-      if (config.nodeEnv === "production") return null;
-      const legacyParsed = JSON.parse(Buffer.from(clean, "base64url").toString("utf8"));
-      if (!legacyParsed.id || !roles.has(legacyParsed.role)) return null;
-      return legacyParsed;
-    }
+    // Never accept unsigned legacy tokens — forged role claims are trivial otherwise.
+    if (!encoded || !signature) return null;
     const expected = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
     const actual = Buffer.from(String(signature));
     const expectedBuffer = Buffer.from(expected);
@@ -361,9 +379,103 @@ function decodeSession(token) {
   }
 }
 
+async function bindAuthUser(req) {
+  const cached = getCachedAuthUser(req);
+  if (cached !== undefined) return cached;
+  const token = rawAuthToken(req);
+  // Prefer session token; also accept Phase-2 strict JWTs used by master/strict login.
+  const decoded = decodeSession(token) || (typeof decodeStrictJwt === "function" ? decodeStrictJwt(token) : null);
+  if (!decoded) {
+    setAuthUser(req, null);
+    return null;
+  }
+  if (db.dbAvailable) {
+    try {
+      const hash = sessionTokenHash(token);
+      const sessionResult = await db.query(
+        `SELECT revoked_at, expires_at
+         FROM sessions
+         WHERE token_hash = $1
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [hash],
+      );
+      const sessionRow = sessionResult.rows[0];
+      // Production requires a live sessions row so logout/revocation is enforceable.
+      if (config.nodeEnv === "production" && !sessionRow) {
+        setAuthUser(req, null);
+        return null;
+      }
+      if (sessionRow?.revoked_at) {
+        setAuthUser(req, null);
+        return null;
+      }
+      if (sessionRow?.expires_at && new Date(sessionRow.expires_at).getTime() < Date.now()) {
+        setAuthUser(req, null);
+        return null;
+      }
+      if (isUuid(decoded.id)) {
+        const userResult = await db.query(
+          `SELECT id, name, email, phone, role,
+                  email_verified_at, phone_verified_at, consent_at, created_at
+           FROM users WHERE id = $1 LIMIT 1`,
+          [decoded.id],
+        );
+        const row = userResult.rows[0];
+        if (!row) {
+          setAuthUser(req, null);
+          return null;
+        }
+        const liveUser = {
+          ...decoded,
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone,
+          // Always trust live DB role — prevents stale elevated tokens after demotion.
+          role: row.role,
+          emailVerifiedAt: row.email_verified_at,
+          phoneVerifiedAt: row.phone_verified_at,
+          consentAt: row.consent_at,
+          createdAt: row.created_at,
+        };
+        setAuthUser(req, liveUser);
+        return liveUser;
+      }
+    } catch (error) {
+      console.warn("bindAuthUser failed:", redactSecrets(error.message || error));
+    }
+  }
+  setAuthUser(req, decoded);
+  return decoded;
+}
+
 function getAuthUser(req) {
-  const token = req.headers.authorization || req.headers["x-legal-connect-token"];
-  return decodeSession(token);
+  const cached = getCachedAuthUser(req);
+  if (cached !== undefined) return cached;
+  return decodeSession(rawAuthToken(req));
+}
+
+function canAccessBooking(authUser, booking) {
+  if (!authUser || !booking) return false;
+  if (canSeeAll(authUser)) return true;
+  const ownerId = booking.userId || booking.user_id;
+  if (ownerId && String(ownerId) === String(authUser.id)) return true;
+  const assigned = booking.assignedAdvocateId
+    || booking.assigned_advocate_id
+    || booking.payload?.assignedAdvocateId
+    || booking.payload?.assigned_advocate_id;
+  if (assigned && String(assigned) === String(authUser.id)) return true;
+  return false;
+}
+
+function canViewFullProxyTask(authUser, task) {
+  if (!authUser || !task) return false;
+  if (canSeeAll(authUser)) return true;
+  if (task.postedBy && String(task.postedBy) === String(authUser.id)) return true;
+  if (task.acceptedBy && String(task.acceptedBy) === String(authUser.id)) return true;
+  if (task.assignedToId && String(task.assignedToId) === String(authUser.id)) return true;
+  return false;
 }
 
 function canSeeAll(user) {
@@ -740,8 +852,8 @@ function reviewSeedData(user = {}) {
 }
 
 function verificationHash(destination, code) {
-  const salt = process.env.SESSION_SECRET || config.razorpayWebhookSecret || "legal-connect-phase1-verification";
-  return crypto.createHash("sha256").update(`${destination}:${code}:${salt}`).digest("hex");
+  const pepper = process.env.OTP_PEPPER || process.env.SESSION_SECRET || process.env.JWT_SECRET || "legal-connect-local-otp-pepper";
+  return crypto.createHash("sha256").update(`${destination}:${code}:${pepper}`).digest("hex");
 }
 
 function verificationCode() {
@@ -775,11 +887,21 @@ async function verifiedContactFlags(email, phone) {
     flags.emailVerified = reviewContactVerified(email);
     return flags;
   }
+  // Fresh OTP only — a code consumed months ago must not unlock every future login.
+  const freshWindowMs = 30 * 60 * 1000;
   if (db.dbAvailable) {
     const result = await db.query(
       `SELECT
-         EXISTS (SELECT 1 FROM login_verifications WHERE email = $1 AND consumed_at IS NOT NULL) AS email_verified,
-         EXISTS (SELECT 1 FROM login_verifications WHERE phone = $2 AND consumed_at IS NOT NULL) AS phone_verified`,
+         EXISTS (
+           SELECT 1 FROM login_verifications
+           WHERE email = $1 AND consumed_at IS NOT NULL
+             AND consumed_at > now() - interval '30 minutes'
+         ) AS email_verified,
+         EXISTS (
+           SELECT 1 FROM login_verifications
+           WHERE phone = $2 AND consumed_at IS NOT NULL
+             AND consumed_at > now() - interval '30 minutes'
+         ) AS phone_verified`,
       [email || null, phone || null],
     );
     return {
@@ -787,8 +909,9 @@ async function verifiedContactFlags(email, phone) {
       phoneVerified: Boolean(result.rows[0]?.phone_verified),
     };
   }
-  flags.emailVerified = Boolean(email && demoStore.verifications.some((item) => item.email === email && item.consumedAt));
-  flags.phoneVerified = Boolean(phone && demoStore.verifications.some((item) => item.phone === phone && item.consumedAt));
+  const fresh = (item) => item.consumedAt && (Date.now() - new Date(item.consumedAt).getTime()) <= freshWindowMs;
+  flags.emailVerified = Boolean(email && demoStore.verifications.some((item) => item.email === email && fresh(item)));
+  flags.phoneVerified = Boolean(phone && demoStore.verifications.some((item) => item.phone === phone && fresh(item)));
   return flags;
 }
 
@@ -803,12 +926,17 @@ function corsOriginFor(req) {
 }
 
 function sendJson(res, status, data) {
+  applySecurityHeaders(res);
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": res.localsCorsOrigin || config.allowedOrigin,
     "Vary": "Origin",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Legal-Connect-Token",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Cache-Control": "no-store",
   });
   res.end(JSON.stringify(data));
 }
@@ -2933,9 +3061,10 @@ const strategyFeatures = createStrategyFeatures({
   sendJson,
   readBody,
   readRawBody,
-  // Live lookup: getAuthUser is later wrapped with strict JWT decoding.
+  // Live lookup: getAuthUser is later wrapped with strict JWT decoding + DB role bind.
   getAuthUser: (req) => getAuthUser(req),
   canSeeAll: (user) => canSeeAll(user),
+  canAccessStoredCase: (authUser, caseRow) => canAccessStoredCase(authUser, caseRow),
   mapTask,
   mapCase,
   writeAuditLog,
@@ -2989,11 +3118,17 @@ const masterBlueprint = createMasterBlueprint({
 
 const server = http.createServer(async (req, res) => {
   res.localsCorsOrigin = corsOriginFor(req);
+  applySecurityHeaders(res);
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (req.method === "OPTIONS") {
     sendJson(res, 204, {});
     return;
+  }
+
+  // Bind auth once per request: revoke check + live DB role (prevents stale admin tokens).
+  if (url.pathname.startsWith("/api/")) {
+    await bindAuthUser(req);
   }
 
   if (await masterBlueprint.handleBlueprintRoutes(req, res, url)) {
@@ -3049,6 +3184,17 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     const dbHealth = await db.healthCheck();
+    const authUser = getAuthUser(req);
+    // Public liveness only — config/PII-adjacent readiness stays admin-only.
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 200, {
+        ok: dbHealth.connected || config.nodeEnv !== "production",
+        status: dbHealth.connected || config.nodeEnv !== "production" ? "ok" : "degraded",
+        app: "Legal Connect",
+        db: dbHealth.connected ? "connected" : "disconnected",
+      });
+      return;
+    }
     const lawbotCounts = dbHealth.connected || config.nodeEnv !== "production"
       ? await lawbotHealthCounts()
       : { approved_sources_count: 0, legal_chunks_count: 0 };
@@ -3327,6 +3473,15 @@ const server = http.createServer(async (req, res) => {
     const destination = email || phone;
     const destinationType = email ? "email" : "phone";
     const otpStatus = otpRuntimeStatus();
+    const limit = rateLimit(`otp:${clientIp(req)}:${destination || "none"}`, { windowMs: 15 * 60 * 1000, max: 8 });
+    if (!limit.allowed) {
+      sendJson(res, 429, {
+        ok: false,
+        error: "Too many verification requests. Try again later.",
+        retryAfterSeconds: limit.retryAfterSeconds,
+      });
+      return;
+    }
     if (!destination) {
       sendJson(res, 400, { ok: false, error: "Email or phone is required for verification." });
       return;
@@ -3343,6 +3498,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (email && isDemoEmail(email)) {
+      if (config.nodeEnv === "production") {
+        sendJson(res, 403, { ok: false, error: "Demo authentication is disabled in production." });
+        return;
+      }
       const code = DEMO_OTP;
       const record = {
         id: `verify-demo-${Date.now()}`,
@@ -3368,7 +3527,7 @@ const server = http.createServer(async (req, res) => {
         mode: "demo",
         destinationType: "email",
         destinationMasked: maskEmail(email),
-        devCode: code,
+        ...(config.nodeEnv !== "production" ? { devCode: code } : {}),
         message: "Demo account — verification code filled automatically.",
       });
       return;
@@ -3468,7 +3627,8 @@ const server = http.createServer(async (req, res) => {
       message: destinationType === "phone"
         ? "Phone OTP provider is not configured yet. SMS delivery is ready to connect."
         : "Local verification queued because email provider is not configured.",
-      ...(otpStatus.otp_fallback_enabled ? { devCode: code } : {}),
+      // Never expose OTP codes in production responses.
+      ...(otpStatus.otp_fallback_enabled && config.nodeEnv !== "production" ? { devCode: code } : {}),
     });
     return;
   }
@@ -3537,7 +3697,7 @@ const server = http.createServer(async (req, res) => {
         [email || null, phone || null],
       );
       const item = result.rows[0];
-      verified = Boolean(item && item.code_hash === expectedHash);
+      verified = Boolean(item && timingSafeEqualString(item.code_hash, expectedHash));
       if (verified) {
         verificationId = item.id;
         await db.query("UPDATE login_verifications SET consumed_at = now() WHERE id = $1", [item.id]);
@@ -3601,6 +3761,20 @@ const server = http.createServer(async (req, res) => {
     const privacyConsent = body.privacyConsent === true || body.privacyConsent === "true";
     const isReviewLogin = Boolean(email && isPlayReviewEmail(email));
     const isDemoLogin = Boolean(email && isDemoEmail(email));
+    const loginLimit = rateLimit(`login:${clientIp(req)}:${email || phone || "none"}`, { windowMs: 15 * 60 * 1000, max: 20 });
+    if (!loginLimit.allowed) {
+      sendJson(res, 429, {
+        ok: false,
+        error: "Too many login attempts. Try again later.",
+        retryAfterSeconds: loginLimit.retryAfterSeconds,
+      });
+      return;
+    }
+    if (isDemoLogin && config.nodeEnv === "production") {
+      await writeAuditLog({ role: "system" }, "demo_login_blocked", "auth", "login", "Demo login blocked in production.", { ip: clientIp(req) });
+      sendJson(res, 403, { ok: false, error: "Demo authentication is disabled in production." });
+      return;
+    }
     if (isReviewLogin && !reviewContactVerified(email)) {
       sendJson(res, 401, {
         ok: false,
@@ -3610,10 +3784,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const verifiedFlags = await verifiedContactFlags(email, phone);
-    if (isDemoLogin) {
+    if (isDemoLogin && config.nodeEnv !== "production") {
       verifiedFlags.emailVerified = true;
     }
-    if (config.nodeEnv === "production" && !isReviewLogin && !isDemoLogin && !verifiedFlags.emailVerified && !verifiedFlags.phoneVerified) {
+    if (!isReviewLogin && !verifiedFlags.emailVerified && !verifiedFlags.phoneVerified) {
       sendJson(res, 401, {
         ok: false,
         error: "Verify your email OTP before opening your workspace.",
@@ -3802,11 +3976,14 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 401, { ok: false, error: "Login is required." });
       return;
     }
-    sendJson(res, 200, { ok: true, user });
+    sendJson(res, 200, { ok: true, user: publicUser(user) });
     return;
   }
 
   if (url.pathname === "/api/auth/logout" && req.method === "POST") {
+    const token = rawAuthToken(req);
+    await revokeSessionToken(token);
+    setAuthUser(req, null);
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -5425,14 +5602,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const fileName = safeAttachmentName(attachment.file_name);
+    const fileBytes = decryptBuffer(attachment.file_data);
     res.writeHead(200, {
       "Content-Type": attachment.mime_type || "application/octet-stream",
-      "Content-Length": String(attachment.size_bytes || attachment.file_data.length),
+      "Content-Length": String(fileBytes.length),
       "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     });
-    res.end(attachment.file_data);
+    res.end(fileBytes);
     return;
   }
 
@@ -5841,7 +6019,19 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/case-updates" && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
     const body = await readBody(req);
+    const caseId = body.caseId || body.case_id || null;
+    if (db.dbAvailable && caseId && isUuid(String(caseId))) {
+      const matter = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]);
+      if (!matter.rows[0] || !(await canAccessStoredCase(authUser, matter.rows[0]))) {
+        sendJson(res, matter.rows[0] ? 403 : 404, { ok: false, error: matter.rows[0] ? "Forbidden" : "Case not found." });
+        return;
+      }
+    }
     const message = body.message || body.decision || "Case diary decision saved.";
     if (db.dbAvailable) {
       // Supervised pipeline: never publish client-visible updates without LC review.
@@ -5851,27 +6041,26 @@ const server = http.createServer(async (req, res) => {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
-          body.caseId || body.case_id || null,
+          caseId,
           body.updateType || body.update_type || "calendar_decision",
           message,
-          JSON.stringify({ ...body, user_id: authUser?.id || null }),
+          JSON.stringify({ ...body, user_id: authUser.id }),
           status,
-          authUser?.id ? String(authUser.id) : null,
-          authUser?.role || "system",
-          status === "approved" && authUser?.id ? String(authUser.id) : null,
+          String(authUser.id),
+          authUser.role || "user",
+          status === "approved" ? String(authUser.id) : null,
           status === "approved" ? new Date().toISOString() : null,
         ],
       );
-      const caseId = body.caseId || body.case_id || null;
       if (caseId && status === "pending_lc_review") {
         const bookingId = await supervisedPipeline.bookingIdForCase(caseId);
         if (bookingId) await supervisedPipeline.syncBookingPipelineStage(bookingId, "advocate_update_pending");
         await supervisedPipeline.syncCasePipelineStage(caseId, "advocate_update_pending");
       }
-      await createNotification("clash_warning", "Calendar decision saved", message, { caseUpdateId: result.rows[0].id }, authUser?.id || null);
+      await createNotification("clash_warning", "Calendar decision saved", message, { caseUpdateId: result.rows[0].id }, authUser.id);
       await createReceipt({
-        userId: authUser?.id || null,
-        actor: authUser || { role: "system" },
+        userId: authUser.id,
+        actor: authUser,
         receiptType: "case_update",
         title: "Case calendar receipt",
         message,
@@ -5879,7 +6068,7 @@ const server = http.createServer(async (req, res) => {
         targetType: "case_update",
         targetId: result.rows[0].id,
         visibility: "team",
-        payload: { caseId: body.caseId || body.case_id || null, updateType: body.updateType || body.update_type || "calendar_decision" },
+        payload: { caseId, updateType: body.updateType || body.update_type || "calendar_decision" },
       });
       sendJson(res, 201, result.rows[0]);
       return;
@@ -5887,10 +6076,10 @@ const server = http.createServer(async (req, res) => {
     const update = { id: `case-update-${Date.now()}`, message, createdAt: new Date().toISOString(), ...body };
     demoStore.caseUpdates = demoStore.caseUpdates || [];
     demoStore.caseUpdates.unshift(update);
-    await createNotification("clash_warning", "Calendar decision saved", message, update, authUser?.id || null);
+    await createNotification("clash_warning", "Calendar decision saved", message, update, authUser.id);
     await createReceipt({
-      userId: authUser?.id || null,
-      actor: authUser || { role: "system" },
+      userId: authUser.id,
+      actor: authUser,
       receiptType: "case_update",
       title: "Case calendar receipt",
       message,
@@ -5898,7 +6087,7 @@ const server = http.createServer(async (req, res) => {
       targetType: "case_update",
       targetId: update.id,
       visibility: "team",
-      payload: { caseId: body.caseId || body.case_id || null, updateType: body.updateType || body.update_type || "calendar_decision" },
+      payload: { caseId, updateType: body.updateType || body.update_type || "calendar_decision" },
     });
     sendJson(res, 201, update);
     return;
@@ -6598,9 +6787,16 @@ const server = http.createServer(async (req, res) => {
     const status = paymentConfigStatus();
     const masterFree = authUser ? await isMasterTestUser(authUser) : false;
     const firstChatUsed = authUser && !masterFree ? await userHasUsedFirstChat(authUser.id) : false;
+    const publicStatus = authUser
+      ? status
+      : {
+          mode: status.mode,
+          razorpay_ready: status.razorpay_ready,
+          // Never expose merchant VPA / webhook readiness to anonymous callers.
+        };
     sendJson(res, 200, {
       ok: true,
-      ...status,
+      ...publicStatus,
       first_chat_free_available: Boolean(authUser) && (masterFree || !firstChatUsed),
       first_chat_free_amount: 0,
       chat_amount: 99,
@@ -6616,13 +6812,17 @@ const server = http.createServer(async (req, res) => {
       proxy_urgency_tiers: PROXY_URGENCY_TIERS,
       all_features_free: masterFree,
       master_test_free: masterFree,
-      chamber_plans: chamberPlanCatalog(),
+      chamber_plans: authUser ? chamberPlanCatalog() : [],
     });
     return;
   }
 
   if (url.pathname === "/api/payments/create-order" && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required to create a payment order." });
+      return;
+    }
     const body = await readBody(req);
     const amount = Number(body.amount || 0);
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
@@ -6630,7 +6830,15 @@ const server = http.createServer(async (req, res) => {
     const wantsFirstChatFree = Boolean(body.firstChatFree || body.mode === "first_chat_free");
     const wantsMasterFree = Boolean(body.masterTestFree || body.mode === "master_test_free");
     const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
-    const masterFree = authUser ? await isMasterTestUser(authUser) : false;
+    const masterFree = await isMasterTestUser(authUser);
+    const bookingIdForOrder = body.bookingId || body.booking_id;
+    if (db.dbAvailable && bookingIdForOrder && isUuid(String(bookingIdForOrder))) {
+      const bookingRow = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingIdForOrder]).catch(() => ({ rows: [] }));
+      if (bookingRow.rows[0] && !canAccessBooking(authUser, mapBooking(bookingRow.rows[0]))) {
+        sendJson(res, 403, { ok: false, error: "Forbidden" });
+        return;
+      }
+    }
 
     // Zero-amount / developer / first-chat free — never call Razorpay.
     // Client-supplied masterTestFree flags are ignored unless the signed-in user is the developer account.
@@ -6753,6 +6961,7 @@ const server = http.createServer(async (req, res) => {
         receipt: body.receiptNo || body.receipt_no || body.bookingId || `LC-${Date.now()}`,
         notes: {
           booking_id: body.bookingId || body.booking_id || "",
+          user_id: String(authUser.id),
           service_type: body.serviceType || body.service_type || "Legal Connect booking",
         },
       });
@@ -6814,6 +7023,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/payments/verify" && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required to verify payment." });
+      return;
+    }
     const body = await readBody(req);
     const orderId = body.order_id || body.razorpay_order_id;
     const paymentId = body.payment_id || body.razorpay_payment_id;
@@ -6826,6 +7039,17 @@ const server = http.createServer(async (req, res) => {
     if (!config.razorpayKeySecret) {
       sendJson(res, 200, { ok: true, mode: "demo", status: "queued", payment_status: "verification_pending", work_hold_status: "pending" });
       return;
+    }
+    if (db.dbAvailable && bookingId) {
+      const bookingRow = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingId]).catch(() => ({ rows: [] }));
+      if (!bookingRow.rows[0]) {
+        sendJson(res, 404, { ok: false, error: "Booking not found." });
+        return;
+      }
+      if (!canAccessBooking(authUser, mapBooking(bookingRow.rows[0]))) {
+        sendJson(res, 403, { ok: false, error: "Forbidden" });
+        return;
+      }
     }
     const valid = verifyRazorpayPaymentSignature(orderId, paymentId, signature);
     if (valid) {
@@ -7350,7 +7574,15 @@ const server = http.createServer(async (req, res) => {
       }
       const current = mapTask(existing.rows[0]);
       if (req.method === "GET") {
-        sendJson(res, 200, current);
+        if (canViewFullProxyTask(authUser, current)) {
+          sendJson(res, 200, current);
+          return;
+        }
+        if (isOpenProxyBoardTask(current) && ["advocate", "intern"].includes(String(authUser.role || "").toLowerCase())) {
+          sendJson(res, 200, toProxyTeaser(current, authUser.id));
+          return;
+        }
+        sendJson(res, 403, { error: "Forbidden" });
         return;
       }
       if (!canSeeAll(authUser) && current.postedBy !== authUser.id) {
@@ -7643,13 +7875,15 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 403, { error: "Forbidden" });
       return;
     }
+    const fileBytes = decryptBuffer(row.file_data);
     res.writeHead(200, {
       "Content-Type": row.mime_type || "application/octet-stream",
       "Content-Disposition": `attachment; filename="${safeAttachmentName(row.file_name)}"`,
-      "Content-Length": String(row.size_bytes || (row.file_data ? row.file_data.length : 0)),
+      "Content-Length": String(fileBytes.length),
       "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
     });
-    res.end(row.file_data);
+    res.end(fileBytes);
     return;
   }
 
@@ -7706,11 +7940,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const checksum = crypto.createHash("sha256").update(fileData).digest("hex");
+    const encryptedData = encryptBuffer(fileData);
     const created = await db.query(
       `INSERT INTO booking_attachments (booking_id, uploaded_by, file_name, mime_type, size_bytes, checksum, file_data)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, booking_id, file_name, mime_type, size_bytes, checksum, created_at`,
-      [bookingId, databaseUserId, fileName, mimeType, fileData.length, checksum, fileData],
+      [bookingId, databaseUserId, fileName, mimeType, fileData.length, checksum, encryptedData],
     );
     await writeAuditLog(authUser, "booking_attachment_uploaded", "booking", bookingId, "A case intake attachment was uploaded.", { attachmentId: created.rows[0].id, fileName, sizeBytes: fileData.length, checksum });
     sendJson(res, 201, { ok: true, attachment: created.rows[0] });
@@ -7731,11 +7966,15 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const current = mapBooking(existing.rows[0]);
-      if (!canSeeAll(authUser) && authUser.role !== "advocate" && current.userId !== authUser.id) {
+      if (!canAccessBooking(authUser, current)) {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
       if (req.method === "DELETE") {
+        if (!canSeeAll(authUser) && current.userId !== authUser.id) {
+          sendJson(res, 403, { error: "Only the booking owner or an admin can delete this booking." });
+          return;
+        }
         await db.query("DELETE FROM bookings WHERE id = $1", [id]);
         sendJson(res, 204, {});
         return;
@@ -7763,11 +8002,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const booking = demoStore.bookings[index];
-    if (!canSeeAll(authUser) && authUser.role !== "advocate" && booking.userId !== authUser.id) {
+    if (!canAccessBooking(authUser, booking)) {
       sendJson(res, 403, { error: "Forbidden" });
       return;
     }
     if (req.method === "DELETE") {
+      if (!canSeeAll(authUser) && booking.userId !== authUser.id) {
+        sendJson(res, 403, { error: "Only the booking owner or an admin can delete this booking." });
+        return;
+      }
       demoStore.bookings.splice(index, 1);
       sendJson(res, 204, {});
       return;
@@ -8064,6 +8307,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/lawbot/query" && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
     const body = await readBody(req);
     const question = body.query || body.question || body.message || "";
     const result = await queryLawbot(question, userIdForWrite(body, authUser), body.mode || "lawbot");
@@ -8109,6 +8356,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/ai/chat" && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
     const body = await readBody(req);
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content || "";
@@ -8120,6 +8371,10 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/sos" && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required for SOS requests." });
+      return;
+    }
     const body = await readBody(req);
     if (isReviewUser(authUser)) {
       const seed = reviewSeedData(authUser);
@@ -8327,18 +8582,19 @@ function decodeStrictJwt(token) {
 
 const strictLegacyGetAuthUser = getAuthUser;
 getAuthUser = function strictGetAuthUser(req) {
+  const cached = getCachedAuthUser(req);
+  if (cached !== undefined) return cached;
   const token = req.headers.authorization || req.headers['x-legal-connect-token'];
   return decodeStrictJwt(token) || strictLegacyGetAuthUser(req);
 };
 
 /**
  * Master operator account — one email/password opens every portal role.
- * All paid features are free for this account (see isMasterTestUser).
- * Password may be overridden with MASTER_TEST_PASSWORD.
+ * Password MUST come from MASTER_TEST_PASSWORD env (no source default).
  */
 const MASTER_TEST_LOGIN = {
   email: "karannagpal16@gmail.com",
-  password: process.env.MASTER_TEST_PASSWORD || "Karan1605!",
+  password: process.env.MASTER_TEST_PASSWORD || "",
   names: {
     client: "Karan Nagpal",
     advocate: "Adv. Karan Nagpal",
@@ -8349,13 +8605,13 @@ const MASTER_TEST_LOGIN = {
 };
 
 function masterTestLoginAllowed() {
-  // Prefer config (production defaults OFF unless ALLOW_MASTER_TEST_LOGIN=true).
-  return Boolean(config.allowMasterTestLogin) && Boolean(MASTER_TEST_LOGIN.password);
+  return Boolean(config.allowMasterTestLogin) && Boolean(MASTER_TEST_LOGIN.password) && MASTER_TEST_LOGIN.password.length >= 12;
 }
 
 function isMasterTestLogin(email, password) {
   if (!masterTestLoginAllowed()) return false;
-  return normalizeEmail(email) === MASTER_TEST_LOGIN.email && String(password || "") === MASTER_TEST_LOGIN.password;
+  return normalizeEmail(email) === MASTER_TEST_LOGIN.email
+    && timingSafeEqualString(String(password || ""), MASTER_TEST_LOGIN.password);
 }
 
 function isMasterTestEmail(email) {

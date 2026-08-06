@@ -78,9 +78,11 @@ const config = {
   razorpayKeyId: optionalString("RAZORPAY_KEY_ID"),
   razorpayKeySecret: optionalString("RAZORPAY_KEY_SECRET"),
   razorpayWebhookSecret: optionalString("RAZORPAY_WEBHOOK_SECRET") || optionalString("WEBHOOK_SECRET"),
-  /** Merchant UPI VPA for direct QR. Env overrides this default. */
-  upiVpa: optionalString("LEGAL_CONNECT_UPI_VPA") || optionalString("UPI_VPA") || "7982871464@ptaxis",
+  /** Merchant UPI VPA for direct QR. No hardcoded production default. */
+  upiVpa: optionalString("LEGAL_CONNECT_UPI_VPA") || optionalString("UPI_VPA") || "",
   upiPayeeName: optionalString("LEGAL_CONNECT_UPI_NAME", "Legal Connect"),
+  dataEncryptionKey: optionalString("DATA_ENCRYPTION_KEY"),
+  pgSslCa: optionalString("PGSSL_CA"),
   emailProvider: optionalString("EMAIL_PROVIDER"),
   sendgridApiKey: optionalString("SENDGRID_API_KEY") || optionalString("SENDGRID_KEY"),
   resendApiKey: optionalString("RESEND_API_KEY"),
@@ -99,14 +101,18 @@ const config = {
   /** Production wipe kill-switch. Must be exactly "true" to allow POST /api/admin/reset-operational-data. */
   allowOperationalReset: optionalString("ALLOW_OPERATIONAL_RESET", "false").toLowerCase() === "true",
   /**
-   * Master card (karannagpal16@gmail.com) multi-portal login.
-   * Production default: OFF. Set ALLOW_MASTER_TEST_LOGIN=true to re-enable.
-   * Non-production default: ON for local/dev.
+   * Master operator multi-portal login.
+   * Production default: OFF. Requires ALLOW_MASTER_TEST_LOGIN=true AND MASTER_TEST_PASSWORD.
+   * Non-production default: ON only when MASTER_TEST_PASSWORD is set.
    */
   allowMasterTestLogin: (() => {
     const raw = optionalString("ALLOW_MASTER_TEST_LOGIN", "");
-    if (raw) return raw.toLowerCase() !== "false";
-    return optionalString("NODE_ENV", "development") !== "production";
+    const hasPassword = Boolean(optionalString("MASTER_TEST_PASSWORD"));
+    if (optionalString("NODE_ENV", "development") === "production") {
+      return raw.toLowerCase() === "true" && hasPassword;
+    }
+    if (raw) return raw.toLowerCase() !== "false" && hasPassword;
+    return hasPassword;
   })(),
   twilioAccountSid: optionalString("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optionalString("TWILIO_AUTH_TOKEN"),
@@ -118,11 +124,23 @@ const config = {
 };
 
 if (config.nodeEnv === "production") {
-  const warnings = [];
-  if (!config.dbUrl) warnings.push("DATABASE_URL or DB_URL");
-  if (!config.allowedOrigins.length || config.allowedOrigins.includes("*")) warnings.push("ALLOWED_ORIGINS");
-  if (warnings.length) {
-    console.warn(`Production config warning: ${warnings.join(", ")} not configured. Production startup will fail until required settings are added.`);
+  const missing = [];
+  if (!config.dbUrl) missing.push("DATABASE_URL or DB_URL");
+  if (!(process.env.SESSION_SECRET || process.env.JWT_SECRET)) {
+    missing.push("SESSION_SECRET (or JWT_SECRET), dedicated random value >= 32 characters");
+  } else if (String(process.env.SESSION_SECRET || process.env.JWT_SECRET || "").length < 32) {
+    console.warn("SESSION_SECRET/JWT_SECRET is shorter than 32 characters; rotate to a longer random secret.");
+  }
+  if (!config.allowedOrigins.length || config.allowedOrigins.includes("*")) {
+    const locked = [config.publicAppUrl, config.appUrl, "https://legal-connect.in", "https://www.legal-connect.in"]
+      .filter(Boolean)
+      .map((item) => String(item).replace(/\/$/, ""));
+    config.allowedOrigins = [...new Set(locked)];
+    config.allowedOrigin = config.allowedOrigins[0];
+    console.warn("Production CORS locked to app allowlist because ALLOWED_ORIGINS was missing or set to *.");
+  }
+  if (missing.length) {
+    throw new Error(`Production config incomplete: ${missing.join("; ")}`);
   }
 }
 

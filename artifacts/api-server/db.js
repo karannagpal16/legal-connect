@@ -25,13 +25,20 @@ function safeError(error) {
 function sslConfig() {
   if (!connectionString) return false;
   if (process.env.PGSSL === "false") return false;
-  if (process.env.PGSSL === "true") return { rejectUnauthorized: false };
+  const ca = process.env.PGSSL_CA || "";
   try {
     const host = new URL(connectionString).hostname;
     const localHost = ["localhost", "127.0.0.1", "::1"].includes(host);
-    return isProduction || !localHost ? { rejectUnauthorized: false } : false;
+    if (localHost && process.env.PGSSL !== "true") return false;
+    // Prefer verified TLS when a CA is provided; otherwise require SSL but allow
+    // provider-managed certs (Render/Neon) unless explicitly forced.
+    if (ca) {
+      return { rejectUnauthorized: true, ca };
+    }
+    const forceVerify = String(process.env.PGSSL_REJECT_UNAUTHORIZED || "").toLowerCase() === "true";
+    return { rejectUnauthorized: forceVerify };
   } catch {
-    return isProduction ? { rejectUnauthorized: false } : false;
+    return isProduction ? { rejectUnauthorized: Boolean(ca), ...(ca ? { ca } : {}) } : false;
   }
 }
 

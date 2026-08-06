@@ -88,6 +88,7 @@ function createStrategyFeatures(deps) {
     readRawBody,
     getAuthUser,
     canSeeAll,
+    canAccessStoredCase,
     mapTask,
     mapCase,
     writeAuditLog,
@@ -404,7 +405,8 @@ function createStrategyFeatures(deps) {
     }
     const timestamp = Math.floor(Date.now() / 1000);
     const publicId = `${folder}/${Date.now()}-${safeAttachmentName(fileName).replace(/\.[^.]+$/, "")}`;
-    const toSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${config.cloudinaryApiSecret}`;
+    // Authenticated uploads — documents are not publicly enumerable by URL.
+    const toSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}&type=authenticated${config.cloudinaryApiSecret}`;
     const signature = crypto.createHash("sha1").update(toSign).digest("hex");
     const form = new FormData();
     form.append("file", new Blob([buffer], { type: mimeType || "application/octet-stream" }), fileName);
@@ -412,6 +414,7 @@ function createStrategyFeatures(deps) {
     form.append("timestamp", String(timestamp));
     form.append("folder", folder);
     form.append("public_id", publicId);
+    form.append("type", "authenticated");
     form.append("signature", signature);
     const response = await fetch(`https://api.cloudinary.com/v1_1/${config.cloudinaryCloudName}/auto/upload`, {
       method: "POST",
@@ -423,10 +426,12 @@ function createStrategyFeatures(deps) {
     }
     return {
       ok: true,
-      url: data.secure_url || data.url,
+      // Prefer delivery through Legal Connect download routes, not durable public CDN URLs.
+      url: null,
       publicId: data.public_id,
       bytes: data.bytes,
       etag: data.etag,
+      accessMode: "authenticated",
     };
   }
 
@@ -697,13 +702,19 @@ function createStrategyFeatures(deps) {
       }
       const caseId = caseHealthMatch[1];
       let matter = null;
+      let rawCase = null;
       if (db.dbAvailable && isUuid(caseId)) {
         const result = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]);
         if (!result.rows[0]) {
           sendJson(res, 404, { ok: false, error: "Case not found." });
           return true;
         }
-        matter = mapCase(result.rows[0]);
+        rawCase = result.rows[0];
+        if (typeof canAccessStoredCase === "function" && !(await canAccessStoredCase(authUser, rawCase))) {
+          sendJson(res, 403, { ok: false, error: "Forbidden" });
+          return true;
+        }
+        matter = mapCase(rawCase);
       } else {
         matter = (demoStore.cases || []).find((item) => String(item.id) === String(caseId)) || null;
         if (matter) matter = mapCase(matter);
@@ -732,6 +743,17 @@ function createStrategyFeatures(deps) {
         return true;
       }
       const caseId = caseDocsMatch[1];
+      if (db.dbAvailable && isUuid(caseId)) {
+        const matterResult = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]);
+        if (!matterResult.rows[0]) {
+          sendJson(res, 404, { ok: false, error: "Case not found." });
+          return true;
+        }
+        if (typeof canAccessStoredCase === "function" && !(await canAccessStoredCase(authUser, matterResult.rows[0]))) {
+          sendJson(res, 403, { ok: false, error: "Forbidden" });
+          return true;
+        }
+      }
       const fileName = safeAttachmentName(req.headers["x-file-name"] || "document.pdf");
       const mimeType = String(req.headers["content-type"] || "application/octet-stream").split(";")[0];
       const raw = await readRawBody(req, 8 * 1024 * 1024);
@@ -742,7 +764,7 @@ function createStrategyFeatures(deps) {
       const checksum = crypto.createHash("sha256").update(raw).digest("hex");
       const cloud = await uploadToCloudinary({ buffer: raw, fileName, mimeType, folder: "legal-connect/case-docs" });
       const storageKey = cloud.ok ? `cloudinary:${cloud.publicId}` : `inline:${checksum.slice(0, 16)}`;
-      const publicUrl = cloud.ok ? cloud.url : null;
+      const publicUrl = null;
       if (db.dbAvailable && isUuid(caseId)) {
         const created = await db.query(
           `INSERT INTO case_documents (case_id, uploaded_by, file_name, category, storage_key, mime_type, size_bytes, checksum, public_url, provider)
@@ -778,10 +800,10 @@ function createStrategyFeatures(deps) {
           document: {
             id: created.rows[0].id,
             name: fileName,
-            url: publicUrl,
+            url: null,
             provider: cloud.ok ? "cloudinary" : "local",
             checksum,
-            downloadPath: publicUrl || `/api/cases/${caseId}/documents/${created.rows[0].id}`,
+            downloadPath: `/api/cases/${caseId}/documents/${created.rows[0].id}`,
           },
           cloudinaryConfigured: Boolean(config.cloudinaryCloudName && config.cloudinaryApiKey && config.cloudinaryApiSecret),
         });
@@ -792,7 +814,7 @@ function createStrategyFeatures(deps) {
         document: {
           id: `doc-${Date.now()}`,
           name: fileName,
-          url: publicUrl,
+          url: null,
           provider: cloud.ok ? "cloudinary" : "local",
           checksum,
         },
@@ -1378,6 +1400,15 @@ function createStrategyFeatures(deps) {
       const isAdmin = canSeeAll(authUser);
       const isClient = String(authUser.role || "").toLowerCase() === "client";
       if (db.dbAvailable && isUuid(caseId)) {
+        const matterResult = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]);
+        if (!matterResult.rows[0]) {
+          sendJson(res, 404, { ok: false, error: "Case not found." });
+          return true;
+        }
+        if (typeof canAccessStoredCase === "function" && !(await canAccessStoredCase(authUser, matterResult.rows[0]))) {
+          sendJson(res, 403, { ok: false, error: "Forbidden" });
+          return true;
+        }
         const updates = isAdmin || !isClient
           ? await db.query(
               `SELECT * FROM case_updates WHERE case_id = $1 ORDER BY created_at DESC LIMIT 100`,
