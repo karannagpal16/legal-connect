@@ -6652,9 +6652,13 @@ const server = http.createServer(async (req, res) => {
     }
     const body = await readBody(req);
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+    const masterFree = await isMasterTestUser(authUser);
+    const isMasterOrder = masterFree && (
+      String(razorpay_order_id || "").startsWith("order_proxy_master_")
+      || body.mode === "master_test_free"
+    );
     const isDemoOrder = String(razorpay_order_id || "").startsWith("order_proxy_demo_")
-      || String(razorpay_order_id || "").startsWith("order_proxy_master_")
-      || body.mode === "master_test_free";
+      || isMasterOrder;
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
 
     // Verify HMAC signature for real Razorpay orders (fail-closed in production).
