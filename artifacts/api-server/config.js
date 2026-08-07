@@ -114,6 +114,11 @@ const config = {
     if (raw) return raw.toLowerCase() !== "false" && hasPassword;
     return hasPassword;
   })(),
+  /**
+   * Emails that get all paid features free (ProxyHub, advisory, chamber).
+   * Comma-separated via MASTER_FREE_EMAILS; merged with built-in family allowlist.
+   */
+  masterFreeEmails: optionalString("MASTER_FREE_EMAILS"),
   twilioAccountSid: optionalString("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optionalString("TWILIO_AUTH_TOKEN"),
   twilioFromNumber: optionalString("TWILIO_FROM_NUMBER"),

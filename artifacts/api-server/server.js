@@ -6577,7 +6577,7 @@ const server = http.createServer(async (req, res) => {
         currency: "INR",
         keyId: "master_test_free",
         description: String(body.title).trim(),
-        message: "Developer account — ProxyHub fee waived.",
+        message: "Master free account — ProxyHub fee waived.",
         developerAccount: true,
       });
       return;
@@ -6652,9 +6652,13 @@ const server = http.createServer(async (req, res) => {
     }
     const body = await readBody(req);
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+    const masterFree = await isMasterTestUser(authUser);
+    const isMasterOrder = masterFree && (
+      String(razorpay_order_id || "").startsWith("order_proxy_master_")
+      || body.mode === "master_test_free"
+    );
     const isDemoOrder = String(razorpay_order_id || "").startsWith("order_proxy_demo_")
-      || String(razorpay_order_id || "").startsWith("order_proxy_master_")
-      || body.mode === "master_test_free";
+      || isMasterOrder;
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
 
     // Verify HMAC signature for real Razorpay orders (fail-closed in production).
@@ -8591,6 +8595,7 @@ getAuthUser = function strictGetAuthUser(req) {
 /**
  * Master operator account — one email/password opens every portal role.
  * Password MUST come from MASTER_TEST_PASSWORD env (no source default).
+ * Free entitlements also apply to MASTER_FREE_EMAILS / built-in family allowlist.
  */
 const MASTER_TEST_LOGIN = {
   email: "karannagpal16@gmail.com",
@@ -8604,6 +8609,29 @@ const MASTER_TEST_LOGIN = {
   label: "master",
 };
 
+/** Built-in master-free accounts (existing Users directory). Extend via MASTER_FREE_EMAILS. */
+const BUILTIN_MASTER_FREE_EMAILS = [
+  "karannagpal16@gmail.com",
+  "priyanagpal16@gmail.com",
+  "samayraina@gmail.com",
+  "legalconnect0s@gmail.com",
+  "kartiknagpal16@gmail.com",
+  "nagpal.manoj1973@gmail.com",
+  "muktanagpal25@gmail.com",
+];
+
+function masterFreeEmailSet() {
+  const fromEnv = String(config.masterFreeEmails || process.env.MASTER_FREE_EMAILS || "")
+    .split(",")
+    .map((item) => normalizeEmail(item))
+    .filter(Boolean);
+  return new Set([
+    ...BUILTIN_MASTER_FREE_EMAILS.map((email) => normalizeEmail(email)),
+    ...fromEnv,
+    normalizeEmail(MASTER_TEST_LOGIN.email),
+  ].filter(Boolean));
+}
+
 function masterTestLoginAllowed() {
   return Boolean(config.allowMasterTestLogin) && Boolean(MASTER_TEST_LOGIN.password) && MASTER_TEST_LOGIN.password.length >= 12;
 }
@@ -8615,7 +8643,8 @@ function isMasterTestLogin(email, password) {
 }
 
 function isMasterTestEmail(email) {
-  return normalizeEmail(email) === MASTER_TEST_LOGIN.email;
+  const normalized = normalizeEmail(email);
+  return Boolean(normalized) && masterFreeEmailSet().has(normalized);
 }
 
 async function isMasterTestUser(authUser) {
@@ -8674,7 +8703,7 @@ async function claimFreeBooking(authUser, body, reason = "free") {
         receipt: body.receiptNo || body.receipt_no || `LC-FREE-${Date.now()}`,
         caseId: linkedCaseId,
         message: reason === "master_test_free"
-          ? "Developer account — all client payments are free."
+          ? "Master free account — all client payments are free."
           : "Free booking activated.",
       },
     };
