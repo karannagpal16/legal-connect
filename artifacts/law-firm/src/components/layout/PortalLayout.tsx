@@ -58,6 +58,7 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "Overview", href: "/admin", icon: LayoutDashboard },
     { label: "Ops Command", href: "/admin/control", icon: Gavel },
     { label: "Verifications", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "Identity Vault", href: "/admin/identity-vault", icon: Vault },
     { label: "LC review", href: "/admin/pending-updates", icon: MessageSquare },
     { label: "Users", href: "/admin/users", icon: Users },
     { label: "Cases", href: "/admin/cases", icon: FileSearch },
@@ -71,6 +72,7 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "My cases", href: "/advocate/cases", icon: FileSearch },
     { label: "Case updates", href: "/advocate/updates", icon: MessageSquare },
     { label: "Chamber Vault", href: "/advocate/chamber", icon: Vault },
+    { label: "Identity Vault", href: "/advocate/identity-vault", icon: ShieldCheck },
     { label: "Court diary", href: "/advocate/diary", icon: BookOpen },
     { label: "Proxy Hub", href: "/advocate/proxy", icon: BriefcaseBusiness },
     { label: "Bookings", href: "/advocate/bookings", icon: CalendarDays },
@@ -80,6 +82,7 @@ const navigation: Record<AppRole, NavItem[]> = {
   ],
   client: [
     { label: "Home", href: "/client", icon: Home },
+    { label: "Identity Vault", href: "/client/identity-vault", icon: ShieldCheck },
     { label: "Get legal help", href: "/client/book", icon: Gavel },
     { label: "Case updates", href: "/client/updates", icon: FileSearch },
     { label: "Message LC", href: "/client/chat", icon: MessageSquare },
@@ -92,6 +95,7 @@ const navigation: Record<AppRole, NavItem[]> = {
   ],
   intern: [
     { label: "Dashboard", href: "/intern", icon: Home },
+    { label: "Identity Vault", href: "/intern/identity-vault", icon: ShieldCheck },
     { label: "My quests", href: "/intern/quests", icon: Target },
     { label: "Case tracker", href: "/intern/cases", icon: FileSearch },
     { label: "XP & progress", href: "/intern/xp", icon: BarChart3 },

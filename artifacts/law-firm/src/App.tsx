@@ -27,6 +27,7 @@ const MyDiary = lazyNamed(() => import("@/pages/MyDiary"), "MyDiary");
 const ProxyHub = lazyNamed(() => import("@/pages/ProxyHub"), "ProxyHub");
 const RevenueTracker = lazyNamed(() => import("@/pages/RevenueTracker"), "RevenueTracker");
 const Users = lazyNamed(() => import("@/pages/Users"), "Users");
+const IdentityVault = lazyNamed(() => import("@/pages/IdentityVault"), "IdentityVault");
 const LegalLibrary = lazyNamed(() => import("@/pages/LegalLibrary"), "LegalLibrary");
 const BookLawyer = lazyNamed(() => import("@/pages/BookLawyer"), "BookLawyer");
 const Bookings = lazyNamed(() => import("@/pages/Bookings"), "Bookings");
@@ -148,6 +149,7 @@ function AdminPortal() {
             <Route path="/admin/control" component={AdminControlDesk} />
             <Route path="/admin/users" component={Users} />
             <Route path="/admin/verifications" component={AdminVerifications} />
+            <Route path="/admin/identity-vault" component={IdentityVault} />
             <Route path="/admin/pending-updates" component={AdminPendingUpdates} />
             <Route path="/admin/cases" component={MyDiary} />
             <Route path="/admin/bookings" component={Bookings} />
@@ -188,6 +190,7 @@ function ClientPortal() {
             <Route path="/client/lawbot" component={ClientLawBot} />
             <Route path="/client/chat" component={ClientChat} />
             <Route path="/client/library" component={ClientLibrary} />
+            <Route path="/client/identity-vault" component={IdentityVault} />
             <Route path="/client/login"><Redirect to="/login" /></Route>
             <Route path="/client/onboarding"><Redirect to="/client" /></Route>
             <Route component={NotFound} />
@@ -215,6 +218,7 @@ function AdvocatePortal() {
             <Route path="/advocate/revenue" component={AdvocateRevenue} />
             <Route path="/advocate/team" component={AdvocateTeam} />
             <Route path="/advocate/chamber" component={ChamberVault} />
+            <Route path="/advocate/identity-vault" component={IdentityVault} />
             <Route path="/advocate/chat" component={AdvocateChat} />
             <Route path="/advocate/lawbot" component={AdvocateLawBot} />
             <Route path="/advocate/judges" component={AdvocateJudges} />
@@ -246,6 +250,7 @@ function InternPortal() {
             <Route path="/intern/doubts" component={InternDoubtPortal} />
             <Route path="/intern/ai-assistant" component={InternAIAssistant} />
             <Route path="/intern/library" component={InternLibrary} />
+            <Route path="/intern/identity-vault" component={IdentityVault} />
             <Route path="/intern/cases" component={MyDiary} />
             <Route path="/intern/login"><Redirect to="/login" /></Route>
             <Route path="/intern/onboarding"><Redirect to="/intern" /></Route>
