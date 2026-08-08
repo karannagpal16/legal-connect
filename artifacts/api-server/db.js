@@ -623,6 +623,42 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS identity_verifications_user_idx ON identity_verifications (user_id, created_at DESC)`);
 
     await query(`
+      CREATE TABLE IF NOT EXISTS identity_credentials_vault (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        credential_kind text NOT NULL,
+        ciphertext text NOT NULL,
+        key_version text NOT NULL DEFAULT 'v1',
+        reference_hash text NOT NULL,
+        reference_last4 text,
+        status text NOT NULL DEFAULT 'sealed',
+        label text,
+        metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+        deposited_at timestamptz DEFAULT now(),
+        rotated_at timestamptz,
+        last_revealed_at timestamptz,
+        last_revealed_by uuid,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now(),
+        UNIQUE (user_id, credential_kind)
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS identity_vault_user_idx ON identity_credentials_vault (user_id, credential_kind)`);
+    await query(`CREATE INDEX IF NOT EXISTS identity_vault_status_idx ON identity_credentials_vault (status, updated_at DESC)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS identity_vault_access_log (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        vault_id uuid REFERENCES identity_credentials_vault(id) ON DELETE SET NULL,
+        user_id uuid,
+        actor_id uuid,
+        action text NOT NULL,
+        detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS identity_vault_access_idx ON identity_vault_access_log (vault_id, created_at DESC)`);
+
+    await query(`
       CREATE TABLE IF NOT EXISTS chambers (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,

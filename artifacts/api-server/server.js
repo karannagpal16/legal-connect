@@ -31,9 +31,15 @@ const {
   timingSafeEqualString,
   redactSecrets,
 } = require("./security");
+const { createIdentityVault } = require("./identity-vault");
 
 const platformEvents = createPlatformEvents({ db, config });
 const supervisedPipeline = createSupervisedPipeline({ db });
+const identityVault = createIdentityVault({
+  db,
+  config,
+  writeAuditLog: (...args) => writeAuditLog(...args),
+});
 
 const PORT = config.port;
 const publicDir = path.join(__dirname, "public");
@@ -1628,6 +1634,8 @@ function numericAmount(value, fallback = 0) {
 
 function dashboardUser(item) {
   const roleMap = { admin: "Admin", rna: "Admin", advocate: "Associate", intern: "Intern", client: "Proxy" };
+  const rawBar = item.barId || item.enrollmentNo || item.enrollment_no || item.collegeIdNo || item.college_id_no || null;
+  const barLast4 = item.barLast4 || item.reference_last4 || (rawBar ? String(rawBar).slice(-4) : null);
   return {
     ...item,
     role: roleMap[String(item.role || "").toLowerCase()] || item.role || "Proxy",
@@ -1636,7 +1644,9 @@ function dashboardUser(item) {
     practiceAreas: item.practiceAreas || item.practice_areas || "",
     officeAddress: item.officeAddress || item.office_address || item.address || "",
     locationBase: item.locationBase || item.officeAddress || item.office_address || item.address || item.practiceCourts || "",
-    barId: item.barId || item.enrollmentNo || item.enrollment_no || null,
+    // Never expose full Bar/College IDs in directory payloads — vault holds the seal.
+    barId: barLast4 ? `•••• ${barLast4}` : null,
+    barIdMasked: barLast4 ? `•••• ${barLast4}` : null,
     lastLoginAt: item.lastLoginAt || item.last_login_at || null,
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
   };
@@ -8508,6 +8518,11 @@ async function initializeDatabase() {
     }
     await ensureStrictAuthSchema();
     await platformEvents.ensureSchema();
+    await identityVault.ensureSchema();
+    const vaultMigration = await identityVault.migratePlaintextProfiles().catch(() => null);
+    if (vaultMigration) {
+      console.log(`Identity vault migration: advocates=${vaultMigration.advocates} interns=${vaultMigration.interns}`);
+    }
     console.log(`Database initialized. Migration status: ${db.migrationStatus}`);
   } catch (error) {
     console.error(`Database initialization failed: ${error.message}`);
@@ -9054,26 +9069,29 @@ async function strictCreateProfile(userId, role, body, executor = db) {
   const query = executor.query.bind(executor);
   const displayName = body.name || body.displayName || body.email || 'Legal Connect User';
   if (role === 'advocate') {
+    // Profiles keep only last4 — full Bar ID lives encrypted in identity_credentials_vault.
+    const enrollmentLast4 = String(body.enrollmentNo || '').trim().slice(-4) || null;
     await query(`INSERT INTO profile_advocates
       (user_id, display_name, bar_council_id, practice_areas, enrollment_no, state_bar_council, practice_courts, years_practice, office_address, verification_status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
       ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, bar_council_id = EXCLUDED.bar_council_id,
       practice_areas = EXCLUDED.practice_areas, enrollment_no = EXCLUDED.enrollment_no, state_bar_council = EXCLUDED.state_bar_council,
       practice_courts = EXCLUDED.practice_courts, years_practice = EXCLUDED.years_practice, office_address = EXCLUDED.office_address,
-      verification_status = 'pending', updated_at = now()`, [userId, displayName, body.enrollmentNo, body.practiceAreas || null, body.enrollmentNo, body.stateBarCouncil, body.practiceCourts, Number(body.yearsPractice || 0), body.officeAddress || null]);
+      verification_status = 'pending', updated_at = now()`, [userId, displayName, enrollmentLast4, body.practiceAreas || null, enrollmentLast4, body.stateBarCouncil, body.practiceCourts, Number(body.yearsPractice || 0), body.officeAddress || null]);
     await query("INSERT INTO chambers (owner_id, name) VALUES ($1, $2) ON CONFLICT (owner_id) DO NOTHING", [userId, `${displayName}'s Chamber`]);
   } else if (role === 'intern') {
+    const collegeLast4 = String(body.collegeId || '').trim().slice(-4) || null;
     await query(`INSERT INTO profile_interns (user_id, display_name, level, xp, college_id_no, law_school_name, study_year, verification_status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
       ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, college_id_no = EXCLUDED.college_id_no,
-      law_school_name = EXCLUDED.law_school_name, study_year = EXCLUDED.study_year, verification_status = 'pending', updated_at = now()`, [userId, displayName, 'Level 1 - Observer', 120, body.collegeId, body.lawSchool, body.studyYear]);
+      law_school_name = EXCLUDED.law_school_name, study_year = EXCLUDED.study_year, verification_status = 'pending', updated_at = now()`, [userId, displayName, 'Level 1 - Observer', 120, collegeLast4, body.lawSchool, body.studyYear]);
   } else if (role === 'admin') {
     await query('INSERT INTO profile_admins (user_id, display_name, access_scope) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = now()', [userId, displayName, 'platform']);
   } else {
     await query(`INSERT INTO profile_clients (user_id, display_name, matter_summary, aadhaar_last4, address, verification_status)
       VALUES ($1, $2, $3, $4, $5, 'pending')
       ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, matter_summary = COALESCE(EXCLUDED.matter_summary, profile_clients.matter_summary),
-      aadhaar_last4 = EXCLUDED.aadhaar_last4, address = EXCLUDED.address, verification_status = 'pending', updated_at = now()`, [userId, displayName, body.matterSummary || null, String(body.aadhaarNumber || '').slice(-4), body.address || null]);
+      aadhaar_last4 = EXCLUDED.aadhaar_last4, address = EXCLUDED.address, verification_status = 'pending', updated_at = now()`, [userId, displayName, body.matterSummary || null, String(body.aadhaarNumber || '').replace(/\D/g, '').slice(-4), body.address || null]);
   }
 }
 
@@ -9362,7 +9380,9 @@ async function handleStrictJwtAuthRoute(req, res, url) {
   const managedPath = url.pathname.startsWith('/api/auth/strict')
     || url.pathname.startsWith('/api/workspaces/')
     || url.pathname.startsWith('/api/chamber')
-    || url.pathname.startsWith('/api/admin/verifications');
+    || url.pathname.startsWith('/api/admin/verifications')
+    || url.pathname.startsWith('/api/identity-vault')
+    || url.pathname.startsWith('/api/admin/identity-vault');
   if (!managedPath) return false;
 
   if (!db.dbAvailable) {
@@ -9423,6 +9443,22 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       user = created.rows[0];
       await strictCreateProfile(user.id, role, body, client);
       const credential = strictCredential(body, role);
+      const vaultDeposit = await identityVault.depositCredential({
+        userId: user.id,
+        kind: credential.kind,
+        value: credential.value,
+        metadata: role === 'client'
+          ? { addressProvided: Boolean(body.address) }
+          : role === 'advocate'
+            ? { stateBarCouncil: body.stateBarCouncil, practiceCourts: body.practiceCourts, yearsPractice: Number(body.yearsPractice || 0) }
+            : { lawSchool: body.lawSchool, studyYear: body.studyYear },
+        actor: { id: user.id, role },
+        executor: client,
+        skipSideEffects: true,
+      });
+      if (!vaultDeposit.ok) {
+        throw new Error(vaultDeposit.error || 'Identity vault deposit failed.');
+      }
       await client.query(`INSERT INTO identity_verifications
         (user_id, role, credential_kind, reference_hash, reference_last4, status, metadata)
         VALUES ($1, $2, $3, $4, $5, 'pending', $6)
@@ -9431,13 +9467,13 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         user.id,
         role,
         credential.kind,
-        strictCredentialHash(credential.value),
-        credential.last4,
+        vaultDeposit.hash || strictCredentialHash(credential.value),
+        vaultDeposit.last4 || credential.last4,
         JSON.stringify(role === 'client'
-          ? { addressProvided: Boolean(body.address) }
+          ? { addressProvided: Boolean(body.address), vaultSealed: true }
           : role === 'advocate'
-            ? { stateBarCouncil: body.stateBarCouncil, practiceCourts: body.practiceCourts, yearsPractice: Number(body.yearsPractice || 0) }
-            : { lawSchool: body.lawSchool, studyYear: body.studyYear }),
+            ? { stateBarCouncil: body.stateBarCouncil, practiceCourts: body.practiceCourts, yearsPractice: Number(body.yearsPractice || 0), vaultSealed: true }
+            : { lawSchool: body.lawSchool, studyYear: body.studyYear, vaultSealed: true }),
       ]);
       await client.query('COMMIT');
     } catch (error) {
@@ -10116,6 +10152,137 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     return true;
   }
 
+  if (url.pathname === '/api/identity-vault' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: 'Login is required.' });
+      return true;
+    }
+    await identityVault.ensureSchema();
+    const userId = await resolveDatabaseUserId(authUser);
+    const entries = await identityVault.listForUser(userId);
+    const verification = db.dbAvailable && userId
+      ? await db.query(
+        `SELECT credential_kind, status, reference_last4, created_at
+         FROM identity_verifications WHERE user_id = $1 ORDER BY created_at DESC`,
+        [userId],
+      ).catch(() => ({ rows: [] }))
+      : { rows: [] };
+    sendJson(res, 200, {
+      ok: true,
+      vault: {
+        title: 'Identity Vault',
+        seal: 'Legal Connect credentials are sealed with AES-256-GCM. Only last-four digits leave the vault.',
+        entries,
+        verifications: verification.rows.map((row) => ({
+          kind: row.credential_kind,
+          status: row.status,
+          masked: maskCredential(row.credential_kind, row.reference_last4),
+          createdAt: row.created_at,
+        })),
+      },
+    });
+    return true;
+  }
+
+  if (url.pathname === '/api/identity-vault' && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: 'Login is required.' });
+      return true;
+    }
+    const body = await readBody(req);
+    const role = String(authUser.role || '').toLowerCase();
+    const kind = String(body.kind || body.credentialKind || (
+      role === 'advocate' ? 'bar_enrollment' : role === 'intern' ? 'college_id' : 'aadhaar'
+    )).toLowerCase();
+    const value = body.value || body.aadhaarNumber || body.enrollmentNo || body.collegeId || body.barId;
+    const userId = await resolveDatabaseUserId(authUser);
+    const deposited = await identityVault.depositCredential({
+      userId,
+      kind,
+      value,
+      metadata: { source: 'identity_vault_ui', note: String(body.note || '').slice(0, 200) || undefined },
+      actor: authUser,
+    });
+    if (!deposited.ok) {
+      sendJson(res, 400, { ok: false, error: deposited.error });
+      return true;
+    }
+    if (db.dbAvailable) {
+      await db.query(
+        `INSERT INTO identity_verifications
+           (user_id, role, credential_kind, reference_hash, reference_last4, status, metadata)
+         VALUES ($1, $2, $3, $4, $5, 'pending', $6::jsonb)
+         ON CONFLICT (user_id, credential_kind) DO UPDATE SET
+           reference_hash = EXCLUDED.reference_hash,
+           reference_last4 = EXCLUDED.reference_last4,
+           status = 'pending',
+           metadata = EXCLUDED.metadata,
+           updated_at = now()`,
+        [
+          userId,
+          role === 'rna' ? 'admin' : role,
+          deposited.kind,
+          deposited.hash,
+          deposited.last4,
+          JSON.stringify({ vaultSealed: true, resubmitted: true }),
+        ],
+      ).catch(() => undefined);
+      const profileTable = { client: 'profile_clients', advocate: 'profile_advocates', intern: 'profile_interns' }[role];
+      if (profileTable === 'profile_clients') {
+        await db.query(`UPDATE profile_clients SET aadhaar_last4 = $2, verification_status = 'pending', updated_at = now() WHERE user_id = $1`, [userId, deposited.last4]).catch(() => undefined);
+      } else if (profileTable === 'profile_advocates') {
+        await db.query(`UPDATE profile_advocates SET enrollment_no = $2, bar_council_id = $2, verification_status = 'pending', updated_at = now() WHERE user_id = $1`, [userId, deposited.last4]).catch(() => undefined);
+      } else if (profileTable === 'profile_interns') {
+        await db.query(`UPDATE profile_interns SET college_id_no = $2, verification_status = 'pending', updated_at = now() WHERE user_id = $1`, [userId, deposited.last4]).catch(() => undefined);
+      }
+    }
+    await notify({
+      eventType: 'identity_vault_updated',
+      title: 'Identity vault updated',
+      message: `${authUser.name || 'A user'} resealed a ${deposited.kind.replace('_', ' ')} credential.`,
+      recipients: await resolveAdminRecipients(),
+      payload: { userId, kind: deposited.kind, actionType: 'KYC_VERIFICATION', targetUrl: '/admin/verifications' },
+      sendEmail: false,
+      ctaLabel: 'Open verifications',
+      ctaUrl: portalUrl('/admin/verifications'),
+    }).catch(() => undefined);
+    sendJson(res, 200, { ok: true, entry: deposited.entry, message: 'Credential sealed in your Identity Vault. Legal Connect will review it.' });
+    return true;
+  }
+
+  if (url.pathname === '/api/admin/identity-vault' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: 'Admin access required.' });
+      return true;
+    }
+    const entries = await identityVault.listAllMasked({ limit: Number(url.searchParams.get('limit') || 100) });
+    sendJson(res, 200, { ok: true, entries });
+    return true;
+  }
+
+  const vaultRevealMatch = url.pathname.match(/^\/api\/admin\/identity-vault\/([^/]+)\/reveal$/);
+  if (vaultRevealMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: 'Admin access required.' });
+      return true;
+    }
+    const actorId = await resolveDatabaseUserId(authUser);
+    const revealed = await identityVault.revealForAdmin({
+      vaultId: vaultRevealMatch[1],
+      actor: { ...authUser, id: actorId || authUser.id },
+    });
+    if (!revealed.ok) {
+      sendJson(res, revealed.error?.includes('not found') ? 404 : 400, { ok: false, error: revealed.error });
+      return true;
+    }
+    sendJson(res, 200, { ok: true, ...revealed });
+    return true;
+  }
+
   return false;
 }
 
@@ -10132,6 +10299,8 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
         || req.url.startsWith('/api/workspaces/')
         || req.url.startsWith('/api/chamber')
         || req.url.startsWith('/api/admin/verifications')
+        || req.url.startsWith('/api/identity-vault')
+        || req.url.startsWith('/api/admin/identity-vault')
       );
       if (!res.headersSent && managedRequest) {
         const requestId = crypto.randomBytes(6).toString('hex');
