@@ -32,6 +32,14 @@ const {
   redactSecrets,
 } = require("./security");
 const { createIdentityVault } = require("./identity-vault");
+const {
+  enrichTasksWithCounselTrack,
+  enrichTaskWithCounselTrack,
+  loadAdvocateProfilesByIds,
+  counselSnapshotFromProfile,
+  courtsMatch,
+  firstPracticeLabel,
+} = require("./proxy-counsel-track");
 
 const platformEvents = createPlatformEvents({ db, config });
 const supervisedPipeline = createSupervisedPipeline({ db });
@@ -4214,7 +4222,7 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       cases: cases.rows.map(mapCase),
       bookings: bookings.rows.map(mapBooking),
-      tasks: tasks.rows.map(mapTask),
+      tasks: await enrichTasksWithCounselTrack(db, tasks.rows.map(mapTask)),
       advocates: advocates.rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -6202,6 +6210,23 @@ const server = http.createServer(async (req, res) => {
         escrowStatus = "Released";
         settlement = strategyFeatures.computeProxySettlement(currentTask?.amount || currentTask?.fee || 0);
       }
+      if (body.action === "refund") {
+        const reason = String(body.reason || body.note || currentTask?.posterProofReason || "").trim();
+        if (reason.length < 8) {
+          sendJson(res, 400, { ok: false, error: "Refund requires a reason (at least 8 characters)." });
+          return;
+        }
+        const escrow = String(currentTask?.escrowStatus || "").toLowerCase();
+        if (escrow.includes("release")) {
+          sendJson(res, 409, { ok: false, error: "Funds already released — cannot refund from this desk." });
+          return;
+        }
+        if (escrow.includes("refund")) {
+          sendJson(res, 409, { ok: false, error: "This mission is already marked refunded." });
+          return;
+        }
+        escrowStatus = "Refunded";
+      }
       const assignAdvocateId = body.advocateId || body.proxyAdvocateId || body.acceptedBy || null;
       const assignAdvocateName = body.advocateName || body.proxyAdvocateName || body.assigneeName || null;
       const acceptedByUpdate = (body.action === "assign_lawyer" || body.action === "assign_intern") && assignAdvocateId
@@ -6226,13 +6251,18 @@ const server = http.createServer(async (req, res) => {
             })
         : {
             lastAdminAction: body.action || null,
-            transparencyLayer: body.action === "release_payment" ? "escrow_release" : "admin",
+            transparencyLayer: body.action === "release_payment" ? "escrow_release" : (body.action === "refund" ? "escrow_refund" : "admin"),
             assignedProxyName: assignAdvocateName || undefined,
             assignmentStatus: acceptedByUpdate ? "Assigned" : undefined,
             assignedByAdmin: acceptedByUpdate ? true : undefined,
             settlement: settlement || undefined,
             settlementReleasedAt: settlement ? new Date().toISOString() : undefined,
             settlementReleasedBy: settlement ? authUser.id : undefined,
+            refundReason: body.action === "refund" ? String(body.reason || body.note || "").trim() : undefined,
+            refundAcknowledgedAt: body.action === "refund" ? new Date().toISOString() : undefined,
+            refundAcknowledgedBy: body.action === "refund" ? authUser.id : undefined,
+            refundRequested: body.action === "refund" ? false : undefined,
+            manualRefundRequired: body.action === "refund" ? true : undefined,
           };
       const statusForUpdate = lcVerifiedNow
         ? "Proof Verified by LC"
@@ -6288,13 +6318,21 @@ const server = http.createServer(async (req, res) => {
           settlement,
         },
       });
-      if (result.rows[0] && (body.action === "mark_proof_approved" || body.action === "release_payment")) {
+      if (result.rows[0] && (body.action === "mark_proof_approved" || body.action === "release_payment" || body.action === "refund")) {
         const mapped = mapTask(result.rows[0]);
-        if (lcVerifiedNow) {
+        if (body.action === "refund") {
+          await strategyFeatures.notifyTaskLayer(mapped, {
+            eventType: "proxy_escrow_refunded",
+            title: "Proxy mission refund acknowledged",
+            message: `Legal Connect acknowledged the refund for ${mapped.title || "the mission"}. Reason: ${String(body.reason || mapped.posterProofReason || "Admin refund").slice(0, 200)}. Manual refund to the original payment method will be processed by Admin/support.`,
+            priority: "high",
+            sendSms: true,
+          });
+        } else if (lcVerifiedNow) {
           await strategyFeatures.notifyTaskLayer(mapped, {
             eventType: "proxy_proof_lc_verified",
             title: "Proof verified by Legal Connect — review your mission",
-            message: `LC verified the order sheet for ${mapped.title || "the mission"}. Posting counsel can now confirm OK / not OK.`,
+            message: `LC verified the order sheet for ${mapped.title || "the mission"}. Posting counsel can now confirm satisfied / not satisfied.`,
             priority: "high",
             sendSms: true,
           });
@@ -6742,6 +6780,11 @@ const server = http.createServer(async (req, res) => {
       workflowStatus: "pending_admin_review",
       createdAt: new Date().toISOString(),
     };
+    {
+      const profiles = await loadAdvocateProfilesByIds(db, [authUser.id]);
+      task.mainCounsel = counselSnapshotFromProfile(profiles.get(String(authUser.id)), authUser.name || "Main counsel");
+      task.posterName = task.mainCounsel?.name || authUser.name || "Main counsel";
+    }
     if (db.dbAvailable) {
       const result = await db.query(
         `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, proof_url, proof_status, payload)
@@ -7359,7 +7402,7 @@ const server = http.createServer(async (req, res) => {
         if (isOpenProxyBoardTask(task)) return toProxyTeaser(task, authUser.id);
         return null;
       }).filter(Boolean);
-      sendJson(res, 200, mapped);
+      sendJson(res, 200, await enrichTasksWithCounselTrack(db, mapped));
       return;
     }
     if (!authUser) {
@@ -7371,13 +7414,14 @@ const server = http.createServer(async (req, res) => {
       : authUser.role === "intern"
         ? demoStore.tasks.filter((item) => item.status === "Open" || item.acceptedBy === authUser.id || item.assignedIntern === authUser.id)
         : demoStore.tasks.filter((item) => item.postedBy === authUser.id || item.acceptedBy === authUser.id || isOpenProxyBoardTask(item));
-    sendJson(res, 200, visibleTasks.map((item) => {
+    const demoMapped = visibleTasks.map((item) => {
       const task = dashboardTask(item);
       if (canSeeAll(authUser)) return task;
       if (String(task.postedBy || "") === String(authUser.id) || String(task.acceptedBy || "") === String(authUser.id)) return task;
       if (isOpenProxyBoardTask(task)) return toProxyTeaser(task, authUser.id);
       return task;
-    }));
+    });
+    sendJson(res, 200, await enrichTasksWithCounselTrack(db, demoMapped));
     return;
   }
 
@@ -7507,6 +7551,9 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 409, { error: "This task is no longer available for assignment." });
         return;
       }
+      const profiles = await loadAdvocateProfilesByIds(db, [current.postedBy, proxyId]);
+      const mainCounsel = counselSnapshotFromProfile(profiles.get(String(current.postedBy || "")), current.posterName || current.mainCounsel?.name);
+      const proxyCounsel = counselSnapshotFromProfile(profiles.get(String(proxyId)), proxyName);
       const result = await db.query(
         `UPDATE tasks
          SET status = $2, accepted_by = $3,
@@ -7514,22 +7561,38 @@ const server = http.createServer(async (req, res) => {
              updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, "Accepted", proxyId, JSON.stringify({ assignedProxyName: proxyName, assignmentStatus: "Accepted", assignedByAdmin: true, workflowStatus: "Accepted" })],
+        [id, "Assigned", proxyId, JSON.stringify({
+          assignedProxyName: proxyCounsel?.name || proxyName,
+          assignmentStatus: "Assigned",
+          assignedByAdmin: true,
+          workflowStatus: "Assigned",
+          lcAcknowledgedAt: new Date().toISOString(),
+          lcAcknowledgedBy: authUser.id,
+          lcAssignedAt: new Date().toISOString(),
+          mainCounsel,
+          proxyCounsel,
+          courtMatchHint: courtsMatch(current.court || current.location, proxyCounsel?.practiceCourts || ""),
+          proxyAcceptedAt: null,
+        })],
       );
-      await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });
+      await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyCounsel?.name || proxyName}`, {
+        proxyId,
+        practiceCourts: proxyCounsel?.practiceCourts || null,
+        courtMatch: courtsMatch(current.court || current.location, proxyCounsel?.practiceCourts || ""),
+      });
       {
-        const assigned = mapTask(result.rows[0]);
+        const assigned = enrichTaskWithCounselTrack(mapTask(result.rows[0]), profiles);
         const recipients = await resolveRecipients([assigned.postedBy, proxyId].filter(Boolean));
         await notify({
           eventType: "proxy_mission_assigned",
           title: "Proxy mission assigned",
-          message: `${proxyName} has been assigned to ${assigned.title || "the proxy mission"}.`,
+          message: `${proxyCounsel?.name || proxyName}${proxyCounsel?.practiceLabel ? ` (${proxyCounsel.practiceLabel})` : ""} has been assigned to ${assigned.title || "the proxy mission"} at ${assigned.court || "court"}. Accept the mission to continue.`,
           recipients,
-          payload: { taskId: id, proxyId, proxyName },
+          payload: { taskId: id, proxyId, proxyName: proxyCounsel?.name || proxyName },
           sendEmail: true,
           sendSms: true,
           ctaLabel: "Open ProxyHub",
-          ctaUrl: portalUrl("/advocate/proxy"),
+          ctaUrl: portalUrl(`/advocate/proxy?taskId=${id}`),
           priority: "high",
         });
         sendJson(res, 200, assigned);
@@ -7546,11 +7609,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     Object.assign(task, {
-      status: "Accepted",
+      status: "Assigned",
       acceptedBy: proxyId,
       assignedToId: proxyId,
       assignedProxyName: proxyName,
-      workflowStatus: "Accepted",
+      workflowStatus: "Assigned",
+      lcAcknowledgedAt: new Date().toISOString(),
+      lcAssignedAt: new Date().toISOString(),
+      proxyCounsel: { name: proxyName, practiceLabel: firstPracticeLabel(body.practiceCourts || ""), practiceCourts: body.practiceCourts || "" },
+      mainCounsel: task.mainCounsel || { name: "Main counsel", practiceLabel: "Practice TBD" },
+      proxyAcceptedAt: null,
       updatedAt: new Date().toISOString(),
     });
     await writeAuditLog(authUser, "assign_proxy", "task", id, `Proxy assigned: ${proxyName}`, { proxyId });
@@ -7559,17 +7627,92 @@ const server = http.createServer(async (req, res) => {
       await notify({
         eventType: "proxy_mission_assigned",
         title: "Proxy mission assigned",
-        message: `${proxyName} has been assigned to ${task.title || "the proxy mission"}.`,
+        message: `${proxyName} has been assigned to ${task.title || "the proxy mission"}. Accept the mission to continue.`,
         recipients,
         payload: { taskId: id, proxyId, proxyName },
         sendEmail: true,
         sendSms: true,
         ctaLabel: "Open ProxyHub",
-        ctaUrl: portalUrl("/advocate/proxy"),
+        ctaUrl: portalUrl(`/advocate/proxy?taskId=${id}`),
         priority: "high",
       });
     }
-    sendJson(res, 200, dashboardTask(task));
+    sendJson(res, 200, enrichTaskWithCounselTrack(dashboardTask(task)));
+    return;
+  }
+
+  if (url.pathname.endsWith("/proxy-accept") && url.pathname.startsWith("/api/tasks/") && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
+      return;
+    }
+    const id = url.pathname.split("/").at(-2);
+    if (db.dbAvailable) {
+      const existing = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [id]);
+      if (!existing.rows[0]) {
+        sendJson(res, 404, { error: "Task not found" });
+        return;
+      }
+      const current = mapTask(existing.rows[0]);
+      const isProxy = String(current.acceptedBy || "") === String(authUser.id);
+      if (!isProxy && !canSeeAll(authUser)) {
+        sendJson(res, 403, { error: "Only the assigned proxy counsel can accept this mission." });
+        return;
+      }
+      if (!current.acceptedBy) {
+        sendJson(res, 409, { error: "Mission is not assigned yet." });
+        return;
+      }
+      const result = await db.query(
+        `UPDATE tasks
+         SET status = $2,
+             payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, "Proxy Accepted", JSON.stringify({
+          proxyAcceptedAt: new Date().toISOString(),
+          proxyAcceptedBy: authUser.id,
+          assignmentStatus: "Proxy accepted",
+          workflowStatus: "Proxy Accepted",
+        })],
+      );
+      const mapped = mapTask(result.rows[0]);
+      await writeAuditLog(authUser, "proxy_mission_accepted", "task", id, "Proxy counsel accepted the mission.", {});
+      await notify({
+        eventType: "proxy_mission_accepted",
+        title: "Proxy accepted the mission",
+        message: `${authUser.name || "Proxy counsel"} accepted ${mapped.title || "the mission"} at ${mapped.court || "court"}.`,
+        recipients: [
+          ...(await resolveRecipients([mapped.postedBy].filter(Boolean))),
+          ...(await resolveAdminRecipients()),
+        ],
+        payload: { taskId: id },
+        sendEmail: true,
+        ctaLabel: "Open mission",
+        ctaUrl: portalUrl(`/advocate/proxy?taskId=${id}`),
+        priority: "high",
+      });
+      sendJson(res, 200, { ok: true, task: enrichTaskWithCounselTrack(mapped) });
+      return;
+    }
+    const task = demoStore.tasks.find((item) => String(item.id) === String(id));
+    if (!task) {
+      sendJson(res, 404, { error: "Task not found" });
+      return;
+    }
+    if (String(task.acceptedBy || "") !== String(authUser.id) && !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Only the assigned proxy counsel can accept this mission." });
+      return;
+    }
+    Object.assign(task, {
+      status: "Proxy Accepted",
+      proxyAcceptedAt: new Date().toISOString(),
+      proxyAcceptedBy: authUser.id,
+      updatedAt: new Date().toISOString(),
+    });
+    sendJson(res, 200, { ok: true, task: enrichTaskWithCounselTrack(dashboardTask(task)) });
     return;
   }
 

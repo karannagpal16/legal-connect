@@ -25,6 +25,8 @@ import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { AdminPendingUpdates } from "@/pages/admin/AdminPendingUpdates";
 import { AdminVerifications } from "@/pages/admin/AdminVerifications";
 import { onNotificationAction } from "@/lib/notificationBus";
+import { CounselLiveTrack } from "@/components/proxy/ProxyFlowTimeline";
+import { courtMatchScore, resolveProxyFlowStage } from "@/lib/proxyFlow";
 
 type Advocate = {
   id: string;
@@ -111,6 +113,8 @@ type DeskTask = {
   escrowStatus?: string;
   proofStatus?: string;
   assignedProxyName?: string;
+  acceptedBy?: string | number;
+  postedBy?: string | number;
   court?: string;
   clientName?: string;
   cnr?: string;
@@ -123,6 +127,12 @@ type DeskTask = {
   interests?: Array<{ userId?: string; name?: string; interested?: boolean; at?: string }>;
   posterProofDecision?: string;
   posterProofReason?: string;
+  refundRequested?: boolean;
+  proxyAcceptedAt?: string;
+  posterName?: string;
+  mainCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
+  proxyCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
+  liveTrack?: { headline?: string; nodes?: Array<{ id: string; label: string; state: string; detail?: string }> };
   settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
   settlementPreview?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
 };
@@ -190,6 +200,9 @@ function needsSupervision(item: Intake) {
 function isProxyActionable(task: DeskTask) {
   const status = String(task.status || "").toLowerCase();
   const proof = String(task.proofStatus || "").toLowerCase();
+  const stage = resolveProxyFlowStage(task);
+  if (status.includes("refund") || String(task.escrowStatus || "").toLowerCase().includes("refund")) return false;
+  if (stage === "counsel_ok" || stage === "counsel_unsatisfied") return true;
   return status.includes("awaiting")
     || status === "pending_admin_review"
     || status === "query_raised"
@@ -1149,7 +1162,7 @@ export function AdminControlDesk() {
         <section>
           <h3>Court missions · Posted tasks</h3>
           <p className="lc-ops-meta" style={{ marginBottom: "1rem" }}>
-            Assign a proxy for paid posts. After proof is confirmed, release payment.
+            Live track: main counsel practice → mission court → LC assign → proxy accept → proof → satisfied / not → release or refund.
           </p>
           {!filteredTasks.length ? (
             <p className="text-muted-foreground">
@@ -1159,6 +1172,7 @@ export function AdminControlDesk() {
           <div className="space-y-3">
             {filteredTasks.map((task) => {
               const pendingAssign = /awaiting|open|pending/i.test(String(task.status || ""));
+              const stage = resolveProxyFlowStage(task);
               const selected = advocates.find((item) => item.id === proxyByTask[task.id]);
               return (
                 <article key={task.id} className={`lc-ops-card ${expanded === task.id ? "is-expanded" : ""}`}>
@@ -1170,7 +1184,7 @@ export function AdminControlDesk() {
                     {" · "}{task.status}
                     {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                     {" · "}Proof {task.proofStatus || "none"} · Work hold {task.escrowStatus || "—"}
-                    {task.assignedProxyName ? ` · Proxy: ${task.assignedProxyName}` : ""}
+                    {task.assignedProxyName || task.proxyCounsel?.name ? ` · Proxy: ${task.proxyCounsel?.name || task.assignedProxyName}` : ""}
                     {task.posterProofDecision ? ` · Main counsel: ${task.posterProofDecision === "ok" ? "Satisfied" : "Not satisfied"}` : ""}
                     {task.posterProofReason ? ` (${task.posterProofReason})` : ""}
                     {task.settlement?.netToProxy != null
@@ -1179,6 +1193,9 @@ export function AdminControlDesk() {
                         ? ` · Net preview ₹${Number(task.settlementPreview.netToProxy).toLocaleString("en-IN")}`
                         : ""}
                   </p>
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <CounselLiveTrack task={task} />
+                  </div>
                   <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
                     {pendingAssign ? (
                       <>
@@ -1203,14 +1220,19 @@ export function AdminControlDesk() {
                             const interested = (task.interests || []).filter((entry) => entry.interested !== false);
                             const aInt = interested.some((entry) => String(entry.userId) === String(a.id)) ? 0 : 1;
                             const bInt = interested.some((entry) => String(entry.userId) === String(b.id)) ? 0 : 1;
-                            return aInt - bInt;
+                            if (aInt !== bInt) return aInt - bInt;
+                            const aCourt = courtMatchScore(task.court || task.location, a.practiceCourts) * -1;
+                            const bCourt = courtMatchScore(task.court || task.location, b.practiceCourts) * -1;
+                            if (aCourt !== bCourt) return aCourt - bCourt;
+                            return String(a.name).localeCompare(String(b.name));
                           }).map((advocate) => {
                             const interested = (task.interests || []).some((entry) => entry.interested !== false && String(entry.userId) === String(advocate.id));
+                            const match = courtMatchScore(task.court || task.location, advocate.practiceCourts);
                             return (
                               <option key={advocate.id} value={advocate.id}>
-                                {interested ? "★ " : ""}{advocateOptionLabel(advocate)}
+                                {interested ? "★ " : ""}{match ? "◎ " : ""}{advocateOptionLabel(advocate)}
+                                {advocate.practiceCourts ? ` · ${advocate.practiceCourts}` : ""}
                                 {advocate.phone ? ` · ${advocate.phone}` : ""}
-                                {advocate.officeAddress ? ` · ${advocate.officeAddress}` : ""}
                               </option>
                             );
                           })}
@@ -1227,7 +1249,7 @@ export function AdminControlDesk() {
                             });
                           }}
                         >
-                          {assignProxy.isPending ? "Assigning…" : "Assign proxy (funds held)"}
+                          {assignProxy.isPending ? "Assigning…" : "Acknowledge & assign proxy"}
                         </button>
                       </>
                     ) : null}
@@ -1237,18 +1259,55 @@ export function AdminControlDesk() {
                       </button>
                     ) : null}
                     {task.proofStatus === "lc_verified" ? (
-                      <p className="lc-ops-meta">LC verified — waiting for posting counsel OK.</p>
+                      <p className="lc-ops-meta">LC verified — waiting for main counsel satisfied / not satisfied.</p>
                     ) : null}
-                    {["poster_approved", "approved"].includes(String(task.proofStatus || "")) && String(task.escrowStatus || "").toLowerCase() !== "released" ? (
+                    {stage === "counsel_ok" ? (
+                      <>
+                        <button
+                          className="lc-button lc-button-primary"
+                          disabled={taskAction.isPending}
+                          onClick={() => {
+                            if (!window.confirm("Release escrow after 10% platform fee + 3% app/GST tax? Net payout to proxy is manual.")) return;
+                            taskAction.mutate({ taskId: task.id, action: "release_payment" });
+                          }}
+                        >
+                          Release funds
+                          {task.settlement?.netToProxy != null || task.settlementPreview?.netToProxy != null
+                            ? ` · ₹${Number(task.settlement?.netToProxy ?? task.settlementPreview?.netToProxy).toLocaleString("en-IN")}`
+                            : ""}
+                        </button>
+                        <button
+                          className="lc-button"
+                          disabled={taskAction.isPending}
+                          onClick={() => {
+                            const reason = window.prompt("Refund reason", "Admin refund after counsel satisfaction") || "";
+                            if (reason.trim().length < 8) {
+                              setError("Refund reason must be at least 8 characters.");
+                              return;
+                            }
+                            if (!window.confirm("Mark refunded? Money movement stays manual.")) return;
+                            taskAction.mutate({ taskId: task.id, action: "refund", reason });
+                          }}
+                        >
+                          Refund instead
+                        </button>
+                      </>
+                    ) : null}
+                    {stage === "counsel_unsatisfied" ? (
                       <button
                         className="lc-button lc-button-primary"
                         disabled={taskAction.isPending}
                         onClick={() => {
-                          if (!window.confirm("Release escrow after 10% platform fee + 3% app/GST tax? Net payout to proxy is manual.")) return;
-                          taskAction.mutate({ taskId: task.id, action: "release_payment" });
+                          const reason = task.posterProofReason || window.prompt("Acknowledge refund reason", "") || "";
+                          if (String(reason).trim().length < 8) {
+                            setError("Refund reason must be at least 8 characters.");
+                            return;
+                          }
+                          if (!window.confirm("Acknowledge main counsel reason and mark refunded?")) return;
+                          taskAction.mutate({ taskId: task.id, action: "refund", reason });
                         }}
                       >
-                        Release net funds (after tax)
+                        Acknowledge reason & refund
                       </button>
                     ) : null}
                     <Link className="lc-button" href="/admin/missions">Open missions</Link>
