@@ -32,6 +32,7 @@ const {
   redactSecrets,
 } = require("./security");
 const { createIdentityVault } = require("./identity-vault");
+const { createCourtSync } = require("./court-sync");
 const {
   enrichTasksWithCounselTrack,
   enrichTaskWithCounselTrack,
@@ -47,6 +48,26 @@ const identityVault = createIdentityVault({
   db,
   config,
   writeAuditLog: (...args) => writeAuditLog(...args),
+});
+const courtSync = createCourtSync({
+  db,
+  sendJson: (...args) => sendJson(...args),
+  readBody: (...args) => readBody(...args),
+  getAuthUser: (req) => getAuthUser(req),
+  writeAuditLog: async (entry = {}) => {
+    try {
+      await writeAuditLog(
+        { id: entry.actorId, role: "user" },
+        entry.action || "court_action",
+        "court_case",
+        entry.detail?.caseId || entry.detail?.cnr || entry.detail?.orderId || null,
+        entry.action || "court_action",
+        entry.detail || {},
+      );
+    } catch {
+      /* non-blocking */
+    }
+  },
 });
 
 const PORT = config.port;
@@ -3158,6 +3179,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (await workflowProgressions.handleWorkflowRoutes(req, res, url)) {
+    return;
+  }
+
+  if (await courtSync.handleCourtRoutes(req, res, url)) {
     return;
   }
 
@@ -8662,6 +8687,9 @@ async function initializeDatabase() {
     await ensureStrictAuthSchema();
     await platformEvents.ensureSchema();
     await identityVault.ensureSchema();
+    await courtSync.ensureSchema().catch((error) => {
+      console.warn("Court sync schema init skipped:", error.message);
+    });
     const vaultMigration = await identityVault.migratePlaintextProfiles().catch(() => null);
     if (vaultMigration) {
       console.log(`Identity vault migration: advocates=${vaultMigration.advocates} interns=${vaultMigration.interns}`);
