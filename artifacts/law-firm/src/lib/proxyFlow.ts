@@ -56,11 +56,14 @@ export type ProxyFlowStageId =
   | "posted_escrow"
   | "lc_review"
   | "proxy_assigned"
+  | "proxy_accepted"
   | "proxy_checked_in"
   | "proof_submitted"
   | "lc_verified"
   | "counsel_ok"
-  | "escrow_released";
+  | "counsel_unsatisfied"
+  | "escrow_released"
+  | "refunded";
 
 export type ProxyFlowActor = "main_counsel" | "lc" | "proxy" | "system";
 
@@ -92,7 +95,14 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
     label: "Assigned",
     actor: "proxy",
     actorLabel: "Proxy",
-    detail: "Proxy sees full counsel notes, confirms no conflict, then goes to court.",
+    detail: "Proxy must accept the mission.",
+  },
+  {
+    id: "proxy_accepted",
+    label: "Accepted",
+    actor: "proxy",
+    actorLabel: "Proxy",
+    detail: "Conflict declare, check in, then upload proof.",
   },
   {
     id: "proxy_checked_in",
@@ -113,14 +123,21 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
     label: "Counsel review",
     actor: "main_counsel",
     actorLabel: "Poster",
-    detail: "Posting counsel confirms OK or asks for a fresh scan.",
+    detail: "Main counsel: satisfied or not satisfied (+ reason).",
   },
   {
     id: "counsel_ok",
-    label: "Confirmed",
-    actor: "main_counsel",
-    actorLabel: "Poster",
-    detail: "Ready for Legal Connect to release payment.",
+    label: "Satisfied",
+    actor: "lc",
+    actorLabel: "Legal Connect",
+    detail: "Admin may release net funds or refund.",
+  },
+  {
+    id: "counsel_unsatisfied",
+    label: "Not satisfied",
+    actor: "lc",
+    actorLabel: "Legal Connect",
+    detail: "Admin acknowledges reason and refunds.",
   },
   {
     id: "escrow_released",
@@ -128,6 +145,13 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
     actor: "lc",
     actorLabel: "Legal Connect",
     detail: "Net amount released after platform fee and tax.",
+  },
+  {
+    id: "refunded",
+    label: "Refunded",
+    actor: "lc",
+    actorLabel: "Legal Connect",
+    detail: "Manual refund to main counsel.",
   },
 ];
 
@@ -139,7 +163,16 @@ export type ProxyFlowTaskLike = {
   conflictDeclaredAt?: string | null;
   checkedInAt?: string | null;
   acceptedBy?: string | number | null;
+  proxyAcceptedAt?: string | null;
+  refundRequested?: boolean | null;
   settlementReleasedAt?: string | null;
+  liveTrack?: { headline?: string; nodes?: Array<{ id: string; label: string; state: string; detail?: string }> } | null;
+  mainCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string } | null;
+  proxyCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string } | null;
+  assignedProxyName?: string | null;
+  posterName?: string | null;
+  court?: string | null;
+  location?: string | null;
 };
 
 function norm(value?: string | null) {
@@ -157,6 +190,10 @@ export function resolveProxyFlowStage(task: ProxyFlowTaskLike): ProxyFlowStageId
   const escrow = norm(task.escrowStatus);
   const decision = norm(task.posterProofDecision);
 
+  if (escrow.includes("refund") || status.includes("refund")) {
+    return "refunded";
+  }
+
   if (
     escrow.includes("release")
     || status.includes("escrow_released")
@@ -166,6 +203,10 @@ export function resolveProxyFlowStage(task: ProxyFlowTaskLike): ProxyFlowStageId
     || task.settlementReleasedAt
   ) {
     return "escrow_released";
+  }
+
+  if (task.refundRequested || proof === "poster_unsatisfied" || (decision === "not_ok" && proof !== "rejected")) {
+    return "counsel_unsatisfied";
   }
 
   if (proof === "poster_approved" || proof === "approved" || decision === "ok") {
@@ -182,6 +223,10 @@ export function resolveProxyFlowStage(task: ProxyFlowTaskLike): ProxyFlowStageId
 
   if (task.checkedInAt || status.includes("checked")) {
     return "proxy_checked_in";
+  }
+
+  if (task.proxyAcceptedAt || task.conflictDeclaredAt || status.includes("proxy accepted")) {
+    return "proxy_accepted";
   }
 
   if (
@@ -205,9 +250,22 @@ export function resolveProxyFlowStage(task: ProxyFlowTaskLike): ProxyFlowStageId
   return "posted_escrow";
 }
 
+/** Stages shown on the progress rail (terminal branches collapse). */
+export function visibleProxyFlowStages(task: ProxyFlowTaskLike): ProxyFlowStage[] {
+  const stage = resolveProxyFlowStage(task);
+  return PROXY_FLOW_STAGES.filter((item) => {
+    if (item.id === "counsel_unsatisfied") return stage === "counsel_unsatisfied" || stage === "refunded";
+    if (item.id === "counsel_ok") return stage !== "counsel_unsatisfied" && stage !== "refunded";
+    if (item.id === "refunded") return stage === "refunded" || stage === "counsel_unsatisfied";
+    if (item.id === "escrow_released") return stage === "escrow_released" || stage === "counsel_ok";
+    return true;
+  });
+}
+
 export function proxyFlowIndex(task: ProxyFlowTaskLike): number {
   const stage = resolveProxyFlowStage(task);
-  return Math.max(0, PROXY_FLOW_STAGES.findIndex((item) => item.id === stage));
+  const stages = visibleProxyFlowStages(task);
+  return Math.max(0, stages.findIndex((item) => item.id === stage));
 }
 
 export function nextProxyActor(task: ProxyFlowTaskLike): { actor: ProxyFlowActor; label: string; action: string } {
@@ -215,14 +273,17 @@ export function nextProxyActor(task: ProxyFlowTaskLike): { actor: ProxyFlowActor
   const proof = norm(task.proofStatus);
   const status = norm(task.status);
 
-  if (stage === "escrow_released") {
-    return { actor: "system", label: "Done", action: "Mission finished." };
+  if (stage === "escrow_released" || stage === "refunded") {
+    return { actor: "system", label: "Done", action: stage === "refunded" ? "Refund acknowledged." : "Mission finished." };
+  }
+  if (stage === "counsel_unsatisfied") {
+    return { actor: "lc", label: "Legal Connect", action: "Acknowledge reason and refund main counsel." };
   }
   if (stage === "counsel_ok") {
-    return { actor: "lc", label: "Legal Connect", action: "Release payment to proxy." };
+    return { actor: "lc", label: "Legal Connect", action: "Release funds to proxy or refund." };
   }
   if (stage === "lc_verified") {
-    return { actor: "main_counsel", label: "Poster", action: "Check the order sheet — OK or not OK." };
+    return { actor: "main_counsel", label: "Main counsel", action: "Mark satisfied or not satisfied (with reason)." };
   }
   if (stage === "proof_submitted") {
     return { actor: "lc", label: "Legal Connect", action: "Verify the order sheet, then send it to the posting counsel." };
@@ -230,17 +291,20 @@ export function nextProxyActor(task: ProxyFlowTaskLike): { actor: ProxyFlowActor
   if (stage === "proxy_checked_in" || proof === "rejected") {
     return { actor: "proxy", label: "Proxy", action: proof === "rejected" ? "Upload a fresh order sheet." : "Upload the order sheet." };
   }
-  if (stage === "proxy_assigned") {
+  if (stage === "proxy_accepted") {
     if (!task.conflictDeclaredAt) {
       return { actor: "proxy", label: "Proxy", action: "Confirm no conflict of interest." };
     }
     return { actor: "proxy", label: "Proxy", action: "Check in at court." };
   }
+  if (stage === "proxy_assigned") {
+    return { actor: "proxy", label: "Proxy", action: "Accept this mission." };
+  }
   if (status.includes("query")) {
     return { actor: "main_counsel", label: "Poster", action: "Answer Legal Connect’s question." };
   }
   if (stage === "lc_review" || stage === "posted_escrow") {
-    return { actor: "lc", label: "Legal Connect", action: "Assign from interested advocates." };
+    return { actor: "lc", label: "Legal Connect", action: "Assign from interested advocates (match practice court)." };
   }
   return { actor: "lc", label: "Legal Connect", action: "Continue supervision." };
 }
@@ -249,15 +313,17 @@ export function nextProxyActor(task: ProxyFlowTaskLike): { actor: ProxyFlowActor
 export function nextActionButtonLabel(task: ProxyFlowTaskLike): string {
   const stage = resolveProxyFlowStage(task);
   const proof = norm(task.proofStatus);
-  if (stage === "counsel_ok") return "Release payment";
+  if (stage === "counsel_unsatisfied") return "Acknowledge & refund";
+  if (stage === "counsel_ok") return "Release or refund";
   if (stage === "lc_verified") return "Review proof";
   if (stage === "proof_submitted") return "Verify proof (LC)";
   if (stage === "proxy_checked_in" || proof === "rejected") {
     return proof === "rejected" ? "Re-upload order sheet" : "Upload order sheet";
   }
-  if (stage === "proxy_assigned") {
+  if (stage === "proxy_accepted") {
     return task.conflictDeclaredAt ? "Check in at court" : "Confirm no conflict";
   }
+  if (stage === "proxy_assigned") return "Accept mission";
   if (norm(task.status).includes("query")) return "Answer question";
   if (stage === "lc_review" || stage === "posted_escrow") return "Assign proxy";
   return "Open mission";
@@ -274,4 +340,13 @@ export function canEditProxyMissionDetails(task: ProxyFlowTaskLike): boolean {
     || status === "open"
     || !task.acceptedBy
   );
+}
+
+export function courtMatchScore(missionCourt: string | null | undefined, practiceCourts: string | null | undefined): number {
+  const court = String(missionCourt || "").toLowerCase().trim();
+  const practice = String(practiceCourts || "").toLowerCase().trim();
+  if (!court || !practice) return 0;
+  if (practice.includes(court)) return 2;
+  const tokens = court.split(/\s+/).filter((t) => t.length > 3);
+  return tokens.some((token) => practice.includes(token)) ? 1 : 0;
 }

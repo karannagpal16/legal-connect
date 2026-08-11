@@ -1,0 +1,1 @@
+import{j as t}from"./tanstack-query-BLUn7k_x.js";import{L as o}from"./LawBot-NkPTz3KQ.js";import"./index-DIutBsp4.js";import"./lock-z3evzWF0.js";import"./send-B8sGO5NX.js";function p(){return t.jsx(o,{audience:"client"})}export{p as ClientLawBot};

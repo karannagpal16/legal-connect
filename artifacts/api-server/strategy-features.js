@@ -1081,6 +1081,8 @@ function createStrategyFeatures(deps) {
           conflictDeclaredAt: new Date().toISOString(),
           conflictDeclaredBy: authUser.id,
           conflictNote: String(body.note || "").slice(0, 500),
+          // Accept is implied if they declare conflict without a prior accept click.
+          proxyAcceptedAt: task.proxyAcceptedAt || task.payload?.proxyAcceptedAt || new Date().toISOString(),
           transparencyLayer: "acceptance",
         },
       });
@@ -1254,8 +1256,8 @@ function createStrategyFeatures(deps) {
         });
         return true;
       }
-      if (!["ok", "approved", "satisfied", "not_ok", "rejected", "unsatisfied"].includes(decision)) {
-        sendJson(res, 400, { ok: false, error: "decision must be ok or not_ok." });
+      if (!["ok", "approved", "satisfied", "not_ok", "rejected", "unsatisfied", "reupload", "resubmit", "fresh_scan"].includes(decision)) {
+        sendJson(res, 400, { ok: false, error: "decision must be ok, not_ok, or reupload." });
         return true;
       }
       const satisfied = ["ok", "approved", "satisfied"].includes(decision);
@@ -1275,6 +1277,7 @@ function createStrategyFeatures(deps) {
             posterProofReviewedAt: new Date().toISOString(),
             posterProofReviewedBy: authUser.id,
             settlementPreview: settlement,
+            refundRequested: false,
             transparencyLayer: "poster_proof_review",
             blueprintState: "proof_approved",
           },
@@ -1284,8 +1287,8 @@ function createStrategyFeatures(deps) {
         });
         await notifyTaskLayer(updated, {
           eventType: "proxy_proof_poster_approved",
-          title: "Main counsel approved proof",
-          message: `${updated.title || "Proxy mission"} proof was marked satisfactory. LC Admin can now release ₹${settlement.netToProxy.toLocaleString("en-IN")} net (after 10% platform + 3% tax) for manual settlement.`,
+          title: "Main counsel satisfied",
+          message: `${updated.title || "Proxy mission"} marked satisfactory. LC Admin can Release net ₹${settlement.netToProxy.toLocaleString("en-IN")} (after 10% platform + 3% tax) or Refund.`,
           priority: "high",
           includeAdmins: true,
         });
@@ -1293,32 +1296,67 @@ function createStrategyFeatures(deps) {
         return true;
       }
 
+      // not_ok with reupload intent keeps proof window open; default is refund request.
+      const wantsReupload = ["reupload", "resubmit", "fresh_scan"].includes(decision) || body.action === "reupload";
+      if (wantsReupload || decision === "rejected" && body.reupload === true) {
+        const updated = await saveTaskPatch(proofReviewMatch[1], {
+          status: "Proof Rejected",
+          proofStatus: "rejected",
+          escrowStatus: task.escrowStatus || "Locked",
+          payloadPatch: {
+            posterProofDecision: "not_ok",
+            posterProofReason: reason,
+            posterProofReviewedAt: new Date().toISOString(),
+            posterProofReviewedBy: authUser.id,
+            proofWindow: "reopen",
+            refundRequested: false,
+            transparencyLayer: "poster_proof_review",
+          },
+        });
+        await writeAuditLog(authUser, "proxy_proof_poster_reject", "task", proofReviewMatch[1], "Main counsel rejected proxy proof — re-upload", {
+          decision: "reupload",
+          reason,
+        });
+        await notifyTaskLayer(updated, {
+          eventType: "proxy_proof_poster_rejected",
+          title: "Proof not accepted — re-upload required",
+          message: `Posting counsel rejected the proof for ${updated.title || "the mission"}: ${reason}. Escrow remains locked. Proxy counsel must upload a fresh order sheet.`,
+          priority: "high",
+          includeAdmins: true,
+          sendSms: true,
+        });
+        sendJson(res, 200, { ok: true, decision: "reupload", task: updated, reason });
+        return true;
+      }
+
       const updated = await saveTaskPatch(proofReviewMatch[1], {
-        status: "Proof Rejected",
-        proofStatus: "rejected",
+        status: "Refund Requested",
+        proofStatus: "poster_unsatisfied",
         escrowStatus: task.escrowStatus || "Locked",
         payloadPatch: {
           posterProofDecision: "not_ok",
           posterProofReason: reason,
           posterProofReviewedAt: new Date().toISOString(),
           posterProofReviewedBy: authUser.id,
-          proofWindow: "reopen",
+          refundRequested: true,
+          refundRequestedAt: new Date().toISOString(),
           transparencyLayer: "poster_proof_review",
+          blueprintState: "refund_requested",
         },
       });
-      await writeAuditLog(authUser, "proxy_proof_poster_reject", "task", proofReviewMatch[1], "Main counsel rejected proxy proof", {
+      await writeAuditLog(authUser, "proxy_proof_poster_unsatisfied", "task", proofReviewMatch[1], "Main counsel not satisfied — refund requested", {
         decision: "not_ok",
         reason,
       });
       await notifyTaskLayer(updated, {
-        eventType: "proxy_proof_poster_rejected",
-        title: "Proof not accepted — re-upload required",
-        message: `Posting counsel rejected the proof for ${updated.title || "the mission"}: ${reason}. Escrow remains locked. Proxy counsel must upload a fresh order sheet.`,
+        eventType: "proxy_refund_requested",
+        title: "Main counsel not satisfied — refund requested",
+        message: `${authUser.name || "Main counsel"} is not satisfied with ${updated.title || "the mission"}: ${reason}. Legal Connect must acknowledge and refund.`,
         priority: "high",
         includeAdmins: true,
         sendSms: true,
       });
-      sendJson(res, 200, { ok: true, decision: "not_ok", task: updated, reason });
+      sendJson(res, 200, { ok: true, decision: "not_ok", refundRequested: true, task: updated, reason });
       return true;
     }
 
