@@ -4,18 +4,34 @@
 
 const {
   DISCLAIMER,
+  DEMO_CNRS,
+  HIGH_COURT_BENCHMARKS,
   normalizeCnr,
   isValidCnr,
   computeFreshness,
   freshnessLabel,
   officialDistrictSourceUrl,
+  buildMilestones,
+  buildVirtualCourtroom,
+  summarizeOrderPlainLanguage,
 } = require("./schemas");
 const { detectCourtChanges } = require("./diff-engine");
 const { resolveCourtProvider, createFixtureCourtProvider, createOfficialLinkProvider, createCommercialCourtProvider, createSupremeCourtProvider } = require("./providers");
 const { assertAuthed, assertCanTrack, assertCanViewTrackedCase, canSeeAll } = require("./authorization");
+const { buildFixtureOrderPdf } = require("./document-service");
 
 function createCourtSyncService({ repo, provider, writeAuditLog }) {
   const activeProvider = provider || resolveCourtProvider();
+
+  function enrichSnapshotView(snapshot) {
+    if (!snapshot) return null;
+    return {
+      ...snapshot,
+      milestones: buildMilestones(snapshot),
+      virtualCourtroom: buildVirtualCourtroom(snapshot),
+      milestoneIndex: buildMilestones(snapshot).activeIndex,
+    };
+  }
 
   function withFreshness(tracked) {
     if (!tracked) return null;
@@ -24,11 +40,16 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
       lastSyncStatus: tracked.lastSyncStatus,
       trackingStatus: tracked.trackingStatus,
     });
+    const snap = enrichSnapshotView(tracked.latestSnapshot || null);
     return {
       ...tracked,
+      latestSnapshot: snap,
       freshness,
       freshnessLabel: freshnessLabel(freshness),
-      hearingConfirmed: Boolean(tracked.latestSnapshot?.hearingConfirmed),
+      hearingConfirmed: Boolean(snap?.hearingConfirmed),
+      milestones: snap?.milestones || buildMilestones({}),
+      virtualCourtroom: snap?.virtualCourtroom || buildVirtualCourtroom({}),
+      milestoneIndex: snap?.milestoneIndex || 1,
       disclaimer: DISCLAIMER,
     };
   }
@@ -37,7 +58,10 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
     const capabilities = await activeProvider.capabilities();
     return {
       feature: "Verified Court Updates",
+      engine: "Real eCourts & Order PDF Sync Engine",
       activeProvider: activeProvider.name,
+      demoCnrs: DEMO_CNRS,
+      highCourtBenchmarks: HIGH_COURT_BENCHMARKS,
       capabilities,
       capabilityMatrix: {
         fixture: await createFixtureCourtProvider().capabilities(),
@@ -50,7 +74,7 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
         hearingWithinSevenDays: "every 4 hours",
         hearingTodayOrTomorrow: "every 30–60 minutes (subject to provider limits)",
         disposed: "weekly",
-        note: "Not real-time unless a contracted provider supplies webhooks.",
+        note: "Cause-list ‘live’ views use last successful sync. Not webhook real-time unless a contracted provider supplies webhooks.",
       },
       disclaimer: DISCLAIMER,
     };
@@ -75,7 +99,7 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
           disclaimer: DISCLAIMER,
         };
       }
-      const snap = result.snapshot;
+      const snap = enrichSnapshotView(result.snapshot);
       await writeAuditLog?.({
         actorId: user.id,
         action: "court_case_search",
@@ -101,6 +125,11 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
           advocates: snap.advocates,
           sourceUrl: snap.sourceUrl,
           provider: snap.provider,
+          milestones: snap.milestones,
+          virtualCourtroom: snap.virtualCourtroom,
+          milestoneIndex: snap.milestoneIndex,
+          history: snap.history || [],
+          orders: snap.orders || [],
           requiresManualVerification: Boolean(result.requiresManualVerification),
         }],
         persisted: false,
@@ -222,7 +251,35 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
   async function list(user) {
     assertAuthed(user);
     const rows = await repo.listTrackedForUser(user, { canSeeAllUsers: canSeeAll(user) });
-    return { cases: rows.map(withFreshness), disclaimer: DISCLAIMER };
+    const cases = rows.map(withFreshness);
+    const today = new Date().toISOString().slice(0, 10);
+    const causeListToday = cases
+      .filter((item) => {
+        const hearing = item.latestSnapshot?.nextHearingDate
+          ? String(item.latestSnapshot.nextHearingDate).slice(0, 10)
+          : null;
+        return hearing === today || item.virtualCourtroom?.liveOnCauseList;
+      })
+      .map((item) => ({
+        caseId: item.id,
+        cnr: item.cnr,
+        title: item.title || item.caseNumber || item.cnr,
+        courtName: item.courtName || item.latestSnapshot?.courtName,
+        courtRoom: item.virtualCourtroom?.courtRoom || item.latestSnapshot?.courtRoom,
+        itemNumber: item.virtualCourtroom?.yourItemNumber || item.latestSnapshot?.causeListItemNumber,
+        stage: item.latestSnapshot?.stage,
+        liveOnCauseList: Boolean(item.virtualCourtroom?.liveOnCauseList),
+        estimatedMinutes: item.virtualCourtroom?.estimatedMinutes,
+        freshness: item.freshness,
+      }))
+      .sort((a, b) => Number(a.itemNumber || 9999) - Number(b.itemNumber || 9999));
+
+    return {
+      cases,
+      causeListToday,
+      milestonesEnabled: true,
+      disclaimer: DISCLAIMER,
+    };
   }
 
   async function getDetail(user, caseId) {
@@ -238,22 +295,38 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
       repo.listHearingEvents(caseId),
       repo.listOrders(caseId),
     ]);
+    const snapshot = enrichSnapshotView(tracked.latestSnapshot || null);
+    const historyFromSnapshot = Array.isArray(snapshot?.history) ? snapshot.history : [];
+    const hearingHistory = hearingEvents.length
+      ? hearingEvents.map((row) => ({
+          id: row.id,
+          eventType: row.event_type || row.eventType,
+          eventDate: row.event_date || row.eventDate,
+          purpose: row.purpose,
+          stage: row.stage,
+          courtNumber: row.court_number || row.courtNumber || null,
+          judgeOrBench: row.judge_or_bench || row.judgeOrBench || null,
+          causeListItemNumber: row.cause_list_item_number || row.causeListItemNumber || null,
+          sourceReference: row.source_reference || row.sourceReference || null,
+          firstSeenAt: row.first_seen_at || row.firstSeenAt,
+          lastSeenAt: row.last_seen_at || row.lastSeenAt,
+        }))
+      : historyFromSnapshot.map((row, index) => ({
+          id: `hist-${index}`,
+          eventType: "hearing",
+          eventDate: row.hearingDate,
+          purpose: row.purpose || row.businessOnDate,
+          stage: row.stage,
+          courtNumber: row.courtRoom,
+          businessOnDate: row.businessOnDate,
+        }));
+
     return {
       case: withFreshness(tracked),
-      snapshot: tracked.latestSnapshot || null,
-      hearingHistory: hearingEvents.map((row) => ({
-        id: row.id,
-        eventType: row.event_type || row.eventType,
-        eventDate: row.event_date || row.eventDate,
-        purpose: row.purpose,
-        stage: row.stage,
-        courtNumber: row.court_number || row.courtNumber || null,
-        judgeOrBench: row.judge_or_bench || row.judgeOrBench || null,
-        causeListItemNumber: row.cause_list_item_number || row.causeListItemNumber || null,
-        sourceReference: row.source_reference || row.sourceReference || null,
-        firstSeenAt: row.first_seen_at || row.firstSeenAt,
-        lastSeenAt: row.last_seen_at || row.lastSeenAt,
-      })),
+      snapshot,
+      milestones: snapshot?.milestones || buildMilestones({}),
+      virtualCourtroom: snapshot?.virtualCourtroom || buildVirtualCourtroom({}),
+      hearingHistory,
       changeEvents: changeEvents.map((row) => ({
         id: row.id,
         eventType: row.event_type || row.eventType,
@@ -273,6 +346,8 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
         officialSourceUrl: row.source_url || row.sourceUrl || row.officialSourceUrl,
         isOfficial: row.official !== false && row.isOfficial !== false,
         retrievalStatus: row.retrieval_status || row.retrievalStatus,
+        aiSummary: row.ai_summary || row.aiSummary || null,
+        fixturePdf: Boolean(row.fixture_pdf || row.fixturePdf),
         firstVerifiedAt: row.first_verified_at || row.firstVerifiedAt,
         lastVerifiedAt: row.last_verified_at || row.lastVerifiedAt,
       })),
@@ -354,10 +429,99 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
       officialSourceUrl: doc.source_url || doc.sourceUrl,
       isOfficial: doc.official !== false,
       retrievalStatus: doc.retrieval_status || doc.retrievalStatus || "link_only",
+      aiSummary: doc.ai_summary || doc.aiSummary || null,
       lastVerifiedAt: doc.last_verified_at || doc.lastVerifiedAt,
-      note: "Open the official court PDF directly. Legal Connect does not proxy arbitrary URLs.",
+      note: "Open the official court PDF directly. Fixture demo PDFs may be streamed in-app.",
       disclaimer: DISCLAIMER,
     };
+  }
+
+  async function streamOrderPdf(user, orderId) {
+    const doc = await repo.findOrderById(orderId);
+    if (!doc) {
+      const error = new Error("Order not found.");
+      error.status = 404;
+      throw error;
+    }
+    assertCanViewTrackedCase(user, {
+      createdBy: doc.created_by,
+      viewerIds: doc.viewer_ids || [],
+    });
+
+    const fixtureAllowed = Boolean(doc.fixture_pdf || doc.fixturePdf)
+      || String(doc.provider_document_id || doc.providerDocumentId || "").startsWith("ord-fixture")
+      || String(doc.id || "").includes("ord-fixture");
+
+    if (!fixtureAllowed) {
+      return {
+        mode: "redirect",
+        officialSourceUrl: doc.source_url || doc.sourceUrl,
+        note: "Remote court PDFs are opened via the official source URL. Legal Connect does not proxy arbitrary URLs.",
+      };
+    }
+
+    const pdf = buildFixtureOrderPdf({
+      title: doc.title || "Daily Order",
+      cnr: doc.cnr_normalized || "",
+      orderDate: doc.document_date || doc.documentDate || "",
+    });
+    await writeAuditLog?.({
+      actorId: user.id,
+      action: "court_order_pdf_stream",
+      detail: { orderId, mode: "fixture" },
+    });
+    return {
+      mode: "stream",
+      buffer: pdf.buffer,
+      mimeType: pdf.mimeType,
+      checksum: pdf.checksum,
+      filename: `order-${orderId}.pdf`,
+      contentDisposition: "inline",
+    };
+  }
+
+  async function generateOrderAiSummary(user, orderId) {
+    const doc = await repo.findOrderById(orderId);
+    if (!doc) {
+      const error = new Error("Order not found.");
+      error.status = 404;
+      throw error;
+    }
+    assertCanViewTrackedCase(user, {
+      createdBy: doc.created_by,
+      viewerIds: doc.viewer_ids || [],
+    });
+
+    if (doc.ai_summary || doc.aiSummary) {
+      return { orderId, aiSummary: doc.ai_summary || doc.aiSummary, cached: true, disclaimer: DISCLAIMER };
+    }
+
+    const tracked = await repo.findTrackedById(doc.case_id || doc.caseId);
+    const snap = tracked?.latestSnapshot || {};
+    const orderText = doc.order_text || doc.orderText
+      || (Array.isArray(snap.orders)
+        ? (snap.orders.find((item) => item.id === (doc.provider_document_id || doc.providerDocumentId)) || {}).orderText
+        : null);
+
+    const aiSummary = summarizeOrderPlainLanguage({
+      title: doc.title,
+      orderDate: doc.document_date || doc.documentDate,
+      stage: snap.stage,
+      nextHearingDate: snap.nextHearingDate,
+      orderText,
+    });
+
+    if (typeof repo.saveOrderAiSummary === "function") {
+      await repo.saveOrderAiSummary(orderId, aiSummary);
+    }
+
+    await writeAuditLog?.({
+      actorId: user.id,
+      action: "court_order_ai_summary",
+      detail: { orderId },
+    });
+
+    return { orderId, aiSummary, cached: false, disclaimer: DISCLAIMER };
   }
 
   async function syncTrackedCaseById(caseId, { runType = "scheduled" } = {}) {
@@ -437,6 +601,8 @@ function createCourtSyncService({ repo, provider, writeAuditLog }) {
     queueSync,
     untrack,
     getOrderDownload,
+    streamOrderPdf,
+    generateOrderAiSummary,
     syncTrackedCaseById,
     processDueSyncJobs,
     applyProviderSnapshot,

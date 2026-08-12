@@ -13,8 +13,12 @@ import {
   CourtStatusCard,
   CourtSyncState,
   HearingCountdown,
+  OrderPDFViewerModal,
+  StageMilestoneBar,
   TrackCaseDialog,
+  VirtualCourtroomWidget,
 } from "@/components/court";
+import { ECourtsMirror } from "@/components/ECourtsMirror";
 
 type CourtLevel = "all" | "district" | "high_court" | "supreme_court" | "tribunal";
 
@@ -82,6 +86,7 @@ export function AdvocateCaseTracker() {
   const [preview, setPreview] = useState<SearchResult | null>(null);
   const [error, setError] = useState("");
   const [staleOnly, setStaleOnly] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   const listQuery = useQuery({
     queryKey: ["court-cases-advocate", session?.user.id],
@@ -234,6 +239,8 @@ export function AdvocateCaseTracker() {
         </div>
       </div>
 
+      <ECourtsMirror mode="full" showCauseList />
+
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {officialLinks.map((link) => (
           <a key={link.title} href={link.url} target="_blank" rel="noopener noreferrer" className="group bg-card/40 border border-[#1A2332]/10 hover:border-[#1A2332]/20 rounded-xl p-2.5 transition-all hover:bg-card/60 flex items-center gap-2">
@@ -251,7 +258,7 @@ export function AdvocateCaseTracker() {
         <CourtCaseSearch
           searching={searchMutation.isPending}
           onSearch={(cnr) => searchMutation.mutate(cnr)}
-          hint="Demo fixtures: DLSA010012342024 or DLCT010098762023. Search does not auto-track."
+          hint="Demo fixtures: DLCT010012342023, DLSA010012342024, DLCT010098762023. Search does not auto-track."
         />
         {error ? (
           <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-xs text-rose-600">
@@ -349,6 +356,8 @@ export function AdvocateCaseTracker() {
           {selected ? (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
               <HearingCountdown nextHearingDate={snap?.nextHearingDate} />
+              <VirtualCourtroomWidget virtualCourtroom={(detailQuery.data as any)?.virtualCourtroom || (selected as any)?.virtualCourtroom} />
+              <StageMilestoneBar milestones={(detailQuery.data as any)?.milestones || (selected as any)?.milestones} activeIndex={(selected as any)?.milestoneIndex} />
               <CourtStatusCard
                 status={snap?.status}
                 stage={snap?.stage}
@@ -375,7 +384,13 @@ export function AdvocateCaseTracker() {
               />
               <section className="rounded-2xl border border-[#1A2332]/10 bg-card/40 p-4">
                 <h3 className="text-sm font-bold text-[#1A2332] mb-3">Orders & Judgments</h3>
-                <CourtOrdersList orders={detailQuery.data?.orders || []} />
+                <CourtOrdersList
+                  orders={detailQuery.data?.orders || []}
+                  onDownload={(orderId) => {
+                    const hit = (detailQuery.data?.orders || []).find((item) => item.id === orderId) || null;
+                    setSelectedOrder(hit);
+                  }}
+                />
               </section>
               {(detailQuery.data?.changeEvents || []).length ? (
                 <section className="rounded-2xl border border-[#1A2332]/10 bg-card/40 p-4">
@@ -401,6 +416,12 @@ export function AdvocateCaseTracker() {
           ) : null}
         </div>
       )}
+      <OrderPDFViewerModal
+        open={Boolean(selectedOrder)}
+        order={selectedOrder}
+        token={session?.token}
+        onClose={() => setSelectedOrder(null)}
+      />
     </div>
   );
 }

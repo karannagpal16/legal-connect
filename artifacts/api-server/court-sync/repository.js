@@ -117,11 +117,15 @@ function createCourtSyncRepository({ db }) {
         storage_key text,
         retrieval_status text NOT NULL DEFAULT 'link_only',
         malware_scan_status text NOT NULL DEFAULT 'not_applicable',
+        ai_summary jsonb,
+        fixture_pdf boolean NOT NULL DEFAULT false,
         first_verified_at timestamptz DEFAULT now(),
         last_verified_at timestamptz DEFAULT now(),
         created_at timestamptz DEFAULT now()
       )
     `);
+    await db.query(`ALTER TABLE court_documents ADD COLUMN IF NOT EXISTS ai_summary jsonb`);
+    await db.query(`ALTER TABLE court_documents ADD COLUMN IF NOT EXISTS fixture_pdf boolean NOT NULL DEFAULT false`);
     await db.query(`CREATE INDEX IF NOT EXISTS court_documents_case_idx ON court_documents (case_id, document_date DESC NULLS LAST)`);
 
     await db.query(`
@@ -443,8 +447,8 @@ function createCourtSyncRepository({ db }) {
       for (const order of orders) {
         const result = await db.query(
           `INSERT INTO court_documents (
-             case_id, provider_document_id, title, document_date, document_type, official, source_url, retrieval_status
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,'link_only')
+             case_id, provider_document_id, title, document_date, document_type, official, source_url, retrieval_status, fixture_pdf
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,'link_only',$8)
            ON CONFLICT DO NOTHING
            RETURNING *`,
           [
@@ -455,6 +459,7 @@ function createCourtSyncRepository({ db }) {
             order.documentType || "daily_order",
             order.official !== false,
             order.sourceUrl || null,
+            Boolean(order.fixturePdf),
           ],
         ).catch(async () => {
           // No unique constraint on provider_document_id alone — dedupe manually.
@@ -465,8 +470,8 @@ function createCourtSyncRepository({ db }) {
           if (existing.rows[0]) return existing;
           return db.query(
             `INSERT INTO court_documents (
-               case_id, provider_document_id, title, document_date, document_type, official, source_url, retrieval_status
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,'link_only') RETURNING *`,
+               case_id, provider_document_id, title, document_date, document_type, official, source_url, retrieval_status, fixture_pdf
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7,'link_only',$8) RETURNING *`,
             [
               caseId,
               order.id || null,
@@ -475,6 +480,7 @@ function createCourtSyncRepository({ db }) {
               order.documentType || "daily_order",
               order.official !== false,
               order.sourceUrl || null,
+              Boolean(order.fixturePdf),
             ],
           );
         });
@@ -483,13 +489,38 @@ function createCourtSyncRepository({ db }) {
       return saved;
     }
     const rows = orders.map((order, index) => ({
-      id: `doc-${Date.now()}-${index}`,
+      id: order.id || `doc-${Date.now()}-${index}`,
       caseId,
-      ...order,
+      providerDocumentId: order.id || null,
+      title: order.title,
+      documentDate: order.documentDate,
+      documentType: order.documentType,
+      sourceUrl: order.sourceUrl,
+      official: order.official !== false,
+      fixturePdf: Boolean(order.fixturePdf),
+      orderText: order.orderText || null,
+      aiSummary: null,
       retrievalStatus: "link_only",
     }));
     memory.documents.unshift(...rows);
     return rows;
+  }
+
+  async function saveOrderAiSummary(orderId, aiSummary) {
+    await ensureSchema();
+    if (db?.dbAvailable) {
+      const result = await db.query(
+        `UPDATE court_documents SET ai_summary = $2::jsonb, last_verified_at = now() WHERE id = $1 RETURNING *`,
+        [orderId, JSON.stringify(aiSummary)],
+      );
+      return result.rows[0] || null;
+    }
+    const doc = memory.documents.find((item) => String(item.id) === String(orderId));
+    if (doc) {
+      doc.aiSummary = aiSummary;
+      doc.ai_summary = aiSummary;
+    }
+    return doc || null;
   }
 
   async function listEvents(caseId) {
@@ -795,6 +826,7 @@ function createCourtSyncRepository({ db }) {
     saveSnapshot,
     insertChangeEvents,
     upsertDocuments,
+    saveOrderAiSummary,
     listEvents,
     listOrders,
     markSyncFailure,

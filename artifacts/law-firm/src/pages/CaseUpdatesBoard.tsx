@@ -9,7 +9,11 @@ import {
   CourtStatusCard,
   CourtSyncState,
   HearingCountdown,
+  OrderPDFViewerModal,
+  StageMilestoneBar,
+  VirtualCourtroomWidget,
 } from "@/components/court";
+import { ECourtsMirror } from "@/components/ECourtsMirror";
 
 interface CaseRow {
   id: string;
@@ -37,7 +41,7 @@ interface CaseUpdate {
   }>;
 }
 
-type WorkspaceTab = "counsel" | "status" | "hearings" | "orders" | "sync";
+type WorkspaceTab = "counsel" | "mirror" | "status" | "hearings" | "orders" | "sync";
 
 interface TrackedCourtCase {
   id: string;
@@ -74,6 +78,7 @@ export function CaseUpdatesBoard() {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [tab, setTab] = useState<WorkspaceTab>("counsel");
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   const casesQuery = useQuery({
     queryKey: ["workspace-cases-for-updates", session?.user.id],
@@ -178,6 +183,7 @@ export function CaseUpdatesBoard() {
 
   const tabs: Array<{ id: WorkspaceTab; label: string }> = [
     { id: "counsel", label: "Counsel Updates" },
+    { id: "mirror", label: "eCourts Mirror" },
     { id: "status", label: "Official Court Status" },
     { id: "hearings", label: "Hearing History" },
     { id: "orders", label: "Orders & Judgments" },
@@ -315,7 +321,9 @@ export function CaseUpdatesBoard() {
         </>
       ) : null}
 
-      {tab !== "counsel" && !tracked ? (
+      {tab === "mirror" ? <ECourtsMirror mode="full" /> : null}
+
+      {tab !== "counsel" && tab !== "mirror" && !tracked ? (
         <section className="rounded-2xl border border-[#1A2332]/10 p-5 space-y-2">
           <h3 className="text-sm font-bold text-[#1A2332]">No tracked court case yet</h3>
           <p className="text-sm text-[#1A2332]/55">
@@ -327,6 +335,8 @@ export function CaseUpdatesBoard() {
       {tab === "status" && tracked ? (
         <div className="space-y-3">
           <HearingCountdown nextHearingDate={snap?.nextHearingDate} />
+          <VirtualCourtroomWidget virtualCourtroom={(courtDetailQuery.data as any)?.virtualCourtroom || (tracked as any)?.virtualCourtroom} />
+          <StageMilestoneBar milestones={(courtDetailQuery.data as any)?.milestones || (tracked as any)?.milestones} activeIndex={(tracked as any)?.milestoneIndex} />
           <CourtStatusCard
             status={snap?.status}
             stage={snap?.stage}
@@ -355,7 +365,13 @@ export function CaseUpdatesBoard() {
       {tab === "orders" && tracked ? (
         <section className="rounded-2xl border border-[#1A2332]/10 bg-card/40 p-4">
           <h3 className="text-sm font-bold text-[#1A2332] mb-3">Orders & Judgments</h3>
-          <CourtOrdersList orders={courtDetailQuery.data?.orders || []} />
+          <CourtOrdersList
+            orders={courtDetailQuery.data?.orders || []}
+            onDownload={(orderId) => {
+              const hit = (courtDetailQuery.data?.orders || []).find((item) => item.id === orderId) || null;
+              setSelectedOrder(hit);
+            }}
+          />
         </section>
       ) : null}
 
@@ -370,6 +386,13 @@ export function CaseUpdatesBoard() {
           onRefresh={() => syncMutation.mutate()}
         />
       ) : null}
+
+      <OrderPDFViewerModal
+        open={Boolean(selectedOrder)}
+        order={selectedOrder}
+        token={session?.token}
+        onClose={() => setSelectedOrder(null)}
+      />
     </div>
   );
 }

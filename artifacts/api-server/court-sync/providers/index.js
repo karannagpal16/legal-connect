@@ -34,7 +34,48 @@ function baseCapabilities(overrides = {}) {
 
 /** Deterministic fixtures for CI / demo — never presented as live court truth without badge. */
 function createFixtureCourtProvider() {
+  const today = new Date().toISOString().slice(0, 10);
   const fixtures = {
+    DLCT010012342023: {
+      courtLevel: "district",
+      cnr: "DLCT010012342023",
+      caseNumber: "CRL/1234/2023",
+      caseType: "Criminal",
+      caseYear: 2023,
+      courtName: "Tis Hazari District Court, Delhi",
+      stateCode: "DL",
+      districtCode: "CT",
+      status: "Pending",
+      stage: "Arguments",
+      nextHearingDate: today,
+      hearingConfirmed: true,
+      courtRoom: "Court Room 5",
+      causeListItemNumber: "18",
+      judgeOrBench: "Ld. MM-03",
+      parties: {
+        petitioners: ["State"],
+        respondents: ["Rohit Malhotra"],
+      },
+      advocates: ["APP", "Adv. Ayush Kapoor"],
+      sourceUrl: officialDistrictSourceUrl("DLCT010012342023"),
+      history: [
+        { hearingDate: "2026-06-10", businessOnDate: "Charge framed", stage: "Charge", courtRoom: "Court Room 5", purpose: "Charge" },
+        { hearingDate: "2026-07-08", businessOnDate: "Prosecution evidence partly recorded", stage: "Evidence", courtRoom: "Court Room 5", purpose: "Evidence" },
+        { hearingDate: today, businessOnDate: "Listed for arguments", stage: "Arguments", courtRoom: "Court Room 5", purpose: "Arguments" },
+      ],
+      orders: [
+        {
+          id: "ord-fixture-bail",
+          title: "Daily order — bail granted subject to surety",
+          documentDate: "2026-07-08",
+          documentType: "daily_order",
+          official: true,
+          sourceUrl: "https://services.ecourts.gov.in/",
+          orderText: "Bail granted subject to ₹25,000 surety bond. Accused must surrender passport to investigating officer within 48 hours. Matter listed for framing of charges / arguments on next date.",
+          fixturePdf: true,
+        },
+      ],
+    },
     DLSA010012342024: {
       courtLevel: "district",
       cnr: "DLSA010012342024",
@@ -57,6 +98,11 @@ function createFixtureCourtProvider() {
       },
       advocates: ["Adv. Isha Sharma", "Adv. R. Mehta"],
       sourceUrl: officialDistrictSourceUrl("DLSA010012342024"),
+      history: [
+        { hearingDate: "2026-05-12", businessOnDate: "Summons issued", stage: "Notice Issued", courtRoom: "Court Room 5", purpose: "Summons" },
+        { hearingDate: "2026-06-20", businessOnDate: "Written statement filed", stage: "Reply Filed", courtRoom: "Court Room 5", purpose: "WS" },
+        { hearingDate: "2026-08-18", businessOnDate: "Evidence deferred", stage: "Evidence", courtRoom: "Court Room 5", purpose: "Evidence" },
+      ],
       orders: [
         {
           id: "ord-fixture-1",
@@ -65,6 +111,8 @@ function createFixtureCourtProvider() {
           documentType: "daily_order",
           official: true,
           sourceUrl: "https://services.ecourts.gov.in/",
+          orderText: "Evidence deferred. Parties to produce original documents. Next date fixed for plaintiff evidence.",
+          fixturePdf: true,
         },
       ],
     },
@@ -90,6 +138,9 @@ function createFixtureCourtProvider() {
       },
       advocates: ["APP", "Adv. Ayush Kapoor"],
       sourceUrl: officialDistrictSourceUrl("DLCT010098762023"),
+      history: [
+        { hearingDate: "2026-07-01", businessOnDate: "Charge arguments heard in part", stage: "Arguments", courtRoom: "Court Room 12", purpose: "Arguments" },
+      ],
       orders: [],
     },
   };
@@ -116,7 +167,7 @@ function createFixtureCourtProvider() {
         return {
           found: false,
           cnr: normalized,
-          message: "No fixture case for this CNR. Use DLSA010012342024 or DLCT010098762023 in demo mode.",
+          message: "No fixture case for this CNR. Demo CNRs: DLCT010012342023, DLSA010012342024, DLCT010098762023.",
           sourceUrl: officialDistrictSourceUrl(normalized),
         };
       }

@@ -1,6 +1,6 @@
 /**
  * Verified Court Updates worker — database-backed sync jobs.
- * Replaces the previous in-memory demo array.
+ * Emphasizes 06:00 / 18:00 IST baseline windows while still processing due jobs each poll.
  *
  * Run once:  node index.js --once
  * Loop:      node index.js
@@ -31,12 +31,22 @@ const courtSync = createCourtSync({
   writeAuditLog: async () => undefined,
 });
 
-export async function runCycle() {
+function isBaselineWindow(now = new Date()) {
+  const istMinutes = now.getUTCHours() * 60 + now.getUTCMinutes() + 330;
+  const istHour = Math.floor((istMinutes % (24 * 60)) / 60);
+  const istMin = istMinutes % 60;
+  return (istHour === 6 || istHour === 18) && istMin < POLL_FREQ_MIN;
+}
+
+export async function runCycle({ force = false } = {}) {
   await courtSync.ensureSchema();
   const results = await courtSync.processDueSyncJobs(BATCH_SIZE);
   return {
     ok: true,
     feature: "Verified Court Updates",
+    engine: "Real eCourts & Order PDF Sync Engine",
+    baselineWindow: isBaselineWindow(),
+    force,
     processed: results.length,
     succeeded: results.filter((item) => item.ok).length,
     failed: results.filter((item) => !item.ok).length,
@@ -45,12 +55,12 @@ export async function runCycle() {
 }
 
 if (process.argv.includes("--once")) {
-  const summary = await runCycle();
+  const summary = await runCycle({ force: true });
   console.log(JSON.stringify(summary, null, 2));
   process.exit(summary.failed ? 1 : 0);
 } else {
-  console.log(`Verified Court Updates worker ready. Poll every ${POLL_FREQ_MIN} minutes. Provider=${process.env.COURT_DATA_PROVIDER || "fixture"}`);
-  const first = await runCycle();
+  console.log(`Verified Court Updates worker ready. Poll every ${POLL_FREQ_MIN} minutes (baseline emphasis 06:00/18:00 IST). Provider=${process.env.COURT_DATA_PROVIDER || "fixture"}`);
+  const first = await runCycle({ force: true });
   console.log(JSON.stringify({ firstRun: first }, null, 2));
   setInterval(async () => {
     try {
@@ -61,3 +71,5 @@ if (process.argv.includes("--once")) {
     }
   }, POLL_FREQ_MIN * 60 * 1000);
 }
+
+export { isBaselineWindow };
