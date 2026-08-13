@@ -9140,10 +9140,22 @@ async function initializeStrictAuthSchema() {
     UNIQUE (user_id, credential_kind)
   )`);
   await db.query('CREATE INDEX IF NOT EXISTS identity_verifications_status_idx ON identity_verifications (status, created_at DESC)');
+  await ensureChamberVaultSchema();
+  return true;
+}
+
+/** Idempotent Chamber Vault DDL — safe to call on every chamber request (heals schema drift). */
+async function ensureChamberVaultSchema() {
+  if (!db.dbAvailable) return false;
   await db.query(`CREATE TABLE IF NOT EXISTS chambers (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name text NOT NULL,
+    plan_tier text,
+    subscription_status text DEFAULT 'inactive',
+    paid_until timestamptz,
+    last_payment_id text,
+    last_order_id text,
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now(),
     UNIQUE (owner_id)
@@ -9164,10 +9176,15 @@ async function initializeStrictAuthSchema() {
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
   )`);
+  await db.query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS user_id uuid`);
+  await db.query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS email text`);
+  await db.query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS member_role text DEFAULT 'associate'`);
+  await db.query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS status text DEFAULT 'invited'`);
+  await db.query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`);
   await db.query(`CREATE TABLE IF NOT EXISTS chamber_tasks (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
-    case_id uuid REFERENCES cases(id) ON DELETE SET NULL,
+    case_id uuid,
     title text NOT NULL,
     details text,
     assigned_to uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -9181,6 +9198,17 @@ async function initializeStrictAuthSchema() {
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
   )`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS case_id uuid`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS details text`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS assigned_to uuid`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS assignee_name text`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS status text DEFAULT 'assigned'`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS priority text DEFAULT 'normal'`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS due_at timestamptz`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS created_by uuid`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS accepted_at timestamptz`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS completed_at timestamptz`);
+  await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`);
   return true;
 }
 
@@ -9919,11 +9947,19 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: 'Chamber access required.' });
       return true;
     }
+    await ensureChamberVaultSchema();
     const userId = await resolveDatabaseUserId(authUser);
+    if (!userId || !isUuid(userId)) {
+      sendJson(res, 401, { ok: false, error: 'Your session could not be linked to a chamber account. Please sign in again.' });
+      return true;
+    }
     const masterFree = await isMasterTestUser(authUser);
     let chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
     if (!chamberResult.rows[0] && authUser.role === 'advocate') {
-      chamberResult = await db.query("INSERT INTO chambers (owner_id, name) VALUES ($1, $2) RETURNING *", [userId, `${authUser.name || 'Counsel'}'s Chamber`]);
+      chamberResult = await db.query(
+        "INSERT INTO chambers (owner_id, name) VALUES ($1, $2) ON CONFLICT (owner_id) DO UPDATE SET updated_at = now() RETURNING *",
+        [userId, `${authUser.name || 'Counsel'}'s Chamber`],
+      );
     }
     const chamber = chamberResult.rows[0];
     if (!chamber) {
@@ -9931,18 +9967,34 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       return true;
     }
     if (masterFree && (chamber.subscription_status !== 'master_test_free' || chamber.plan_tier !== 'chambers_plus')) {
-      await db.query(
-        `UPDATE chambers
-         SET plan_tier = 'chambers_plus', subscription_status = 'master_test_free', paid_until = now() + interval '10 years', updated_at = now()
-         WHERE id = $1`,
-        [chamber.id],
-      );
+      try {
+        await db.query(
+          `UPDATE chambers
+           SET plan_tier = 'chambers_plus', subscription_status = 'master_test_free', paid_until = now() + interval '10 years', updated_at = now()
+           WHERE id = $1`,
+          [chamber.id],
+        );
+      } catch (error) {
+        console.warn('Chamber master-free entitlement update failed:', redactSecrets(error.message || error));
+        await ensureChamberVaultSchema();
+        await db.query(
+          `UPDATE chambers
+           SET plan_tier = 'chambers_plus', subscription_status = 'master_test_free', paid_until = now() + interval '10 years', updated_at = now()
+           WHERE id = $1`,
+          [chamber.id],
+        ).catch((retryError) => {
+          console.warn('Chamber master-free entitlement retry failed:', redactSecrets(retryError.message || retryError));
+        });
+      }
       chamber.plan_tier = 'chambers_plus';
       chamber.subscription_status = 'master_test_free';
       chamber.paid_until = new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString();
     }
-    const members = await db.query('SELECT id, user_id, display_name, email, member_role, status, created_at FROM chamber_members WHERE chamber_id = $1 ORDER BY created_at', [chamber.id]);
-    const tasks = await db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC', [chamber.id]);
+    const members = await db.query(
+      'SELECT id, user_id, display_name, email, member_role, status, created_at FROM chamber_members WHERE chamber_id = $1 ORDER BY created_at',
+      [chamber.id],
+    );
+    const tasks = await db.query('SELECT * FROM chamber_tasks WHERE chamber_id = $1 ORDER BY updated_at DESC NULLS LAST, created_at DESC', [chamber.id]);
     const subscription = chamberSubscriptionSnapshot(chamber, masterFree);
     sendJson(res, 200, {
       ok: true,
@@ -9958,10 +10010,15 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
       return true;
     }
+    await ensureChamberVaultSchema();
     const body = await readBody(req);
     const plan = getChamberPlan(body.planId || body.plan || 'core');
     if (await isMasterTestUser(authUser)) {
       const userId = await resolveDatabaseUserId(authUser);
+      if (!userId || !isUuid(userId)) {
+        sendJson(res, 401, { ok: false, error: 'Your session could not be linked to a chamber account. Please sign in again.' });
+        return true;
+      }
       await db.query(
         `UPDATE chambers
          SET plan_tier = $2, subscription_status = 'master_test_free', paid_until = now() + interval '10 years', updated_at = now()
@@ -10025,6 +10082,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
       return true;
     }
+    await ensureChamberVaultSchema();
     const body = await readBody(req);
     const plan = getChamberPlan(body.planId || body.plan || 'core');
     const userId = await resolveDatabaseUserId(authUser);
@@ -10079,6 +10137,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
       return true;
     }
+    await ensureChamberVaultSchema();
     const body = await readBody(req);
     const displayName = String(body.displayName || '').trim();
     const email = normalizeEmail(body.email);
@@ -10132,6 +10191,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: 'Advocate access required.' });
       return true;
     }
+    await ensureChamberVaultSchema();
     const body = await readBody(req);
     if (!String(body.title || '').trim()) {
       sendJson(res, 400, { ok: false, error: 'Task title is required.' });
@@ -10435,6 +10495,10 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
   try {
     try {
       const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
+      // Bind auth before managed workspace/chamber routes so JWT + session revocation apply.
+      if (url.pathname.startsWith('/api/')) {
+        await bindAuthUser(req);
+      }
       if (await handleStrictJwtAuthRoute(req, res, url)) return;
     } catch (error) {
       const managedRequest = req.url && (
@@ -10450,7 +10514,11 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
         console.error(`[managed:${requestId}] ${req.method || 'UNKNOWN'} ${req.url || '/'} failed`, error);
         sendJson(res, 500, {
           ok: false,
-          error: req.url.startsWith('/api/auth') ? 'Authentication service failed.' : 'The secure workspace service could not complete this request.',
+          error: req.url.startsWith('/api/auth')
+            ? 'Authentication service failed.'
+            : (req.url.startsWith('/api/chamber')
+              ? 'Chamber Vault is repairing its practice ledger. Please retry in a moment.'
+              : 'The secure workspace service could not complete this request.'),
           requestId,
           ...(req.url.startsWith('/api/workspaces/advocate') && error?.workspaceStage
             ? { failureStage: error.workspaceStage }

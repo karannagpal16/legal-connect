@@ -663,11 +663,22 @@ async function initDb() {
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         name text NOT NULL,
+        plan_tier text,
+        subscription_status text DEFAULT 'inactive',
+        paid_until timestamptz,
+        last_payment_id text,
+        last_order_id text,
         created_at timestamptz DEFAULT now(),
         updated_at timestamptz DEFAULT now(),
         UNIQUE (owner_id)
       )
     `);
+    // Older DBs created chambers before subscription billing — heal columns on every boot.
+    await query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS plan_tier text`);
+    await query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS subscription_status text DEFAULT 'inactive'`);
+    await query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS paid_until timestamptz`);
+    await query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS last_payment_id text`);
+    await query(`ALTER TABLE chambers ADD COLUMN IF NOT EXISTS last_order_id text`);
     await query(`
       CREATE TABLE IF NOT EXISTS chamber_members (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -681,6 +692,11 @@ async function initDb() {
         updated_at timestamptz DEFAULT now()
       )
     `);
+    await query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS user_id uuid`);
+    await query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS email text`);
+    await query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS member_role text DEFAULT 'associate'`);
+    await query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS status text DEFAULT 'invited'`);
+    await query(`ALTER TABLE chamber_members ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`);
     await query(`CREATE INDEX IF NOT EXISTS chamber_members_chamber_idx ON chamber_members (chamber_id, status)`);
     await query(`
       CREATE TABLE IF NOT EXISTS chamber_tasks (
