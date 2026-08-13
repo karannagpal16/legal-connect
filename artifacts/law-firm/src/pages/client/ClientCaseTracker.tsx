@@ -286,7 +286,7 @@ export function ClientCaseTracker() {
           </div>
           <div>
             <h1 className="text-2xl font-serif font-bold text-[#1A2332]">Case Tracker</h1>
-            <p className="text-[#1A2332]/40 text-xs mt-0.5">Synced with eCourt Services · Real-time updates</p>
+            <p className="text-[#1A2332]/40 text-xs mt-0.5">Matter progress · open Verified Court Updates for official status</p>
           </div>
         </div>
         <button
@@ -295,7 +295,7 @@ export function ClientCaseTracker() {
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${syncing ? "bg-primary/10 border-primary/25 text-primary" : "bg-[#1A2332]/5 hover:bg-[#1A2332]/10 border-[#1A2332]/10 text-[#1A2332]/60 hover:text-[#1A2332]"}`}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing with eCourts..." : `Sync · ${lastSync}`}
+          {syncing ? "Refreshing local view..." : `Refresh · ${lastSync}`}
         </button>
       </div>
 
@@ -307,8 +307,8 @@ export function ClientCaseTracker() {
         >
           <Loader2 className="w-4 h-4 text-primary animate-spin" />
           <div>
-            <p className="text-primary text-xs font-bold">Syncing with eCourt Services...</p>
-            <p className="text-[#1A2332]/40 text-[10px]">Fetching latest case status, orders, and cause lists from ecourts.gov.in</p>
+            <p className="text-primary text-xs font-bold">Refreshing case cards...</p>
+            <p className="text-[#1A2332]/40 text-[10px]">Official court sync runs via Verified Court Updates — not a live eCourts scrape.</p>
           </div>
         </motion.div>
       )}
@@ -423,8 +423,8 @@ export function ClientCaseTracker() {
                     <span className="text-primary font-bold">{pct}%</span>
                   </div>
                   {c.synced && (
-                    <div className="flex items-center gap-1 mt-2 text-[9px] text-emerald-400/50">
-                      <RefreshCw className="w-2.5 h-2.5" /> eCourt synced
+                    <div className="flex items-center gap-1 mt-2 text-[9px] text-[#1A2332]/35">
+                      <RefreshCw className="w-2.5 h-2.5" /> Local progress card
                     </div>
                   )}
                 </button>
@@ -444,9 +444,9 @@ export function ClientCaseTracker() {
                     </div>
                     <div className="flex items-center gap-2">
                       {c.synced && (
-                        <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-xl">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-emerald-400 text-[10px] font-bold">eCourt Synced</span>
+                        <div className="flex items-center gap-1.5 bg-[#1A2332]/5 border border-[#1A2332]/10 px-2.5 py-1.5 rounded-xl">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#1A2332]/40" />
+                          <span className="text-[#1A2332]/55 text-[10px] font-bold">Matter progress</span>
                         </div>
                       )}
                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${U.bg}`}>
