@@ -31,6 +31,7 @@ import { CaseProgressStepper } from "@/components/client/CaseProgressStepper";
 import { LegalDictionaryModal } from "@/components/client/LegalDictionaryModal";
 import { LegalTerm } from "@/components/ui/LegalTerm";
 import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
+import { HearingReminderRotator } from "@/components/dashboard/HearingReminderRotator";
 import {
   dailyQuote,
   greetingFor,
@@ -375,6 +376,17 @@ export function ClientHome() {
         <button onClick={() => { const matter = cases.find((item) => (item.fees || []).some((fee) => fee.status === "due")); if (matter) focusMatter(matter.id, "payments"); }} disabled={!dueFees.length}><IndianRupee /><span><strong>{dueFees.length}</strong><small>Payments due</small></span><ArrowRight /></button>
         <button onClick={() => selectedCase && focusMatter(selectedCase.id, "communications")} disabled={!selectedCase?.communications?.length}><MessageSquareText /><span><strong>{selectedCase?.communications?.length || 0}</strong><small>Case updates</small></span><ArrowRight /></button>
       </section>
+
+      <HearingReminderRotator
+        cases={cases.map((matter) => ({
+          id: matter.id,
+          title: matter.caseTitle,
+          court: matter.courtName,
+          nextDate: matter.nextDate,
+          lastDate: matter.lastDate,
+        }))}
+        hrefBase="/client"
+      />
 
       {(bookings.length > 0 || retentionNotice || retentionError) ? (
         <section className="space-y-3" style={{ marginBottom: "1.25rem" }}>

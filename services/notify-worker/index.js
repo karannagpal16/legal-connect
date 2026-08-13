@@ -30,11 +30,11 @@ function buildDeliveryPlan(event) {
       status: "prepared",
       note:
         channel === "whatsapp-ndoh"
-          ? "NDOH WhatsApp cadence (D-7/D-3/D-1/morning) is processed via POST /api/reminders/ndoh/process when Twilio WhatsApp is configured."
+          ? "NDOH WhatsApp cadence (D-7/D-3/three D-1 reminders/hearing morning) is processed via POST /api/reminders/ndoh/process when Twilio WhatsApp is configured."
           : "Demo delivery prepared. Real sending needs provider keys.",
     })),
     requiredEnvForRealMode: REQUIRED_REAL_MODE_ENV,
-    ndohTemplates: ["ndoh_d7", "ndoh_d3", "ndoh_d1", "ndoh_morning"],
+    ndohTemplates: ["ndoh_d7", "ndoh_d3", "ndoh_d1_morning", "ndoh_d1_midday", "ndoh_d1_evening", "ndoh_morning"],
   };
 }
 

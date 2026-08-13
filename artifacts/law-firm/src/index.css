@@ -674,6 +674,30 @@
 .lc-workspace-metrics strong { color: #172133; font-size: 23px; line-height: 1; }
 .lc-workspace-metrics small { color: var(--lc-muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
 
+/* Rotating NDOH/LDOH hearing reminder */
+.lc-ndoh-rotator { border: 1px solid rgba(213,169,83,.34); border-radius: 8px; background: linear-gradient(120deg, #07101a 0%, #101d29 72%, #18212a 100%); color: #fff; padding: 16px 18px; box-shadow: 0 12px 28px rgba(7,16,26,.12); }
+.lc-ndoh-rotator-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.lc-ndoh-rotator-head .lc-kicker { display: inline-flex; align-items: center; gap: 6px; color: #edd49c; }
+.lc-ndoh-rotator-head .lc-kicker svg { width: 14px; height: 14px; }
+.lc-ndoh-count { color: rgba(255,255,255,.6); font-size: 11px; font-weight: 700; }
+.lc-ndoh-card { display: grid; gap: 12px; }
+.lc-ndoh-title { font-size: 16px; font-weight: 700; color: #fff; }
+.lc-ndoh-court { display: block; margin-top: 2px; color: rgba(255,255,255,.62); font-size: 11px; }
+.lc-ndoh-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lc-ndoh-date { border: 1px solid rgba(255,255,255,.12); border-radius: 7px; background: rgba(255,255,255,.05); padding: 10px 12px; }
+.lc-ndoh-date > span { display: inline-flex; align-items: center; gap: 5px; color: rgba(255,255,255,.6); font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.lc-ndoh-date > span svg { width: 12px; height: 12px; }
+.lc-ndoh-date > strong { display: block; margin-top: 4px; font-size: 15px; color: #fff; }
+.lc-ndoh-next { border-color: rgba(213,169,83,.4); background: rgba(213,169,83,.12); }
+.lc-ndoh-due { display: inline-block; margin-top: 4px; color: #b9ead2; font-size: 10px; font-weight: 700; font-style: normal; }
+.lc-ndoh-due.urgent { color: #f7c9a4; }
+.lc-ndoh-cta { display: inline-flex; align-items: center; gap: 5px; width: max-content; color: #edd49c; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.lc-ndoh-cta svg { width: 14px; height: 14px; }
+.lc-ndoh-dots { display: flex; gap: 6px; margin-top: 12px; }
+.lc-ndoh-dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 999px; background: rgba(255,255,255,.28); cursor: pointer; transition: background .2s ease, width .2s ease; }
+.lc-ndoh-dots button.active { width: 18px; background: #edd49c; }
+@media (max-width: 560px) { .lc-ndoh-dates { grid-template-columns: 1fr; } }
+
 .lc-workspace-empty { display: grid; min-height: 330px; place-items: center; align-content: center; padding: 30px; border: 1px solid #dce1e7; border-radius: 8px; background: #fff; text-align: center; }
 .lc-workspace-empty > svg { width: 34px; margin-bottom: 12px; color: #b18938; }
 .lc-workspace-empty h2 { margin: 0; font-family: 'Playfair Display', serif; font-size: 24px; }

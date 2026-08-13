@@ -20,6 +20,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { dailyQuote, greetingFor, workspaceRequest, type WorkspaceCase } from "@/lib/workspace";
 import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
+import { HearingReminderRotator } from "@/components/dashboard/HearingReminderRotator";
 import { TaskDialog } from "@/components/forms/TaskDialog";
 import { humanProxyStatus, nextProxyActor, proxyUrgencyMeta, resolveProxyFlowStage } from "@/lib/proxyFlow";
 
@@ -244,6 +245,17 @@ export function AdvocateDashboard() {
         <div><HandCoins /><span><strong>{postedByMe.length}</strong><small>Proxy tasks posted</small></span></div>
         <div><Camera /><span><strong>{assignedByLc.length}</strong><small>Assigned by LC</small></span></div>
       </section>
+
+      <HearingReminderRotator
+        cases={activeCases.map((matter) => ({
+          id: matter.id,
+          title: matter.caseTitle,
+          court: matter.courtName,
+          nextDate: matter.nextDate,
+          lastDate: matter.lastDate,
+        }))}
+        hrefBase="/advocate/cases"
+      />
 
       <section className="lc-practice-grid">
         <div className="lc-operational-panel lc-practice-cases">
