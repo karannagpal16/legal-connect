@@ -187,7 +187,7 @@ export function ECourtsMirror({
       <div className="flex flex-wrap gap-2">
         {([
           { id: "district" as const, label: "District Courts", icon: Gavel },
-          { id: "high" as const, label: "High Courts (25)", icon: Building2 },
+          { id: "high" as const, label: "High Courts", icon: Building2 },
           { id: "supreme" as const, label: "Supreme Court", icon: Landmark },
         ]).map((item) => (
           <button
@@ -290,7 +290,7 @@ export function ECourtsMirror({
               <p className="text-sm font-bold text-[#1A2332]">{preview.caseNumber || preview.cnr}</p>
               <p className="text-[11px] text-[#1A2332]/45">{preview.courtName}</p>
             </div>
-            <CourtFreshnessBadge freshness="live" />
+            <CourtFreshnessBadge freshness={preview.freshness || "updated_today"} lastSuccessAt={preview.lastSuccessAt || preview.fetchedAt} />
           </div>
           <HearingCountdown nextHearingDate={preview.nextHearingDate} />
           <VirtualCourtroomWidget virtualCourtroom={preview.virtualCourtroom} />
@@ -303,7 +303,7 @@ export function ECourtsMirror({
             courtRoom={preview.courtRoom}
             causeListItemNumber={preview.causeListItemNumber}
             judgeOrBench={preview.judgeOrBench}
-            freshness="live"
+            freshness={preview.freshness || "updated_today"}
             sourceUrl={preview.sourceUrl}
             sourceCourt={preview.courtName}
             provider={preview.provider}

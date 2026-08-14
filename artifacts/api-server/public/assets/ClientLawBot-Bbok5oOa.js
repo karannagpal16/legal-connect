@@ -1,0 +1,1 @@
+import{j as t}from"./index-BZSE7y-S.js";import{L as e}from"./LawBot-YeJEi3rS.js";import"./tanstack-query-S5E7Fnf-.js";import"./lock-BUiYSh90.js";import"./send-D-6bhuF1.js";function s(){return t.jsxDEV(e,{audience:"client"},void 0,!1,{fileName:"/workspace/artifacts/law-firm/src/pages/client/ClientLawBot.tsx",lineNumber:4,columnNumber:10},this)}export{s as ClientLawBot};

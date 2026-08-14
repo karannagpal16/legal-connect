@@ -118,6 +118,19 @@ function createCourtSync({ db, sendJson, readBody, getAuthUser, writeAuditLog })
       return true;
     }
 
+    // Alias: DELETE /api/court-cases/:id (same as /tracking)
+    const courtCaseDelete = path.match(/^\/api\/court-cases\/([^/]+)$/);
+    if (courtCaseDelete && req.method === "DELETE") {
+      try {
+        const user = requireUser(req, res);
+        if (!user) return true;
+        sendJson(res, 200, await service.untrack(user, decodeURIComponent(courtCaseDelete[1])));
+      } catch (error) {
+        sendError(res, error, error.status || 400);
+      }
+      return true;
+    }
+
     const caseMatch = path.match(/^\/api\/court-cases\/([^/]+)(?:\/(sync|tracking|events|orders))?$/);
     if (caseMatch) {
       const caseId = decodeURIComponent(caseMatch[1]);

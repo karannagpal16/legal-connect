@@ -1,0 +1,1 @@
+import{j as t}from"./index-BZSE7y-S.js";import{L as o}from"./LawBot-YeJEi3rS.js";import"./tanstack-query-S5E7Fnf-.js";import"./lock-BUiYSh90.js";import"./send-D-6bhuF1.js";function s(){return t.jsxDEV(o,{audience:"advocate"},void 0,!1,{fileName:"/workspace/artifacts/law-firm/src/pages/advocate/AdvocateLawBot.tsx",lineNumber:4,columnNumber:10},this)}export{s as AdvocateLawBot};

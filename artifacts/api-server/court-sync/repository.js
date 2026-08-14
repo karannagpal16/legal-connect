@@ -173,6 +173,63 @@ function createCourtSyncRepository({ db }) {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS court_change_events_case_idx ON court_change_events (case_id, created_at DESC)`);
 
+    // Plan-named compatibility views (canonical tables remain tracked_* / court_events / court_documents).
+    await db.query(`ALTER TABLE tracked_court_cases ADD COLUMN IF NOT EXISTS milestone_index integer DEFAULT 1`);
+    await db.query(`ALTER TABLE tracked_court_cases ADD COLUMN IF NOT EXISTS stage text`);
+    await db.query(`ALTER TABLE tracked_court_cases ADD COLUMN IF NOT EXISTS court_room_no text`);
+    await db.query(`ALTER TABLE tracked_court_cases ADD COLUMN IF NOT EXISTS cause_list_item_no text`);
+    await db.query(`ALTER TABLE tracked_court_cases ADD COLUMN IF NOT EXISTS next_hearing_date date`);
+    await db.query(`
+      CREATE OR REPLACE VIEW court_cases AS
+      SELECT
+        id,
+        created_by AS user_id,
+        cnr_normalized AS cnr_number,
+        court_level AS court_type,
+        state_code,
+        COALESCE(bench_code, court_name) AS bench_name,
+        case_type,
+        case_number,
+        case_year,
+        latest_snapshot->>'petitioner' AS petitioner,
+        latest_snapshot->>'respondent' AS respondent,
+        latest_snapshot->>'petitionerAdvocate' AS petitioner_advocate,
+        latest_snapshot->>'respondentAdvocate' AS respondent_advocate,
+        latest_snapshot->>'filingDate' AS filing_date,
+        COALESCE(next_hearing_date::text, latest_snapshot->>'nextHearingDate') AS next_hearing_date,
+        COALESCE(stage, latest_snapshot->>'stage') AS stage,
+        COALESCE(court_room_no, latest_snapshot->>'courtRoom') AS court_room_no,
+        COALESCE(cause_list_item_no, latest_snapshot->>'causeListItemNumber') AS cause_list_item_no,
+        COALESCE(milestone_index, 1) AS milestone_index,
+        last_success_at AS last_synced_at
+      FROM tracked_court_cases
+    `);
+    await db.query(`
+      CREATE OR REPLACE VIEW court_case_history AS
+      SELECT
+        id,
+        case_id,
+        event_date AS hearing_date,
+        COALESCE(payload->>'businessOnDate', purpose) AS business_on_date,
+        stage,
+        court_number AS court_room,
+        purpose
+      FROM court_events
+    `);
+    await db.query(`
+      CREATE OR REPLACE VIEW court_orders AS
+      SELECT
+        id,
+        case_id,
+        document_date AS order_date,
+        document_type AS order_type,
+        title,
+        source_url AS pdf_url,
+        ai_summary,
+        created_at
+      FROM court_documents
+    `);
+
     schemaReady = true;
     return true;
   }
