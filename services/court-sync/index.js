@@ -1,58 +1,101 @@
-import { envNumber, envUrl, readEnv } from "../shared/env.mjs";
+/**
+ * Verified Court Updates worker — database-backed sync jobs.
+ *
+ * Baseline windows: 06:00 / 18:00 IST (full due-batch processing).
+ * Outside baseline: only process overdue jobs when COURT_SYNC_OUTSIDE_BASELINE=true,
+ * or when --once / force is used.
+ *
+ * Run once:  node index.js --once
+ * Loop:      node index.js
+ */
+
+import { createRequire } from "module";
+import path from "path";
+import { fileURLToPath } from "url";
+import { envNumber, readEnv } from "../shared/env.mjs";
 
 readEnv();
 
-const POLL_FREQ_MIN = envNumber("POLL_FREQ_MIN", 360);
-const OFFICIAL_ECOURTS_BASE_URL = envUrl("OFFICIAL_ECOURTS_BASE_URL", "https://services.ecourts.gov.in");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const apiRoot = path.resolve(__dirname, "../../artifacts/api-server");
+const requireFromApi = createRequire(path.join(apiRoot, "package.json"));
 
-const demoTrackedCases = [
-  {
-    id: "case-demo-1",
-    user_id: "user-demo-1",
-    court_type: "district",
-    state_code: "DL",
-    case_no: "2023/CRL-1234",
-    next_date: "2026-07-04",
-    stage: "Reply awaited",
-  },
-];
+const POLL_FREQ_MIN = envNumber("POLL_FREQ_MIN", 30);
+const BATCH_SIZE = envNumber("COURT_SYNC_BATCH_SIZE", 25);
+const OUTSIDE_BASELINE = String(process.env.COURT_SYNC_OUTSIDE_BASELINE || "true").toLowerCase() !== "false";
 
-async function fetchOfficialSnapshot(row) {
-  // Phase 2 hook: replace this with permitted official eCourts endpoint access.
-  // Keep Legal Connect UI custom; do not copy eCourts app screens or flows.
-  return {
-    source: OFFICIAL_ECOURTS_BASE_URL,
-    next_date: row.next_date,
-    stage: row.stage,
-    item_no: "42",
-    court_room: "Court 5",
-  };
+const db = requireFromApi("./db.js");
+const { createCourtSync } = requireFromApi("./court-sync/index.js");
+
+const courtSync = createCourtSync({
+  db,
+  sendJson() {},
+  readBody: async () => ({}),
+  getAuthUser: () => null,
+  writeAuditLog: async () => undefined,
+});
+
+function isBaselineWindow(now = new Date()) {
+  const istMinutes = now.getUTCHours() * 60 + now.getUTCMinutes() + 330;
+  const normalized = ((istMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const istHour = Math.floor(normalized / 60);
+  const istMin = normalized % 60;
+  // Open a POLL_FREQ_MIN-wide gate after 06:00 and 18:00 IST.
+  return (istHour === 6 || istHour === 18) && istMin < Math.max(POLL_FREQ_MIN, 1);
 }
 
-async function pollCase(row) {
-  const snapshot = await fetchOfficialSnapshot(row);
-  return {
-    case_id: row.id,
-    user_id: row.user_id,
-    changed: false,
-    message: `Court Sync checked ${row.case_no}: next date ${snapshot.next_date}, ${snapshot.court_room}, item ${snapshot.item_no}.`,
-    snapshot,
-  };
-}
-
-export async function runCycle() {
-  const updates = [];
-  for (const row of demoTrackedCases) {
-    updates.push(await pollCase(row));
+export async function runCycle({ force = false } = {}) {
+  await courtSync.ensureSchema();
+  const baselineWindow = isBaselineWindow();
+  const shouldRun = force || baselineWindow || OUTSIDE_BASELINE;
+  if (!shouldRun) {
+    return {
+      ok: true,
+      feature: "Verified Court Updates",
+      engine: "Real eCourts & Order PDF Sync Engine",
+      baselineWindow,
+      force,
+      skipped: true,
+      reason: "outside_baseline_window",
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      results: [],
+    };
   }
-  return updates;
+  const results = await courtSync.processDueSyncJobs(BATCH_SIZE);
+  return {
+    ok: true,
+    feature: "Verified Court Updates",
+    engine: "Real eCourts & Order PDF Sync Engine",
+    baselineWindow,
+    force,
+    skipped: false,
+    processed: results.length,
+    succeeded: results.filter((item) => item.ok).length,
+    failed: results.filter((item) => !item.ok).length,
+    results,
+  };
 }
 
 if (process.argv.includes("--once")) {
-  const updates = await runCycle();
-  console.log(JSON.stringify({ ok: true, mode: "demo", updates }, null, 2));
+  const summary = await runCycle({ force: true });
+  console.log(JSON.stringify(summary, null, 2));
+  process.exit(summary.failed ? 1 : 0);
 } else {
-  console.log(`Court Sync demo worker ready. Poll frequency: ${POLL_FREQ_MIN} minutes.`);
-  const updates = await runCycle();
-  console.log(JSON.stringify({ ok: true, firstRun: updates }, null, 2));
+  console.log(
+    `Verified Court Updates worker ready. Poll every ${POLL_FREQ_MIN} minutes; baseline gates 06:00/18:00 IST. Provider=${process.env.COURT_DATA_PROVIDER || "fixture"}`,
+  );
+  const first = await runCycle({ force: true });
+  console.log(JSON.stringify({ firstRun: first }, null, 2));
+  setInterval(async () => {
+    try {
+      const summary = await runCycle({ force: false });
+      console.log(JSON.stringify({ cycle: summary }, null, 2));
+    } catch (error) {
+      console.error("Court sync cycle failed:", error.message);
+    }
+  }, POLL_FREQ_MIN * 60 * 1000);
 }
+
+export { isBaselineWindow };

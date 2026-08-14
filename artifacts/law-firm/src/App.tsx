@@ -24,6 +24,7 @@ const AccessDeniedPage = lazyNamed(() => import("@/pages/AccessPages"), "AccessD
 const AccountRestrictedPage = lazyNamed(() => import("@/pages/AccessPages"), "AccountRestrictedPage");
 const Dashboard = lazyNamed(() => import("@/pages/Dashboard"), "Dashboard");
 const MyDiary = lazyNamed(() => import("@/pages/MyDiary"), "MyDiary");
+const AdvocateCaseTracker = lazyNamed(() => import("@/pages/advocate/AdvocateCaseTracker"), "AdvocateCaseTracker");
 const ProxyHub = lazyNamed(() => import("@/pages/ProxyHub"), "ProxyHub");
 const RevenueTracker = lazyNamed(() => import("@/pages/RevenueTracker"), "RevenueTracker");
 const Users = lazyNamed(() => import("@/pages/Users"), "Users");
@@ -222,7 +223,8 @@ function AdvocatePortal() {
             <Route path="/advocate/chat" component={AdvocateChat} />
             <Route path="/advocate/lawbot" component={AdvocateLawBot} />
             <Route path="/advocate/judges" component={AdvocateJudges} />
-            <Route path="/advocate/cases" component={MyDiary} />
+            <Route path="/advocate/cases" component={AdvocateCaseTracker} />
+            <Route path="/advocate/matter-diary" component={MyDiary} />
             <Route path="/advocate/updates" component={CaseUpdatesBoard} />
             <Route path="/advocate/login"><Redirect to="/login" /></Route>
             <Route path="/advocate/onboarding"><Redirect to="/advocate" /></Route>
