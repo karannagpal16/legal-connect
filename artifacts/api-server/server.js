@@ -5057,6 +5057,25 @@ const server = http.createServer(async (req, res) => {
         ).catch(() => undefined);
       }
       await writeAuditLog(authUser, "intake_assign", "booking", intakeId, `Assigned panel lawyer ${advocate.name}`, { advocateId, note });
+      try {
+        await recordTransition(db, {
+          machine: "paid_intake",
+          resourceType: "booking",
+          resourceId: intakeId,
+          fromState: booking.intakeStatus || booking.stageStatus || booking.stage_status || "lc_review",
+          toState: "advocate_assigned",
+          actor: authUser,
+          reason: note || `Assigned ${advocate.name}`,
+          idempotencyKey: `intake:${intakeId}:advocate_assigned:${advocateId}`,
+          afterSnapshot: { assignedAdvocateId: advocateId },
+        });
+      } catch (error) {
+        if (error.code === "invalid_state_transition") {
+          sendJson(res, 409, { ok: false, error: error.message, code: error.code });
+          return;
+        }
+        console.warn("intake assign transition log failed:", error.message || error);
+      }
       await notify({
         eventType: "intake_assigned",
         title: "Advocate assigned by Legal Connect",

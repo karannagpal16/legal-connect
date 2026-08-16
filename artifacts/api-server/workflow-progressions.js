@@ -5,6 +5,8 @@
  * 3) Client Intake — draft → intake_submitted → lc_under_review → advocate_assigned → advocate_accepted/work_in_progress → concluded
  */
 
+const { recordTransition } = require("./workflow-states");
+
 const COMPLETION_TIME_OPTIONS = [
   "Within 24 hours",
   "1–2 days",
@@ -533,6 +535,25 @@ function createWorkflowProgressions(deps) {
         return true;
       }
       if (action === "start-review") {
+        const fromState = intake.intakeStatus || intake.stageStatus || intake.paymentStatus || "paid";
+        try {
+          await recordTransition(db, {
+            machine: "paid_intake",
+            resourceType: "booking",
+            resourceId: intakeId,
+            fromState,
+            toState: "lc_review",
+            actor: authUser,
+            reason: "LC review started",
+            idempotencyKey: `intake:${intakeId}:lc_review:${authUser.id}`,
+          });
+        } catch (error) {
+          if (error.code === "invalid_state_transition") {
+            sendJson(res, 409, { ok: false, error: error.message, code: error.code });
+            return true;
+          }
+          throw error;
+        }
         const updated = await patchIntakeStatus(intakeId, "lc_under_review", {
           reviewStartedAt: new Date().toISOString(),
           reviewStartedBy: authUser.id,
@@ -553,6 +574,25 @@ function createWorkflowProgressions(deps) {
       }
       if (action === "conclude") {
         const note = String(body.note || body.message || "Matter concluded by Legal Connect.").trim();
+        const fromState = intake.intakeStatus || intake.stageStatus || "in_progress";
+        try {
+          await recordTransition(db, {
+            machine: "paid_intake",
+            resourceType: "booking",
+            resourceId: intakeId,
+            fromState,
+            toState: "concluded",
+            actor: authUser,
+            reason: note,
+            idempotencyKey: body.idempotencyKey || `intake:${intakeId}:concluded:${Date.now()}`,
+          });
+        } catch (error) {
+          if (error.code === "invalid_state_transition") {
+            sendJson(res, 409, { ok: false, error: error.message, code: error.code });
+            return true;
+          }
+          throw error;
+        }
         const updated = await patchIntakeStatus(intakeId, "matter_concluded", {
           concludedAt: new Date().toISOString(),
           concludedBy: authUser.id,
@@ -620,6 +660,24 @@ function createWorkflowProgressions(deps) {
       if (assignedId && String(assignedId) !== String(authUser.id) && !canSeeAll(authUser)) {
         sendJson(res, 403, { ok: false, error: "Only the assigned advocate can accept this matter." });
         return true;
+      }
+      try {
+        await recordTransition(db, {
+          machine: "paid_intake",
+          resourceType: "booking",
+          resourceId: intakeId,
+          fromState: status || "advocate_assigned",
+          toState: "advocate_accepted",
+          actor: authUser,
+          reason: String(body.note || body.message || "Advocate accepted").trim() || "Advocate accepted",
+          idempotencyKey: `intake:${intakeId}:advocate_accepted:${authUser.id}`,
+        });
+      } catch (error) {
+        if (error.code === "invalid_state_transition") {
+          sendJson(res, 409, { ok: false, error: error.message, code: error.code });
+          return true;
+        }
+        throw error;
       }
       const note = String(body.note || body.message || "").trim();
       const updated = await patchIntakeStatus(intakeId, "advocate_accepted", {

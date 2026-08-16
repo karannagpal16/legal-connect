@@ -59,6 +59,9 @@ test("products ignore client amounts and unify ProxyHub fees", () => {
 
 test("canonical state machines reject illegal transitions", () => {
   assert.equal(canTransition("paid_intake", "paid", "lc_review"), true);
+  assert.equal(canTransition("paid_intake", "intake_submitted", "lc_under_review"), true);
+  assert.equal(canTransition("paid_intake", "lc_under_review", "advocate_assigned"), true);
+  assert.equal(canTransition("paid_intake", "advocate_accepted", "concluded"), true);
   assert.equal(canTransition("paid_intake", "draft", "settled"), false);
   assert.throws(() => assertTransition("proxy_hub", "draft", "paid_out"));
   assert.equal(canTransition("advocate_verification", "pending", "under_review"), true);

@@ -19,7 +19,7 @@ const MACHINES = Object.freeze({
     lc_review: ["advocate_assigned", "payment_pending"],
     advocate_assigned: ["advocate_accepted", "advocate_declined"],
     advocate_declined: ["advocate_assigned", "lc_review"],
-    advocate_accepted: ["in_progress"],
+    advocate_accepted: ["in_progress", "concluded", "disputed"],
     in_progress: ["concluded", "disputed"],
     disputed: ["in_progress", "settlement_pending", "refunded"],
     concluded: ["settlement_pending"],
@@ -67,8 +67,25 @@ const MACHINES = Object.freeze({
   },
 });
 
+const STATE_ALIASES = Object.freeze({
+  intake_submitted: "paid",
+  booking_submitted: "paid",
+  fee_secured: "paid",
+  lc_under_review: "lc_review",
+  info_requested: "lc_review",
+  acknowledged_and_assigned: "advocate_assigned",
+  assigned: "advocate_assigned",
+  work_in_progress: "in_progress",
+  matter_concluded: "concluded",
+  closed: "concluded",
+  rejected_refunded: "refunded",
+  provider_pending: "settlement_pending",
+  refund_pending: "settlement_pending",
+});
+
 function normalizeState(value) {
-  return String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
+  const raw = String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
+  return STATE_ALIASES[raw] || raw;
 }
 
 function canTransition(machine, from, to) {
@@ -186,6 +203,7 @@ async function recordTransition(db, {
 
 module.exports = {
   MACHINES,
+  STATE_ALIASES,
   normalizeState,
   canTransition,
   assertTransition,
