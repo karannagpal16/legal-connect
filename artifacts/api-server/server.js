@@ -40,6 +40,16 @@ const {
   courtsMatch,
   firstPracticeLabel,
 } = require("./proxy-counsel-track");
+const authz = require("./authorization");
+const { quoteProduct, PROXY_MIN_FEE_INR, listProducts } = require("./products");
+const { enforceStartupGuards } = require("./startup-guards");
+const { recordTransition, assertTransition, normalizeState: normalizeWorkflowState } = require("./workflow-states");
+const { createPaymentService } = require("./services/payments");
+const { createIntakeService } = require("./services/intake");
+const { createProxyHubService } = require("./services/proxy-hub");
+const { createAuthService } = require("./services/auth");
+
+enforceStartupGuards(config);
 
 const platformEvents = createPlatformEvents({ db, config });
 const supervisedPipeline = createSupervisedPipeline({ db });
@@ -430,9 +440,13 @@ async function bindAuthUser(req) {
       }
       if (isUuid(decoded.id)) {
         const userResult = await db.query(
-          `SELECT id, name, email, phone, role,
-                  email_verified_at, phone_verified_at, consent_at, created_at
-           FROM users WHERE id = $1 LIMIT 1`,
+          `SELECT u.id, u.name, u.email, u.phone, u.role,
+                  u.email_verified_at, u.phone_verified_at, u.consent_at, u.created_at,
+                  pa.verification_status AS advocate_verification_status
+           FROM users u
+           LEFT JOIN profile_advocates pa ON pa.user_id = u.id
+           WHERE u.id = $1
+           LIMIT 1`,
           [decoded.id],
         );
         const row = userResult.rows[0];
@@ -447,11 +461,13 @@ async function bindAuthUser(req) {
           email: row.email,
           phone: row.phone,
           // Always trust live DB role — prevents stale elevated tokens after demotion.
-          role: row.role,
+          role: row.role === "rna" ? "admin" : row.role,
           emailVerifiedAt: row.email_verified_at,
           phoneVerifiedAt: row.phone_verified_at,
           consentAt: row.consent_at,
           createdAt: row.created_at,
+          verificationStatus: row.advocate_verification_status || decoded.verificationStatus || null,
+          verification_status: row.advocate_verification_status || decoded.verification_status || null,
         };
         setAuthUser(req, liveUser);
         return liveUser;
@@ -471,32 +487,19 @@ function getAuthUser(req) {
 }
 
 function canAccessBooking(authUser, booking) {
-  if (!authUser || !booking) return false;
-  if (canSeeAll(authUser)) return true;
-  const ownerId = booking.userId || booking.user_id;
-  if (ownerId && String(ownerId) === String(authUser.id)) return true;
-  const assigned = booking.assignedAdvocateId
-    || booking.assigned_advocate_id
-    || booking.payload?.assignedAdvocateId
-    || booking.payload?.assigned_advocate_id;
-  if (assigned && String(assigned) === String(authUser.id)) return true;
-  return false;
+  return authz.canViewBooking(authUser, booking);
 }
 
 function canViewFullProxyTask(authUser, task) {
-  if (!authUser || !task) return false;
-  if (canSeeAll(authUser)) return true;
-  if (task.postedBy && String(task.postedBy) === String(authUser.id)) return true;
-  if (task.acceptedBy && String(task.acceptedBy) === String(authUser.id)) return true;
-  if (task.assignedToId && String(task.assignedToId) === String(authUser.id)) return true;
-  return false;
+  return authz.canViewTask(authUser, task);
 }
 
 function canSeeAll(user) {
-  return user && ["rna", "admin"].includes(user.role);
+  return authz.canSeeAll(user);
 }
 
 function userIdForWrite(body, user) {
+  // Never trust client-supplied userId — always bind to the authenticated principal.
   return user?.id || null;
 }
 
@@ -3083,6 +3086,8 @@ const strategyFeatures = createStrategyFeatures({
   getAuthUser: (req) => getAuthUser(req),
   canSeeAll: (user) => canSeeAll(user),
   canAccessStoredCase: (authUser, caseRow) => canAccessStoredCase(authUser, caseRow),
+  canViewTask: (user, task) => authz.canViewTask(user, task),
+  canPerformProxyStep: (user, task, action) => authz.canPerformProxyStep(user, task, action),
   mapTask,
   mapCase,
   writeAuditLog,
@@ -3147,6 +3152,30 @@ const server = http.createServer(async (req, res) => {
   // Bind auth once per request: revoke check + live DB role (prevents stale admin tokens).
   if (url.pathname.startsWith("/api/")) {
     await bindAuthUser(req);
+  }
+
+  // Block pending/rejected/suspended advocates from mutating advocate workspace APIs.
+  // Allow profile, verification, auth, and read-only public endpoints through.
+  if (url.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    const bound = getCachedAuthUser(req);
+    const allowUnverifiedPaths = [
+      "/api/auth/",
+      "/api/advocate/profile",
+      "/api/advocate/verification",
+      "/api/verifications",
+      "/api/payments/webhook",
+      "/api/webhooks/",
+    ];
+    const allowedWhilePending = allowUnverifiedPaths.some((prefix) => url.pathname.startsWith(prefix));
+    if (bound && authz.isAdvocateBlocked(bound) && !allowedWhilePending) {
+      sendJson(res, 403, {
+        ok: false,
+        error: "Advocate verification is required before using this workspace.",
+        code: "advocate_not_verified",
+        verificationStatus: authz.verificationStatus(bound),
+      });
+      return;
+    }
   }
 
   if (await masterBlueprint.handleBlueprintRoutes(req, res, url)) {
@@ -3320,7 +3349,11 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    const keepEmail = String(body.keepEmail || authUser.email || "karannagpal16@gmail.com").trim().toLowerCase();
+    const keepEmail = String(body.keepEmail || authUser.email || "").trim().toLowerCase();
+    if (!keepEmail) {
+      sendJson(res, 400, { ok: false, error: "keepEmail or authenticated admin email is required." });
+      return;
+    }
     const removeOtherUsers = body.removeOtherUsers !== false;
 
     const operationalTables = [
@@ -4238,6 +4271,206 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Queue-based Admin Control Centre — one list per supervision boundary.
+  if (url.pathname === "/api/admin/queues" && req.method === "GET") {
+    const authUser = sourceAdminUser(req, res);
+    if (!authUser) return;
+    const role = String(authUser.role || "").toLowerCase();
+    const canVerification = authz.hasAdminCapability(authUser, "verification") || canSeeAll(authUser);
+    const canOperations = authz.hasAdminCapability(authUser, "operations") || canSeeAll(authUser);
+    const canContent = authz.hasAdminCapability(authUser, "content") || canSeeAll(authUser);
+    const canFinance = authz.hasAdminCapability(authUser, "finance") || canSeeAll(authUser);
+    const canSupport = authz.hasAdminCapability(authUser, "support") || canSeeAll(authUser);
+
+    const empty = { items: [], count: 0 };
+    if (!db.dbAvailable) {
+      sendJson(res, 200, {
+        ok: true,
+        mode: "demo",
+        actorRole: role,
+        queues: {
+          advocate_verification: canVerification ? { items: [], count: 0, requiredRoles: ["verification_admin", "super_admin"] } : empty,
+          paid_unassigned_intakes: canOperations ? { items: [], count: 0, requiredRoles: ["operations_admin"] } : empty,
+          case_update_review: canContent ? { items: [], count: 0, requiredRoles: ["content_reviewer"] } : empty,
+          proxy_postings_review: canOperations ? { items: [], count: 0, requiredRoles: ["operations_admin"] } : empty,
+          proof_review: canOperations ? { items: [], count: 0, requiredRoles: ["operations_admin"] } : empty,
+          releases_awaiting_finance: canFinance ? { items: [], count: 0, requiredRoles: ["finance_admin"] } : empty,
+          refunds_provider_pending: canFinance ? { items: [], count: 0, requiredRoles: ["finance_admin"] } : empty,
+          grievances_sla: canSupport ? { items: [], count: 0, requiredRoles: ["support_admin"] } : empty,
+        },
+      });
+      return;
+    }
+
+    const [
+      verificationRows,
+      intakeRows,
+      updateRows,
+      proxyPendingRows,
+      proofRows,
+      releaseRows,
+      refundRows,
+      grievanceRows,
+    ] = await Promise.all([
+      canVerification
+        ? db.query(`
+            SELECT u.id, u.name, u.email, pa.verification_status AS status, pa.updated_at, pa.created_at
+            FROM profile_advocates pa
+            JOIN users u ON u.id = pa.user_id
+            WHERE pa.verification_status IN ('pending', 'under_review', 'information_required')
+            ORDER BY pa.updated_at ASC NULLS FIRST
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      canOperations
+        ? db.query(`
+            SELECT id, legal_issue_type, amount, payment_status, stage_status, created_at, payload
+            FROM bookings
+            WHERE lower(COALESCE(payment_status, '')) IN ('paid', 'captured', 'demo-verified')
+              AND (
+                COALESCE(payload->>'assignedAdvocateId', '') = ''
+                OR lower(COALESCE(stage_status, payload->>'pipelineStage', '')) IN ('paid', 'lc_review', 'paid_pending_admin')
+              )
+            ORDER BY created_at ASC
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      canContent
+        ? db.query(`
+            SELECT id, case_id, status, message, author_id, author_role, created_at
+            FROM case_updates
+            WHERE status IN ('pending_lc_review', 'pending_review')
+            ORDER BY created_at ASC
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      canOperations
+        ? db.query(`
+            SELECT id, title, status, amount, created_at, payload
+            FROM tasks
+            WHERE lower(COALESCE(status, '')) IN ('awaiting admin assignment', 'paid_pending_admin', 'open')
+               OR lower(COALESCE(payload->>'proxyStage', '')) IN ('paid_pending_admin', 'query_raised')
+            ORDER BY created_at ASC
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      canOperations
+        ? db.query(`
+            SELECT id, title, status, amount, created_at, payload
+            FROM tasks
+            WHERE lower(COALESCE(payload->>'proxyStage', payload->>'transparencyLayer', '')) IN ('proof_submitted', 'proof')
+               OR (proof_hash IS NOT NULL AND lower(COALESCE(status, '')) NOT IN ('completed', 'paid_out', 'released'))
+            ORDER BY created_at ASC
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      canFinance
+        ? db.query(`
+            SELECT id, title, status, amount, created_at, payload
+            FROM tasks
+            WHERE lower(COALESCE(payload->>'settlementStatus', payload->>'proxyStage', '')) IN ('payout_pending', 'release_pending', 'awaiting_finance')
+            ORDER BY created_at ASC
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      canFinance
+        ? db.query(`
+            SELECT id, legal_issue_type, amount, payment_status, stage_status, created_at, payload
+            FROM bookings
+            WHERE lower(COALESCE(payment_status, stage_status, payload->>'refundStatus', '')) IN ('provider_pending', 'refund_pending', 'refund_requested')
+            ORDER BY created_at ASC
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      canSupport
+        ? db.query(`
+            SELECT id, status, category, created_at, payload
+            FROM grievances
+            WHERE lower(COALESCE(status, '')) NOT IN ('resolved', 'closed')
+            ORDER BY created_at ASC
+            LIMIT 100
+          `).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+    ]);
+
+    const ageMs = (value) => {
+      const t = value ? new Date(value).getTime() : Date.now();
+      return Math.max(0, Date.now() - t);
+    };
+    const mapQueue = (rows, mapItem, requiredRoles) => ({
+      count: rows.length,
+      requiredRoles,
+      items: rows.map((row) => ({
+        ...mapItem(row),
+        ageMs: ageMs(row.created_at || row.updated_at || row.createdAt),
+      })),
+    });
+
+    sendJson(res, 200, {
+      ok: true,
+      actorRole: role,
+      queues: {
+        advocate_verification: mapQueue(verificationRows.rows, (row) => ({
+          id: row.id,
+          owner: row.name,
+          state: row.status,
+          requiredAction: "Verify credentials or request information",
+          evidence: { emailMasked: maskEmail(row.email) },
+        }), ["verification_admin", "super_admin"]),
+        paid_unassigned_intakes: mapQueue(intakeRows.rows, (row) => ({
+          id: row.id,
+          owner: null,
+          state: row.stage_status || row.payment_status,
+          requiredAction: "Review and assign verified advocate",
+          evidence: { amount: row.amount, issue: row.legal_issue_type },
+        }), ["operations_admin", "super_admin"]),
+        case_update_review: mapQueue(updateRows.rows, (row) => ({
+          id: row.id,
+          owner: row.author_id,
+          state: row.status,
+          requiredAction: "Approve or return with reason",
+          evidence: { caseId: row.case_id, preview: String(row.message || "").slice(0, 160) },
+        }), ["content_reviewer", "super_admin"]),
+        proxy_postings_review: mapQueue(proxyPendingRows.rows, (row) => ({
+          id: row.id,
+          owner: null,
+          state: row.status,
+          requiredAction: "Review posting and assign proxy counsel",
+          evidence: { title: row.title, amount: row.amount },
+        }), ["operations_admin", "super_admin"]),
+        proof_review: mapQueue(proofRows.rows, (row) => ({
+          id: row.id,
+          owner: row.payload?.acceptedBy || row.payload?.assignedTo || null,
+          state: "proof_submitted",
+          requiredAction: "Verify proof or raise dispute",
+          evidence: { title: row.title },
+        }), ["operations_admin", "super_admin"]),
+        releases_awaiting_finance: mapQueue(releaseRows.rows, (row) => ({
+          id: row.id,
+          owner: null,
+          state: "payout_pending",
+          requiredAction: "Authorize release after operations approval; await provider confirmation",
+          evidence: { title: row.title, amount: row.amount },
+        }), ["finance_admin", "super_admin"]),
+        refunds_provider_pending: mapQueue(refundRows.rows, (row) => ({
+          id: row.id,
+          owner: null,
+          state: row.payment_status || row.stage_status || "provider_pending",
+          requiredAction: "Confirm refund with Razorpay before marking refunded",
+          evidence: { amount: row.amount, issue: row.legal_issue_type },
+        }), ["finance_admin", "super_admin"]),
+        grievances_sla: mapQueue(grievanceRows.rows, (row) => ({
+          id: row.id,
+          owner: null,
+          state: row.status,
+          requiredAction: "Investigate and resolve within SLA",
+          evidence: { category: row.category },
+        }), ["support_admin", "super_admin"]),
+      },
+    });
+    return;
+  }
+
   // Assign a matter to verified counsel and notify both sides.
   const adminCaseAssignMatch = url.pathname.match(/^\/api\/admin\/cases\/([^/]+)\/assign$/);
   if (adminCaseAssignMatch && req.method === "POST") {
@@ -4995,11 +5228,11 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, error: "A rejection reason is required (min 8 characters)." });
         return;
       }
-      // Honesty: this path releases the platform work hold and marks payment status for ops follow-up.
-      // It does NOT call Razorpay refunds/payouts yet — money movement stays manual.
+      // Honesty: releases work hold and marks refund as provider_pending / manual_required.
+      // Razorpay refund API confirmation is required before status becomes refunded.
       if (loaded.mode === "demo") {
         Object.assign(loaded.raw, {
-          paymentStatus: "refund_manual_required",
+          paymentStatus: "provider_pending",
           workHoldStatus: "released",
           intakeStatus: "rejected_refunded",
           rejectionReason: reason,
@@ -5008,13 +5241,13 @@ const server = http.createServer(async (req, res) => {
           ok: true,
           action: "refund",
           intake: dashboardBooking(loaded.raw),
-          refund: { status: "manual_required", workHoldStatus: "released", razorpayRefund: false, reason },
+          refund: { status: "provider_pending", workHoldStatus: "released", razorpayRefund: false, reason },
         });
         return;
       }
       const updated = await db.query(
         `UPDATE bookings
-         SET payment_status = 'refund_manual_required',
+         SET payment_status = 'provider_pending',
              work_hold_status = 'released',
              stage_status = 'rejected_refunded',
              failure_reason = $2,
@@ -5031,7 +5264,7 @@ const server = http.createServer(async (req, res) => {
             refundedBy: authUser.id,
             work_hold_status: "released",
             razorpayRefund: false,
-            refundStatus: "manual_required",
+            refundStatus: "provider_pending",
           }),
         ],
       );
@@ -5041,17 +5274,17 @@ const server = http.createServer(async (req, res) => {
         amount: numericAmount(booking.amount),
         currency: "INR",
         provider: "legal-connect",
-        status: "refund_manual_required",
+        status: "provider_pending",
         workHoldStatus: "released",
         payload: { reason, source: "intake_reject_work_hold_release", razorpayRefund: false },
       }).catch(() => undefined);
-      await writeAuditLog(authUser, "intake_reject_work_hold_release", "booking", intakeId, `Intake rejected; work hold released; manual refund required: ${reason}`, { reason, razorpayRefund: false });
+      await writeAuditLog(authUser, "intake_reject_work_hold_release", "booking", intakeId, `Intake rejected; work hold released; refund provider_pending: ${reason}`, { reason, razorpayRefund: false });
       await notify({
         eventType: "intake_refunded",
-        title: "Intake closed — work hold released",
-        message: `Legal Connect rejected this intake and released the work hold. Any paid amount is refunded manually by Admin/support (not automated Razorpay). Reason: ${reason}`,
+        title: "Intake closed — refund pending provider confirmation",
+        message: `Legal Connect rejected this intake and released the work hold. Refund stays provider_pending until Razorpay (or manual finance) confirms. Reason: ${reason}`,
         recipients: await resolveRecipients([clientId].filter(Boolean)),
-        payload: { intakeId, reason, razorpayRefund: false, refundStatus: "manual_required" },
+        payload: { intakeId, reason, razorpayRefund: false, refundStatus: "provider_pending" },
         sendEmail: true,
         sendSms: false,
         ctaLabel: "View booking",
@@ -5225,6 +5458,11 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 401, { error: "Login is required." });
       return;
     }
+    if (!["admin", "rna", "advocate", "intern", "super_admin", "operations_admin"].includes(String(authUser.role || "").toLowerCase())
+      && !canSeeAll(authUser)) {
+      sendJson(res, 403, { error: "Quest access required." });
+      return;
+    }
     if (db.dbAvailable) {
       await ensureInternQuestsTable();
       const result = await db.query("SELECT * FROM intern_quests ORDER BY created_at DESC");
@@ -5237,8 +5475,9 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/intern-quests" && req.method === "POST") {
     const authUser = getAuthUser(req);
-    if (!authUser || !["admin", "rna", "advocate", "intern"].includes(authUser.role)) {
-      sendJson(res, 403, { error: "Quest access required." });
+    // Only admin/ops or verified advocates may create quests — not every intern.
+    if (!authUser || !(canSeeAll(authUser) || (authUser.role === "advocate" && !authz.isAdvocateBlocked(authUser)))) {
+      sendJson(res, 403, { error: "Quest create access required." });
       return;
     }
     const body = await readBody(req);
@@ -5284,12 +5523,16 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith("/api/intern-quests/") && ["PUT", "DELETE"].includes(req.method)) {
     const authUser = getAuthUser(req);
-    if (!authUser || !["admin", "rna", "advocate", "intern"].includes(authUser.role)) {
-      sendJson(res, 403, { error: "Quest access required." });
+    if (!authUser) {
+      sendJson(res, 401, { error: "Login is required." });
       return;
     }
     const id = decodeURIComponent(url.pathname.split("/").pop());
     if (req.method === "DELETE") {
+      if (!canSeeAll(authUser)) {
+        sendJson(res, 403, { error: "Only admins can delete quests." });
+        return;
+      }
       if (db.dbAvailable) {
         await ensureInternQuestsTable();
         await db.query("DELETE FROM intern_quests WHERE id = $1", [id]);
@@ -5297,6 +5540,10 @@ const server = http.createServer(async (req, res) => {
         demoStore.internQuests = demoStore.internQuests.filter((item) => String(item.id) !== String(id));
       }
       sendJson(res, 200, { ok: true });
+      return;
+    }
+    if (!(canSeeAll(authUser) || ["advocate", "intern"].includes(String(authUser.role || "").toLowerCase()))) {
+      sendJson(res, 403, { error: "Quest access required." });
       return;
     }
     const body = await readBody(req);
@@ -5841,13 +6088,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/case-updates" && req.method === "GET") {
-    const update = {
-      type: "caseUpdate",
-      message: "Delhi HC | 2023/CRL-1234 listed tomorrow in Court-5.",
-      caseId: "case-demo-1",
-      nextDate: "2026-07-04",
-      source: "Court update sample stream - connect permitted official court sync before production use",
-    };
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    // Sample SSE removed from public/unauthenticated access. Authenticated clients get an empty stream
+    // until Verified Court Updates / supervised case feeds are attached for their matters.
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -5855,8 +6102,8 @@ const server = http.createServer(async (req, res) => {
       "Access-Control-Allow-Origin": res.localsCorsOrigin || config.allowedOrigin,
       "Vary": "Origin",
     });
-    res.write(`event: caseUpdate\n`);
-    res.write(`data: ${JSON.stringify(update)}\n\n`);
+    res.write(`event: ready\n`);
+    res.write(`data: ${JSON.stringify({ ok: true, message: "Case update stream ready. Official court sync attaches per tracked matter." })}\n\n`);
     res.end();
     return;
   }
@@ -6043,10 +6290,20 @@ const server = http.createServer(async (req, res) => {
     }
     const body = await readBody(req);
     const caseId = body.caseId || body.case_id || null;
-    if (db.dbAvailable && caseId && isUuid(String(caseId))) {
+    if (!caseId || !isUuid(String(caseId))) {
+      sendJson(res, 400, { ok: false, error: "A valid caseId is required to post an update." });
+      return;
+    }
+    if (db.dbAvailable) {
       const matter = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [caseId]);
       if (!matter.rows[0] || !(await canAccessStoredCase(authUser, matter.rows[0]))) {
         sendJson(res, matter.rows[0] ? 403 : 404, { ok: false, error: matter.rows[0] ? "Forbidden" : "Case not found." });
+        return;
+      }
+    } else if (!canSeeAll(authUser)) {
+      const demoCase = (demoStore.cases || []).find((item) => String(item.id) === String(caseId));
+      if (!demoCase || !authz.canViewCase(authUser, demoCase)) {
+        sendJson(res, demoCase ? 403 : 404, { ok: false, error: demoCase ? "Forbidden" : "Case not found." });
         return;
       }
     }
@@ -6866,10 +7123,21 @@ const server = http.createServer(async (req, res) => {
         call: { amount: 299, unit: "session", label: "from ₹299" },
         video: { amount: 499, unit: "session", label: "from ₹499" },
       },
+      products: listProducts(),
+      proxy_min_fee_inr: PROXY_MIN_FEE_INR,
       proxy_urgency_tiers: PROXY_URGENCY_TIERS,
       all_features_free: masterFree,
       master_test_free: masterFree,
       chamber_plans: authUser ? chamberPlanCatalog() : [],
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/products" && req.method === "GET") {
+    sendJson(res, 200, {
+      ok: true,
+      products: listProducts(),
+      proxy_min_fee_inr: PROXY_MIN_FEE_INR,
     });
     return;
   }
@@ -6881,12 +7149,31 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
-    const amount = Number(body.amount || 0);
+    // Server-owned pricing — ignore client amount.
+    let quote;
+    try {
+      quote = quoteProduct({
+        productId: body.productId || body.product_id,
+        channel: body.consultationChannel || body.channel,
+        urgency: body.urgency,
+        planId: body.planId || body.plan,
+      });
+    } catch (error) {
+      // Backward-compatible channel defaults for advisory flows without product_id.
+      const channel = String(body.consultationChannel || body.channel || "chat").toLowerCase();
+      try {
+        quote = quoteProduct({ channel });
+      } catch {
+        sendJson(res, 400, { ok: false, error: error.message || "Unknown product." });
+        return;
+      }
+    }
+    const amount = quote.amountInr;
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
     const paymentStatus = paymentConfigStatus();
     const wantsFirstChatFree = Boolean(body.firstChatFree || body.mode === "first_chat_free");
     const wantsMasterFree = Boolean(body.masterTestFree || body.mode === "master_test_free");
-    const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
+    const channel = String(body.consultationChannel || body.channel || quote.meta?.unit || "").toLowerCase() || quote.category;
     const masterFree = await isMasterTestUser(authUser);
     const bookingIdForOrder = body.bookingId || body.booking_id;
     if (db.dbAvailable && bookingIdForOrder && isUuid(String(bookingIdForOrder))) {
@@ -6897,9 +7184,8 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // Zero-amount / developer / first-chat free — never call Razorpay.
-    // Client-supplied masterTestFree flags are ignored unless the signed-in user is the developer account.
-    if (authUser && (masterFree || wantsFirstChatFree || amount === 0)) {
+    // Free entitlements only — never trust client amount === 0 alone.
+    if (authUser && (masterFree || wantsFirstChatFree)) {
       const bookingId = body.bookingId || body.booking_id;
       // Idempotent: book-advisory may have already activated the free booking.
       if (bookingId && db.dbAvailable && isUuid(String(bookingId))) {
@@ -6936,14 +7222,13 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { ok: false, error: "Developer free unlock is limited to the authorised developer account." });
         return;
       }
-      if (wantsFirstChatFree || (amount === 0 && channel === "chat")) {
-        if (channel && channel !== "chat") {
+      if (wantsFirstChatFree) {
+        if (channel && channel !== "chat" && quote.productId !== "consult_chat") {
           sendJson(res, 400, { ok: false, error: "Free trial applies only to the Secure chat channel." });
           return;
         }
         if (await userHasUsedFirstChat(authUser.id)) {
-          // Still allow zero-amount retry to complete an already-activated free booking.
-          if (bookingId) {
+          if (bookingIdForOrder) {
             const claimed = await claimFreeBooking(authUser, body, "first_chat_free");
             if (claimed.ok) {
               sendJson(res, 200, { ...claimed.body, message: "Free chat booking confirmed." });
@@ -6985,19 +7270,19 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    if (/^Demo Client$/i.test(String(authUser?.name || ''))) {
+    if (config.nodeEnv !== "production" && String(process.env.ALLOW_DEMO_AUTH || "").toLowerCase() === "true" && /^Demo Client$/i.test(String(authUser?.name || ""))) {
       sendJson(res, 200, {
         ok: true,
         success: true,
-        mode: 'demo',
-        provider: 'demo',
-        status: 'review_only',
-        payment_status: 'demo-verified',
-        work_hold_status: 'not-applicable-demo',
+        mode: "demo",
+        provider: "demo",
+        status: "review_only",
+        payment_status: "demo-verified",
+        work_hold_status: "not-applicable-demo",
         amount: amount * 100,
-        currency: 'INR',
+        currency: "INR",
         receipt: body.receiptNo || body.receipt_no || `LC-DEMO-${Date.now()}`,
-        message: 'Demo workspace payment completed without a real charge.',
+        message: "Demo workspace payment completed without a real charge.",
       });
       return;
     }
@@ -7903,14 +8188,31 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 201, {
         ...seed.bookings[0],
         serviceType: body.serviceType || body.service_type || body.legalIssueType || body.plan || seed.bookings[0].serviceType,
-        amount: Number(body.amount || body.price || seed.bookings[0].amount),
+        amount: seed.bookings[0].amount,
         transparencyReceipt: seed.receipts[0],
         message: "Google Play review booking is synthetic and does not charge Razorpay.",
       });
       return;
     }
     const bookingUserId = userIdForWrite(body, authUser);
-    const booking = { id: `booking-${Date.now()}`, userId: bookingUserId, status: "Pending", createdAt: new Date().toISOString(), ...body };
+    let quotedAmount = 0;
+    try {
+      quotedAmount = quoteProduct({
+        productId: body.productId || body.product_id,
+        channel: body.consultationChannel || body.channel || body.serviceType,
+      }).amountInr;
+    } catch {
+      quotedAmount = 0;
+    }
+    const booking = {
+      id: `booking-${Date.now()}`,
+      userId: bookingUserId,
+      status: "Pending",
+      createdAt: new Date().toISOString(),
+      serviceType: body.serviceType || body.service_type || body.legalIssueType || body.plan || "Legal Connect booking",
+      amount: quotedAmount,
+      paymentStatus: "Pending",
+    };
     if (db.dbAvailable) {
       const result = await db.query(
         `INSERT INTO bookings (user_id, service_type, amount, payment_status, receipt_no, next_destination, razorpay_order_id, razorpay_payment_id, work_hold_status, failure_reason, payload)
@@ -7918,13 +8220,13 @@ const server = http.createServer(async (req, res) => {
          RETURNING *`,
         [
           bookingUserId,
-          body.serviceType || body.service_type || body.legalIssueType || body.plan || "Legal Connect booking",
-          numericAmount(body.amount || body.price),
-          body.paymentStatus || body.payment_status || body.status || "Pending",
+          booking.serviceType,
+          quotedAmount,
+          "Pending",
           body.receiptNo || body.receipt_no || null,
           body.nextDestination || body.next_destination || body.route || null,
-          body.razorpayOrderId || body.razorpay_order_id || null,
-          body.razorpayPaymentId || body.razorpay_payment_id || null,
+          null,
+          null,
           body.workHoldStatus || body.work_hold_status || "pending",
           body.failureReason || body.failure_reason || null,
           JSON.stringify({ ...body, user_id: bookingUserId, role: userRole(authUser) }),
@@ -8184,56 +8486,87 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith("/api/bookings/") && url.pathname.endsWith("/stage") && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
     const body = await readBody(req);
     const parts = url.pathname.split("/");
     const bookingId = parts[3];
     const newStage = body.stageStatus || body.stage || body.status || "booking_submitted";
-    const advocateName = body.assignedAdvocateName || body.advocateName || (authUser && authUser.role === 'advocate' ? authUser.name : "Adv. Rishika Nagpal");
-    const advocateId = body.assignedAdvocateId || (authUser ? authUser.id : "demo-advocate-id");
-    const meetingLink = body.meetingLink || body.link || null;
+    // Only admins may assign arbitrary counsel; advocates may only self-assign if already assigned.
+    const advocateName = canSeeAll(authUser)
+      ? (body.assignedAdvocateName || body.advocateName || authUser.name)
+      : (authUser.role === "advocate" ? authUser.name : null);
+    const advocateId = canSeeAll(authUser)
+      ? (body.assignedAdvocateId || body.advocateId || null)
+      : (authUser.role === "advocate" ? authUser.id : null);
+    const meetingLink = canSeeAll(authUser) ? (body.meetingLink || body.link || null) : null;
 
     let targetBooking = null;
     if (db.dbAvailable) {
       const existing = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingId]);
-      if (existing.rows.length) {
-        const payload = existing.rows[0].payload ? (typeof existing.rows[0].payload === 'string' ? JSON.parse(existing.rows[0].payload) : existing.rows[0].payload) : {};
-        payload.stageStatus = newStage;
-        payload.assignedAdvocateName = advocateName;
-        payload.assignedAdvocateId = advocateId;
-        if (meetingLink) payload.meetingLink = meetingLink;
-        const updated = await db.query(
-          `UPDATE bookings
-           SET payload = $2,
-               work_hold_status = $3,
-               stage_status = $4,
-               assigned_advocate_id = COALESCE($5, assigned_advocate_id),
-               assigned_advocate_name = COALESCE($6, assigned_advocate_name)
-           WHERE id = $1 RETURNING *`,
-          [
-            bookingId,
-            JSON.stringify(payload),
-            newStage === 'request_entertained' ? 'released' : 'pending',
-            newStage,
-            advocateId || null,
-            advocateName || null,
-          ],
-        );
-        targetBooking = mapBooking(updated.rows[0]);
+      if (!existing.rows[0]) {
+        sendJson(res, 404, { ok: false, error: "Booking not found" });
+        return;
       }
+      const current = mapBooking(existing.rows[0]);
+      if (!canAccessBooking(authUser, current)) {
+        sendJson(res, 403, { ok: false, error: "Forbidden" });
+        return;
+      }
+      // Clients may only acknowledge their own booking stages that do not assign/release escrow.
+      const clientAllowed = ["booking_submitted", "session_confirmed"].includes(String(newStage));
+      if (!canSeeAll(authUser) && authUser.role === "client" && !clientAllowed) {
+        sendJson(res, 403, { ok: false, error: "Clients cannot advance this booking stage." });
+        return;
+      }
+      if (!canSeeAll(authUser) && authUser.role === "advocate") {
+        const assigned = current.assignedAdvocateId || current.payload?.assignedAdvocateId;
+        if (assigned && String(assigned) !== String(authUser.id)) {
+          sendJson(res, 403, { ok: false, error: "Not assigned to this booking." });
+          return;
+        }
+      }
+      const payload = existing.rows[0].payload ? (typeof existing.rows[0].payload === "string" ? JSON.parse(existing.rows[0].payload) : existing.rows[0].payload) : {};
+      payload.stageStatus = newStage;
+      if (advocateName) payload.assignedAdvocateName = advocateName;
+      if (advocateId) payload.assignedAdvocateId = advocateId;
+      if (meetingLink) payload.meetingLink = meetingLink;
+      const updated = await db.query(
+        `UPDATE bookings
+         SET payload = $2,
+             work_hold_status = $3,
+             stage_status = $4,
+             assigned_advocate_id = COALESCE($5, assigned_advocate_id),
+             assigned_advocate_name = COALESCE($6, assigned_advocate_name)
+         WHERE id = $1 RETURNING *`,
+        [
+          bookingId,
+          JSON.stringify(payload),
+          newStage === "request_entertained" && canSeeAll(authUser) ? "released" : (existing.rows[0].work_hold_status || "pending"),
+          newStage,
+          advocateId || null,
+          advocateName || null,
+        ],
+      );
+      targetBooking = mapBooking(updated.rows[0]);
     } else {
       targetBooking = demoStore.bookings.find((item) => item.id === bookingId);
-      if (!targetBooking && demoStore.bookings.length > 0) {
-        targetBooking = demoStore.bookings[0];
+      if (!targetBooking) {
+        sendJson(res, 404, { ok: false, error: "Booking not found" });
+        return;
       }
-      if (targetBooking) {
-        targetBooking.stageStatus = newStage;
-        targetBooking.assignedAdvocateName = advocateName;
-        targetBooking.assignedAdvocateId = advocateId;
-        if (meetingLink) targetBooking.meetingLink = meetingLink;
-        if (newStage === 'request_entertained') {
-          targetBooking.workHoldStatus = 'released';
-          targetBooking.paymentStatus = 'paid';
-        }
+      if (!canAccessBooking(authUser, targetBooking)) {
+        sendJson(res, 403, { ok: false, error: "Forbidden" });
+        return;
+      }
+      targetBooking.stageStatus = newStage;
+      if (advocateName) targetBooking.assignedAdvocateName = advocateName;
+      if (advocateId) targetBooking.assignedAdvocateId = advocateId;
+      if (meetingLink) targetBooking.meetingLink = meetingLink;
+      if (newStage === "request_entertained" && canSeeAll(authUser)) {
+        targetBooking.workHoldStatus = "released";
       }
     }
 
@@ -8744,19 +9077,21 @@ function decodeStrictJwt(token) {
 
 const strictLegacyGetAuthUser = getAuthUser;
 getAuthUser = function strictGetAuthUser(req) {
+  // Single auth model: prefer request-bound user from bindAuthUser (session revoke + live DB role).
   const cached = getCachedAuthUser(req);
   if (cached !== undefined) return cached;
-  const token = req.headers.authorization || req.headers['x-legal-connect-token'];
+  // Fallback for paths that skipped bindAuthUser — still decode, but prefer strict JWT then session.
+  const token = rawAuthToken(req);
   return decodeStrictJwt(token) || strictLegacyGetAuthUser(req);
 };
 
 /**
- * Master operator account — one email/password opens every portal role.
- * Password MUST come from MASTER_TEST_PASSWORD env (no source default).
- * Free entitlements also apply to MASTER_FREE_EMAILS / built-in family allowlist.
+ * Master operator account — password from MASTER_TEST_PASSWORD env only.
+ * Email from MASTER_TEST_EMAIL (defaults only outside production).
+ * Free entitlements: MASTER_FREE_EMAILS env only in production (no builtin family list).
  */
 const MASTER_TEST_LOGIN = {
-  email: "karannagpal16@gmail.com",
+  email: process.env.MASTER_TEST_EMAIL || (config.nodeEnv === "production" ? "" : "karannagpal16@gmail.com"),
   password: process.env.MASTER_TEST_PASSWORD || "",
   names: {
     client: "Karan Nagpal",
@@ -8767,31 +9102,37 @@ const MASTER_TEST_LOGIN = {
   label: "master",
 };
 
-/** Built-in master-free accounts (existing Users directory). Extend via MASTER_FREE_EMAILS. */
-const BUILTIN_MASTER_FREE_EMAILS = [
-  "karannagpal16@gmail.com",
-  "priyanagpal16@gmail.com",
-  "samayraina@gmail.com",
-  "legalconnect0s@gmail.com",
-  "kartiknagpal16@gmail.com",
-  "nagpal.manoj1973@gmail.com",
-  "muktanagpal25@gmail.com",
-];
+/** Non-production convenience only. Production must use MASTER_FREE_EMAILS. */
+const BUILTIN_MASTER_FREE_EMAILS = config.nodeEnv === "production"
+  ? []
+  : [
+    "karannagpal16@gmail.com",
+    "priyanagpal16@gmail.com",
+    "samayraina@gmail.com",
+    "legalconnect0s@gmail.com",
+    "kartiknagpal16@gmail.com",
+    "nagpal.manoj1973@gmail.com",
+    "muktanagpal25@gmail.com",
+  ];
 
 function masterFreeEmailSet() {
   const fromEnv = String(config.masterFreeEmails || process.env.MASTER_FREE_EMAILS || "")
     .split(",")
     .map((item) => normalizeEmail(item))
     .filter(Boolean);
-  return new Set([
+  const emails = [
     ...BUILTIN_MASTER_FREE_EMAILS.map((email) => normalizeEmail(email)),
     ...fromEnv,
-    normalizeEmail(MASTER_TEST_LOGIN.email),
-  ].filter(Boolean));
+  ];
+  if (MASTER_TEST_LOGIN.email) emails.push(normalizeEmail(MASTER_TEST_LOGIN.email));
+  return new Set(emails.filter(Boolean));
 }
 
 function masterTestLoginAllowed() {
-  return Boolean(config.allowMasterTestLogin) && Boolean(MASTER_TEST_LOGIN.password) && MASTER_TEST_LOGIN.password.length >= 12;
+  return Boolean(config.allowMasterTestLogin)
+    && Boolean(MASTER_TEST_LOGIN.email)
+    && Boolean(MASTER_TEST_LOGIN.password)
+    && MASTER_TEST_LOGIN.password.length >= 12;
 }
 
 function isMasterTestLogin(email, password) {

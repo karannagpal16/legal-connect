@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ArrowRight,
@@ -31,26 +31,6 @@ const roles: Array<{
   { role: "admin", label: "Admin", detail: "Platform control", icon: LayoutDashboard },
 ];
 
-const OWNER_EMAIL = "karannagpal16@gmail.com";
-const OWNER_DESK_KEY = "lc_owner_desk";
-
-function readOwnerDeskUnlocked(params: URLSearchParams) {
-  if (typeof window === "undefined") return false;
-  if (params.get("owner") === "1" || params.get("ops") === "1") {
-    try {
-      window.sessionStorage.setItem(OWNER_DESK_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    return true;
-  }
-  try {
-    return window.sessionStorage.getItem(OWNER_DESK_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 export function Login() {
   const [, setLocation] = useLocation();
   const { session, login, register } = useAuth();
@@ -59,7 +39,6 @@ export function Login() {
     [],
   );
   const requestedRole = normaliseRole(params.get("role"));
-  const [ownerDesk, setOwnerDesk] = useState(false);
   const [mode, setMode] = useState<"login" | "register">(
     params.get("mode") === "register" ? "register" : "login",
   );
@@ -84,14 +63,6 @@ export function Login() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const unlocked = readOwnerDeskUnlocked(params);
-    setOwnerDesk(unlocked);
-    if (unlocked) {
-      setEmail(OWNER_EMAIL);
-    }
-  }, [params]);
-
   const selectMode = (next: "login" | "register") => {
     setMode(next);
     if (next === "register" && role === "admin") setRole("client");
@@ -100,27 +71,6 @@ export function Login() {
 
   const enterSession = (next: Awaited<ReturnType<typeof login>>) => {
     window.location.assign(roleHome(next.user.role));
-  };
-
-  const handleOwnerPortal = async (portalRole: AppRole) => {
-    setError("");
-    if (!password.trim()) {
-      setError("Enter your owner password, then choose a portal.");
-      return;
-    }
-    setBusy(portalRole);
-    setRole(portalRole);
-    try {
-      enterSession(await login({
-        email: OWNER_EMAIL,
-        password,
-        role: portalRole,
-      }));
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Owner portal login is unavailable.");
-    } finally {
-      setBusy(null);
-    }
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -311,7 +261,7 @@ export function Login() {
                     <input value={officeAddress} onChange={(event) => setOfficeAddress(event.target.value)} placeholder="Chamber / office address" />
                   </label>
                 </div>
-                <p><ShieldCheck /> Enrollment details are encrypted in transit and visible only to authorised Legal Connect administrators.</p>
+                <p><ShieldCheck /> Enrollment details are sent over HTTPS and reviewed only by authorised Legal Connect administrators.</p>
               </fieldset>
             )}
             {mode === "register" && role === "intern" && (
@@ -363,23 +313,6 @@ export function Login() {
               {busy !== "form" ? <ArrowRight /> : null}
             </button>
           </form>
-
-          {ownerDesk && mode === "login" ? (
-            <>
-              <div className="lc-demo-divider"><span>owner desk · private</span></div>
-              <div className="lc-demo-grid">
-                {roles.map((item) => (
-                  <button key={item.role} onClick={() => handleOwnerPortal(item.role)} disabled={Boolean(busy)}>
-                    {busy === item.role ? <Loader2 className="lc-spin" /> : <item.icon />}
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="lc-demo-note">
-                Owner desk only. Enter your password above, then open any portal. Paid features stay free on this account.
-              </p>
-            </>
-          ) : null}
 
           <p className="lc-demo-note">
             <Link href="/privacy">Privacy</Link>

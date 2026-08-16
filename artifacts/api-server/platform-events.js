@@ -164,26 +164,14 @@ function createPlatformEvents({ db, config }) {
     const type = EVENT_TYPES[eventType] || eventType || EVENT_TYPES.STATUS_UPDATE;
     const normalizedActor = normalizeActor(actor);
     const normalizedTargets = normalizeTargets(targets);
-    const audienceSet = new Set(["role:admin", "role:rna"]);
+    const audienceSet = new Set(["role:admin"]);
     if (normalizedActor.userId) audienceSet.add(String(normalizedActor.userId));
-    if (normalizedActor.role) audienceSet.add(`role:${String(normalizedActor.role).toLowerCase()}`);
+    // Do not broadcast by actor role alone — only named target parties + admins.
     for (const key of ["clientId", "advocateId", "proxyId", "internId", "assigneeId"]) {
       if (normalizedTargets[key]) audienceSet.add(String(normalizedTargets[key]));
     }
     for (const item of extraAudience || []) if (item) audienceSet.add(String(item));
-    // Proxy/chamber events stay with assigned parties + admins (set above) — never broadcast firm-wide.
-    if (
-      [
-        EVENT_TYPES.INTAKE_SUBMITTED_AND_PAID,
-        EVENT_TYPES.LAWYER_ASSIGNED_BY_LC,
-        EVENT_TYPES.ADVOCATE_ACKNOWLEDGED,
-        EVENT_TYPES.STAGE_ADVANCED_BY_ADVOCATE,
-        EVENT_TYPES.COURT_FEE_PAID,
-        EVENT_TYPES.REQUEST_ENTERTAINED,
-      ].includes(type)
-    ) {
-      audienceSet.add("role:client");
-    }
+    // Intentionally NO blanket role:client / role:advocate fan-out.
 
     // Collapse duplicate audit+notify emissions for the same target within 1.5s.
     const dedupeKey = [

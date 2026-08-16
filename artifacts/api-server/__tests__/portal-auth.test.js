@@ -20,6 +20,15 @@ test('routes users to live portal homes after login', () => {
 test('portal-role mapping blocks mismatches', () => {
   assert.equal(isRoleAllowedForPortal('client', 'advocate'), false);
   assert.equal(isRoleAllowedForPortal('advocate', 'advocate'), true);
-  assert.equal(isRoleAllowedForPortal('rna', 'advocate'), true);
+  // RNA is an admin/ops alias — never an advocate portal role.
+  assert.equal(isRoleAllowedForPortal('rna', 'advocate'), false);
+  assert.equal(isRoleAllowedForPortal('rna', 'admin'), true);
+  assert.equal(isRoleAllowedForPortal('finance_admin', 'admin'), true);
   assert.equal(isRoleAllowedForPortal('intern', 'intern'), true);
+});
+
+test('pending advocates stay on verification pending', () => {
+  assert.equal(getPostLoginRoute({ role: 'advocate', accountStatus: 'active', verificationStatus: 'pending' }), '/advocate/verification-pending');
+  assert.equal(getPostLoginRoute({ role: 'advocate', accountStatus: 'active', verificationStatus: 'suspended' }), '/advocate/verification-pending');
+  assert.equal(getPostLoginRoute({ role: 'rna', accountStatus: 'active', verificationStatus: 'verified' }), '/admin');
 });
