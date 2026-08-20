@@ -2661,6 +2661,36 @@ function sourceAdminUser(req, res) {
   return authUser;
 }
 
+/** Finance mutations require finance_admin / super_admin / admin capability. */
+function sourceFinanceAdmin(req, res) {
+  const authUser = sourceAdminUser(req, res);
+  if (!authUser) return null;
+  if (!authz.canPerformFinanceAction(authUser, "release_or_refund")) {
+    sendJson(res, 403, {
+      ok: false,
+      error: "Finance admin approval is required for refunds and releases.",
+      code: "finance_role_required",
+    });
+    return null;
+  }
+  return authUser;
+}
+
+/** Dual-control: finance action also needs an operations attestation id or explicit dual flag. */
+function requireDualFinanceApproval(body, res) {
+  const opsApprovalId = String(body.operationsApprovalId || body.opsApprovalId || body.dualApprovalId || "").trim();
+  const dualConfirmed = body.dualApprovalConfirmed === true || String(body.dualApprovalConfirmed || "").toLowerCase() === "true";
+  if (!opsApprovalId && !dualConfirmed) {
+    sendJson(res, 409, {
+      ok: false,
+      error: "Dual approval required: provide operationsApprovalId (ops attestation) or dualApprovalConfirmed=true after ops sign-off.",
+      code: "dual_approval_required",
+    });
+    return false;
+  }
+  return true;
+}
+
 function legalSourcePayload(body, authUser) {
   return {
     id: body.id,
@@ -3320,6 +3350,52 @@ const server = http.createServer(async (req, res) => {
       user: publicUser(switchedUser),
       reviewAccess: reviewAccessPayload(nextRole),
       seededWorkspace: reviewSeedData(switchedUser),
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/payments/reconcile" && req.method === "POST") {
+    const authUser = sourceFinanceAdmin(req, res);
+    if (!authUser) return;
+    if (!db.dbAvailable) {
+      sendJson(res, 503, { ok: false, error: "Database required for reconciliation." });
+      return;
+    }
+    const [providerPending, payoutPending, paidUnverified] = await Promise.all([
+      db.query(`
+        SELECT id, payment_status, stage_status, amount, razorpay_order_id, razorpay_payment_id, created_at
+        FROM bookings
+        WHERE lower(COALESCE(payment_status, '')) IN ('provider_pending', 'refund_pending')
+        ORDER BY created_at ASC LIMIT 100
+      `).catch(() => ({ rows: [] })),
+      db.query(`
+        SELECT id, title, status, amount, escrow_status, created_at
+        FROM tasks
+        WHERE lower(COALESCE(status, escrow_status, payload->>'settlementStatus', '')) IN ('payout_pending', 'provider_pending')
+        ORDER BY created_at ASC LIMIT 100
+      `).catch(() => ({ rows: [] })),
+      db.query(`
+        SELECT id, payment_status, razorpay_order_id, razorpay_payment_id, amount, created_at
+        FROM bookings
+        WHERE razorpay_order_id IS NOT NULL
+          AND lower(COALESCE(payment_status, '')) NOT IN ('paid', 'refunded', 'failed')
+        ORDER BY created_at ASC LIMIT 100
+      `).catch(() => ({ rows: [] })),
+    ]);
+    sendJson(res, 200, {
+      ok: true,
+      generatedAt: new Date().toISOString(),
+      note: "Compare these local rows against Razorpay dashboard. Provider webhooks remain source of truth for final refunded/paid_out states.",
+      differences: {
+        refunds_awaiting_provider: providerPending.rows,
+        payouts_awaiting_provider: payoutPending.rows,
+        orders_not_yet_paid_locally: paidUnverified.rows,
+      },
+      counts: {
+        refunds_awaiting_provider: providerPending.rows.length,
+        payouts_awaiting_provider: payoutPending.rows.length,
+        orders_not_yet_paid_locally: paidUnverified.rows.length,
+      },
     });
     return;
   }
@@ -5242,6 +5318,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (action === "refund") {
+      if (!authz.canPerformFinanceAction(authUser, "refund")) {
+        sendJson(res, 403, {
+          ok: false,
+          error: "Finance admin approval is required for intake refunds.",
+          code: "finance_role_required",
+        });
+        return;
+      }
+      if (!requireDualFinanceApproval(body, res)) return;
       const reason = String(body.reason || body.rejectionReason || body.message || "").trim();
       if (reason.length < 8) {
         sendJson(res, 400, { ok: false, error: "A rejection reason is required (min 8 characters)." });
@@ -6434,14 +6519,26 @@ const server = http.createServer(async (req, res) => {
     const authUser = sourceAdminUser(req, res);
     if (!authUser) return;
     const body = await readBody(req);
+    if (["release_payment", "refund"].includes(String(body.action || ""))) {
+      if (!authz.canPerformFinanceAction(authUser, body.action)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: "Finance admin approval is required for refunds and releases.",
+          code: "finance_role_required",
+        });
+        return;
+      }
+      if (!requireDualFinanceApproval(body, res)) return;
+    }
     const statusMap = {
       approve_task: "Approved",
       assign_lawyer: "Assigned",
       assign_intern: "Assigned",
       mark_payment_locked: "Payment locked",
       mark_proof_approved: "Proof Uploaded",
-      release_payment: "Completed",
-      refund: "Refunded",
+      // Honesty: release/refund stay provider-pending until Razorpay confirms.
+      release_payment: "payout_pending",
+      refund: "provider_pending",
       close_task: "Closed",
     };
     const nextStatus = body.status || statusMap[body.action] || "Updated";
@@ -6483,8 +6580,19 @@ const server = http.createServer(async (req, res) => {
         }
       }
       if (body.action === "release_payment") {
-        escrowStatus = "Released";
+        escrowStatus = "payout_pending";
         settlement = strategyFeatures.computeProxySettlement(currentTask?.amount || currentTask?.fee || 0);
+        settlement = {
+          ...settlement,
+          settlementStatus: "payout_pending",
+          providerConfirmed: false,
+          note: `${settlement.note} Release stays payout_pending until Razorpay/provider confirms.`,
+          dualApproval: {
+            operationsApprovalId: body.operationsApprovalId || body.opsApprovalId || null,
+            financeActorId: authUser.id,
+            confirmedAt: new Date().toISOString(),
+          },
+        };
       }
       if (body.action === "refund") {
         const reason = String(body.reason || body.note || currentTask?.posterProofReason || "").trim();
@@ -6493,15 +6601,15 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         const escrow = String(currentTask?.escrowStatus || "").toLowerCase();
-        if (escrow.includes("release")) {
+        if (escrow.includes("release") || escrow === "paid_out") {
           sendJson(res, 409, { ok: false, error: "Funds already released — cannot refund from this desk." });
           return;
         }
-        if (escrow.includes("refund")) {
+        if (escrow.includes("refund") && escrow !== "provider_pending" && escrow !== "refund_pending") {
           sendJson(res, 409, { ok: false, error: "This mission is already marked refunded." });
           return;
         }
-        escrowStatus = "Refunded";
+        escrowStatus = "provider_pending";
       }
       const assignAdvocateId = body.advocateId || body.proxyAdvocateId || body.acceptedBy || null;
       const assignAdvocateName = body.advocateName || body.proxyAdvocateName || body.assigneeName || null;
@@ -7398,6 +7506,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (!config.razorpayKeySecret) {
+      if (config.nodeEnv === "production") {
+        sendJson(res, 503, { ok: false, error: "Payment verification is not configured. Set RAZORPAY_KEY_SECRET." });
+        return;
+      }
       sendJson(res, 200, { ok: true, mode: "demo", status: "queued", payment_status: "verification_pending", work_hold_status: "pending" });
       return;
     }
@@ -7585,6 +7697,69 @@ const server = http.createServer(async (req, res) => {
           ctaLabel: "Open Legal Connect",
           ctaUrl: portalUrl("/client"),
         });
+      }
+    }
+    // Provider-confirmed refunds finalize provider_pending → refunded.
+    if (db.dbAvailable && ["refund.processed", "refund.completed"].includes(event)) {
+      const refund = body.payload?.refund?.entity || {};
+      const refundPaymentId = refund.payment_id || paymentId;
+      const refundId = refund.id || null;
+      if (refundPaymentId) {
+        await db.query(
+          `UPDATE bookings
+           SET payment_status = 'refunded',
+               payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
+           WHERE razorpay_payment_id = $1
+              OR COALESCE(payload->>'razorpay_payment_id', '') = $1`,
+          [refundPaymentId, JSON.stringify({
+            webhook_event: event,
+            razorpay_refund_id: refundId,
+            refundStatus: "refunded",
+            providerConfirmedAt: new Date().toISOString(),
+          })],
+        ).catch(() => undefined);
+        await db.query(
+          `UPDATE tasks
+           SET status = 'Refunded',
+               escrow_status = 'Refunded',
+               payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
+           WHERE COALESCE(payload->>'razorpayPaymentId', payload->>'razorpay_payment_id', '') = $1
+              OR COALESCE(payload->>'settlementStatus', '') IN ('provider_pending', 'refund_pending')`,
+          [refundPaymentId, JSON.stringify({
+            webhook_event: event,
+            razorpay_refund_id: refundId,
+            settlementStatus: "refunded",
+            providerConfirmedAt: new Date().toISOString(),
+          })],
+        ).catch(() => undefined);
+        await recordPaymentEvent({
+          providerOrderId: orderId,
+          providerPaymentId: refundPaymentId,
+          status: "refunded",
+          payload: { webhookEvent: event, refundId },
+        });
+      }
+    }
+    // Provider-confirmed payouts finalize payout_pending → paid_out.
+    if (db.dbAvailable && ["payout.processed", "payout.updated"].includes(event)) {
+      const payout = body.payload?.payout?.entity || {};
+      if (String(payout.status || "").toLowerCase() === "processed" || event === "payout.processed") {
+        const payoutId = payout.id || null;
+        await db.query(
+          `UPDATE tasks
+           SET status = 'Completed',
+               escrow_status = 'Released',
+               payload = COALESCE(payload, '{}'::jsonb) || $1::jsonb
+           WHERE lower(COALESCE(status, '')) = 'payout_pending'
+              OR lower(COALESCE(escrow_status, '')) = 'payout_pending'
+              OR lower(COALESCE(payload->>'settlementStatus', '')) = 'payout_pending'`,
+          [JSON.stringify({
+            webhook_event: event,
+            razorpay_payout_id: payoutId,
+            settlementStatus: "paid_out",
+            providerConfirmedAt: new Date().toISOString(),
+          })],
+        ).catch(() => undefined);
       }
     }
     if (db.dbAvailable && orderId && event === "payment.failed") {
@@ -8513,6 +8688,27 @@ const server = http.createServer(async (req, res) => {
     const parts = url.pathname.split("/");
     const bookingId = parts[3];
     const newStage = body.stageStatus || body.stage || body.status || "booking_submitted";
+    const ALLOWED_BOOKING_STAGES = new Set([
+      "booking_submitted",
+      "acknowledged_and_assigned",
+      "advocate_connected",
+      "session_confirmed",
+      "request_entertained",
+      "lc_under_review",
+      "advocate_assigned",
+      "advocate_accepted",
+      "work_in_progress",
+      "matter_concluded",
+    ]);
+    if (!ALLOWED_BOOKING_STAGES.has(String(newStage))) {
+      sendJson(res, 400, {
+        ok: false,
+        error: "Unsupported booking stage.",
+        code: "invalid_stage",
+        allowed: [...ALLOWED_BOOKING_STAGES],
+      });
+      return;
+    }
     // Only admins may assign arbitrary counsel; advocates may only self-assign if already assigned.
     const advocateName = canSeeAll(authUser)
       ? (body.assignedAdvocateName || body.advocateName || authUser.name)
@@ -9110,29 +9306,20 @@ getAuthUser = function strictGetAuthUser(req) {
  * Free entitlements: MASTER_FREE_EMAILS env only in production (no builtin family list).
  */
 const MASTER_TEST_LOGIN = {
-  email: process.env.MASTER_TEST_EMAIL || (config.nodeEnv === "production" ? "" : "karannagpal16@gmail.com"),
+  // Never hard-code a personal email — set MASTER_TEST_EMAIL explicitly when needed.
+  email: process.env.MASTER_TEST_EMAIL || "",
   password: process.env.MASTER_TEST_PASSWORD || "",
   names: {
-    client: "Karan Nagpal",
-    advocate: "Adv. Karan Nagpal",
-    intern: "Karan Nagpal",
-    admin: "Karan Nagpal",
+    client: "Master Client",
+    advocate: "Master Advocate",
+    intern: "Master Intern",
+    admin: "Master Admin",
   },
   label: "master",
 };
 
-/** Non-production convenience only. Production must use MASTER_FREE_EMAILS. */
-const BUILTIN_MASTER_FREE_EMAILS = config.nodeEnv === "production"
-  ? []
-  : [
-    "karannagpal16@gmail.com",
-    "priyanagpal16@gmail.com",
-    "samayraina@gmail.com",
-    "legalconnect0s@gmail.com",
-    "kartiknagpal16@gmail.com",
-    "nagpal.manoj1973@gmail.com",
-    "muktanagpal25@gmail.com",
-  ];
+/** No hardcoded free-email family list. Use MASTER_FREE_EMAILS env only. */
+const BUILTIN_MASTER_FREE_EMAILS = [];
 
 function masterFreeEmailSet() {
   const fromEnv = String(config.masterFreeEmails || process.env.MASTER_FREE_EMAILS || "")

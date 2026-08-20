@@ -176,8 +176,12 @@ function canReviewUpdate(user) {
 
 function canPerformFinanceAction(user, action) {
   if (!user) return false;
-  if (hasAdminCapability(user, "finance") || canSeeAll(user)) return true;
-  if (String(action || "").startsWith("view_")) return normalizeRole(user.role) === "advocate" || normalizeRole(user.role) === "client";
+  const role = String(user.role || "").toLowerCase();
+  // Explicit finance power only — operations_admin alone cannot move money.
+  if (role === "finance_admin" || role === "super_admin" || role === "admin" || role === "rna") return true;
+  if (String(action || "").startsWith("view_")) {
+    return normalizeRole(user.role) === "advocate" || normalizeRole(user.role) === "client" || isOps(user);
+  }
   return false;
 }
 

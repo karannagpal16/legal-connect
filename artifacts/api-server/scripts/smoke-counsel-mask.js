@@ -5,8 +5,12 @@
  */
 const BASE = (process.env.BASE_URL || "http://127.0.0.1:5055").replace(/\/$/, "");
 const AUTH_MODE = process.env.AUTH_MODE || "auto";
-const EMAIL = process.env.SMOKE_EMAIL || "karannagpal16@gmail.com";
-const PASSWORD = process.env.SMOKE_PASSWORD || "Karan1605!";
+const EMAIL = process.env.SMOKE_EMAIL || "";
+const PASSWORD = process.env.SMOKE_PASSWORD || "";
+if (!EMAIL || !PASSWORD) {
+  console.error("Set SMOKE_EMAIL and SMOKE_PASSWORD env vars. No default credentials are shipped.");
+  process.exit(1);
+}
 
 async function req(method, path, { token, body } = {}) {
   const res = await fetch(`${BASE}${path}`, {

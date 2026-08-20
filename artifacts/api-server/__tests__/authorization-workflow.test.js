@@ -98,3 +98,18 @@ test("production startup guards refuse unsafe config", () => {
   );
   assert.equal(good.ok, true);
 });
+
+test("finance capability is required for money actions", () => {
+  assert.equal(authz.canPerformFinanceAction({ role: "finance_admin" }, "refund"), true);
+  assert.equal(authz.canPerformFinanceAction({ role: "operations_admin" }, "refund"), false);
+  assert.equal(authz.canPerformFinanceAction({ role: "content_reviewer" }, "release_payment"), false);
+  assert.equal(authz.canPerformFinanceAction({ role: "admin" }, "release_payment"), true);
+});
+
+test("proxy fee catalog matches urgency tiers", () => {
+  assert.equal(quoteProduct({ urgency: "standard" }).amountInr, 499);
+  assert.equal(quoteProduct({ urgency: "priority" }).amountInr, 799);
+  assert.equal(quoteProduct({ urgency: "urgent" }).amountInr, 1299);
+  assert.equal(quoteProduct({ channel: "call" }).amountInr, 299);
+  assert.equal(quoteProduct({ channel: "video" }).amountInr, 499);
+});
