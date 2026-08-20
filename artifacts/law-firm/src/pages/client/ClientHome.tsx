@@ -104,7 +104,9 @@ export function ClientHome() {
   const identityApproved = ["approved", "verified"].includes(
     String(query.data?.profile?.verificationStatus || "").toLowerCase(),
   );
-  const masterBypass = String(session?.user?.email || "").trim().toLowerCase() === "karannagpal16@gmail.com";
+  /* Free/master bypass is server-granted only (all_features_free / master_test_free). */
+  const masterBypass =
+    Boolean(session?.user?.all_features_free) || Boolean(session?.user?.master_test_free);
   const canBookCounsel = identityApproved || masterBypass;
 
   const requestRetention = useMutation({

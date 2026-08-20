@@ -1,0 +1,1 @@
+import{j as r}from"./tanstack-query-DR3fjUwh.js";import{LegalLibrary as o}from"./LegalLibrary-DnSQZu5o.js";import"./index-C85fsQdX.js";import"./search-7KHHKLrq.js";import"./clock-48jvcJzc.js";import"./external-link-CmKaIq7i.js";import"./chevron-up-bxGTIHGZ.js";function s(){return r.jsx(o,{})}export{s as AdvocateLibrary};

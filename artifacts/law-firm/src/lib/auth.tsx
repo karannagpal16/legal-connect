@@ -63,8 +63,20 @@ const STORAGE_KEY = "legal-connect-auth";
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function normaliseRole(role?: string | null): AppRole {
-  if (role === "rna" || role === "admin") return "admin";
-  if (role === "advocate" || role === "intern") return role;
+  const value = String(role || "").toLowerCase();
+  if (
+    value === "rna"
+    || value === "admin"
+    || value === "super_admin"
+    || value === "verification_admin"
+    || value === "operations_admin"
+    || value === "content_reviewer"
+    || value === "finance_admin"
+    || value === "support_admin"
+  ) {
+    return "admin";
+  }
+  if (value === "advocate" || value === "intern") return value;
   return "client";
 }
 

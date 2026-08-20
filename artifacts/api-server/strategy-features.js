@@ -89,6 +89,8 @@ function createStrategyFeatures(deps) {
     getAuthUser,
     canSeeAll,
     canAccessStoredCase,
+    canViewTask = () => false,
+    canPerformProxyStep = () => false,
     mapTask,
     mapCase,
     writeAuditLog,
@@ -945,9 +947,27 @@ function createStrategyFeatures(deps) {
         return true;
       }
       const body = await readBody(req);
+      // Bind parties to the authenticated principal — never invent opposing parties from browser input.
+      const clientUserId = authUser.role === "client" || canSeeAll(authUser)
+        ? (authUser.role === "client" ? authUser.id : (body.clientUserId || null))
+        : null;
+      const advocateUserId = authUser.role === "advocate" || canSeeAll(authUser)
+        ? (authUser.role === "advocate" ? authUser.id : (body.advocateUserId || null))
+        : null;
+      if (!clientUserId && !advocateUserId && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only matter parties or admin can generate engagements." });
+        return true;
+      }
+      if (body.caseId && db.dbAvailable && isUuid(String(body.caseId))) {
+        const matter = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [body.caseId]).catch(() => ({ rows: [] }));
+        if (!matter.rows[0] || !(await canAccessStoredCase(authUser, matter.rows[0]))) {
+          sendJson(res, matter.rows[0] ? 403 : 404, { ok: false, error: matter.rows[0] ? "Forbidden" : "Case not found." });
+          return true;
+        }
+      }
       const html = engagementHtml({
-        clientName: body.clientName || authUser.name,
-        advocateName: body.advocateName || "Assigned counsel",
+        clientName: body.clientName || (authUser.role === "client" ? authUser.name : "Client"),
+        advocateName: body.advocateName || (authUser.role === "advocate" ? authUser.name : "Assigned counsel"),
         caseTitle: body.caseTitle || "Engaged matter",
         courtName: body.courtName,
       });
@@ -959,8 +979,8 @@ function createStrategyFeatures(deps) {
           [
             body.caseId || null,
             body.bookingId || null,
-            body.clientUserId || (authUser.role === "client" ? authUser.id : null),
-            body.advocateUserId || (authUser.role === "advocate" ? authUser.id : null),
+            clientUserId,
+            advocateUserId,
             html,
             contentHash,
             JSON.stringify({ generatedBy: authUser.id }),
@@ -974,8 +994,8 @@ function createStrategyFeatures(deps) {
         htmlBody: html,
         contentHash,
         status: "awaiting_signatures",
-        clientUserId: body.clientUserId || authUser.id,
-        advocateUserId: body.advocateUserId || null,
+        clientUserId: clientUserId || authUser.id,
+        advocateUserId,
       };
       demoStore.engagements = demoStore.engagements || [];
       demoStore.engagements.unshift(engagement);
@@ -1003,9 +1023,15 @@ function createStrategyFeatures(deps) {
           return true;
         }
         const row = existing.rows[0];
-        const isClient = authUser.role === "client" || String(row.client_user_id) === String(authUser.id);
+        const isNamedClient = String(row.client_user_id || "") === String(authUser.id);
+        const isNamedAdvocate = String(row.advocate_user_id || "") === String(authUser.id);
+        if (!isNamedClient && !isNamedAdvocate && !canSeeAll(authUser)) {
+          sendJson(res, 403, { ok: false, error: "Only named engagement parties can sign." });
+          return true;
+        }
+        const asClient = isNamedClient || (canSeeAll(authUser) && body.asRole === "client");
         const updated = await db.query(
-          isClient
+          asClient
             ? `UPDATE engagement_agreements SET client_signed_at = now(), client_signature = $2,
                status = CASE WHEN advocate_signed_at IS NOT NULL THEN 'fully_signed' ELSE 'awaiting_advocate' END,
                updated_at = now() WHERE id = $1 RETURNING *`
@@ -1022,7 +1048,13 @@ function createStrategyFeatures(deps) {
         sendJson(res, 404, { ok: false, error: "Engagement not found." });
         return true;
       }
-      if (authUser.role === "client") {
+      const isNamedClient = String(engagement.clientUserId || "") === String(authUser.id);
+      const isNamedAdvocate = String(engagement.advocateUserId || "") === String(authUser.id);
+      if (!isNamedClient && !isNamedAdvocate && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only named engagement parties can sign." });
+        return true;
+      }
+      if (isNamedClient || authUser.role === "client") {
         engagement.clientSignedAt = new Date().toISOString();
         engagement.clientSignature = signature;
       } else {
@@ -1053,8 +1085,17 @@ function createStrategyFeatures(deps) {
         return true;
       }
       const body = await readBody(req);
+      // Never schedule reminders for another user unless admin.
+      const targetUserId = canSeeAll(authUser) ? (body.userId || authUser.id) : authUser.id;
+      if (body.caseId && db.dbAvailable && isUuid(String(body.caseId))) {
+        const matterRow = await db.query("SELECT * FROM cases WHERE id = $1 LIMIT 1", [body.caseId]).catch(() => ({ rows: [] }));
+        if (!matterRow.rows[0] || !(await canAccessStoredCase(authUser, matterRow.rows[0]))) {
+          sendJson(res, matterRow.rows[0] ? 403 : 404, { ok: false, error: matterRow.rows[0] ? "Forbidden" : "Case not found." });
+          return true;
+        }
+      }
       const matter = { id: body.caseId, nextDate: body.nextDate, title: body.title || body.caseTitle };
-      const created = await scheduleNdohRemindersForCase(matter, body.userId || authUser.id);
+      const created = await scheduleNdohRemindersForCase(matter, targetUserId);
       sendJson(res, 200, { ok: true, scheduled: created.length, jobs: created });
       return true;
     }
@@ -1074,6 +1115,10 @@ function createStrategyFeatures(deps) {
       const task = await loadTask(conflictMatch[1]);
       if (!task) {
         sendJson(res, 404, { ok: false, error: "Task not found." });
+        return true;
+      }
+      if (!canPerformProxyStep(authUser, task, "conflict_declare") && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only the assigned proxy counsel can declare conflict." });
         return true;
       }
       const updated = await saveTaskPatch(conflictMatch[1], {
@@ -1107,6 +1152,10 @@ function createStrategyFeatures(deps) {
       const task = await loadTask(checkInMatch[1]);
       if (!task) {
         sendJson(res, 404, { ok: false, error: "Task not found." });
+        return true;
+      }
+      if (!canPerformProxyStep(authUser, task, "check_in") && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only the assigned proxy counsel can check in." });
         return true;
       }
       if (!task.conflictDeclaredAt && !task.payload?.conflictDeclaredAt) {
@@ -1147,6 +1196,10 @@ function createStrategyFeatures(deps) {
       const task = await loadTask(proofMatch[1]);
       if (!task) {
         sendJson(res, 404, { ok: false, error: "Task not found." });
+        return true;
+      }
+      if (!canPerformProxyStep(authUser, task, "proof_upload") && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only the assigned proxy counsel can upload proof." });
         return true;
       }
       if (!(task.checkedInAt || task.payload?.checkedInAt)) {

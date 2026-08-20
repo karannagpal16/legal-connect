@@ -216,7 +216,8 @@ export function CounselIntake({
   const masterFree = Boolean(
     paymentConfig?.all_features_free
     || paymentConfig?.master_test_free
-    || normalizeEmail(session?.user?.email) === "karannagpal16@gmail.com",
+    || session?.user?.all_features_free
+    || session?.user?.master_test_free,
   );
   const kycReady = masterFree || identityApproved;
   const firstChatFree = !masterFree && channel === "chat" && Boolean(paymentConfig?.first_chat_free_available);

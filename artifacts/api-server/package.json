@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "exit 0"
+    "build": "exit 0",
+    "test": "node --test __tests__/*.test.js security.test.js"
   },
   "dependencies": {
     "express": "^4.18.2",
