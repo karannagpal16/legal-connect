@@ -109,7 +109,7 @@ export function Dashboard() {
           tone: "urgent" as const,
           kicker: "Unassigned intakes",
           title: `${pendingBookings.length} booking${pendingBookings.length === 1 ? "" : "s"} need counsel assignment`,
-          detail: "Open the intake desk and assign a Bar-verified advocate by live workload.",
+          detail: "Open the intake desk and assign a panel advocate (enrolment checked) by live workload.",
           ctaLabel: "Assign now",
           href: "/admin/control",
           icon: Gavel,

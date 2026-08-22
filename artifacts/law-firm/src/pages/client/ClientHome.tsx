@@ -309,7 +309,7 @@ export function ClientHome() {
       : {
           tone: "action" as const,
           kicker: "Start here",
-          title: "No matter yet — book verified counsel",
+          title: "No matter yet — start an intake",
           detail: "Tell us what happened. Legal Connect reviews your intake and assigns suitable counsel.",
           ctaLabel: "Book a counsel",
           onClick: () => openBooking(),
@@ -328,7 +328,7 @@ export function ClientHome() {
           <p>
             {cases.length
               ? `${cases.length} matters · ${upcoming} upcoming dates · ${dueFees.length} payment dues`
-              : <>Tell us what happened and we will assign verified counsel after <LegalTerm term="LC Review" onOpenDictionary={(term) => { setDictionaryQuery(term); setDictionaryOpen(true); }}>LC Review</LegalTerm>.</>}
+              : <>Tell us what happened and we will assign counsel after <LegalTerm term="LC Review" onOpenDictionary={(term) => { setDictionaryQuery(term); setDictionaryOpen(true); }}>LC Review</LegalTerm>.</>}
           </p>
           <div className="lc-hero-button-row">
             <button className="lc-button lc-button-primary" onClick={() => openBooking()} disabled={!canBookCounsel}>
@@ -384,7 +384,7 @@ export function ClientHome() {
               <h3>Convert advisory into full court representation</h3>
               <p className="text-muted-foreground">
                 After a paid advisory session, request LC Gateway retention. Legal Connect reviews, quotes terms,
-                and assigns a Bar-verified panel lawyer.
+                and assigns a panel advocate whose enrolment document it has checked.
               </p>
             </div>
           </div>
@@ -517,7 +517,7 @@ export function ClientHome() {
                         <h3>{selectedCase.counsel?.displayName || selectedCase.counsel?.name || "Assignment pending"}</h3>
                         <p>
                           {selectedCase.counsel?.enrollment ? `Enrollment ${selectedCase.counsel.enrollment} · ` : ""}
-                          {selectedCase.counsel?.contactPolicy || "Legal Connect will assign verified counsel after intake payment. Direct contact stays inside the LC relay."}
+                          {selectedCase.counsel?.contactPolicy || "Legal Connect will assign counsel after intake payment. Direct contact stays inside the LC relay."}
                         </p>
                         {selectedCase.counsel && (
                           <div className="lc-counsel-actions">

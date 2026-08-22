@@ -131,7 +131,7 @@ export function Home() {
                 <div className="lc-dharma-portal-copy">
                   <span>For people</span>
                   <h2>Your legal journey, simplified.</h2>
-                  <p>Track matters, receive updates, connect with trusted advocates, and keep every legal step organised.</p>
+                  <p>Track matters, receive updates, communicate with the advocate handling your matter, and keep every legal step organised.</p>
                 </div>
                 <Link className="lc-dharma-card-action lc-dharma-card-action-light" href="/login?role=client">
                   Continue as client <ArrowRight aria-hidden="true" />
@@ -158,11 +158,11 @@ export function Home() {
             <section className="lc-guest-next-step" aria-label="How to start with Legal Connect">
               <div>
                 <span>Your next step</span>
-                <strong>Get verified counsel without legalese.</strong>
-                <p>Book help in under a minute. Legal Connect reviews your intake, assigns counsel, and explains court words in plain English.</p>
+                <strong>Legal paperwork without legalese.</strong>
+                <p>Submit an intake in under a minute. Legal Connect reviews it, runs the conflict check, arranges independent counsel, and explains court words in plain English.</p>
               </div>
               <div className="lc-guest-next-actions">
-                <Link className="lc-button lc-button-primary" href="/login?role=client">Get lawyer help</Link>
+                <Link className="lc-button lc-button-primary" href="/login?role=client">Start an intake</Link>
                 <Link className="lc-button" href="/login?role=client">See how pricing works</Link>
               </div>
             </section>

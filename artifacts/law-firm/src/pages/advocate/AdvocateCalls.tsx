@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Video, Phone, User, Clock, Check, X, Mic, MicOff, VideoOff, PhoneOff, Shield, Star } from "lucide-react";
+import { Video, Phone, User, Clock, Check, X, Mic, MicOff, VideoOff, PhoneOff, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface IncomingCall {
@@ -9,7 +9,6 @@ interface IncomingCall {
   issue: string;
   mode: "video" | "audio";
   waitingTime: string;
-  rating: number;
 }
 
 const incomingCalls: IncomingCall[] = [
@@ -20,7 +19,6 @@ const incomingCalls: IncomingCall[] = [
     issue: "Employment dispute — wrongful termination",
     mode: "video",
     waitingTime: "0:32",
-    rating: 4.8,
   },
   {
     id: 2,
@@ -29,7 +27,6 @@ const incomingCalls: IncomingCall[] = [
     issue: "Property documentation query",
     mode: "audio",
     waitingTime: "1:15",
-    rating: 4.5,
   },
 ];
 
@@ -190,7 +187,6 @@ export function AdvocateCalls() {
                   <p className="text-[#1A2332]/50 text-xs mb-1">{call.issue}</p>
                   <div className="flex items-center gap-3 text-xs text-[#1A2332]/30">
                     <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />Waiting {call.waitingTime}</span>
-                    <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" />{call.rating}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">

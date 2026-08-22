@@ -15,7 +15,6 @@ const bookingSchema = z.object({
   legalIssueType: z.enum(["Criminal", "Civil", "Family", "Property", "Corporate", "Labour", "Other"], {
     errorMap: () => ({ message: "Please select a legal issue type" })
   }),
-  preferredLawyer: z.string().optional(),
   preferredDate: z.string().min(1, "Please select a preferred date"),
   preferredTime: z.enum(["9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"], {
     errorMap: () => ({ message: "Please select a preferred time" })
@@ -38,7 +37,6 @@ export function BookLawyer() {
   } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
-      preferredLawyer: "",
       briefDescription: "",
     }
   });
@@ -85,18 +83,19 @@ export function BookLawyer() {
             <Scale className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-4xl lg:text-5xl font-serif font-bold text-[#1A2332] mb-6 leading-tight">
-            Expert Legal <br />
-            <span className="text-primary">Counsel</span> in New Delhi.
+            Matter intake for <br />
+            <span className="text-primary">independent counsel</span> in New Delhi.
           </h1>
           <p className="text-lg text-[#1A2332]/70 max-w-md leading-relaxed">
-            Schedule a free 30-minute consultation with our experienced advocates. 
-            We provide strategic guidance and rigorous representation tailored to your needs.
+            Tell us about the matter. Legal Connect runs the conflict check and the administration.
+            Any advocate you are introduced to is an independent legal professional, engaged by you
+            on terms you agree with them.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span className="text-sm font-semibold uppercase tracking-widest text-primary/80">Available for Consultation</span>
+          <span className="text-sm font-semibold uppercase tracking-widest text-primary/80">Intake desk open</span>
         </div>
       </div>
 
@@ -126,7 +125,7 @@ export function BookLawyer() {
                 className="w-full max-w-2xl bg-card border border-border rounded-3xl p-8 sm:p-10 shadow-2xl"
               >
                 <div className="mb-10">
-                  <h2 className="text-3xl font-serif font-bold text-foreground mb-3">Book a Lawyer</h2>
+                  <h2 className="text-3xl font-serif font-bold text-foreground mb-3">Matter intake</h2>
                   <p className="text-muted-foreground text-sm">Fill out the form below and our team will get back to you within 24 hours to confirm your consultation.</p>
                 </div>
 
@@ -196,15 +195,6 @@ export function BookLawyer() {
                         {errors.legalIssueType && <p className="text-destructive text-xs mt-1">{errors.legalIssueType.message}</p>}
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">Preferred Lawyer <span className="text-muted-foreground font-normal">(Optional)</span></label>
-                        <input 
-                          {...register("preferredLawyer")}
-                          className="w-full px-4 py-3.5 bg-input border border-border rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground"
-                          placeholder="Any available lawyer"
-                        />
-                      </div>
-
                       <div className="space-y-2 sm:col-span-2">
                         <label className="text-sm font-medium text-foreground">Brief Description <span className="text-muted-foreground font-normal">(Optional)</span></label>
                         <textarea 
@@ -266,9 +256,13 @@ export function BookLawyer() {
                     {isSubmitting ? (
                       <><Loader2 className="w-6 h-6 animate-spin" /> Submitting Request...</>
                     ) : (
-                      "Request Consultation"
+                      "Submit intake request"
                     )}
                   </button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Legal Connect does not rank, rate or promote advocates, and takes no share of an advocate&rsquo;s
+                    professional fee. If you already have an advocate, engage them directly.
+                  </p>
                 </form>
               </motion.div>
             ) : (

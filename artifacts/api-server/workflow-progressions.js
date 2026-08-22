@@ -541,7 +541,7 @@ function createWorkflowProgressions(deps) {
         await notify({
           eventType: "intake_lc_under_review",
           title: "Legal Connect is reviewing your intake",
-          message: "Your matter is under LC Admin review. We will assign Bar-verified counsel shortly.",
+          message: "Your matter is under LC Admin review. We will assign counsel whose enrolment document we have checked.",
           recipients: await resolveRecipients([intake.userId || intake.user_id].filter(Boolean)),
           payload: { intakeId, intakeStatus: "lc_under_review" },
           sendEmail: true,

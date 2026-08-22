@@ -349,7 +349,7 @@ export const LEGAL_DICTIONARY: LegalDictionaryTerm[] = [
     term: "Proxy Mission",
     phonetic: "prok-see mish-un",
     category: "court_process",
-    definition: "On Legal Connect, a paid court task (pass-over/adjournment etc.) handled by verified counsel under work-hold rules.",
+    definition: "On Legal Connect, a paid court task (pass-over/adjournment etc.) handled by an advocate whose enrolment document Legal Connect has checked, under work-hold rules.",
     whyItMatters: "Proof and hold release protect payment until the mission is verified.",
   },
   {

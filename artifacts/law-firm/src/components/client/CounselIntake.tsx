@@ -612,7 +612,7 @@ export function CounselIntake({
                 <div><dt>Parties</dt><dd>{partyName} / {oppositeParty}</dd></div>
                 <div><dt>Consultation</dt><dd>{selectedChannel.title} · {channelPriceLabel}</dd></div>
                 <div><dt>Files</dt><dd>{files.length ? `${files.length} secure attachment${files.length > 1 ? "s" : ""}` : "No files attached"}</dd></div>
-                <div><dt>Assignment</dt><dd>Verified counsel selected by Legal Connect</dd></div>
+                <div><dt>Assignment</dt><dd>Counsel selected by Legal Connect (enrolment document checked)</dd></div>
               </dl>
               <div className="lc-payment-total">
                 <span>Total payable</span>
@@ -667,7 +667,7 @@ export function CounselIntake({
             <p>
               {receipt?.amount === 0
                 ? "Your free first chat is ready. Legal Connect will complete the conflict check and open the matter workspace so you can see how it works."
-                : "Legal Connect is completing the conflict check and assigning verified counsel. Its timeline, documents, payments and communications will remain inside this matter."}
+                : "Legal Connect is completing the conflict check and assigning counsel whose enrolment document it has checked. Its timeline, documents, payments and communications will remain inside this matter."}
             </p>
             <dl>
               <div><dt>Intake reference</dt><dd>{receipt?.id}</dd></div>

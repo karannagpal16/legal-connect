@@ -6,9 +6,10 @@
  */
 const crypto = require("crypto");
 const { createSupervisedPipeline } = require("./supervised-pipeline");
+const compliancePolicy = require("./compliance-policy");
 
 const RULE36_PATTERNS = [
-  /\bguarantee(?:d)?\s+(?:win|success|acquittal)\b/i,
+  /\bguarantee(?:d)?\s+(?:win|success|acquittal|outcome|result)\b/i,
   /\b100%\s+(?:win|success|results?)\b/i,
   /\blowest\s+fee\b/i,
   /\bcheap(?:est)?\s+(?:lawyer|advocate)\b/i,
@@ -16,23 +17,34 @@ const RULE36_PATTERNS = [
   /\btout(?:ing)?\b/i,
   /\bfixed\s+outcome\b/i,
   /\bno\s+win\s+no\s+fee\b/i,
+  /\b(?:best|top|number\s*one|no\.?\s*1|leading|#1)\s+(?:lawyer|advocate|counsel|law\s*firm)\b/i,
+  /\b(?:success|win|conviction|acquittal)\s+rate\b/i,
+  /\b(?:sponsored|paid|featured|promoted)\s+(?:lawyer|advocate|listing|profile|placement)\b/i,
+  /\bpay\s*per\s*(?:lead|case|brief|matter)\b/i,
+  /\b(?:bci|bar\s+council)[\s-]*(?:approved|certified|authorised|authorized|endorsed)\b/i,
 ];
 
+/**
+ * Splits the amount collected for a proxy mission into the professional fee, which
+ * is payable in full to the appearing advocate, and Legal Connect's flat technology
+ * and administration charge. The platform charge is a fixed rupee amount and never
+ * a percentage of the professional fee — see artifacts/api-server/compliance-policy.js.
+ */
 function computeProxySettlement(grossAmount) {
-  const gross = Math.max(0, Math.round(Number(grossAmount) || 0));
-  const platformFee = Math.round(gross * 0.1);
-  const appTaxGst = Math.round(gross * 0.03);
-  const netToProxy = Math.max(0, gross - platformFee - appTaxGst);
+  const charge = compliancePolicy.computePlatformServiceCharge(grossAmount);
   return {
-    currency: "INR",
-    gross,
-    platformFee,
-    platformFeePct: 10,
-    appTaxGst,
-    appTaxGstPct: 3,
-    netToProxy,
-    advocatePct: 87,
-    note: "Platform fee 10% + app/GST tax 3%. Net payable to proxy counsel after LC Admin release (manual settlement).",
+    currency: charge.currency,
+    feeModel: compliancePolicy.PLATFORM_SERVICE_FEE.version,
+    feeBasis: compliancePolicy.PLATFORM_SERVICE_FEE.basis,
+    gross: charge.collected,
+    platformFee: charge.serviceFee,
+    appTaxGst: charge.gstOnServiceFee,
+    gstOnPlatformFeePct: compliancePolicy.PLATFORM_SERVICE_FEE.gstPct,
+    professionalFee: charge.professionalFee,
+    netToProxy: charge.professionalFee,
+    note: `Flat platform technology fee ₹${charge.serviceFee} + GST ₹${charge.gstOnServiceFee} on that fee. `
+      + "The professional fee is paid in full to the appearing advocate; Legal Connect takes no share of it. "
+      + "Payout is released manually by the LC Admin desk.",
   };
 }
 
@@ -294,6 +306,23 @@ function createStrategyFeatures(deps) {
       )
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS task_ratings_task_idx ON task_ratings (task_id)`);
+    // Replaces counterpart star ratings: operational service-window records only,
+    // never a quality score for an advocate (see compliance-policy.js METRIC_POLICY).
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS task_service_records (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        task_id text NOT NULL,
+        reporter_id text NOT NULL,
+        reporter_role text,
+        subject_id text,
+        service_window_met boolean NOT NULL,
+        record_complete boolean NOT NULL,
+        note text,
+        created_at timestamptz DEFAULT now(),
+        UNIQUE (task_id, reporter_id)
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS task_service_records_task_idx ON task_service_records (task_id)`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending_lc_review'`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_id text`);
     await db.query(`ALTER TABLE case_updates ADD COLUMN IF NOT EXISTS author_role text`);
@@ -505,10 +534,10 @@ function createStrategyFeatures(deps) {
         missionsCompleted: tasks.rows[0]?.completed || 0,
         escrowHeldMissions: tasks.rows[0]?.escrow_held || 0,
         proofsSubmitted: proofs.rows[0]?.count || tasks.rows[0]?.proofs || 0,
-        verifiedAdvocates: advocates.rows[0]?.count || 0,
+        advocateAccounts: advocates.rows[0]?.count || 0,
         paidBookings: bookings.rows[0]?.paid || 0,
         openGrievances: grievancesOpen.rows[0]?.count || 0,
-        feeSplit: { advocatePct: 87, platformPct: 10, gatewayGstPct: 3 },
+        feeModel: compliancePolicy.publicCompliancePolicy().feeModel,
       };
     }
     return {
@@ -517,10 +546,10 @@ function createStrategyFeatures(deps) {
       missionsCompleted: (demoStore.tasks || []).filter((t) => /completed|closed|released/i.test(String(t.status || ""))).length,
       escrowHeldMissions: (demoStore.tasks || []).filter((t) => /lock|held/i.test(String(t.escrowStatus || t.escrow_status || ""))).length,
       proofsSubmitted: (demoStore.tasks || []).filter((t) => t.proofHash || t.proofUrl).length,
-      verifiedAdvocates: (demoStore.users || []).filter((u) => u.role === "advocate").length,
+      advocateAccounts: (demoStore.users || []).filter((u) => u.role === "advocate").length,
       paidBookings: (demoStore.bookings || []).filter((b) => /paid|captured/i.test(String(b.paymentStatus || b.payment_status || ""))).length,
       openGrievances: (demoStore.grievances || []).filter((g) => g.status === "open").length,
-      feeSplit: { advocatePct: 87, platformPct: 10, gatewayGstPct: 3 },
+      feeModel: compliancePolicy.publicCompliancePolicy().feeModel,
       mode: "sample",
     };
   }
@@ -656,6 +685,11 @@ function createStrategyFeatures(deps) {
 
     if (url.pathname === "/api/public/transparency" && req.method === "GET") {
       sendJson(res, 200, { ok: true, ledger: await getTransparencyStats() });
+      return true;
+    }
+
+    if (url.pathname === "/api/compliance/policy" && req.method === "GET") {
+      sendJson(res, 200, { ok: true, policy: compliancePolicy.publicCompliancePolicy() });
       return true;
     }
 
@@ -1288,7 +1322,7 @@ function createStrategyFeatures(deps) {
         await notifyTaskLayer(updated, {
           eventType: "proxy_proof_poster_approved",
           title: "Main counsel satisfied",
-          message: `${updated.title || "Proxy mission"} marked satisfactory. LC Admin can Release net ₹${settlement.netToProxy.toLocaleString("en-IN")} (after 10% platform + 3% tax) or Refund.`,
+          message: `${updated.title || "Proxy mission"} marked satisfactory. LC Admin can release the professional fee of ₹${settlement.netToProxy.toLocaleString("en-IN")} (collected ₹${settlement.gross.toLocaleString("en-IN")} less Legal Connect's flat ₹${settlement.platformFee} technology fee and ₹${settlement.appTaxGst} GST on it) or Refund.`,
           priority: "high",
           includeAdmins: true,
         });
@@ -1362,18 +1396,42 @@ function createStrategyFeatures(deps) {
 
     const rateMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/rate$/);
     if (rateMatch && req.method === "POST") {
+      sendJson(res, 410, {
+        ok: false,
+        error: "Counterpart star ratings have been withdrawn. Record the operational service outcome at "
+          + "POST /api/tasks/:id/service-record instead.",
+        replacement: `/api/tasks/${rateMatch[1]}/service-record`,
+        reason: "Legal Connect does not hold or publish quality ratings of advocates.",
+      });
+      return true;
+    }
+
+    const serviceRecordMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/service-record$/);
+    if (serviceRecordMatch && req.method === "POST") {
       const authUser = getAuthUser(req);
       if (!authUser) {
         sendJson(res, 401, { ok: false, error: "Login is required." });
         return true;
       }
       const body = await readBody(req);
-      const stars = Number(body.stars || body.rating || 0);
-      if (!Number.isFinite(stars) || stars < 1 || stars > 5) {
-        sendJson(res, 400, { ok: false, error: "Rating must be between 1 and 5 stars." });
+      if (body.stars != null || body.rating != null) {
+        sendJson(res, 422, {
+          ok: false,
+          error: "Star ratings of an advocate cannot be recorded. Report whether the agreed service window was met "
+            + "and whether the appearance record is complete.",
+        });
         return true;
       }
-      const task = await loadTask(rateMatch[1]);
+      const serviceWindowMet = body.serviceWindowMet;
+      const recordComplete = body.recordComplete;
+      if (typeof serviceWindowMet !== "boolean" || typeof recordComplete !== "boolean") {
+        sendJson(res, 400, {
+          ok: false,
+          error: "serviceWindowMet and recordComplete are required booleans.",
+        });
+        return true;
+      }
+      const task = await loadTask(serviceRecordMatch[1]);
       if (!task) {
         sendJson(res, 404, { ok: false, error: "Task not found." });
         return true;
@@ -1381,37 +1439,73 @@ function createStrategyFeatures(deps) {
       const isPoster = String(task.postedBy) === String(authUser.id);
       const isProxy = String(task.acceptedBy) === String(authUser.id);
       if (!isPoster && !isProxy && !canSeeAll(authUser)) {
-        sendJson(res, 403, { ok: false, error: "Only the posting advocate or assigned proxy can rate this mission." });
+        sendJson(res, 403, {
+          ok: false,
+          error: "Only the posting advocate or the assigned proxy can record the service outcome for this mission.",
+        });
         return true;
       }
-      const rateeId = isPoster ? task.acceptedBy : task.postedBy;
-      const comment = String(body.comment || "").slice(0, 500);
+      const subjectId = isPoster ? task.acceptedBy : task.postedBy;
+      const noteInput = String(body.note || body.comment || "").slice(0, 500);
+      const noteCheck = assertRule36Safe(noteInput);
+      if (!noteCheck.ok) {
+        sendJson(res, 422, noteCheck);
+        return true;
+      }
+      const note = noteCheck.text || null;
+      const record = {
+        taskId: serviceRecordMatch[1],
+        reporterId: authUser.id,
+        reporterRole: isPoster ? "poster" : "proxy",
+        subjectId: subjectId || null,
+        serviceWindowMet,
+        recordComplete,
+        note,
+      };
+      const summary = [
+        serviceWindowMet ? "service window met" : "service window missed",
+        recordComplete ? "appearance record complete" : "appearance record incomplete",
+      ].join(" · ");
       if (db.dbAvailable) {
         const created = await db.query(
-          `INSERT INTO task_ratings (task_id, rater_id, ratee_id, rater_role, stars, comment)
-           VALUES ($1,$2,$3,$4,$5,$6)
-           ON CONFLICT (task_id, rater_id) DO UPDATE SET stars = EXCLUDED.stars, comment = EXCLUDED.comment
+          `INSERT INTO task_service_records (task_id, reporter_id, reporter_role, subject_id, service_window_met, record_complete, note)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           ON CONFLICT (task_id, reporter_id) DO UPDATE SET
+             service_window_met = EXCLUDED.service_window_met,
+             record_complete = EXCLUDED.record_complete,
+             note = EXCLUDED.note
            RETURNING *`,
-          [rateMatch[1], authUser.id, rateeId || null, isPoster ? "poster" : "proxy", stars, comment || null],
+          [
+            record.taskId,
+            record.reporterId,
+            record.reporterRole,
+            record.subjectId,
+            record.serviceWindowMet,
+            record.recordComplete,
+            record.note,
+          ],
         );
         await notify({
-          eventType: "proxy_rating_received",
-          title: "ProxyHub rating received",
-          message: `You received a ${stars}-star rating on ${task.title || "a proxy mission"}.`,
-          recipients: await resolveRecipients([rateeId].filter(Boolean)),
-          payload: { taskId: rateMatch[1], stars },
+          eventType: "proxy_service_record_logged",
+          title: "Service record logged",
+          message: `${task.title || "A proxy mission"}: ${summary}. This is an operational record of the agreed service `
+            + "window, not an assessment of professional competence, and it is not published.",
+          recipients: await resolveRecipients([subjectId].filter(Boolean)),
+          payload: { taskId: record.taskId, serviceWindowMet, recordComplete },
           sendEmail: true,
           ctaLabel: "Open ProxyHub",
           ctaUrl: portalUrl("/advocate/proxy"),
         });
-        sendJson(res, 200, { ok: true, rating: created.rows[0] });
+        sendJson(res, 200, { ok: true, serviceRecord: created.rows[0], summary });
         return true;
       }
-      demoStore.taskRatings = demoStore.taskRatings || [];
-      const rating = { id: `rating-${Date.now()}`, taskId: rateMatch[1], raterId: authUser.id, rateeId, stars, comment };
-      demoStore.taskRatings = demoStore.taskRatings.filter((item) => !(item.taskId === rating.taskId && item.raterId === rating.raterId));
-      demoStore.taskRatings.unshift(rating);
-      sendJson(res, 200, { ok: true, rating });
+      demoStore.taskServiceRecords = demoStore.taskServiceRecords || [];
+      const stored = { id: `service-record-${Date.now()}`, ...record };
+      demoStore.taskServiceRecords = demoStore.taskServiceRecords.filter(
+        (item) => !(item.taskId === stored.taskId && item.reporterId === stored.reporterId),
+      );
+      demoStore.taskServiceRecords.unshift(stored);
+      sendJson(res, 200, { ok: true, serviceRecord: stored, summary });
       return true;
     }
 

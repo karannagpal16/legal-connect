@@ -419,7 +419,11 @@ paths:
     post:
       operationId: createBooking
       tags: [bookings]
-      summary: Book a lawyer consultation (public)
+      summary: Submit a matter intake request
+      description: >-
+        Records a client's matter intake. Legal Connect runs the conflict check and administration;
+        the client engages the advocate independently. The platform does not promote, rank or
+        recommend advocates.
       requestBody:
         required: true
         content:
@@ -824,6 +828,11 @@ components:
         preferredLawyer:
           type: string
           nullable: true
+          deprecated: true
+          description: >-
+            Retired field. Legal Connect no longer collects a preferred advocate, because the
+            platform does not promote or recommend individual advocates. Existing rows are retained
+            for audit only.
         preferredDate:
           type: string
         preferredTime:
@@ -855,6 +864,11 @@ components:
         preferredLawyer:
           type: string
           nullable: true
+          deprecated: true
+          description: >-
+            Retired field. Legal Connect no longer collects a preferred advocate, because the
+            platform does not promote or recommend individual advocates. Existing rows are retained
+            for audit only.
         preferredDate:
           type: string
         preferredTime:
@@ -883,6 +897,11 @@ components:
         preferredLawyer:
           type: string
           nullable: true
+          deprecated: true
+          description: >-
+            Retired field. Legal Connect no longer collects a preferred advocate, because the
+            platform does not promote or recommend individual advocates. Existing rows are retained
+            for audit only.
         preferredDate:
           type: string
         preferredTime:

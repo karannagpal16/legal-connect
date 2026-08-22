@@ -20,7 +20,7 @@ const PIPELINE_STAGES = Object.freeze([
     key: "advocate_assigned",
     order: 3,
     label: "Advocate Assigned by Legal Connect",
-    clientCopy: "An independent Bar-verified advocate has been assigned to your matter.",
+    clientCopy: "An independent advocate, whose enrolment document Legal Connect has checked, has been assigned to your matter.",
   },
   {
     key: "advocate_accepted",

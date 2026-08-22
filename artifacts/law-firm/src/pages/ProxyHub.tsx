@@ -10,7 +10,7 @@ import {
   UserRoundSearch,
   ShieldCheck,
   Camera,
-  Star,
+  ClipboardCheck,
   MessageSquareText,
   CheckCircle2,
   Briefcase,
@@ -314,15 +314,15 @@ export function ProxyHub() {
     input.click();
   };
 
-  const rateTask = async (task: ProxyTask) => {
-    const starsRaw = window.prompt("Rate this mission (1-5)", "5");
-    if (!starsRaw) return;
-    const stars = Number(starsRaw);
-    const comment = window.prompt("Optional comment", "") || "";
-    await runAction(task.id, `/api/tasks/${task.id}/rate`, {
+  // Operational record of the agreed service window — never a quality rating of an advocate.
+  const logServiceRecord = async (task: ProxyTask) => {
+    const serviceWindowMet = window.confirm("Was the appearance completed within the agreed service window?\n\nOK = yes · Cancel = no");
+    const recordComplete = window.confirm("Is the appearance record (order sheet and next date) complete?\n\nOK = yes · Cancel = no");
+    const note = window.prompt("Optional operational note (no comments on competence)", "") || "";
+    await runAction(task.id, `/api/tasks/${task.id}/service-record`, {
       method: "POST",
-      body: JSON.stringify({ stars, comment }),
-    }, "Rating saved");
+      body: JSON.stringify({ serviceWindowMet, recordComplete, note }),
+    }, "Service record saved");
   };
 
   const filters: Array<{ id: SimpleFilter; label: string; count: number }> = [
@@ -746,7 +746,7 @@ export function ProxyHub() {
                         className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                         disabled={busyId === String(t.id)}
                         onClick={() => {
-                          if (!window.confirm("Release payment to proxy after 10% platform + 3% tax? Net payout is manual.")) return;
+                          if (!window.confirm("Release the professional fee to the appearing advocate? Legal Connect retains only its flat technology fee and GST on it. Payout is manual.")) return;
                           runAction(t.id, "/api/admin/task-action", {
                             method: "POST",
                             body: JSON.stringify({ taskId: t.id, action: "release_payment" }),
@@ -819,9 +819,9 @@ export function ProxyHub() {
                     <button
                       className="w-full border border-border rounded-xl py-2.5 font-semibold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
-                      onClick={() => rateTask(t)}
+                      onClick={() => logServiceRecord(t)}
                     >
-                      <Star className="w-4 h-4" /> Rate counterpart
+                      <ClipboardCheck className="w-4 h-4" /> Log service record
                     </button>
                   ) : null}
 

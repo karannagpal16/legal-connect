@@ -109,13 +109,13 @@ export function RevenueTracker() {
             <div className="p-3 bg-accent/10 rounded-xl">
               <Briefcase className="w-6 h-6 text-accent" />
             </div>
-            <h2 className="text-xl font-bold text-foreground">Marketplace Profit</h2>
+            <h2 className="text-xl font-bold text-foreground">Platform Service Fees</h2>
           </div>
           <div className="relative z-10">
             <span className="text-5xl font-serif font-black text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70 drop-shadow-sm">
               {formatINR(marketplaceProfit)}
             </span>
-            <p className="text-sm text-accent font-bold mt-2 tracking-wide uppercase">10% Cut from Proxy Tasks</p>
+            <p className="text-sm text-accent font-bold mt-2 tracking-wide uppercase">Flat technology fee per mission</p>
           </div>
         </div>
       </div>

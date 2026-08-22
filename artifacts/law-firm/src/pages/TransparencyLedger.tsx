@@ -8,10 +8,16 @@ interface Ledger {
   missionsCompleted: number;
   escrowHeldMissions: number;
   proofsSubmitted: number;
-  verifiedAdvocates: number;
+  advocateAccounts: number;
   paidBookings: number;
   openGrievances: number;
-  feeSplit: { advocatePct: number; platformPct: number; gatewayGstPct: number };
+  feeModel: {
+    serviceFeeInr: number;
+    gstPct: number;
+    gstOnServiceFeeInr: number;
+    totalPlatformChargeInr: number;
+    percentageOfProfessionalFee: number;
+  };
   mode?: string;
 }
 
@@ -45,7 +51,11 @@ export function TransparencyLedger() {
           <Scale />
           <div>
             <h2>Live platform accountability</h2>
-            <p>Each ProxyHub fee is split openly: advocate share, platform operations, and gateway/GST. Counts update from live records — no personal case details are shown.</p>
+            <p>
+              Legal Connect charges a flat technology and administration fee per mission. The professional fee is paid in
+              full to the appearing advocate and Legal Connect takes no share of it. Counts update from live records — no
+              personal case details are shown.
+            </p>
           </div>
         </section>
 
@@ -59,19 +69,23 @@ export function TransparencyLedger() {
               <article><strong>{ledger.missionsCompleted}</strong><span>Missions completed</span></article>
               <article><strong>{ledger.escrowHeldMissions}</strong><span>Escrow-held missions</span></article>
               <article><strong>{ledger.proofsSubmitted}</strong><span>Order-sheet proofs</span></article>
-              <article><strong>{ledger.verifiedAdvocates}</strong><span>Advocate accounts</span></article>
+              <article><strong>{ledger.advocateAccounts}</strong><span>Advocate accounts (enrolment document checked)</span></article>
               <article><strong>{ledger.paidBookings}</strong><span>Paid bookings</span></article>
               <article><strong>{ledger.openGrievances}</strong><span>Open grievances</span></article>
-              <article><strong>{ledger.feeSplit.advocatePct}%</strong><span>Advocate fee share</span></article>
+              <article><strong>{ledger.feeModel.percentageOfProfessionalFee}%</strong><span>Share of professional fees taken by Legal Connect</span></article>
             </section>
 
             <section className="lc-transparency-split">
-              <h3>3-line fee breakdown</h3>
+              <h3>How a mission fee is applied</h3>
               <ul>
-                <li><ShieldCheck /> Advocate counsel — {ledger.feeSplit.advocatePct}%</li>
-                <li><ShieldCheck /> Legal Connect platform — {ledger.feeSplit.platformPct}%</li>
-                <li><ShieldCheck /> Gateway + GST — {ledger.feeSplit.gatewayGstPct}%</li>
+                <li><ShieldCheck /> Appearing advocate — the entire professional fee</li>
+                <li><ShieldCheck /> Legal Connect technology &amp; administration — flat ₹{ledger.feeModel.serviceFeeInr} per mission</li>
+                <li><ShieldCheck /> GST on the Legal Connect fee — ₹{ledger.feeModel.gstOnServiceFeeInr} ({ledger.feeModel.gstPct}%)</li>
               </ul>
+              <p>
+                The Legal Connect charge is the same ₹{ledger.feeModel.totalPlatformChargeInr} on every mission, whatever the
+                professional fee. Full policy: <a href="/api/compliance/policy">/api/compliance/policy</a>.
+              </p>
               <small>Updated {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(ledger.generatedAt))}</small>
             </section>
           </>

@@ -215,7 +215,7 @@ export function ChamberVault() {
           <div>
             <span className="lc-kicker">CHAMBER VAULT SUBSCRIPTION</span>
             <h2>Unlock {chamber.name}</h2>
-            <p>Pay monthly for the private practice ledger. Start at ₹500 — upgrade packages that grow chamber profit.</p>
+            <p>Pay monthly for the private practice ledger. Start at ₹500 — larger packages add seats and chamber workflow.</p>
           </div>
           <span className="lc-live-badge"><LockKeyhole className="h-3.5 w-3.5" /> Paid access</span>
         </section>

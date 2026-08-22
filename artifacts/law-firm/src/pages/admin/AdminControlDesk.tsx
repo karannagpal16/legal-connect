@@ -705,7 +705,7 @@ export function AdminControlDesk() {
 
       <section className="lc-workspace-metrics" aria-label="Ops metrics">
         <div><Gavel /><span><strong>{queue.length}</strong><small>Intakes needing action</small></span></div>
-        <div><UserRoundSearch /><span><strong>{advocates.length}</strong><small>Bar-verified panel</small></span></div>
+        <div><UserRoundSearch /><span><strong>{advocates.length}</strong><small>Panel · enrolment checked</small></span></div>
         <div><BriefcaseBusiness /><span><strong>{tasks.length}</strong><small>Proxy / work-hold actions</small></span></div>
         <div><ShieldCheck /><span><strong>{pendingVerifyCount}</strong><small>Pending verifications</small></span></div>
       </section>
@@ -898,7 +898,7 @@ export function AdminControlDesk() {
                           value={advocateByIntake[intake.id] || ""}
                           onChange={(event) => setAdvocateByIntake((current) => ({ ...current, [intake.id]: event.target.value }))}
                         >
-                          <option value="">Select Bar-verified lawyer (lowest workload first)</option>
+                          <option value="">Select panel advocate (enrolment checked · lowest workload first)</option>
                           {advocates.map((advocate) => (
                             <option key={advocate.id} value={advocate.id}>
                               {advocateOptionLabel(advocate)}
@@ -1117,7 +1117,7 @@ export function AdminControlDesk() {
                         value={advocateByIntake[intake.id] || ""}
                         onChange={(event) => setAdvocateByIntake((current) => ({ ...current, [intake.id]: event.target.value }))}
                       >
-                        <option value="">Select Bar-verified panel lawyer</option>
+                        <option value="">Select panel advocate (enrolment checked)</option>
                         {advocates.map((advocate) => (
                           <option key={advocate.id} value={advocate.id}>{advocateOptionLabel(advocate)}</option>
                         ))}
@@ -1188,9 +1188,9 @@ export function AdminControlDesk() {
                     {task.posterProofDecision ? ` · Main counsel: ${task.posterProofDecision === "ok" ? "Satisfied" : "Not satisfied"}` : ""}
                     {task.posterProofReason ? ` (${task.posterProofReason})` : ""}
                     {task.settlement?.netToProxy != null
-                      ? ` · Net after tax ₹${Number(task.settlement.netToProxy).toLocaleString("en-IN")}`
+                      ? ` · Professional fee ₹${Number(task.settlement.netToProxy).toLocaleString("en-IN")}`
                       : task.settlementPreview?.netToProxy != null
-                        ? ` · Net preview ₹${Number(task.settlementPreview.netToProxy).toLocaleString("en-IN")}`
+                        ? ` · Professional fee preview ₹${Number(task.settlementPreview.netToProxy).toLocaleString("en-IN")}`
                         : ""}
                   </p>
                   <div style={{ marginTop: "0.75rem" }}>
@@ -1267,7 +1267,7 @@ export function AdminControlDesk() {
                           className="lc-button lc-button-primary"
                           disabled={taskAction.isPending}
                           onClick={() => {
-                            if (!window.confirm("Release escrow after 10% platform fee + 3% app/GST tax? Net payout to proxy is manual.")) return;
+                            if (!window.confirm("Release the professional fee to the appearing advocate? Legal Connect retains only its flat technology fee and GST on it. Payout to the advocate is manual.")) return;
                             taskAction.mutate({ taskId: task.id, action: "release_payment" });
                           }}
                         >

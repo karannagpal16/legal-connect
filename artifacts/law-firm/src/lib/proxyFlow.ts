@@ -41,6 +41,35 @@ export const PROXY_URGENCY_TIERS: Record<ProxyUrgencyTier, ProxyUrgencyMeta> = {
 
 export const PROXY_MIN_FEE = PROXY_URGENCY_TIERS.standard.fee;
 
+/**
+ * Legal Connect charges a flat technology and administration fee per mission plus GST
+ * on that fee. It is never a percentage of the professional fee, which is paid in full
+ * to the appearing advocate. Server source of truth: artifacts/api-server/compliance-policy.js.
+ */
+export const PLATFORM_SERVICE_FEE_INR = 99;
+export const PLATFORM_SERVICE_FEE_GST_INR = 18;
+export const PLATFORM_CHARGE_TOTAL_INR = PLATFORM_SERVICE_FEE_INR + PLATFORM_SERVICE_FEE_GST_INR;
+
+export type ProxySettlementBreakdown = {
+  collected: number;
+  platformFee: number;
+  gstOnPlatformFee: number;
+  professionalFee: number;
+};
+
+/** Mirrors the server settlement so the posting advocate sees the split before paying. */
+export function proxySettlementBreakdown(collectedAmount: number): ProxySettlementBreakdown {
+  const collected = Math.max(0, Math.round(Number(collectedAmount) || 0));
+  const platformFee = Math.min(PLATFORM_SERVICE_FEE_INR, collected);
+  const gstOnPlatformFee = Math.min(PLATFORM_SERVICE_FEE_GST_INR, Math.max(0, collected - platformFee));
+  return {
+    collected,
+    platformFee,
+    gstOnPlatformFee,
+    professionalFee: Math.max(0, collected - platformFee - gstOnPlatformFee),
+  };
+}
+
 export function resolveProxyUrgency(value?: string | null): ProxyUrgencyTier {
   const raw = String(value || "").toLowerCase().trim();
   if (raw === "urgent" || raw === "high" || raw === "asap") return "urgent";
@@ -144,7 +173,7 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
     label: "Paid out",
     actor: "lc",
     actorLabel: "Legal Connect",
-    detail: "Net amount released after platform fee and tax.",
+    detail: "Professional fee released in full, less Legal Connect's flat technology fee.",
   },
   {
     id: "refunded",

@@ -8,9 +8,11 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import {
+  PLATFORM_CHARGE_TOTAL_INR,
   PROXY_MIN_FEE,
   PROXY_URGENCY_TIERS,
   humanProxyStatus,
+  proxySettlementBreakdown,
   proxyUrgencyMeta,
   resolveProxyUrgency,
   type ProxyUrgencyTier,
@@ -104,6 +106,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
 
   const watchedUrgency = form.watch("urgency") as ProxyUrgencyTier;
   const urgencyMeta = proxyUrgencyMeta(watchedUrgency);
+  const feeBreakdown = proxySettlementBreakdown(urgencyMeta.fee);
 
   useEffect(() => {
     if (!open) return;
@@ -321,7 +324,8 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
           <p className="text-xs text-muted-foreground">
-            Flow: Main counsel pays &amp; posts → LC reviews/assigns → Proxy appears &amp; uploads proof → Main counsel OK/Not OK → LC releases net after 10% + 3% tax.
+            Flow: Main counsel pays &amp; posts → LC reviews/assigns → Proxy appears &amp; uploads proof → Main counsel OK/Not OK → LC releases the professional fee.
+            Legal Connect keeps only its flat ₹{PLATFORM_CHARGE_TOTAL_INR} technology fee (incl. GST) and no share of the professional fee.
             Guaranteed-outcome wording is blocked under Bar Council Rule 36.
           </p>
           {isEditing ? (
@@ -369,7 +373,13 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
           <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
             <p><strong className="text-foreground">{urgencyMeta.label}</strong> — {urgencyMeta.postingHint}</p>
             <p>After LC verifies &amp; assigns: <strong className="text-foreground">{urgencyMeta.slaAfterAssign}</strong></p>
-            <p>Escrow fee: <strong className="text-foreground">₹{urgencyMeta.fee.toLocaleString("en-IN")}</strong> (platform 10% + tax 3% deducted on release)</p>
+            <p>You pay: <strong className="text-foreground">₹{urgencyMeta.fee.toLocaleString("en-IN")}</strong> held until the work is done</p>
+            <p>
+              Of that, <strong className="text-foreground">₹{feeBreakdown.professionalFee.toLocaleString("en-IN")}</strong> is the
+              professional fee released in full to the appearing advocate, and
+              <strong className="text-foreground"> ₹{(feeBreakdown.platformFee + feeBreakdown.gstOnPlatformFee).toLocaleString("en-IN")}</strong> is
+              Legal Connect&rsquo;s flat technology fee (₹{feeBreakdown.platformFee} + ₹{feeBreakdown.gstOnPlatformFee} GST), the same on every mission.
+            </p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold">Fee (set by urgency)</label>

@@ -85,7 +85,7 @@ const DEFAULT_SEED_SOURCES = [
     citation: "LC Gateway explainer",
     publishedDate: "2026-08-03",
     textContent:
-      "A one-time advisory session is Astrotalk-style guidance only. Clients cannot hire an advocate directly inside the app. To convert into full court representation, the client requests LC Gateway retention; Legal Connect reviews, quotes terms, and assigns a Bar-verified panel lawyer. Keywords: advisory, retention, LC Gateway, full representation, panel lawyer.",
+      "A one-time advisory session is Astrotalk-style guidance only. Clients cannot hire an advocate directly inside the app. To convert into full court representation, the client requests LC Gateway retention; Legal Connect reviews, quotes terms, and assigns a panel advocate whose enrolment document has been checked. Keywords: advisory, retention, LC Gateway, full representation, panel lawyer.",
   },
 ];
 
@@ -726,7 +726,7 @@ function createMasterBlueprint(deps) {
     await notify({
       eventType: "retention_panel_assigned",
       title: "Panel lawyer assigned by Legal Connect",
-      message: "Your full court representation request has a Bar-verified panel lawyer assigned by LC Gateway.",
+      message: "Your full court representation request has a panel advocate assigned by LC Gateway. Legal Connect has checked that advocate's enrolment document.",
       recipients: [
         ...(await resolveRecipients([booking.userId, advocateId].filter(Boolean))),
         ...(await resolveAdminRecipients()),

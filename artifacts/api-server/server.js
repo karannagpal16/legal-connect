@@ -1039,7 +1039,7 @@ function publicSupportRouting() {
       destination: "RNA Chat Coordinator",
       phone: "",
       phone_label: "No advocate private number is shown for chat.",
-      next_step: "After payment verification, RNA allocates the verified counsel window.",
+      next_step: "After payment verification, RNA allocates the counsel window.",
     },
     {
       service: "SOS Video",
@@ -1500,7 +1500,7 @@ async function ensurePaidBookingCase(bookingId) {
       consultationChannel: payload.consultationChannel || "call",
       urgency: payload.urgency || "standard",
       stage: "Submitted & Paid",
-      nextAction: "Legal Connect is completing the conflict check and assigning verified counsel.",
+      nextAction: "Legal Connect is completing the conflict check and assigning counsel whose enrolment document it has checked.",
       appearanceRequired: false,
       counsel: null,
       source: payload.source || "booking",
@@ -1729,7 +1729,7 @@ function participantRevenueLedger(tasks, bookings, users) {
       role: "advocate",
     });
     if (proxy && isProxyReleased(task)) {
-      proxy.proxyEarned += numericAmount(settlement.netToProxy, Math.round(gross * 0.87));
+      proxy.proxyEarned += numericAmount(settlement.netToProxy, computeProxySettlement(gross).netToProxy);
     }
   }
 
@@ -1762,7 +1762,7 @@ function revenueAnalytics(cases, tasks, users, bookings = []) {
   const openTasks = tasks.filter((item) => item.status === "Open");
   const marketplaceProfit = completedTasks.reduce((sum, item) => {
     const gross = numericAmount(item.amount ?? item.fee);
-    return sum + (item.settlement?.platformFee ?? Math.round(gross * 0.1));
+    return sum + (item.settlement?.platformFee ?? computeProxySettlement(gross).platformFee);
   }, 0);
   const totalManagedRevenue = activeCases.length * 50000;
   const singaporeGoal = 38000000;
@@ -1840,9 +1840,7 @@ function myAppEarnings(authUser, tasks, bookings) {
         kind: "proxy_earned",
         title,
         detail,
-        amount: isProxyReleased(task)
-          ? numericAmount(settlement.netToProxy, Math.round(gross * 0.87))
-          : numericAmount(settlement.netToProxy, Math.round(gross * 0.87)),
+        amount: numericAmount(settlement.netToProxy, computeProxySettlement(gross).netToProxy),
         gross,
         platformFee: numericAmount(settlement.platformFee),
         appTaxGst: numericAmount(settlement.appTaxGst),
@@ -4098,7 +4096,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Admin advocate picker — returns Bar-verified advocates for the Admin Assignment Desk.
+  // Admin advocate picker — returns advocates whose enrolment document is checked, for the Admin Assignment Desk.
   if (url.pathname === "/api/admin/advocates" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (!authUser || !canSeeAll(authUser)) {
@@ -4238,7 +4236,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Assign a matter to verified counsel and notify both sides.
+  // Assign a matter to panel counsel and notify both sides.
   const adminCaseAssignMatch = url.pathname.match(/^\/api\/admin\/cases\/([^/]+)\/assign$/);
   if (adminCaseAssignMatch && req.method === "POST") {
     const authUser = sourceAdminUser(req, res);
@@ -4727,7 +4725,7 @@ const server = http.createServer(async (req, res) => {
       const advocateId = String(body.advocateId || body.assignedAdvocateId || body.lawyerId || "").trim();
       const note = String(body.note || body.message || "").trim();
       if (!advocateId) {
-        sendJson(res, 400, { ok: false, error: "Select a Bar-verified panel lawyer." });
+        sendJson(res, 400, { ok: false, error: "Select a panel advocate whose enrolment document is checked." });
         return;
       }
       if (loaded.mode === "demo") {
@@ -4761,7 +4759,7 @@ const server = http.createServer(async (req, res) => {
       const isPanelLawyer = advocate
         && (advocate.role === "advocate" || (isMasterTestEmail(advocate.email) && barVerified));
       if (!advocate || !isPanelLawyer || !barVerified) {
-        sendJson(res, 404, { ok: false, error: "Bar-verified panel lawyer not found." });
+        sendJson(res, 404, { ok: false, error: "No panel advocate with a checked enrolment document was found." });
         return;
       }
       const enrollment = { rows: advocate.enrollment_no ? [{ enrollment_no: advocate.enrollment_no }] : [] };
@@ -6306,7 +6304,7 @@ const server = http.createServer(async (req, res) => {
         receiptType: body.action === "release_payment" ? "proxy_escrow_release" : "admin_task_action",
         title: body.action === "release_payment" ? "Proxy escrow release receipt" : "RNA/Admin action receipt",
         message: body.action === "release_payment" && settlement
-          ? `Gross ₹${settlement.gross} → platform ₹${settlement.platformFee} → tax ₹${settlement.appTaxGst} → net to proxy ₹${settlement.netToProxy}. Manual settlement required.`
+          ? `Collected ₹${settlement.gross} → Legal Connect flat technology fee ₹${settlement.platformFee} + GST on that fee ₹${settlement.appTaxGst} → professional fee to appearing advocate ₹${settlement.netToProxy}. Manual settlement required.`
           : `Task action saved: ${nextStatus}`,
         status: nextStatus,
         targetType: "task",
@@ -6339,10 +6337,10 @@ const server = http.createServer(async (req, res) => {
         } else {
           await strategyFeatures.notifyTaskLayer(mapped, {
             eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
-            title: body.action === "release_payment" ? "Funds released after tax deduction" : "Proof approved (Admin override)",
+            title: body.action === "release_payment" ? "Professional fee released" : "Proof approved (Admin override)",
             message: body.action === "release_payment" && settlement
-              ? `${mapped.title || "Proxy mission"} work hold released. Gross ₹${settlement.gross.toLocaleString("en-IN")} − platform ₹${settlement.platformFee.toLocaleString("en-IN")} − tax ₹${settlement.appTaxGst.toLocaleString("en-IN")} = net ₹${settlement.netToProxy.toLocaleString("en-IN")} to proxy. Payout is manual (not automated Razorpay).`
-              : `${mapped.title || "Proxy mission"} proof was approved by Admin override. Admin may now release net funds after taxes.`,
+              ? `${mapped.title || "Proxy mission"} work hold released. Collected ₹${settlement.gross.toLocaleString("en-IN")} − Legal Connect technology fee ₹${settlement.platformFee.toLocaleString("en-IN")} − GST on that fee ₹${settlement.appTaxGst.toLocaleString("en-IN")} = professional fee ₹${settlement.netToProxy.toLocaleString("en-IN")} to the appearing advocate. Payout is manual (not automated Razorpay).`
+              : `${mapped.title || "Proxy mission"} proof was approved by Admin override. Admin may now release the professional fee.`,
             priority: "high",
             sendSms: false,
           });
@@ -7939,7 +7937,7 @@ const server = http.createServer(async (req, res) => {
         await notify({
           eventType: "booking_confirmed",
           title: "New Intake Pending Lawyer Assignment",
-          message: "Client fee and intake received. Legal Connect Control Desk should assign a Bar-verified panel lawyer.",
+          message: "Client fee and intake received. Legal Connect Control Desk should assign a panel advocate whose enrolment document is checked.",
           recipients,
           payload: {
             bookingId: savedBooking.id,
@@ -8896,9 +8894,9 @@ const CHAMBER_PLANS = {
     periodDays: 30,
     seats: 8,
     maxOpenTasks: null,
-    tagline: "Scale the practice",
-    profitNote: "3× seats · sticky mid-chamber ARPU",
-    perks: ["Owner + 8 members", "Unlimited open tasks", "Priority support lane", "Proxy Hub fee insight"],
+    tagline: "Scale chamber operations",
+    profitNote: "3× seats · chamber-wide workflow",
+    perks: ["Owner + 8 members", "Unlimited open tasks", "Priority support lane", "Chamber task analytics"],
   },
   chambers_plus: {
     id: "chambers_plus",
@@ -8907,9 +8905,9 @@ const CHAMBER_PLANS = {
     periodDays: 30,
     seats: 20,
     maxOpenTasks: null,
-    tagline: "Maximum chamber profit",
-    profitNote: "Highest margin · seats + attach products",
-    perks: ["Owner + 20 members", "Unlimited tasks", "Audit-ready export", "10% Proxy Hub fee relief", "Intern invite slots"],
+    tagline: "Full chamber operations",
+    profitNote: "Largest seat pool · audit-ready records",
+    perks: ["Owner + 20 members", "Unlimited tasks", "Audit-ready export", "Guided onboarding session", "Intern invite slots"],
   },
 };
 
@@ -9034,7 +9032,7 @@ async function ensureMasterTestUser(role) {
     address: "New Delhi",
     aadhaarNumber: "XXXX XXXX 1605",
   });
-  // Keep Bar-verified panel eligibility even when the developer account switches role.
+  // Keep panel eligibility (enrolment document checked) even when the developer account switches role.
   await db.query(
     "UPDATE profile_advocates SET verification_status = 'approved' WHERE user_id = $1",
     [user.id],

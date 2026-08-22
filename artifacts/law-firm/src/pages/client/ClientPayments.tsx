@@ -116,7 +116,7 @@ export function ClientPayments() {
               <em>{formatINR(row.amount)}</em>
             </div>
           )) : (
-            <p className="lc-inline-empty">No counsel payments yet. Book verified counsel to get started.</p>
+            <p className="lc-inline-empty">No counsel payments yet. Start an intake to get going.</p>
           )}
         </div>
       </section>
