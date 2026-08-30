@@ -10,6 +10,7 @@ const { getPortalLoginRoute, getPostLoginRoute, normalizePortal, isRoleAllowedFo
 const { createStrategyFeatures, computeProxySettlement, proxyUrgencyMeta, PROXY_URGENCY_TIERS } = require("./strategy-features");
 const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
+const { isWorkHoldActive } = require("./work-hold");
 const { createPlatformEvents } = require("./platform-events");
 const {
   createSupervisedPipeline,
@@ -3208,6 +3209,7 @@ const server = http.createServer(async (req, res) => {
         status: dbHealth.connected || config.nodeEnv !== "production" ? "ok" : "degraded",
         app: "Legal Connect",
         db: dbHealth.connected ? "connected" : "disconnected",
+        lawbot: "source-locked",
       });
       return;
     }
@@ -7549,6 +7551,14 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 409, { error: "This task is no longer available for assignment." });
         return;
       }
+      if (!isWorkHoldActive(current)) {
+        sendJson(res, 409, {
+          ok: false,
+          error: "Assign proxy only after the Work Completion Hold is active and payment is verified.",
+          code: "WORK_HOLD_REQUIRED",
+        });
+        return;
+      }
       const profiles = await loadAdvocateProfilesByIds(db, [current.postedBy, proxyId]);
       const mainCounsel = counselSnapshotFromProfile(profiles.get(String(current.postedBy || "")), current.posterName || current.mainCounsel?.name);
       const proxyCounsel = counselSnapshotFromProfile(profiles.get(String(proxyId)), proxyName);
@@ -7604,6 +7614,14 @@ const server = http.createServer(async (req, res) => {
     }
     if (!["Open", "Awaiting Admin Assignment", "pending_admin_review", "query_raised"].includes(task.status) && task.acceptedBy !== proxyId) {
       sendJson(res, 409, { error: "This task is no longer available for assignment." });
+      return;
+    }
+    if (!isWorkHoldActive(task)) {
+      sendJson(res, 409, {
+        ok: false,
+        error: "Assign proxy only after the Work Completion Hold is active and payment is verified.",
+        code: "WORK_HOLD_REQUIRED",
+      });
       return;
     }
     Object.assign(task, {
@@ -8488,11 +8506,15 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/lawbot/feedback" && req.method === "POST") {
     const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
     const body = await readBody(req);
     const feedback = {
       id: `lawbot-feedback-${Date.now()}`,
       queryId: body.queryId || body.query_id || null,
-      userId: userIdForWrite(body, authUser),
+      userId: authUser.id,
       rating: body.rating || "needs advocate review",
       comment: body.comment || "",
       createdAt: new Date().toISOString(),

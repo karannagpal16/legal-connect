@@ -150,7 +150,6 @@ export function Home() {
                 </Link>
                 <div className="lc-dharma-portal-links">
                   <Link href="/login?role=intern">Intern portal</Link>
-                  <Link href="/login?role=admin">Admin access</Link>
                 </div>
               </article>
             </div>
@@ -189,6 +188,10 @@ export function Home() {
           <Link href="/terms">Terms</Link>
           {" · "}
           <Link href="/refund">Refunds</Link>
+          {" · "}
+          <Link href="/disclaimer">Disclaimer</Link>
+          {" · "}
+          <Link href="/contact">Contact</Link>
         </p>
         <Link href="/login?mode=register">Create an account <ArrowRight aria-hidden="true" /></Link>
       </footer>

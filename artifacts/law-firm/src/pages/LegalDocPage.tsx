@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { ArrowLeft, Scale } from "lucide-react";
 
-type LegalDocKind = "privacy" | "terms" | "refund";
+type LegalDocKind = "privacy" | "terms" | "refund" | "disclaimer" | "contact";
 
 const docs: Record<LegalDocKind, { title: string; updated: string; sections: Array<{ heading: string; body: string[] }> }> = {
   privacy: {
@@ -122,6 +122,53 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
       },
     ],
   },
+  disclaimer: {
+    title: "Disclaimer",
+    updated: "30 August 2026",
+    sections: [
+      {
+        heading: "Not a court or Bar Council service",
+        body: [
+          "Legal Connect is a private legal-technology and legal-operations platform. It is not owned, operated, approved, accredited or endorsed by any court, the Bar Council of India, or any State Bar Council.",
+          "Legal Connect does not display an official District Court live board, CIS cause list, or any other unauthorized court feed.",
+        ],
+      },
+      {
+        heading: "Not legal advice",
+        body: [
+          "Information on the platform, including LawBot answers, is informational and is drawn only from sources approved in the Legal Connect library. It is not a substitute for advice from an independent advocate.",
+          "Advocates who use the platform remain independently responsible for their professional conduct.",
+        ],
+      },
+      {
+        heading: "Matter records",
+        body: [
+          "Hearing dates, orders and statuses that you see in a Case Diary are records entered by you, by counsel, or by Legal Connect administration — or, where connected, taken from an authorized public source with attribution. They are not an official court status unless the source is identified as such.",
+        ],
+      },
+    ],
+  },
+  contact: {
+    title: "Contact",
+    updated: "30 August 2026",
+    sections: [
+      {
+        heading: "How to reach Legal Connect",
+        body: [
+          "Clients: use the Grievance flow in the client portal for a matter already on the platform, or sign in and open an intake.",
+          "Advocates and institutions: sign in to your workspace, or write to the support address configured for your account.",
+          "Privacy and data requests: use the in-app Grievance flow or the account administrator for your workspace.",
+        ],
+      },
+      {
+        heading: "What we will not do",
+        body: [
+          "We will not provide legal advice by email. Questions about a matter belong with the independent advocate handling it.",
+          "We will not confirm, certify or endorse any advocate as approved by a Bar Council.",
+        ],
+      },
+    ],
+  },
 };
 
 export function LegalDocPage({ kind }: { kind: LegalDocKind }) {
@@ -169,6 +216,10 @@ export function LegalDocPage({ kind }: { kind: LegalDocKind }) {
             <Link href="/terms">Terms</Link>
             {" · "}
             <Link href="/refund">Refunds</Link>
+            {" · "}
+            <Link href="/disclaimer">Disclaimer</Link>
+            {" · "}
+            <Link href="/contact">Contact</Link>
           </p>
         </div>
       </main>
@@ -186,4 +237,12 @@ export function TermsPage() {
 
 export function RefundPage() {
   return <LegalDocPage kind="refund" />;
+}
+
+export function DisclaimerPage() {
+  return <LegalDocPage kind="disclaimer" />;
+}
+
+export function ContactPage() {
+  return <LegalDocPage kind="contact" />;
 }

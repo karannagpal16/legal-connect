@@ -154,7 +154,7 @@ export function Dashboard() {
       <DashboardIntro
         eyebrow="MASTER OPERATIONS CONTROL"
         title={`Platform command for ${firstName}.`}
-        description="Assign counsel, update clients as Legal Connect supervisor, and control tasks and escrow from one desk."
+        description="Assign counsel, update clients as Legal Connect supervisor, and control tasks and Work Completion Holds from one desk."
         action={{ label: "Open Ops Command", href: "/admin/control", icon: Gavel }}
       />
 
@@ -175,7 +175,7 @@ export function Dashboard() {
 
       <section className="lc-workspace-metrics" aria-label="Operations spotlight">
         <div><ShieldCheck /><span><strong>{pendingVerifications.length}</strong><small>Pending credential reviews</small></span></div>
-        <div><Wallet /><span><strong>₹{escrowHeld.toLocaleString("en-IN")}</strong><small>Managed / escrow ledger</small></span></div>
+        <div><Wallet /><span><strong>₹{escrowHeld.toLocaleString("en-IN")}</strong><small>Managed / hold ledger</small></span></div>
         <div><Users /><span><strong>{advocates.length}</strong><small>Verified advocate pool</small></span></div>
         <div><Activity /><span><strong>{bookingList.length + taskList.length}</strong><small>Live commercial events</small></span></div>
       </section>
@@ -209,7 +209,7 @@ export function Dashboard() {
 
         <DashboardPanel
           title="ProxyHub · Posted tasks"
-          detail="Paid proxy postings waiting for LC review, assignment, proof or escrow release"
+          detail="Paid proxy postings waiting for LC review, assignment, proof or hold release"
           action={{ label: "Open proxy desk", href: "/admin/control?tab=proxy" }}
         >
           {postedProxyTasks.length ? (
@@ -292,7 +292,7 @@ export function Dashboard() {
         </DashboardPanel>
 
         <DashboardPanel
-          title="Escrow payout governance"
+          title="Hold-release governance"
           detail="Client fees held in trust until work completion"
           action={{ label: "Open revenue desk", href: "/admin/revenue" }}
         >
@@ -392,7 +392,7 @@ export function Dashboard() {
         </Link>
         <Link href="/admin/control?tab=proxy" className="lc-quick-action lc-tone-green">
           <span><BriefcaseBusiness /></span>
-          <div><strong>Posted proxy tasks</strong><small>Review, assign & release escrow</small></div>
+          <div><strong>Posted proxy tasks</strong><small>Review, assign and release holds</small></div>
           <ArrowRight />
         </Link>
         <Link href="/admin/missions" className="lc-quick-action lc-tone-green">
@@ -402,7 +402,7 @@ export function Dashboard() {
         </Link>
         <Link href="/admin/revenue" className="lc-quick-action lc-tone-red">
           <span><BarChart3 /></span>
-          <div><strong>Escrow ledger</strong><small>Approve releases and track fees</small></div>
+          <div><strong>Hold ledger</strong><small>Approve releases and track fees</small></div>
           <ArrowRight />
         </Link>
         <Link href="/admin/cases" className="lc-quick-action">

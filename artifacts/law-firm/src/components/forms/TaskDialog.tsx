@@ -124,7 +124,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     form.reset(emptyDefaults);
     toast({
       title: "Proxy task posted",
-      description: `${urgencyMeta.label}: escrow held. Legal Connect will review and assign a proxy counsel.`,
+      description: `${urgencyMeta.label}: Work Completion Hold recorded. Legal Connect will review and assign a proxy counsel.`,
     });
   };
 
@@ -388,7 +388,7 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
               readOnly
               className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none opacity-80"
             />
-            {isEditing ? <p className="text-[11px] text-muted-foreground">Escrowed fee and urgency cannot be changed after payment.</p> : null}
+            {isEditing ? <p className="text-[11px] text-muted-foreground">Held fee and urgency cannot be changed after payment.</p> : null}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

@@ -59,7 +59,7 @@ export function ClientGrievance() {
           Category
           <select value={category} onChange={(event) => setCategory(event.target.value)}>
             <option value="service">Service quality</option>
-            <option value="payment">Payment / escrow</option>
+            <option value="payment">Payment / Work Completion Hold</option>
             <option value="proxyhub">ProxyHub appearance</option>
             <option value="privacy">Privacy / data</option>
             <option value="conduct">Professional conduct</option>

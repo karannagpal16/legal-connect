@@ -5,6 +5,8 @@
  * bookings / tasks / payments / legal_sources tables with explicit state machines.
  */
 
+const { isWorkHoldActive } = require("./work-hold");
+
 const ADVISORY_AMOUNTS = {
   chat: 99,
   call: 299,
@@ -781,18 +783,13 @@ function createMasterBlueprint(deps) {
         return;
       }
 
-      const escrow = String(task.escrowStatus || task.escrow_status || "").toLowerCase();
       const amount = Number(task.amount || task.fee || 0);
       const status = String(task.status || "").toLowerCase();
-      const fundsHeld = escrow.includes("lock")
-        || escrow.includes("held")
-        || amount > 0
-        || Boolean(task.paymentVerified || task.razorpayPaymentId);
-      if (!fundsHeld) {
+      if (!isWorkHoldActive(task)) {
         sendJson(res, 409, {
           ok: false,
-          error: "Assign proxy only after funds are received and held in escrow.",
-          code: "ESCROW_REQUIRED",
+          error: "Assign proxy only after the Work Completion Hold is active and payment is verified.",
+          code: "WORK_HOLD_REQUIRED",
           escrowStatus: task.escrowStatus || null,
           amount,
         });

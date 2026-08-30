@@ -160,7 +160,7 @@ export function AdvocateBookings() {
         <div>
           <strong>No direct hiring</strong>
           <p className="lc-ops-meta">
-            Use ProxyHub for escrow court missions and Chamber Vault for intern quests. Full representation
+            Use ProxyHub for held court missions and Chamber Vault for intern quests. Full representation
             always routes through Legal Connect Gateway.
           </p>
           <div className="lc-hero-button-row" style={{ marginTop: "0.75rem" }}>

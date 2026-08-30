@@ -767,7 +767,7 @@ export function ProxyHub() {
                             toast({ title: "Reason required", description: "Enter at least 8 characters.", variant: "destructive" });
                             return;
                           }
-                          if (!window.confirm("Mark escrow refunded? Money movement stays manual.")) return;
+                          if (!window.confirm("Mark this Work Completion Hold refunded? Money movement stays manual.")) return;
                           runAction(t.id, "/api/admin/task-action", {
                             method: "POST",
                             body: JSON.stringify({ taskId: t.id, action: "refund", reason }),

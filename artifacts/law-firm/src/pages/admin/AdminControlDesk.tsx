@@ -387,22 +387,10 @@ export function AdminControlDesk() {
 
   const assignProxy = useMutation({
     mutationFn: async ({ taskId, advocateId, advocateName }: { taskId: string; advocateId: string; advocateName: string }) => {
-      try {
-        return await workspaceRequest(`/api/admin/proxy-tasks/${taskId}/assign-proxy`, session?.token, {
-          method: "POST",
-          body: JSON.stringify({ proxyAdvocateId: advocateId, proxyAdvocateName: advocateName }),
-        });
-      } catch (primaryError) {
-        // Fallback to the legacy admin accept path if the blueprint assign route fails.
-        try {
-          return await workspaceRequest(`/api/tasks/${taskId}/accept`, session?.token, {
-            method: "POST",
-            body: JSON.stringify({ proxyAdvocateId: advocateId, proxyAdvocateName: advocateName }),
-          });
-        } catch {
-          throw primaryError;
-        }
-      }
+      return workspaceRequest(`/api/admin/proxy-tasks/${taskId}/assign-proxy`, session?.token, {
+        method: "POST",
+        body: JSON.stringify({ proxyAdvocateId: advocateId, proxyAdvocateName: advocateName }),
+      });
     },
     onSuccess: () => {
       setSuccess("Proxy counsel assigned by LC. They must declare conflict, check in, and upload proof.");
@@ -669,7 +657,7 @@ export function AdminControlDesk() {
     { id: "proxy", label: "Posted Proxy Tasks", count: tasks.length },
     { id: "moderation", label: "Counsel Updates", count: pendingLcCount },
     { id: "verifications", label: "Credential Verifications", count: pendingVerifyCount },
-    { id: "escrow", label: "Escrow & Revenue", count: escrowTasks.length + heldBookings.length },
+    { id: "escrow", label: "Holds & Revenue", count: escrowTasks.length + heldBookings.length },
     { id: "cases", label: "Global Case Register", count: cases.length },
     { id: "lawbot", label: "LawBot Seeder" },
   ];
@@ -680,7 +668,7 @@ export function AdminControlDesk() {
     { id: "needs_lc", label: "Needs LC Review", count: pendingLcCount || queue.filter((item) => String(item.intakeStatus || "").includes("review")).length },
     { id: "active_proxy", label: "Active Proxy Tasks", count: tasks.length },
     { id: "pending_verify", label: "Pending Verify", count: pendingVerifyCount },
-    { id: "escrow_holds", label: "Escrow Holds", count: escrowTasks.length + heldBookings.length },
+    { id: "escrow_holds", label: "Work Completion Holds", count: escrowTasks.length + heldBookings.length },
   ];
 
   return (
@@ -690,7 +678,7 @@ export function AdminControlDesk() {
           <span className="lc-kicker">360° OPERATIONS COMMAND</span>
           <h2>Admin Ops Desk</h2>
           <p>
-            Gateway retention onboarding, proxy assignment & escrow, supervised Q&A audit, LawBot seeding,
+            Gateway retention onboarding, proxy assignment and Work Completion Hold, supervised Q&A audit, LawBot seeding,
             and panel assignments — one Master Blueprint control surface.
           </p>
         </div>
@@ -1389,22 +1377,22 @@ export function AdminControlDesk() {
         <section className="space-y-4">
           <div className="lc-ops-section-head">
             <div>
-              <h3>Escrow & Revenue Ledger</h3>
+              <h3>Work Completion Hold & Revenue Ledger</h3>
               <p className="text-muted-foreground">Work holds, proof gates, and settlement-ready ledger rows. Automated Razorpay payouts are not claimed here.</p>
             </div>
             <Link className="lc-button" href="/admin/revenue">Open revenue analytics</Link>
           </div>
 
-          <div className="lc-workspace-metrics" aria-label="Escrow snapshot">
+          <div className="lc-workspace-metrics" aria-label="Work Completion Hold snapshot">
             <div><Wallet /><span><strong>{escrowTasks.length}</strong><small>Proxy holds</small></span></div>
             <div><BriefcaseBusiness /><span><strong>{heldBookings.length}</strong><small>Intake work holds</small></span></div>
             <div><CheckCircle2 /><span><strong>{allTasks.filter((task) => String(task.escrowStatus || "").toLowerCase().includes("release")).length}</strong><small>Released holds</small></span></div>
             <div><FileSearch /><span><strong>₹{[...escrowTasks, ...filteredEscrowBookings].reduce((sum, item) => sum + Number(("amount" in item ? item.amount : 0) || ("fee" in item ? item.fee : 0) || 0), 0).toLocaleString("en-IN")}</strong><small>Held notional value</small></span></div>
           </div>
 
-          <h4>Proxy escrow rows</h4>
+          <h4>Proxy hold rows</h4>
           {!filteredTasks.filter(isEscrowHeld).length && !escrowTasks.length ? (
-            <p className="text-muted-foreground">No active proxy escrow holds.</p>
+            <p className="text-muted-foreground">No active Work Completion Holds.</p>
           ) : null}
           <div className="space-y-3">
             {(filter === "escrow_holds" ? filteredTasks : escrowTasks.filter((task) => matchesQuery([
@@ -1525,7 +1513,7 @@ export function AdminControlDesk() {
           panel
           compact
           title="Live Sync"
-          emptyText="Live intake, assignment and escrow updates appear here."
+          emptyText="Live intake, assignment and hold updates appear here."
           limit={6}
         />
       </aside>

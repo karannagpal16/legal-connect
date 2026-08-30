@@ -8,7 +8,10 @@ type DemoSurface =
   | "reminders"
   | "ai-assistant"
   | "advocate-reminders"
-  | "intern-ai";
+  | "intern-ai"
+  | "court-tracker"
+  | "judges-roster"
+  | "court-radar";
 
 const COPY: Record<DemoSurface, {
   title: string;
@@ -58,6 +61,24 @@ const COPY: Record<DemoSurface, {
     primaryHref: "/intern",
     primaryLabel: "Back to intern home",
   },
+  "court-tracker": {
+    title: "Authorized real-time court status is coming soon",
+    body: "Legal Connect does not display an official District Court live board. Matter dates and orders in your workspace are records you or counsel enter, or data from an authorized public source when one is connected. Estimated or sample status is never presented as a court order.",
+    primaryHref: "/client",
+    primaryLabel: "Open client home",
+  },
+  "judges-roster": {
+    title: "Official judge roster is not live",
+    body: "Legal Connect does not publish a live judicial roster. Hearing dates and benches belong on your Case Diary, entered by you or recorded from an authorized source.",
+    primaryHref: "/advocate/cases",
+    primaryLabel: "Open Case Diary",
+  },
+  "court-radar": {
+    title: "Authorized real-time court status is coming soon",
+    body: "Court Radar is a future integration. Phase 1 does not scrape, infer, or display unofficial District Court cause lists or CIS boards.",
+    primaryHref: "/advocate/cases",
+    primaryLabel: "Open Case Diary",
+  },
 };
 
 export function DemoFeatureGate({ surface }: { surface: DemoSurface }) {
@@ -106,4 +127,16 @@ export function AdvocateReminders() {
 
 export function InternAIAssistant() {
   return <DemoFeatureGate surface="intern-ai" />;
+}
+
+export function ClientCaseTracker() {
+  return <DemoFeatureGate surface="court-tracker" />;
+}
+
+export function AdvocateJudges() {
+  return <DemoFeatureGate surface="judges-roster" />;
+}
+
+export function CourtRadarComingSoon() {
+  return <DemoFeatureGate surface="court-radar" />;
 }

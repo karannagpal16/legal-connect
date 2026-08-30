@@ -67,7 +67,7 @@ export function TransparencyLedger() {
             <section className="lc-transparency-grid" aria-label="Live platform stats">
               <article><strong>{ledger.missionsPosted}</strong><span>Proxy missions posted</span></article>
               <article><strong>{ledger.missionsCompleted}</strong><span>Missions completed</span></article>
-              <article><strong>{ledger.escrowHeldMissions}</strong><span>Escrow-held missions</span></article>
+              <article><strong>{ledger.escrowHeldMissions}</strong><span>Held missions</span></article>
               <article><strong>{ledger.proofsSubmitted}</strong><span>Order-sheet proofs</span></article>
               <article><strong>{ledger.advocateAccounts}</strong><span>Advocate accounts (enrolment document checked)</span></article>
               <article><strong>{ledger.paidBookings}</strong><span>Paid bookings</span></article>

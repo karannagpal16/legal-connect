@@ -89,8 +89,10 @@ export function Login() {
     setOwnerDesk(unlocked);
     if (unlocked) {
       setEmail(OWNER_EMAIL);
+    } else if (requestedRole === "admin") {
+      setRole("client");
     }
-  }, [params]);
+  }, [params, requestedRole]);
 
   const selectMode = (next: "login" | "register") => {
     setMode(next);
@@ -212,7 +214,7 @@ export function Login() {
           </div>
 
           <div className="lc-role-picker" aria-label="Select a role">
-            {roles.filter((item) => mode === "login" || item.role !== "admin").map((item) => (
+            {roles.filter((item) => item.role !== "admin" || ownerDesk).map((item) => (
               <button
                 key={item.role}
                 type="button"

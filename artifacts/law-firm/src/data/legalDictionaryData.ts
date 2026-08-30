@@ -240,7 +240,7 @@ export const LEGAL_DICTIONARY: LegalDictionaryTerm[] = [
   },
   {
     id: "escrow",
-    term: "Escrow / Work Completion Hold",
+    term: "Work Completion Hold",
     phonetic: "es-kroh",
     category: "money_fees",
     definition: "Money held until agreed work or proof is completed, then released or refunded under platform rules.",

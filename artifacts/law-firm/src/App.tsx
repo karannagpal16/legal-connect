@@ -20,6 +20,9 @@ const TransparencyLedger = lazyNamed(() => import("@/pages/TransparencyLedger"),
 const PrivacyPage = lazyNamed(() => import("@/pages/LegalDocPage"), "PrivacyPage");
 const TermsPage = lazyNamed(() => import("@/pages/LegalDocPage"), "TermsPage");
 const RefundPage = lazyNamed(() => import("@/pages/LegalDocPage"), "RefundPage");
+const DisclaimerPage = lazyNamed(() => import("@/pages/LegalDocPage"), "DisclaimerPage");
+const ContactPage = lazyNamed(() => import("@/pages/LegalDocPage"), "ContactPage");
+const CourtRadarComingSoon = lazyNamed(() => import("@/pages/DemoFeatureGate"), "CourtRadarComingSoon");
 const AccessDeniedPage = lazyNamed(() => import("@/pages/AccessPages"), "AccessDeniedPage");
 const AccountRestrictedPage = lazyNamed(() => import("@/pages/AccessPages"), "AccountRestrictedPage");
 const Dashboard = lazyNamed(() => import("@/pages/Dashboard"), "Dashboard");
@@ -278,6 +281,9 @@ function Router() {
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
       <Route path="/refund" component={RefundPage} />
+      <Route path="/disclaimer" component={DisclaimerPage} />
+      <Route path="/contact" component={ContactPage} />
+      <Route path="/court-radar" component={CourtRadarComingSoon} />
       <Route path="/login" component={Login} />
       <Route path="/access-denied" component={AccessDeniedPage} />
       <Route path="/account-restricted" component={AccountRestrictedPage} />
