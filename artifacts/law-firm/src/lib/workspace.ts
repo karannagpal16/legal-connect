@@ -144,7 +144,8 @@ export async function workspaceRequest<T>(path: string, token?: string | null, i
   if (!response.ok) {
     const base = payload.error || payload.message || "This request could not be completed.";
     const detail = payload.detail && String(payload.detail) !== String(base) ? ` (${payload.detail})` : "";
-    throw new Error(`${base}${detail}`);
+    const requestId = payload.requestId ? ` Ref ${payload.requestId}` : "";
+    throw new Error(`${base}${detail}${requestId}`);
   }
   return payload as T;
 }

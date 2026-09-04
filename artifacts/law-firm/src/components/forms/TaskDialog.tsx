@@ -393,7 +393,8 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold">CNR number</label>
-              <input {...form.register("cnr")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="DLCT010012342023" />
+              <input {...form.register("cnr")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none uppercase" placeholder="DLCT010012342023" />
+              <p className="text-[11px] text-muted-foreground">eCourts CNR is 16 characters (example: DLCT010012342023). A court diary number of 8+ characters is accepted if CNR is not yet issued.</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Hearing date</label>

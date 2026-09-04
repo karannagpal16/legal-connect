@@ -11,6 +11,13 @@ const { createStrategyFeatures, computeProxySettlement, proxyUrgencyMeta, PROXY_
 const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
 const { isWorkHoldActive } = require("./work-hold");
+const {
+  canPostProxyMission,
+  isComplimentaryProxyOrder,
+  safeErrorDetail,
+  buildProxyMissionRecord,
+  insertProxyMission,
+} = require("./proxy-hub-post");
 const { createPlatformEvents } = require("./platform-events");
 const {
   createSupervisedPipeline,
@@ -942,6 +949,17 @@ function corsOriginFor(req) {
 
 function sendJson(res, status, data) {
   applySecurityHeaders(res);
+  let body;
+  try {
+    body = JSON.stringify(data);
+  } catch (error) {
+    status = status >= 400 ? status : 500;
+    body = JSON.stringify({
+      ok: false,
+      error: "The service could not complete this request. Please try again.",
+      detail: safeErrorDetail(error),
+    });
+  }
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": res.localsCorsOrigin || config.allowedOrigin,
@@ -953,7 +971,7 @@ function sendJson(res, status, data) {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Cache-Control": "no-store",
   });
-  res.end(JSON.stringify(data));
+  res.end(body);
 }
 
 function productionDbUnavailable() {
@@ -1331,20 +1349,35 @@ async function createRazorpayOrder({ amount, currency = "INR", receipt, notes = 
   }
   const safeCurrency = "INR";
   const auth = Buffer.from(`${config.razorpayKeyId}:${config.razorpayKeySecret}`).toString("base64");
-  const response = await fetch("https://api.razorpay.com/v1/orders", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      amount: amountPaise,
-      currency: safeCurrency,
-      receipt,
-      notes,
-    }),
-  });
-  const payload = await response.json().catch(() => ({}));
+  const postOrder = async (body) => {
+    const response = await fetch("https://api.razorpay.com/v1/orders", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => ({}));
+    return { response, payload };
+  };
+  const withNotes = {
+    amount: amountPaise,
+    currency: safeCurrency,
+    receipt,
+    notes,
+  };
+  let { response, payload } = await postOrder(withNotes);
+  if (!response.ok && notes && Object.keys(notes).length) {
+    const message = String(payload.error?.description || payload.error?.reason || "");
+    if (/note/i.test(message) || response.status === 400) {
+      ({ response, payload } = await postOrder({
+        amount: amountPaise,
+        currency: safeCurrency,
+        receipt,
+      }));
+    }
+  }
   if (!response.ok) {
     const message = payload.error?.description || payload.error?.reason || `Razorpay order failed with status ${response.status}`;
     return { ok: false, status: response.status, error_message: String(message).slice(0, 180) };
@@ -3145,7 +3178,11 @@ const server = http.createServer(async (req, res) => {
 
   // Bind auth once per request: revoke check + live DB role (prevents stale admin tokens).
   if (url.pathname.startsWith("/api/")) {
-    await bindAuthUser(req);
+    try {
+      await bindAuthUser(req);
+    } catch (error) {
+      console.warn("bindAuthUser failed:", redactSecrets(error?.message || error));
+    }
   }
 
   if (await masterBlueprint.handleBlueprintRoutes(req, res, url)) {
@@ -6595,62 +6632,61 @@ const server = http.createServer(async (req, res) => {
 
   // ProxyHub: Create a real Razorpay order for a proxy mission fee (replaces window.confirm synthetic payment).
   if (url.pathname === "/api/proxy-hub/create-order" && req.method === "POST") {
-    const authUser = getAuthUser(req);
-    if (!authUser || !(authUser.role === "advocate" || canSeeAll(authUser))) {
-      sendJson(res, 403, { ok: false, error: "Advocate access required to post a proxy mission." });
-      return;
-    }
-    const body = await readBody(req);
-    const urgencyMeta = proxyUrgencyMeta(body.urgency || body.timingTier);
-    // Prefer catalog fee from urgency tier when client omits/underpays.
-    const requestedFee = numericAmount(body.fee || body.amount);
-    const fee = Math.max(requestedFee || 0, Number(urgencyMeta.fee) || 499);
-    if (!fee || fee < Number(urgencyMeta.fee || 499)) {
-      sendJson(res, 400, {
-        ok: false,
-        error: `${urgencyMeta.label || "Standard"} proxy fee must be at least ₹${urgencyMeta.fee || 499}.`,
-      });
-      return;
-    }
-    if (!body.title || !String(body.title).trim()) {
-      sendJson(res, 400, { ok: false, error: "Mission title is required." });
-      return;
-    }
-    if (await isMasterTestUser(authUser)) {
-      sendJson(res, 200, {
-        ok: true,
-        mode: "master_test_free",
-        orderId: `order_proxy_master_${Date.now()}`,
-        amount: 0,
-        currency: "INR",
-        keyId: "master_test_free",
-        description: String(body.title).trim(),
-        message: "Master free account — ProxyHub fee waived.",
-        developerAccount: true,
-      });
-      return;
-    }
-    const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
-    if (!hasRazorpay) {
-      if (config.nodeEnv === "production") {
-        sendJson(res, 503, { ok: false, error: "Payment gateway is not configured. Contact Legal Connect support." });
+    try {
+      const authUser = getAuthUser(req);
+      if (!canPostProxyMission(authUser) && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Advocate access required to post a proxy mission." });
         return;
       }
-      // Dev/demo fallback: return a synthetic order so ProxyHub UI can proceed without live keys.
-      const syntheticOrderId = `order_proxy_demo_${Date.now()}`;
-      sendJson(res, 200, {
-        ok: true,
-        mode: "demo",
-        orderId: syntheticOrderId,
-        amount: fee * 100,
-        currency: "INR",
-        keyId: "rzp_test_demo",
-        description: String(body.title).trim(),
-        message: "Demo mode: no real charge will occur.",
-      });
-      return;
-    }
-    try {
+      const body = await readBody(req);
+      const urgencyMeta = proxyUrgencyMeta(body.urgency || body.timingTier) || PROXY_URGENCY_TIERS.standard;
+      const requestedFee = numericAmount(body.fee || body.amount);
+      const catalogFee = Number(urgencyMeta.fee) || 499;
+      const fee = Math.max(requestedFee || 0, catalogFee);
+      if (!fee || fee < catalogFee) {
+        sendJson(res, 400, {
+          ok: false,
+          error: `${urgencyMeta.label || "Standard"} proxy fee must be at least ₹${catalogFee}.`,
+        });
+        return;
+      }
+      if (!body.title || !String(body.title).trim()) {
+        sendJson(res, 400, { ok: false, error: "Mission title is required." });
+        return;
+      }
+      if (await isMasterTestUser(authUser)) {
+        sendJson(res, 200, {
+          ok: true,
+          mode: "master_test_free",
+          orderId: `order_proxy_master_${Date.now()}`,
+          amount: 0,
+          currency: "INR",
+          keyId: "master_test_free",
+          description: String(body.title).trim(),
+          message: "Master free account — ProxyHub fee waived.",
+          developerAccount: true,
+        });
+        return;
+      }
+      const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+      if (!hasRazorpay) {
+        if (config.nodeEnv === "production") {
+          sendJson(res, 503, { ok: false, error: "Payment gateway is not configured. Contact Legal Connect support." });
+          return;
+        }
+        const syntheticOrderId = `order_proxy_demo_${Date.now()}`;
+        sendJson(res, 200, {
+          ok: true,
+          mode: "demo",
+          orderId: syntheticOrderId,
+          amount: fee * 100,
+          currency: "INR",
+          keyId: "rzp_test_demo",
+          description: String(body.title).trim(),
+          message: "Demo mode: no real charge will occur.",
+        });
+        return;
+      }
       const orderResult = await createRazorpayOrder({
         amount: fee,
         currency: "INR",
@@ -6682,10 +6718,11 @@ const server = http.createServer(async (req, res) => {
         description: String(body.title).trim(),
       });
     } catch (error) {
+      console.error("proxy-hub create-order failed:", safeErrorDetail(error));
       sendJson(res, 502, {
         ok: false,
         error: "Payment gateway order creation failed. Please try again.",
-        detail: error?.message || String(error),
+        detail: safeErrorDetail(error),
       });
     }
     return;
@@ -6693,105 +6730,101 @@ const server = http.createServer(async (req, res) => {
 
   // ProxyHub: Verify payment signature and open the proxy task (fail-closed — task is NOT created if verification fails).
   if (url.pathname === "/api/proxy-hub/verify-payment" && req.method === "POST") {
-    const authUser = getAuthUser(req);
-    if (!authUser || !(authUser.role === "advocate" || canSeeAll(authUser))) {
-      sendJson(res, 403, { ok: false, error: "Advocate access required." });
-      return;
-    }
-    const body = await readBody(req);
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
-    const masterFree = await isMasterTestUser(authUser);
-    const isMasterOrder = masterFree && (
-      String(razorpay_order_id || "").startsWith("order_proxy_master_")
-      || body.mode === "master_test_free"
-    );
-    const isDemoOrder = String(razorpay_order_id || "").startsWith("order_proxy_demo_")
-      || isMasterOrder;
-    const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
-
-    // Verify HMAC signature for real Razorpay orders (fail-closed in production).
-    if (!isDemoOrder && hasRazorpay) {
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        sendJson(res, 400, { ok: false, error: "Payment details are incomplete. Cannot verify payment." });
-        return;
-      }
-      const expectedSignature = crypto
-        .createHmac("sha256", config.razorpayKeySecret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest("hex");
-      if (expectedSignature !== razorpay_signature) {
-        await writeAuditLog(authUser, "proxy_hub_payment_signature_mismatch", "proxy_hub", razorpay_order_id, "ProxyHub payment signature verification failed.", { orderId: razorpay_order_id, paymentId: razorpay_payment_id });
-        sendJson(res, 400, { ok: false, error: "Payment signature verification failed. The proxy mission cannot be opened." });
-        return;
-      }
-    } else if (!isDemoOrder && config.nodeEnv === "production") {
-      sendJson(res, 503, { ok: false, error: "Payment gateway is not configured. Cannot post proxy mission." });
-      return;
-    }
-
-    // Payment is verified — create the proxy task
     try {
-    const posting = strategyFeatures.validateProxyPostingFields(body);
-    if (!posting.ok) {
-      sendJson(res, 400, { ok: false, error: posting.error });
-      return;
-    }
-    const taskTitle = String(body.title || body.missionTitle || `${posting.fields.appearanceType} · ${posting.fields.cnr}`).trim();
-    const taskCourt = String(body.court || body.location || "").trim();
-    const catalogFee = Number(posting.fields.catalogFee || PROXY_URGENCY_TIERS.standard.fee);
-    const fee = Math.max(numericAmount(body.fee || body.amount), catalogFee);
-    if (fee < catalogFee) {
-      sendJson(res, 400, {
-        ok: false,
-        error: `${posting.fields.urgencyLabel} fee must be at least ₹${catalogFee}.`,
+      const authUser = getAuthUser(req);
+      if (!canPostProxyMission(authUser) && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Advocate access required." });
+        return;
+      }
+      const body = await readBody(req);
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+      const masterFree = await isMasterTestUser(authUser);
+      const complimentary = isComplimentaryProxyOrder({
+        razorpayOrderId: razorpay_order_id,
+        mode: body.mode,
+        masterFree,
       });
-      return;
-    }
-    const rule36Title = strategyFeatures.assertRule36Safe(taskTitle);
-    if (!rule36Title.ok) {
-      sendJson(res, 422, { ok: false, error: rule36Title.error });
-      return;
-    }
-    const task = {
-      id: `task-${Date.now()}`,
-      postedBy: authUser.id,
-      title: taskTitle,
-      court: taskCourt || null,
-      taskType: posting.fields.appearanceType,
-      amount: fee,
-      escrowStatus: "Locked",
-      status: "pending_admin_review",
-      paymentVerified: !isDemoOrder,
-      razorpayOrderId: isDemoOrder ? null : razorpay_order_id,
-      razorpayPaymentId: isDemoOrder ? null : razorpay_payment_id,
-      cnr: posting.fields.cnr,
-      roomNo: posting.fields.roomNo,
-      itemNo: posting.fields.itemNo,
-      passoverScript: posting.fields.passoverScript,
-      passoverInstructions: posting.fields.passoverScript.slice(0, 500),
-      appearanceType: posting.fields.appearanceType,
-      hearingDate: posting.fields.hearingDate,
-      urgency: posting.fields.urgency,
-      timingTier: posting.fields.timingTier,
-      slaAfterAssign: posting.fields.slaAfterAssign,
-      urgencyLabel: posting.fields.urgencyLabel,
-      proofStatus: "none",
-      transparencyLayer: "posting",
-      workflowStatus: "pending_admin_review",
-      createdAt: new Date().toISOString(),
-    };
-    {
-      const profiles = await loadAdvocateProfilesByIds(db, [authUser.id]);
-      task.mainCounsel = counselSnapshotFromProfile(profiles.get(String(authUser.id)), authUser.name || "Main counsel");
-      task.posterName = task.mainCounsel?.name || authUser.name || "Main counsel";
-    }
-    if (db.dbAvailable) {
-      const result = await db.query(
-        `INSERT INTO tasks (title, court, task_type, amount, escrow_status, status, posted_by, proof_url, proof_status, payload)
-         VALUES ($1, $2, $3, $4, $5, 'pending_admin_review', $6, NULL, 'none', $7) RETURNING *`,
-        [task.title, task.court, task.taskType, task.amount, "Locked", authUser.id, JSON.stringify({ ...task, user_id: authUser.id })],
-      );
-      await writeAuditLog(authUser, "proxy_hub_task_posted", "task", result.rows[0].id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified });
+      const isDemoOrder = complimentary.demo;
+      const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+
+      if (!isDemoOrder && hasRazorpay) {
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+          sendJson(res, 400, { ok: false, error: "Payment details are incomplete. Cannot verify payment." });
+          return;
+        }
+        const expectedSignature = crypto
+          .createHmac("sha256", config.razorpayKeySecret)
+          .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+          .digest("hex");
+        if (expectedSignature !== razorpay_signature) {
+          await writeAuditLog(authUser, "proxy_hub_payment_signature_mismatch", "proxy_hub", razorpay_order_id, "ProxyHub payment signature verification failed.", { orderId: razorpay_order_id, paymentId: razorpay_payment_id });
+          sendJson(res, 400, { ok: false, error: "Payment signature verification failed. The proxy mission cannot be opened." });
+          return;
+        }
+      } else if (!isDemoOrder && config.nodeEnv === "production") {
+        sendJson(res, 503, { ok: false, error: "Payment gateway is not configured. Cannot post proxy mission." });
+        return;
+      }
+
+      const posting = strategyFeatures.validateProxyPostingFields(body);
+      if (!posting.ok) {
+        sendJson(res, 400, { ok: false, error: posting.error });
+        return;
+      }
+      const taskTitle = String(body.title || body.missionTitle || `${posting.fields.appearanceType} · ${posting.fields.cnr}`).trim();
+      const taskCourt = String(body.court || body.location || "").trim();
+      const catalogFee = Number(posting.fields.catalogFee || PROXY_URGENCY_TIERS.standard.fee);
+      const fee = Math.max(numericAmount(body.fee || body.amount), catalogFee);
+      if (fee < catalogFee) {
+        sendJson(res, 400, {
+          ok: false,
+          error: `${posting.fields.urgencyLabel} fee must be at least ₹${catalogFee}.`,
+        });
+        return;
+      }
+      const rule36Title = strategyFeatures.assertRule36Safe(taskTitle);
+      if (!rule36Title.ok) {
+        sendJson(res, 422, { ok: false, error: rule36Title.error });
+        return;
+      }
+      const task = buildProxyMissionRecord({
+        authUser,
+        posting,
+        fee,
+        title: taskTitle,
+        court: taskCourt,
+        complimentary,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+      });
+      {
+        const profiles = await loadAdvocateProfilesByIds(db, [authUser.id]);
+        task.mainCounsel = counselSnapshotFromProfile(profiles.get(String(authUser.id)), authUser.name || "Main counsel");
+        task.posterName = task.mainCounsel?.name || authUser.name || "Main counsel";
+      }
+      if (db.dbAvailable) {
+        const result = await insertProxyMission(db, task);
+        await writeAuditLog(authUser, "proxy_hub_task_posted", "task", result.rows[0].id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified, mode: task.mode });
+        {
+          const recipients = [
+            ...(await resolveRecipients([authUser.id])),
+            ...(await resolveAdminRecipients()),
+          ];
+          await notify({
+            eventType: "proxy_mission_posted",
+            title: "Proxy mission awaiting Admin review",
+            message: `${task.title} is pending_admin_review before the marketplace opens.`,
+            recipients,
+            payload: { taskId: result.rows[0].id, fee: task.amount, status: "pending_admin_review" },
+            sendEmail: true,
+            ctaLabel: "Open ProxyHub",
+            ctaUrl: portalUrl("/advocate/proxy"),
+          }).catch(() => undefined);
+        }
+        sendJson(res, 201, { ok: true, task: mapTask(result.rows[0]), paymentVerified: task.paymentVerified, mode: task.mode });
+        return;
+      }
+      demoStore.tasks.unshift(task);
       {
         const recipients = [
           ...(await resolveRecipients([authUser.id])),
@@ -6799,41 +6832,22 @@ const server = http.createServer(async (req, res) => {
         ];
         await notify({
           eventType: "proxy_mission_posted",
-          title: "Proxy mission awaiting Admin review",
-          message: `${task.title} is pending_admin_review before the marketplace opens.`,
+          title: "Proxy mission live",
+          message: `${task.title} is live and awaiting Admin proxy assignment.`,
           recipients,
-          payload: { taskId: result.rows[0].id, fee: task.amount, status: "pending_admin_review" },
+          payload: { taskId: task.id, fee: task.amount },
           sendEmail: true,
           ctaLabel: "Open ProxyHub",
           ctaUrl: portalUrl("/advocate/proxy"),
         }).catch(() => undefined);
       }
-      sendJson(res, 201, { ok: true, task: mapTask(result.rows[0]), paymentVerified: task.paymentVerified });
-      return;
-    }
-    demoStore.tasks.unshift(task);
-    {
-      const recipients = [
-        ...(await resolveRecipients([authUser.id])),
-        ...(await resolveAdminRecipients()),
-      ];
-      await notify({
-        eventType: "proxy_mission_posted",
-        title: "Proxy mission live",
-        message: `${task.title} is live and awaiting Admin proxy assignment.`,
-        recipients,
-        payload: { taskId: task.id, fee: task.amount },
-        sendEmail: true,
-        ctaLabel: "Open ProxyHub",
-        ctaUrl: portalUrl("/advocate/proxy"),
-      }).catch(() => undefined);
-    }
-    sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: "demo" });
+      sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: task.mode || "demo" });
     } catch (error) {
+      console.error("proxy-hub verify-payment failed:", safeErrorDetail(error));
       sendJson(res, 500, {
         ok: false,
-        error: "Payment was accepted but the mission could not be saved. Contact Legal Connect with your payment id.",
-        detail: error?.message || String(error),
+        error: "The proxy mission could not be saved. If you were charged, contact Legal Connect with your payment id.",
+        detail: safeErrorDetail(error),
       });
     }
     return;
@@ -10517,7 +10531,11 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
       const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
       // Bind auth before managed workspace/chamber routes so JWT + session revocation apply.
       if (url.pathname.startsWith('/api/')) {
-        await bindAuthUser(req);
+        try {
+          await bindAuthUser(req);
+        } catch (error) {
+          console.warn('bindAuthUser failed:', redactSecrets(error?.message || error));
+        }
       }
       if (await handleStrictJwtAuthRoute(req, res, url)) return;
     } catch (error) {
