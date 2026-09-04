@@ -1246,7 +1246,8 @@ function createStrategyFeatures(deps) {
           return true;
         }
       } else {
-        const conflict = findConflictingProofRow(currentProof, demoStore.tasks || []);
+        const memory = demoMemory(config?.nodeEnv, demoStore);
+        const conflict = findConflictingProofRow(currentProof, memory?.tasks || []);
         if (conflict) {
           sendJson(res, 409, { ok: false, error: PROOF_REUSE_ERROR });
           return true;
