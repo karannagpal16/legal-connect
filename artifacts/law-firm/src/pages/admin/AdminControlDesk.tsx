@@ -135,6 +135,14 @@ type DeskTask = {
   liveTrack?: { headline?: string; nodes?: Array<{ id: string; label: string; state: string; detail?: string }> };
   settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
   settlementPreview?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
+  bookingId?: string;
+  lockedPayment?: {
+    bookingId?: string;
+    status?: string;
+    proxyhubShare?: number;
+    proxyShare?: number;
+    autoReleaseAt?: string | null;
+  };
 };
 
 type DeskCase = {
@@ -338,11 +346,39 @@ export function AdminControlDesk() {
     staleTime: 15_000,
   });
 
+  const settlementsQuery = useQuery({
+    queryKey: ["admin-settlements"],
+    queryFn: () => workspaceRequest<{
+      ok: boolean;
+      merchant?: {
+        legalName?: string;
+        kycStatus?: string;
+        bankIfsc?: string;
+        bankAccountLast4?: string;
+        accountType?: string;
+      };
+      settlementAgreement?: string;
+      autoApprovalHours?: number;
+      locks?: Array<{
+        bookingId?: string;
+        taskId?: string;
+        status?: string;
+        collected?: number;
+        proxyhubShare?: number;
+        proxyShare?: number;
+        autoReleaseAt?: string | null;
+      }>;
+    }>("/api/admin/settlements", session?.token),
+    enabled: Boolean(session?.token) && tab === "escrow",
+    staleTime: 8_000,
+  });
+
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-intakes"] });
     queryClient.invalidateQueries({ queryKey: ["admin-control-desk-tasks"] });
     queryClient.invalidateQueries({ queryKey: ["admin-control-desk"] });
     queryClient.invalidateQueries({ queryKey: ["admin-verifications"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-settlements"] });
     queryClient.invalidateQueries({ queryKey: ["admin-pending-updates"] });
     queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
     queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -1377,11 +1413,42 @@ export function AdminControlDesk() {
         <section className="space-y-4">
           <div className="lc-ops-section-head">
             <div>
-              <h3>Work Completion Hold & Revenue Ledger</h3>
-              <p className="text-muted-foreground">Work holds, proof gates, and settlement-ready ledger rows. Automated Razorpay payouts are not claimed here.</p>
+              <h3>LC lock layer &amp; ProxyHub merchant ledger</h3>
+              <p className="text-muted-foreground">
+                Legal Connect locks each booking. On approval (or 24–48h auto-approval) it split-settles
+                ProxyHub&rsquo;s company account and the appearing advocate. Gross is never parked in ProxyHub first.
+              </p>
             </div>
             <Link className="lc-button" href="/admin/revenue">Open revenue analytics</Link>
           </div>
+
+          {settlementsQuery.data?.merchant ? (
+            <article className="lc-ops-card">
+              <strong>ProxyHub merchant account</strong>
+              <p className="lc-ops-meta">
+                {settlementsQuery.data.merchant.legalName || "ProxyHub"} · {settlementsQuery.data.merchant.accountType || "company_current"} · KYC {settlementsQuery.data.merchant.kycStatus || "pending"}
+                {settlementsQuery.data.merchant.bankIfsc ? ` · ${settlementsQuery.data.merchant.bankIfsc}` : ""}
+                {settlementsQuery.data.merchant.bankAccountLast4 ? ` · ****${settlementsQuery.data.merchant.bankAccountLast4}` : ""}
+                {settlementsQuery.data.autoApprovalHours ? ` · auto-approval ${settlementsQuery.data.autoApprovalHours}h` : ""}
+                {settlementsQuery.data.settlementAgreement ? ` · ${settlementsQuery.data.settlementAgreement}` : ""}
+              </p>
+              <button
+                className="lc-button"
+                type="button"
+                disabled={taskAction.isPending}
+                onClick={() => {
+                  workspaceRequest("/api/admin/settlements/process-due", session?.token, { method: "POST", body: "{}" })
+                    .then(() => {
+                      setSuccess("Due auto-approvals and queued split settlements processed.");
+                      refresh();
+                    })
+                    .catch((error) => setError((error as Error).message));
+                }}
+              >
+                Process due auto-approvals &amp; split batch
+              </button>
+            </article>
+          ) : null}
 
           <div className="lc-workspace-metrics" aria-label="Work Completion Hold snapshot">
             <div><Wallet /><span><strong>{escrowTasks.length}</strong><small>Proxy holds</small></span></div>
@@ -1401,7 +1468,8 @@ export function AdminControlDesk() {
               <article key={task.id} className="lc-ops-card">
                 <strong>{task.title || "Proxy mission"}</strong>
                 <p className="lc-ops-meta">
-                  Hold {task.escrowStatus || "—"} · Proof {task.proofStatus || "none"} · {task.court || "Court TBD"}
+                  Hold {task.lockedPayment?.status || task.escrowStatus || "—"} · Proof {task.proofStatus || "none"} · {task.court || "Court TBD"}
+                  {task.lockedPayment?.bookingId || task.bookingId ? ` · ${task.lockedPayment?.bookingId || task.bookingId}` : ""}
                   {task.cnr ? ` · CNR ${task.cnr}` : ""}
                   {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                 </p>
@@ -1416,7 +1484,7 @@ export function AdminControlDesk() {
                       className="lc-button lc-button-primary"
                       disabled={taskAction.isPending}
                       onClick={() => {
-                        if (!window.confirm("Release the work hold for manual settlement?")) return;
+                        if (!window.confirm("Release split settlement to ProxyHub and the appearing advocate?")) return;
                         taskAction.mutate({ taskId: task.id, action: "release_payment" });
                       }}
                     >

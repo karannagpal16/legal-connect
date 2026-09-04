@@ -373,12 +373,12 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
           <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
             <p><strong className="text-foreground">{urgencyMeta.label}</strong> — {urgencyMeta.postingHint}</p>
             <p>After LC verifies &amp; assigns: <strong className="text-foreground">{urgencyMeta.slaAfterAssign}</strong></p>
-            <p>You pay: <strong className="text-foreground">₹{urgencyMeta.fee.toLocaleString("en-IN")}</strong> held until the work is done</p>
+            <p>You pay: <strong className="text-foreground">₹{urgencyMeta.fee.toLocaleString("en-IN")}</strong> locked by Legal Connect against a booking ID until the work is done</p>
             <p>
               Of that, <strong className="text-foreground">₹{feeBreakdown.professionalFee.toLocaleString("en-IN")}</strong> is the
-              professional fee released in full to the appearing advocate, and
+              professional fee split-settled to the appearing advocate, and
               <strong className="text-foreground"> ₹{(feeBreakdown.platformFee + feeBreakdown.gstOnPlatformFee).toLocaleString("en-IN")}</strong> is
-              Legal Connect&rsquo;s flat technology fee (₹{feeBreakdown.platformFee} + ₹{feeBreakdown.gstOnPlatformFee} GST), the same on every mission.
+              ProxyHub&rsquo;s merchant share (Legal Connect&rsquo;s flat technology fee ₹{feeBreakdown.platformFee} + ₹{feeBreakdown.gstOnPlatformFee} GST). LC locks the booking until proof is approved or 24–48 hours pass.
             </p>
           </div>
           <div className="space-y-2">

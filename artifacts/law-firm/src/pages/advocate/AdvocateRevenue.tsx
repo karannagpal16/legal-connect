@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { BriefcaseBusiness, HandCoins, IndianRupee, RefreshCw, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { formatINR } from "@/lib/utils";
@@ -42,11 +43,31 @@ function formatWhen(value?: string | null) {
 
 export function AdvocateRevenue() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [holderName, setHolderName] = useState(session?.user?.name || "");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [ifsc, setIfsc] = useState("");
   const query = useQuery({
     queryKey: ["my-app-earnings", session?.user.id],
     queryFn: () => workspaceRequest<MyEarnings>("/api/analytics/my-earnings", session?.token),
     enabled: Boolean(session?.token),
     staleTime: 15_000,
+  });
+  const payoutQuery = useQuery({
+    queryKey: ["payout-account", session?.user.id],
+    queryFn: () => workspaceRequest<{ ok: boolean; account?: { bankAccountLast4?: string; bankIfsc?: string; kycStatus?: string; holderName?: string } | null }>("/api/advocate/payout-account", session?.token),
+    enabled: Boolean(session?.token),
+    staleTime: 30_000,
+  });
+  const savePayout = useMutation({
+    mutationFn: () => workspaceRequest("/api/advocate/payout-account", session?.token, {
+      method: "POST",
+      body: JSON.stringify({ holderName, accountNumber, ifsc }),
+    }),
+    onSuccess: () => {
+      setAccountNumber("");
+      queryClient.invalidateQueries({ queryKey: ["payout-account", session?.user.id] });
+    },
   });
 
   if (query.isLoading) {
@@ -85,8 +106,39 @@ export function AdvocateRevenue() {
           <h2>Revenue from client &amp; proxy work</h2>
           <p>
             Your earnings from paid client intakes and ProxyHub missions on Legal Connect.
-            Platform founder analytics and Singapore expansion goals stay on the Admin desk only.
+            Professional fees are split-settled to the bank account below; ProxyHub never receives the gross first.
           </p>
+        </div>
+      </section>
+
+      <section className="lc-operational-panel">
+        <header>
+          <div>
+            <span>Split settlement</span>
+            <h2>Verified payout account</h2>
+          </div>
+        </header>
+        <div style={{ padding: 16 }} className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            LC pays your professional fee here on each approved booking. Current: {payoutQuery.data?.account
+              ? `${payoutQuery.data.account.holderName || "Saved"} · ****${payoutQuery.data.account.bankAccountLast4 || "----"} · ${payoutQuery.data.account.bankIfsc || ""} (${payoutQuery.data.account.kycStatus || "submitted"})`
+              : "not on file — queued until you add it."}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input className="w-full p-3 rounded-xl border border-border bg-background" placeholder="Account holder" value={holderName} onChange={(event) => setHolderName(event.target.value)} />
+            <input className="w-full p-3 rounded-xl border border-border bg-background" placeholder="Account number" value={accountNumber} onChange={(event) => setAccountNumber(event.target.value)} />
+            <input className="w-full p-3 rounded-xl border border-border bg-background uppercase" placeholder="IFSC" value={ifsc} onChange={(event) => setIfsc(event.target.value)} />
+          </div>
+          <button
+            type="button"
+            className="lc-button lc-button-primary"
+            disabled={savePayout.isPending}
+            onClick={() => savePayout.mutate()}
+          >
+            {savePayout.isPending ? "Saving…" : "Save payout account"}
+          </button>
+          {savePayout.isError ? <p className="text-sm text-destructive">{(savePayout.error as Error).message}</p> : null}
+          {savePayout.isSuccess ? <p className="text-sm text-muted-foreground">Payout account saved for split settlement.</p> : null}
         </div>
       </section>
 

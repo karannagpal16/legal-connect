@@ -11,6 +11,7 @@ const { createStrategyFeatures, computeProxySettlement, proxyUrgencyMeta, PROXY_
 const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
 const { isWorkHoldActive } = require("./work-hold");
+const { createSettlementLedger } = require("./settlement-ledger");
 const {
   canPostProxyMission,
   isComplimentaryProxyOrder,
@@ -55,6 +56,14 @@ const identityVault = createIdentityVault({
   db,
   config,
   writeAuditLog: (...args) => writeAuditLog(...args),
+});
+const settlementHooks = {
+  onVerifiedEvent: async () => undefined,
+};
+const settlementLedger = createSettlementLedger({
+  db,
+  config,
+  onVerifiedEvent: (payload, patch) => settlementHooks.onVerifiedEvent(payload, patch),
 });
 
 const PORT = config.port;
@@ -243,6 +252,48 @@ const demoStore = new Proxy(createLocalDemoStore(), {
     return true;
   },
 });
+
+const EVENT_ESCROW_FROM_SETTLEMENT = {
+  payment_locked: "Locked",
+  released: "Released",
+  refunded: "Refunded",
+  disputed: "Disputed",
+};
+
+settlementHooks.onVerifiedEvent = async function applyProxyHubBookingFromLcEvent(payload, patch) {
+  if (!payload?.task_id) return;
+  const escrowStatus = patch?.escrowStatus || EVENT_ESCROW_FROM_SETTLEMENT[payload.event] || null;
+  const taskPatch = {
+    bookingId: payload.booking_id,
+    paymentLockStatus: patch?.paymentLockStatus || null,
+    lastSettlementEvent: payload.event,
+    lastSettlementEventAt: payload.occurred_at,
+    lastSettlementEventKey: payload.idempotency_key,
+    settlementSplit: payload.split || null,
+    settlementAgreement: "lc_locks_proxyhub_merchant_split_v1",
+  };
+  if (db.dbAvailable) {
+    await db.query(
+      `UPDATE tasks
+       SET escrow_status = COALESCE($2, escrow_status),
+           payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb,
+           updated_at = now()
+       WHERE id = $1`,
+      [payload.task_id, escrowStatus, JSON.stringify(taskPatch)],
+    ).catch((error) => {
+      console.warn(`ProxyHub booking apply failed for ${payload.booking_id}: ${error.message}`);
+    });
+  }
+  if (config.nodeEnv === "production") return;
+  try {
+    const task = (demoStore.tasks || []).find((item) => String(item.id) === String(payload.task_id));
+    if (!task) return;
+    if (escrowStatus) task.escrowStatus = escrowStatus;
+    Object.assign(task, taskPatch);
+  } catch {
+    // demoStore is disabled in production; ignore.
+  }
+};
 
 const REVIEW_ROLES = ["client", "advocate", "intern"];
 const reviewAttempts = new Map();
@@ -3125,6 +3176,7 @@ const strategyFeatures = createStrategyFeatures({
   isUuid,
   safeAttachmentName,
   dispatchSms,
+  settlementLedger,
 });
 
 const workflowProgressions = createWorkflowProgressions({
@@ -3164,6 +3216,7 @@ const masterBlueprint = createMasterBlueprint({
   numericAmount,
   isMasterTestUser,
   strategyFeatures,
+  settlementLedger,
 });
 
 const server = http.createServer(async (req, res) => {
@@ -3247,6 +3300,7 @@ const server = http.createServer(async (req, res) => {
         app: "Legal Connect",
         db: dbHealth.connected ? "connected" : "disconnected",
         lawbot: "source-locked",
+        settlement: "lc-lock",
       });
       return;
     }
@@ -3270,6 +3324,7 @@ const server = http.createServer(async (req, res) => {
       migrations: dbHealth.migrations,
       auth: "enabled",
       lawbot: "source-locked",
+      settlement: "lc-lock",
       approved_sources_count: lawbotCounts.approved_sources_count,
       legal_chunks_count: lawbotCounts.legal_chunks_count,
       pdf_ingestion: "enabled",
@@ -4259,7 +4314,7 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       cases: cases.rows.map(mapCase),
       bookings: bookings.rows.map(mapBooking),
-      tasks: await enrichTasksWithCounselTrack(db, tasks.rows.map(mapTask)),
+      tasks: await settlementLedger.attachLocksToTasks(await enrichTasksWithCounselTrack(db, tasks.rows.map(mapTask))),
       advocates: advocates.rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -6332,6 +6387,34 @@ const server = http.createServer(async (req, res) => {
           acceptedByUpdate,
         ],
       );
+      let splitResult = null;
+      if (lcVerifiedNow) {
+        await settlementLedger.armAutoApproval(body.taskId).catch(() => undefined);
+      }
+      if (acceptedByUpdate) {
+        await settlementLedger.setProxyOnLock(body.taskId, acceptedByUpdate).catch(() => undefined);
+      }
+      if (body.action === "release_payment" && result.rows[0]) {
+        splitResult = await settlementLedger.releaseSplit(mapTask(result.rows[0]), {
+          actor: authUser.id,
+          reason: "admin_release",
+        }).catch((error) => ({ ok: false, error: error.message }));
+        if (splitResult?.settlement) settlement = splitResult.settlement;
+      }
+      if (proofStatusUpdate === "poster_approved" && !lcVerifiedNow && result.rows[0] && body.action === "mark_proof_approved") {
+        splitResult = await settlementLedger.releaseSplit({
+          ...mapTask(result.rows[0]),
+          proofStatus: "poster_approved",
+          posterProofDecision: "ok",
+        }, { actor: authUser.id, reason: "admin_override_approval" }).catch((error) => ({ ok: false, error: error.message }));
+        if (splitResult?.settlement) settlement = splitResult.settlement;
+      }
+      if (body.action === "refund" && result.rows[0]) {
+        splitResult = await settlementLedger.refundLock(mapTask(result.rows[0]), {
+          actor: authUser.id,
+          reason: String(body.reason || body.note || currentTask?.posterProofReason || "").trim(),
+        }).catch((error) => ({ ok: false, error: error.message }));
+      }
       await writeAuditLog(authUser, body.action || "task_action", "task", body.taskId, `Task action saved: ${nextStatus}`, {
         action: body.action,
         status: nextStatus,
@@ -6343,7 +6426,7 @@ const server = http.createServer(async (req, res) => {
         receiptType: body.action === "release_payment" ? "proxy_escrow_release" : "admin_task_action",
         title: body.action === "release_payment" ? "Proxy escrow release receipt" : "RNA/Admin action receipt",
         message: body.action === "release_payment" && settlement
-          ? `Collected ₹${settlement.gross} → Legal Connect flat technology fee ₹${settlement.platformFee} + GST on that fee ₹${settlement.appTaxGst} → professional fee to appearing advocate ₹${settlement.netToProxy}. Manual settlement required.`
+          ? `LC split-settled booking ${splitResult?.lock?.bookingId || ""}. ProxyHub merchant ₹${settlement.platformFee + settlement.appTaxGst} · appearing advocate ₹${settlement.netToProxy}. Gross was not transferred to ProxyHub first.`
           : `Task action saved: ${nextStatus}`,
         status: nextStatus,
         targetType: "task",
@@ -6361,7 +6444,7 @@ const server = http.createServer(async (req, res) => {
           await strategyFeatures.notifyTaskLayer(mapped, {
             eventType: "proxy_escrow_refunded",
             title: "Proxy mission refund acknowledged",
-            message: `Legal Connect acknowledged the refund for ${mapped.title || "the mission"}. Reason: ${String(body.reason || mapped.posterProofReason || "Admin refund").slice(0, 200)}. Manual refund to the original payment method will be processed by Admin/support.`,
+            message: `Legal Connect refunded the locked booking for ${mapped.title || "the mission"} to the posting advocate's original payment method. Reason: ${String(body.reason || mapped.posterProofReason || "Admin refund").slice(0, 200)}. Funds did not pass through ProxyHub.`,
             priority: "high",
             sendSms: true,
           });
@@ -6369,7 +6452,7 @@ const server = http.createServer(async (req, res) => {
           await strategyFeatures.notifyTaskLayer(mapped, {
             eventType: "proxy_proof_lc_verified",
             title: "Proof verified by Legal Connect — review your mission",
-            message: `LC verified the order sheet for ${mapped.title || "the mission"}. Posting counsel can now confirm satisfied / not satisfied.`,
+            message: `LC verified the order sheet for ${mapped.title || "the mission"}. Posting counsel can confirm satisfied / not satisfied. If there is no decision, LC auto-approves and split-settles in 24–48 hours.`,
             priority: "high",
             sendSms: true,
           });
@@ -6378,8 +6461,8 @@ const server = http.createServer(async (req, res) => {
             eventType: body.action === "release_payment" ? "proxy_escrow_released" : "proxy_proof_approved",
             title: body.action === "release_payment" ? "Professional fee released" : "Proof approved (Admin override)",
             message: body.action === "release_payment" && settlement
-              ? `${mapped.title || "Proxy mission"} work hold released. Collected ₹${settlement.gross.toLocaleString("en-IN")} − Legal Connect technology fee ₹${settlement.platformFee.toLocaleString("en-IN")} − GST on that fee ₹${settlement.appTaxGst.toLocaleString("en-IN")} = professional fee ₹${settlement.netToProxy.toLocaleString("en-IN")} to the appearing advocate. Payout is manual (not automated Razorpay).`
-              : `${mapped.title || "Proxy mission"} proof was approved by Admin override. Admin may now release the professional fee.`,
+              ? `${mapped.title || "Proxy mission"} split-settled. ProxyHub merchant share ₹${(settlement.platformFee + settlement.appTaxGst).toLocaleString("en-IN")} · professional fee ₹${settlement.netToProxy.toLocaleString("en-IN")} to the appearing advocate. Gross was not parked in ProxyHub.`
+              : `${mapped.title || "Proxy mission"} proof was approved by Admin override. LC split-settles to ProxyHub and the appearing advocate.`,
             priority: "high",
             sendSms: false,
           });
@@ -6389,6 +6472,8 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         task: result.rows[0] ? mapTask(result.rows[0]) : null,
         settlement,
+        split: splitResult || null,
+        lock: splitResult?.lock ? settlementLedger.publicLockView(splitResult.lock) : null,
       });
       return;
     }
@@ -6804,7 +6889,32 @@ const server = http.createServer(async (req, res) => {
       }
       if (db.dbAvailable) {
         const result = await insertProxyMission(db, task);
-        await writeAuditLog(authUser, "proxy_hub_task_posted", "task", result.rows[0].id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified, mode: task.mode });
+        const mappedTask = mapTask(result.rows[0]);
+        const locked = await settlementLedger.lockPayment({
+          taskId: mappedTask.id,
+          payerUserId: authUser.id,
+          collected: task.amount,
+          complimentary: Boolean(complimentary.demo),
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+        }).catch((error) => {
+          console.error("proxy-hub lockPayment failed:", safeErrorDetail(error));
+          return null;
+        });
+        if (locked?.lock) {
+          mappedTask.bookingId = locked.lock.bookingId;
+          mappedTask.lockedPayment = settlementLedger.publicLockView(locked.lock);
+          mappedTask.paymentLockStatus = locked.lock.status;
+          await db.query(
+            `UPDATE tasks SET payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb WHERE id = $1`,
+            [mappedTask.id, JSON.stringify({
+              bookingId: locked.lock.bookingId,
+              paymentLockStatus: locked.lock.status,
+              lockedAt: new Date().toISOString(),
+            })],
+          ).catch(() => undefined);
+        }
+        await writeAuditLog(authUser, "proxy_hub_task_posted", "task", mappedTask.id, `Proxy mission posted: ${task.title}`, { court: task.court, fee: task.amount, paymentVerified: task.paymentVerified, mode: task.mode, bookingId: locked?.lock?.bookingId });
         {
           const recipients = [
             ...(await resolveRecipients([authUser.id])),
@@ -6813,18 +6923,31 @@ const server = http.createServer(async (req, res) => {
           await notify({
             eventType: "proxy_mission_posted",
             title: "Proxy mission awaiting Admin review",
-            message: `${task.title} is pending_admin_review before the marketplace opens.`,
+            message: `${task.title} is pending_admin_review. Payment is LOCKED against ${locked?.lock?.bookingId || "booking"} — not yet ProxyHub revenue.`,
             recipients,
-            payload: { taskId: result.rows[0].id, fee: task.amount, status: "pending_admin_review" },
+            payload: { taskId: mappedTask.id, fee: task.amount, status: "pending_admin_review", bookingId: locked?.lock?.bookingId || null },
             sendEmail: true,
             ctaLabel: "Open ProxyHub",
             ctaUrl: portalUrl("/advocate/proxy"),
           }).catch(() => undefined);
         }
-        sendJson(res, 201, { ok: true, task: mapTask(result.rows[0]), paymentVerified: task.paymentVerified, mode: task.mode });
+        sendJson(res, 201, { ok: true, task: mappedTask, paymentVerified: task.paymentVerified, mode: task.mode, bookingId: locked?.lock?.bookingId || null, lockedPayment: mappedTask.lockedPayment || null });
         return;
       }
       demoStore.tasks.unshift(task);
+      const demoLock = await settlementLedger.lockPayment({
+        taskId: task.id,
+        payerUserId: authUser.id,
+        collected: task.amount,
+        complimentary: true,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+      }).catch(() => null);
+      if (demoLock?.lock) {
+        task.bookingId = demoLock.lock.bookingId;
+        task.lockedPayment = settlementLedger.publicLockView(demoLock.lock);
+        task.paymentLockStatus = demoLock.lock.status;
+      }
       {
         const recipients = [
           ...(await resolveRecipients([authUser.id])),
@@ -6841,7 +6964,7 @@ const server = http.createServer(async (req, res) => {
           ctaUrl: portalUrl("/advocate/proxy"),
         }).catch(() => undefined);
       }
-      sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: task.mode || "demo" });
+        sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: task.mode || "demo", bookingId: task.bookingId || null, lockedPayment: task.lockedPayment || null });
     } catch (error) {
       console.error("proxy-hub verify-payment failed:", safeErrorDetail(error));
       sendJson(res, 500, {
@@ -6850,6 +6973,148 @@ const server = http.createServer(async (req, res) => {
         detail: safeErrorDetail(error),
       });
     }
+    return;
+  }
+
+  if (url.pathname === "/api/admin/settlements" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: "Admin access required." });
+      return;
+    }
+    const [merchant, locks] = await Promise.all([
+      settlementLedger.getMerchantAccount(),
+      settlementLedger.listRecentLocks(60),
+    ]);
+    sendJson(res, 200, {
+      ok: true,
+      merchant: merchant && {
+        code: merchant.code || "proxyhub",
+        legalName: merchant.legal_name || merchant.legalName,
+        accountType: merchant.account_type || merchant.accountType,
+        kycStatus: merchant.kyc_status || merchant.kycStatus,
+        bankAccountLast4: merchant.bank_account_last4 || merchant.bankAccountLast4,
+        bankIfsc: merchant.bank_ifsc || merchant.bankIfsc,
+        razorpayLinkedAccountId: (merchant.razorpay_linked_account_id || merchant.razorpayLinkedAccountId) ? "configured" : "",
+        beneficiaryName: merchant.beneficiary_name || merchant.beneficiaryName,
+      },
+      locks,
+      autoApprovalHours: config.settlementAutoApprovalHours,
+      settlementAgreement: "lc_locks_proxyhub_merchant_split_v1",
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/settlements/process-due" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: "Admin access required." });
+      return;
+    }
+    const due = await settlementLedger.processDueAutoApprovals(async (taskId) => {
+      if (db.dbAvailable) {
+        const found = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [taskId]);
+        return found.rows[0] ? mapTask(found.rows[0]) : { id: taskId };
+      }
+      return (demoStore.tasks || []).find((item) => String(item.id) === String(taskId)) || { id: taskId };
+    });
+    const queued = await settlementLedger.processQueuedPayouts();
+    sendJson(res, 200, { ok: true, processed: due.length, results: due, queued });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/settlements/process-queued" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser || !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: "Admin access required." });
+      return;
+    }
+    const queued = await settlementLedger.processQueuedPayouts();
+    sendJson(res, 200, { ok: true, queued });
+    return;
+  }
+
+  if (url.pathname === "/api/proxyhub/settlement-events" && req.method === "POST") {
+    const rawBody = await readRawBody(req);
+    const signature = req.headers["x-lc-signature"] || req.headers["x-legal-connect-signature"] || "";
+    const result = await settlementLedger.consumeVerifiedEvent(rawBody, signature);
+    if (!result.ok) {
+      sendJson(res, result.error === "invalid_signature" ? 401 : 400, { ok: false, error: result.error });
+      return;
+    }
+    sendJson(res, 200, {
+      ok: true,
+      event: result.payload?.event,
+      booking_id: result.payload?.booking_id,
+      idempotent: Boolean(result.idempotent),
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/settlements/") && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    const bookingId = decodeURIComponent(url.pathname.slice("/api/settlements/".length));
+    const lock = await settlementLedger.getLockByBookingId(bookingId);
+    if (!lock) {
+      sendJson(res, 404, { ok: false, error: "Booking not found." });
+      return;
+    }
+    const isParty = [lock.payerUserId, lock.proxyUserId].includes(String(authUser.id));
+    if (!isParty && !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: "Not authorised for this booking." });
+      return;
+    }
+    const splits = await settlementLedger.listSplits(lock.bookingId);
+    sendJson(res, 200, { ok: true, lock: settlementLedger.publicLockView(lock), splits });
+    return;
+  }
+
+  if (url.pathname === "/api/advocate/payout-account" && req.method === "GET") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    const account = await settlementLedger.getPayoutAccount(authUser.id);
+    sendJson(res, 200, { ok: true, account: account || null });
+    return;
+  }
+
+  if (url.pathname === "/api/advocate/payout-account" && req.method === "POST") {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: "Login is required." });
+      return;
+    }
+    const role = String(authUser.role || "").toLowerCase();
+    if (role !== "advocate" && !canSeeAll(authUser)) {
+      sendJson(res, 403, { ok: false, error: "Advocate access required." });
+      return;
+    }
+    const body = await readBody(req);
+    const accountNumber = String(body.accountNumber || body.account_number || "").replace(/\D/g, "");
+    const ifsc = String(body.ifsc || body.bankIfsc || "").trim();
+    if (accountNumber.length < 8 || !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(ifsc)) {
+      sendJson(res, 400, { ok: false, error: "Enter a valid bank account number and IFSC." });
+      return;
+    }
+    const account = await settlementLedger.upsertPayoutAccount({
+      userId: authUser.id,
+      holderName: body.holderName || authUser.name,
+      accountNumber,
+      ifsc,
+      razorpayFundAccountId: body.razorpayFundAccountId || null,
+      razorpayLinkedAccountId: body.razorpayLinkedAccountId || null,
+    });
+    await writeAuditLog(authUser, "payout_account_saved", "payout_account", authUser.id, "Proxy payout account submitted for split settlement", {
+      last4: account.bankAccountLast4,
+      ifsc: account.bankIfsc,
+    });
+    sendJson(res, 200, { ok: true, account });
     return;
   }
 
@@ -6881,6 +7146,14 @@ const server = http.createServer(async (req, res) => {
         video: { amount: 499, unit: "session", label: "from ₹499" },
       },
       proxy_urgency_tiers: PROXY_URGENCY_TIERS,
+      settlement: {
+        layer: "legal_connect",
+        merchant: "proxyhub",
+        model: "direct_split",
+        agreement: "lc_locks_proxyhub_merchant_split_v1",
+        autoApprovalHours: config.settlementAutoApprovalHours,
+        note: "Advocate pays → LC locks against booking_id → proof + approval (or 24–48h auto-approval) → LC split-settles ProxyHub merchant share and the proxy fee. Gross is never parked in ProxyHub first.",
+      },
       all_features_free: masterFree,
       master_test_free: masterFree,
       chamber_plans: authUser ? chamberPlanCatalog() : [],
@@ -7416,7 +7689,7 @@ const server = http.createServer(async (req, res) => {
         if (isOpenProxyBoardTask(task)) return toProxyTeaser(task, authUser.id);
         return null;
       }).filter(Boolean);
-      sendJson(res, 200, await enrichTasksWithCounselTrack(db, mapped));
+      sendJson(res, 200, await settlementLedger.attachLocksToTasks(await enrichTasksWithCounselTrack(db, mapped)));
       return;
     }
     if (!authUser) {
@@ -7435,7 +7708,7 @@ const server = http.createServer(async (req, res) => {
       if (isOpenProxyBoardTask(task)) return toProxyTeaser(task, authUser.id);
       return task;
     });
-    sendJson(res, 200, await enrichTasksWithCounselTrack(db, demoMapped));
+    sendJson(res, 200, await settlementLedger.attachLocksToTasks(await enrichTasksWithCounselTrack(db, demoMapped)));
     return;
   }
 
@@ -8696,6 +8969,14 @@ async function initializeDatabase() {
     await ensureStrictAuthSchema();
     await platformEvents.ensureSchema();
     await identityVault.ensureSchema();
+    await settlementLedger.ensureSchema();
+    settlementLedger.startTicker(async (taskId) => {
+      if (db.dbAvailable) {
+        const result = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [taskId]);
+        return result.rows[0] ? mapTask(result.rows[0]) : { id: taskId };
+      }
+      return (demoStore.tasks || []).find((item) => String(item.id) === String(taskId)) || { id: taskId };
+    });
     const vaultMigration = await identityVault.migratePlaintextProfiles().catch(() => null);
     if (vaultMigration) {
       console.log(`Identity vault migration: advocates=${vaultMigration.advocates} interns=${vaultMigration.interns}`);

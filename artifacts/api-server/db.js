@@ -305,6 +305,98 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS payments_provider_order_idx ON payments (provider_order_id) WHERE provider_order_id IS NOT NULL`);
 
     await query(`
+      CREATE TABLE IF NOT EXISTS merchant_accounts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        code text UNIQUE NOT NULL,
+        legal_name text,
+        account_type text DEFAULT 'company_current',
+        kyc_status text DEFAULT 'pending',
+        bank_account_last4 text,
+        bank_ifsc text,
+        razorpay_linked_account_id text,
+        beneficiary_name text,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS payout_accounts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id text NOT NULL UNIQUE,
+        holder_name text,
+        bank_account_last4 text,
+        bank_ifsc text,
+        razorpay_fund_account_id text,
+        razorpay_linked_account_id text,
+        kyc_status text DEFAULT 'submitted',
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS locked_payments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        booking_id text UNIQUE NOT NULL,
+        task_id text,
+        payer_user_id text,
+        proxy_user_id text,
+        merchant_account_id uuid,
+        status text NOT NULL DEFAULT 'LOCKED',
+        collected integer NOT NULL DEFAULT 0,
+        proxyhub_share integer NOT NULL DEFAULT 0,
+        proxy_share integer NOT NULL DEFAULT 0,
+        currency text DEFAULT 'INR',
+        complimentary boolean DEFAULT false,
+        razorpay_order_id text,
+        razorpay_payment_id text,
+        auto_release_at timestamptz,
+        released_at timestamptz,
+        refunded_at timestamptz,
+        disputed_at timestamptz,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS locked_payments_task_idx ON locked_payments (task_id) WHERE task_id IS NOT NULL`);
+    await query(`CREATE INDEX IF NOT EXISTS locked_payments_status_idx ON locked_payments (status, created_at DESC)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS settlement_splits (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        locked_payment_id uuid,
+        booking_id text NOT NULL,
+        leg text NOT NULL,
+        amount integer NOT NULL,
+        beneficiary_type text,
+        beneficiary_account_id text,
+        status text NOT NULL DEFAULT 'pending',
+        razorpay_transfer_id text,
+        razorpay_refund_id text,
+        last_error text,
+        payload jsonb DEFAULT '{}'::jsonb,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS settlement_splits_booking_idx ON settlement_splits (booking_id, created_at)`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS settlement_webhooks (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        booking_id text NOT NULL,
+        event_type text NOT NULL,
+        signature text,
+        payload jsonb NOT NULL,
+        delivered_at timestamptz,
+        last_error text,
+        attempts integer DEFAULT 0,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS settlement_webhooks_booking_idx ON settlement_webhooks (booking_id, created_at DESC)`);
+
+    await query(`
       CREATE TABLE IF NOT EXISTS tasks (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         title text,

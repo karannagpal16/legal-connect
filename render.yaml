@@ -28,6 +28,9 @@ services:
         sync: false
       # Set live Razorpay keys in the Render dashboard before charging real money:
       # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET
+      # ProxyHub merchant (KYC / Razorpay Route linked account + company IFSC):
+      # PROXYHUB_RAZORPAY_ACCOUNT_ID, PROXYHUB_BANK_IFSC, PROXYHUB_BANK_ACCOUNT_LAST4,
+      # PROXYHUB_WEBHOOK_URL, PROXYHUB_WEBHOOK_SECRET, SETTLEMENT_AUTO_APPROVAL_HOURS
       - key: JWT_SECRET
         generateValue: true
       - key: SESSION_SECRET

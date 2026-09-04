@@ -43,8 +43,8 @@ function computeProxySettlement(grossAmount) {
     professionalFee: charge.professionalFee,
     netToProxy: charge.professionalFee,
     note: `Flat platform technology fee ₹${charge.serviceFee} + GST ₹${charge.gstOnServiceFee} on that fee. `
-      + "The professional fee is paid in full to the appearing advocate; Legal Connect takes no share of it. "
-      + "Payout is released manually by the LC Admin desk.",
+      + "Legal Connect locks the booking; on release it split-settles ProxyHub's merchant share "
+      + "and the appearing advocate's professional fee. The gross is never parked in ProxyHub first.",
   };
 }
 
@@ -111,6 +111,7 @@ function createStrategyFeatures(deps) {
     isUuid,
     safeAttachmentName,
     dispatchSms,
+    settlementLedger,
   } = deps;
 
   const supervised = createSupervisedPipeline({ db });
@@ -1319,14 +1320,42 @@ function createStrategyFeatures(deps) {
         await writeAuditLog(authUser, "proxy_proof_poster_ok", "task", proofReviewMatch[1], "Main counsel satisfied with proxy proof", {
           decision: "ok",
         });
+        let split = null;
+        if (settlementLedger) {
+          split = await settlementLedger.releaseSplit(updated, {
+            actor: authUser.id,
+            reason: "advocate_approved",
+          }).catch((error) => ({ ok: false, error: error.message }));
+          if (split?.ok && split.lock) {
+            updated.escrowStatus = "Released";
+            updated.bookingId = split.lock.bookingId;
+            updated.lockedPayment = settlementLedger.publicLockView(split.lock);
+            updated.settlement = split.settlement || settlement;
+            await saveTaskPatch(proofReviewMatch[1], {
+              status: "Completed",
+              escrowStatus: "Released",
+              proofStatus: "poster_approved",
+              payloadPatch: {
+                settlement: split.settlement || settlement,
+                settlementReleasedAt: new Date().toISOString(),
+                settlementReleasedBy: authUser.id,
+                bookingId: split.lock.bookingId,
+                paymentLockStatus: "RELEASED",
+                transparencyLayer: "split_settlement",
+              },
+            }).catch(() => undefined);
+          }
+        }
         await notifyTaskLayer(updated, {
           eventType: "proxy_proof_poster_approved",
-          title: "Main counsel satisfied",
-          message: `${updated.title || "Proxy mission"} marked satisfactory. LC Admin can release the professional fee of ₹${settlement.netToProxy.toLocaleString("en-IN")} (collected ₹${settlement.gross.toLocaleString("en-IN")} less Legal Connect's flat ₹${settlement.platformFee} technology fee and ₹${settlement.appTaxGst} GST on it) or Refund.`,
+          title: split?.ok ? "Split settlement released" : "Main counsel satisfied",
+          message: split?.ok
+            ? `${updated.title || "Proxy mission"} approved. LC split-settled the ProxyHub merchant share and ₹${settlement.netToProxy.toLocaleString("en-IN")} to the appearing advocate. Gross was not parked in ProxyHub.`
+            : `${updated.title || "Proxy mission"} marked satisfactory. LC will split-settle the ProxyHub merchant share and the professional fee.`,
           priority: "high",
           includeAdmins: true,
         });
-        sendJson(res, 200, { ok: true, decision: "ok", task: updated, settlement });
+        sendJson(res, 200, { ok: true, decision: "ok", task: updated, settlement, split });
         return true;
       }
 
@@ -1382,15 +1411,67 @@ function createStrategyFeatures(deps) {
         decision: "not_ok",
         reason,
       });
+      if (settlementLedger) {
+        await settlementLedger.disputeLock(updated, {
+          actor: authUser.id,
+          reason,
+        }).catch(() => undefined);
+      }
       await notifyTaskLayer(updated, {
         eventType: "proxy_refund_requested",
         title: "Main counsel not satisfied — refund requested",
-        message: `${authUser.name || "Main counsel"} is not satisfied with ${updated.title || "the mission"}: ${reason}. Legal Connect must acknowledge and refund.`,
+        message: `${authUser.name || "Main counsel"} is not satisfied with ${updated.title || "the mission"}: ${reason}. Legal Connect opened a dispute on the locked booking; refund goes to the original payment method, not via ProxyHub.`,
         priority: "high",
         includeAdmins: true,
         sendSms: true,
       });
       sendJson(res, 200, { ok: true, decision: "not_ok", refundRequested: true, task: updated, reason });
+      return true;
+    }
+
+    const disputeMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/dispute$/);
+    if (disputeMatch && req.method === "POST") {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Login is required." });
+        return true;
+      }
+      const task = await loadTask(disputeMatch[1]);
+      if (!task) {
+        sendJson(res, 404, { ok: false, error: "Task not found." });
+        return true;
+      }
+      const isPoster = String(task.postedBy || "") === String(authUser.id || "");
+      if (!isPoster && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only the posting counsel or LC Admin can open a payment dispute." });
+        return true;
+      }
+      const body = await readBody(req);
+      const reason = String(body.reason || body.note || "").trim();
+      if (reason.length < 8) {
+        sendJson(res, 400, { ok: false, error: "Dispute reason must be at least 8 characters." });
+        return true;
+      }
+      if (!settlementLedger) {
+        sendJson(res, 503, { ok: false, error: "Settlement ledger is not available." });
+        return true;
+      }
+      const disputed = await settlementLedger.disputeLock(task, { actor: authUser.id, reason });
+      if (!disputed.ok) {
+        sendJson(res, 409, { ok: false, error: disputed.error || "Could not open dispute." });
+        return true;
+      }
+      const updated = await saveTaskPatch(disputeMatch[1], {
+        escrowStatus: "Disputed",
+        payloadPatch: {
+          paymentLockStatus: "DISPUTED",
+          disputeReason: reason,
+          disputedAt: new Date().toISOString(),
+          disputedBy: authUser.id,
+        },
+      });
+      await writeAuditLog(authUser, "proxy_payment_disputed", "task", disputeMatch[1], reason, { bookingId: disputed.lock?.bookingId });
+      sendJson(res, 200, { ok: true, task: updated, lock: settlementLedger.publicLockView(disputed.lock) });
       return true;
     }
 

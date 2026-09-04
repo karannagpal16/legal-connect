@@ -203,6 +203,7 @@ function createMasterBlueprint(deps) {
     numericAmount,
     isMasterTestUser,
     strategyFeatures,
+    settlementLedger,
   } = deps;
 
   async function loadBooking(id) {
@@ -842,6 +843,9 @@ function createMasterBlueprint(deps) {
         return;
       }
 
+      if (settlementLedger) {
+        await settlementLedger.setProxyOnLock(taskId, proxyId).catch(() => undefined);
+      }
       // Audit + notify are best-effort — never roll back a successful assignment.
       try {
         await writeAuditLog(

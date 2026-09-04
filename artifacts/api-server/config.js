@@ -126,6 +126,19 @@ const config = {
   cloudinaryCloudName: optionalString("CLOUDINARY_CLOUD_NAME"),
   cloudinaryApiKey: optionalString("CLOUDINARY_API_KEY"),
   cloudinaryApiSecret: optionalString("CLOUDINARY_API_SECRET"),
+  /**
+   * ProxyHub is the KYC-verified merchant/beneficiary. LC is only the lock layer.
+   * Linked Razorpay Route account + company current-account details live in Render env.
+   */
+  proxyhubLegalName: optionalString("PROXYHUB_LEGAL_NAME", "ProxyHub"),
+  proxyhubBeneficiaryName: optionalString("PROXYHUB_BENEFICIARY_NAME", "ProxyHub"),
+  proxyhubBankIfsc: optionalString("PROXYHUB_BANK_IFSC"),
+  proxyhubBankAccountLast4: optionalString("PROXYHUB_BANK_ACCOUNT_LAST4"),
+  proxyhubRazorpayAccountId: optionalString("PROXYHUB_RAZORPAY_ACCOUNT_ID"),
+  proxyhubKycStatus: optionalString("PROXYHUB_KYC_STATUS"),
+  proxyhubWebhookUrl: optionalString("PROXYHUB_WEBHOOK_URL"),
+  proxyhubWebhookSecret: optionalString("PROXYHUB_WEBHOOK_SECRET"),
+  settlementAutoApprovalHours: optionalNumber("SETTLEMENT_AUTO_APPROVAL_HOURS", 36),
 };
 
 if (config.nodeEnv === "production") {

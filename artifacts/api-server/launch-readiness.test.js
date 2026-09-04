@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { computeProxySettlement } = require("./strategy-features");
 const { publicCompliancePolicy } = require("./compliance-policy");
 const { isWorkHoldActive } = require("./work-hold");
+const { buildSplitLegs, canReleaseLock, STATUSES } = require("./settlement-ledger");
 
 const settlement = computeProxySettlement(1299);
 assert.strictEqual(settlement.platformFee + settlement.appTaxGst, 117);
@@ -14,6 +15,12 @@ assert.ok(policy.conductRules.length === 10);
 
 assert.strictEqual(isWorkHoldActive({ amount: 1 }), false);
 assert.strictEqual(isWorkHoldActive({ escrowStatus: "Locked", paymentStatus: "paid" }), true);
+
+const split = buildSplitLegs({ collected: 1299, merchantAccountId: "acc_ph", proxyUserId: "adv_1" });
+assert.strictEqual(split.legs.length, 2);
+assert.strictEqual(split.legs[0].amount + split.legs[1].amount, 1299);
+assert.ok(split.legs.every((leg) => leg.leg !== "gross_to_proxyhub"));
+assert.strictEqual(canReleaseLock({ status: STATUSES.LOCKED }, { posterDecision: "ok" }).ok, true);
 
 function verifyWebhook(rawBody, secret, signature) {
   if (!secret || !signature) return false;

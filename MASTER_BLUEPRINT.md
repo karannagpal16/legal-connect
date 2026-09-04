@@ -21,8 +21,9 @@ Runtime implementation of Flows A/B, role workflows, state machines, and product
 1. Advocate posts mission via existing `POST /api/tasks` (+ ProxyHub escrow payment).
 2. Admin assigns proxy: `POST /api/admin/proxy-tasks/:id/assign-proxy` → `proxy_assigned_by_lc`.
 3. Supervised inter-counsel Q&A: `POST|GET /api/proxy-tasks/:id/qa`.
-4. Proof upload (existing task proof APIs) → Admin approve → work-hold release (`proof_approved` → `escrow_released`).
-   Escrow release is a **manual work-hold release**, not an automated Razorpay payout.
+4. Proof upload (existing task proof APIs) → LC verifies → posting counsel approves (or 24–48h auto-approval) → LC **split-settles**:
+   ProxyHub merchant share (flat technology fee + GST) and the appearing advocate's professional fee.
+   Legal Connect is the lock layer; ProxyHub is the KYC merchant. Gross is never transferred to ProxyHub first.
 
 ## State machines
 

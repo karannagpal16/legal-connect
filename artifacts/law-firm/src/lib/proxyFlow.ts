@@ -110,7 +110,7 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
     label: "Paid",
     actor: "main_counsel",
     actorLabel: "You posted",
-    detail: "Fee held safely until the work is done.",
+    detail: "Fee is LOCKED by Legal Connect against a booking ID. It is not yet ProxyHub revenue.",
   },
   {
     id: "lc_review",
@@ -152,7 +152,7 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
     label: "Counsel review",
     actor: "main_counsel",
     actorLabel: "Poster",
-    detail: "Main counsel: satisfied or not satisfied (+ reason).",
+    detail: "Main counsel: satisfied or not satisfied. No decision within 24–48 hours auto-approves the split.",
   },
   {
     id: "counsel_ok",
@@ -170,17 +170,17 @@ export const PROXY_FLOW_STAGES: ProxyFlowStage[] = [
   },
   {
     id: "escrow_released",
-    label: "Paid out",
+    label: "Split settled",
     actor: "lc",
     actorLabel: "Legal Connect",
-    detail: "Professional fee released in full, less Legal Connect's flat technology fee.",
+    detail: "LC pays ProxyHub's merchant share and the proxy's professional fee in one split. Gross never parks in ProxyHub first.",
   },
   {
     id: "refunded",
     label: "Refunded",
     actor: "lc",
     actorLabel: "Legal Connect",
-    detail: "Manual refund to main counsel.",
+    detail: "Refund to the posting advocate's original payment method. Not routed via ProxyHub.",
   },
 ];
 

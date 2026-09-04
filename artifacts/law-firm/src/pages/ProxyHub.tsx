@@ -76,6 +76,17 @@ type ProxyTask = Task & {
   mainCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
   proxyCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
   liveTrack?: { headline?: string; nodes?: Array<{ id: string; label: string; state: string; detail?: string }> };
+  bookingId?: string;
+  paymentLockStatus?: string;
+  lockedPayment?: {
+    bookingId?: string;
+    status?: string;
+    collected?: number;
+    proxyhubShare?: number;
+    proxyShare?: number;
+    autoReleaseAt?: string | null;
+    complimentary?: boolean;
+  };
 };
 
 type SimpleFilter = "needs_you" | "waiting" | "available" | "done" | "all";
@@ -342,8 +353,8 @@ export function ProxyHub() {
           </h1>
           <p className="mt-1 text-muted-foreground max-w-xl">
             {isAdmin
-              ? "Assign a proxy, then release payment after proof is confirmed."
-              : "Post a court appearance, or complete missions Legal Connect assigns to you."}
+              ? "Assign a proxy. LC locks the fee against a booking ID, then split-settles to ProxyHub and the appearing advocate after proof."
+              : "Post a court appearance. Legal Connect locks your payment until the work is done, then split-settles ProxyHub and the proxy."}
           </p>
         </div>
         <button
@@ -518,8 +529,12 @@ export function ProxyHub() {
                       {fee > 0 ? (
                         <p className="flex items-center gap-2 font-semibold">
                           <HandCoins className="w-4 h-4 text-primary shrink-0" />
-                          ₹{fee.toLocaleString("en-IN")} held
-                          <span className="font-normal text-muted-foreground">· {urgency.label}</span>
+                          ₹{fee.toLocaleString("en-IN")} locked
+                          <span className="font-normal text-muted-foreground">
+                            · {urgency.label}
+                            {t.lockedPayment?.bookingId || t.bookingId ? ` · ${t.lockedPayment?.bookingId || t.bookingId}` : ""}
+                            {t.lockedPayment?.status ? ` · ${t.lockedPayment.status}` : ""}
+                          </span>
                         </p>
                       ) : null}
                       {(isProxy || isAdmin || isPoster) && notes ? (
@@ -685,7 +700,7 @@ export function ProxyHub() {
                   {/* Poster reviews proof — only after LC verification */}
                   {!t.teaserOnly && isPoster && t.proofStatus === "lc_verified" ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Legal Connect verified this order sheet. Are you satisfied?</p>
+                      <p className="text-xs text-muted-foreground">Legal Connect verified this order sheet. Satisfied releases a split settlement to ProxyHub and the appearing advocate. No reply within 24–48 hours auto-approves.</p>
                       <button
                         className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                         disabled={busyId === String(t.id)}
@@ -746,7 +761,7 @@ export function ProxyHub() {
                         className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                         disabled={busyId === String(t.id)}
                         onClick={() => {
-                          if (!window.confirm("Release the professional fee to the appearing advocate? Legal Connect retains only its flat technology fee and GST on it. Payout is manual.")) return;
+                          if (!window.confirm("Release split settlement? ProxyHub receives only its flat merchant share; the appearing advocate receives the professional fee. Gross is not sent to ProxyHub first.")) return;
                           runAction(t.id, "/api/admin/task-action", {
                             method: "POST",
                             body: JSON.stringify({ taskId: t.id, action: "release_payment" }),
@@ -839,8 +854,33 @@ export function ProxyHub() {
                     <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-3 text-xs text-muted-foreground">
                       <p>Due: {urgency.slaShort}</p>
                       <p>Proof: {t.proofStatus || "not uploaded yet"}</p>
-                      <p>Payment hold: {t.escrowStatus || "—"}</p>
+                      <p>Payment lock: {t.lockedPayment?.status || t.escrowStatus || "—"}{t.lockedPayment?.bookingId || t.bookingId ? ` · ${t.lockedPayment?.bookingId || t.bookingId}` : ""}</p>
+                      {t.lockedPayment?.autoReleaseAt && String(t.lockedPayment.status || "") === "LOCKED" ? (
+                        <p>Auto-approval: {new Date(t.lockedPayment.autoReleaseAt).toLocaleString("en-IN")}</p>
+                      ) : null}
+                      {t.lockedPayment ? (
+                        <p>Split: ProxyHub ₹{(t.lockedPayment.proxyhubShare || 0).toLocaleString("en-IN")} · proxy ₹{(t.lockedPayment.proxyShare || 0).toLocaleString("en-IN")}</p>
+                      ) : null}
                       {notes ? <p className="text-foreground"><strong>Main counsel notes:</strong> {notes}</p> : null}
+                      {isPoster && String(t.lockedPayment?.status || t.escrowStatus || "").toUpperCase().includes("LOCK") ? (
+                        <button
+                          className="w-full border border-destructive/40 text-destructive font-semibold py-2 rounded-lg"
+                          disabled={busyId === String(t.id)}
+                          onClick={() => {
+                            const reason = window.prompt("Dispute reason (min 8 characters)", "") || "";
+                            if (reason.trim().length < 8) {
+                              toast({ title: "Reason required", description: "Enter at least 8 characters.", variant: "destructive" });
+                              return;
+                            }
+                            runAction(t.id, `/api/tasks/${t.id}/dispute`, {
+                              method: "POST",
+                              body: JSON.stringify({ reason }),
+                            }, "Dispute opened — auto-approval paused");
+                          }}
+                        >
+                          Dispute locked payment
+                        </button>
+                      ) : null}
                       {next.label ? <p>Next actor: {next.label} — {next.action}</p> : null}
 
                       {(isPoster || isProxy || isAdmin) && !pendingAdmin ? (

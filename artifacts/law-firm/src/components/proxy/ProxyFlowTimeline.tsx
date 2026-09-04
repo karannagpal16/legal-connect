@@ -22,7 +22,7 @@ export function ProxyFlowBanner() {
         <div>
           <p className="text-sm font-semibold text-foreground">How court missions work</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Main counsel posts → LC assigns by court → proxy accepts → proof → counsel satisfied / not → release or refund
+            Main counsel posts → LC locks payment → proxy completes → counsel (or 24–48h auto-approval) → LC split-settles ProxyHub + proxy
           </p>
         </div>
         <span className="text-xs font-bold text-primary whitespace-nowrap">{open ? "Hide" : "Show"}</span>
@@ -30,13 +30,13 @@ export function ProxyFlowBanner() {
       {open ? (
         <ol className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 border-t border-border pt-3">
           {[
-            { n: "1", t: "Post & pay", d: "Main counsel · practice area" },
+            { n: "1", t: "Post & lock", d: "LC holds booking_id" },
             { n: "2", t: "LC assigns", d: "Match proxy to mission court" },
             { n: "3", t: "Proxy accepts", d: "Then conflict + check-in" },
             { n: "4", t: "Proof", d: "Order sheet → LC verifies" },
-            { n: "5", t: "Counsel review", d: "Satisfied or not + reason" },
-            { n: "6", t: "Settle", d: "Release net or refund" },
-            { n: "7", t: "Track", d: "Live chain for Admin" },
+            { n: "5", t: "Counsel review", d: "Or 24–48h auto-approval" },
+            { n: "6", t: "Split settle", d: "ProxyHub + proxy, not gross first" },
+            { n: "7", t: "Track", d: "Signed lock / release events" },
           ].map((step) => (
             <li key={step.n} className="rounded-xl bg-background/70 px-3 py-2">
               <span className="text-[11px] font-bold text-muted-foreground">{step.n}</span>
