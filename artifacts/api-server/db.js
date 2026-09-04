@@ -419,6 +419,19 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS tasks_accepted_by_idx ON tasks (accepted_by) WHERE accepted_by IS NOT NULL`);
     await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_hash text`);
     await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_status text DEFAULT 'none'`);
+    await query(`
+      CREATE TABLE IF NOT EXISTS task_proofs (
+        task_id text PRIMARY KEY,
+        uploaded_by text,
+        file_name text NOT NULL,
+        mime_type text NOT NULL,
+        size_bytes bigint NOT NULL,
+        checksum text NOT NULL,
+        file_data bytea NOT NULL,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
     await query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_score integer`);
     await query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_scored_at timestamptz`);
     await query(`

@@ -11,7 +11,12 @@ const { demoMemory } = require("./production-guards");
 const {
   hashProxyProof,
   findConflictingProofRow,
+  canViewTaskProof,
+  proofViewPath,
+  inferProofMime,
+  isAllowedProofMime,
   PROOF_REUSE_ERROR,
+  PROOF_MISSING_ERROR,
 } = require("./proxy-proof");
 
 const RULE36_PATTERNS = [
@@ -118,6 +123,8 @@ function createStrategyFeatures(deps) {
     safeAttachmentName,
     dispatchSms,
     settlementLedger,
+    encryptBuffer,
+    decryptBuffer,
   } = deps;
 
   const supervised = createSupervisedPipeline({ db });
@@ -240,6 +247,19 @@ function createStrategyFeatures(deps) {
     if (!db.dbAvailable || schemaReady) return;
     await db.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_hash text`);
     await db.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_status text DEFAULT 'none'`);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS task_proofs (
+        task_id text PRIMARY KEY,
+        uploaded_by text,
+        file_name text NOT NULL,
+        mime_type text NOT NULL,
+        size_bytes bigint NOT NULL,
+        checksum text NOT NULL,
+        file_data bytea NOT NULL,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now()
+      )
+    `);
     await db.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_score integer`);
     await db.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_scored_at timestamptz`);
     await db.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS public_url text`);
@@ -415,6 +435,74 @@ function createStrategyFeatures(deps) {
       updatedAt: new Date().toISOString(),
     });
     return mapTask(task);
+  }
+
+  function wrapProofBytes(buffer) {
+    if (!buffer) return buffer;
+    return typeof encryptBuffer === "function" ? encryptBuffer(buffer) : buffer;
+  }
+
+  function unwrapProofBytes(stored) {
+    if (!stored) return stored;
+    return typeof decryptBuffer === "function" ? decryptBuffer(stored) : stored;
+  }
+
+  async function saveTaskProofFile(taskId, { buffer, fileName, mimeType, uploadedBy }) {
+    if (!buffer?.length) return { ok: false, error: "Proof file is required." };
+    const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
+    if (db.dbAvailable) {
+      await db.query(
+        `INSERT INTO task_proofs (task_id, uploaded_by, file_name, mime_type, size_bytes, checksum, file_data, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+         ON CONFLICT (task_id) DO UPDATE SET
+           uploaded_by = EXCLUDED.uploaded_by,
+           file_name = EXCLUDED.file_name,
+           mime_type = EXCLUDED.mime_type,
+           size_bytes = EXCLUDED.size_bytes,
+           checksum = EXCLUDED.checksum,
+           file_data = EXCLUDED.file_data,
+           updated_at = now()`,
+        [
+          String(taskId),
+          uploadedBy || null,
+          fileName,
+          mimeType,
+          buffer.length,
+          checksum,
+          wrapProofBytes(buffer),
+        ],
+      );
+      return { ok: true, checksum, stored: true };
+    }
+    const memory = demoMemory(config?.nodeEnv, demoStore);
+    const task = memory ? (memory.tasks || []).find((item) => String(item.id) === String(taskId)) : null;
+    if (!task) return { ok: false, error: "Task not found." };
+    task._proofFile = { buffer, fileName, mimeType, checksum };
+    return { ok: true, checksum, stored: true };
+  }
+
+  async function loadTaskProofFile(taskId) {
+    if (db.dbAvailable) {
+      const result = await db.query(
+        `SELECT file_name, mime_type, size_bytes, file_data FROM task_proofs WHERE task_id = $1 LIMIT 1`,
+        [String(taskId)],
+      );
+      const row = result.rows[0];
+      if (!row?.file_data) return null;
+      return {
+        fileName: row.file_name,
+        mimeType: row.mime_type,
+        bytes: unwrapProofBytes(row.file_data),
+      };
+    }
+    const memory = demoMemory(config?.nodeEnv, demoStore);
+    const task = memory ? (memory.tasks || []).find((item) => String(item.id) === String(taskId)) : null;
+    if (!task?._proofFile?.buffer) return null;
+    return {
+      fileName: task._proofFile.fileName,
+      mimeType: task._proofFile.mimeType,
+      bytes: task._proofFile.buffer,
+    };
   }
 
   async function notifyTaskLayer(task, { eventType, title, message, priority = "normal", sendSms = false, includeAdmins = false }) {
@@ -1181,6 +1269,44 @@ function createStrategyFeatures(deps) {
     }
 
     const proofMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/proof$/);
+    if (proofMatch && req.method === "GET") {
+      const authUser = getAuthUser(req);
+      if (!authUser) {
+        sendJson(res, 401, { ok: false, error: "Login is required." });
+        return true;
+      }
+      const task = await loadTask(proofMatch[1]);
+      if (!task) {
+        sendJson(res, 404, { ok: false, error: "Task not found." });
+        return true;
+      }
+      if (!canViewTaskProof(authUser, task)) {
+        sendJson(res, 403, { ok: false, error: "Only Legal Connect Admin, the posting counsel, or the assigned proxy can open this order sheet." });
+        return true;
+      }
+      const stored = await loadTaskProofFile(task.id);
+      if (!stored?.bytes?.length) {
+        sendJson(res, 409, {
+          ok: false,
+          error: PROOF_MISSING_ERROR,
+          code: "PROOF_FILE_MISSING",
+          reupload: true,
+        });
+        return true;
+      }
+      const fileName = safeAttachmentName(stored.fileName || "order-sheet.pdf");
+      const mimeType = stored.mimeType || "application/octet-stream";
+      res.writeHead(200, {
+        "Content-Type": mimeType,
+        "Content-Disposition": `inline; filename="${fileName}"`,
+        "Content-Length": String(stored.bytes.length),
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      res.end(stored.bytes);
+      return true;
+    }
+
     if (proofMatch && req.method === "POST") {
       const authUser = getAuthUser(req);
       if (!authUser) {
@@ -1192,27 +1318,41 @@ function createStrategyFeatures(deps) {
         sendJson(res, 404, { ok: false, error: "Task not found." });
         return true;
       }
+      const isAssignedProxy = String(task.acceptedBy || task.payload?.acceptedBy || "") === String(authUser.id || "");
+      if (!isAssignedProxy && !canSeeAll(authUser)) {
+        sendJson(res, 403, { ok: false, error: "Only the assigned proxy can upload this order sheet." });
+        return true;
+      }
       if (!(task.checkedInAt || task.payload?.checkedInAt)) {
         sendJson(res, 409, { ok: false, error: "Check in before uploading proof." });
+        return true;
+      }
+      const existingProofStatus = String(task.proofStatus || task.proof_status || "").toLowerCase();
+      if (["lc_verified", "poster_approved", "approved"].includes(existingProofStatus) && !canSeeAll(authUser)) {
+        sendJson(res, 409, { ok: false, error: "This order sheet is already with Legal Connect or the posting counsel. Wait for a re-upload request." });
         return true;
       }
       const contentType = String(req.headers["content-type"] || "");
       let fileBuffer = null;
       let fileName = safeAttachmentName(req.headers["x-file-name"] || "order-sheet.pdf");
-      let proofUrl = null;
       if (contentType.includes("application/json")) {
         const body = await readBody(req);
-        proofUrl = body.proofUrl || body.url || null;
         if (body.base64) fileBuffer = Buffer.from(String(body.base64).replace(/^data:[^;]+;base64,/, ""), "base64");
         if (body.fileName) fileName = safeAttachmentName(body.fileName);
       } else {
         fileBuffer = await readRawBody(req, 8 * 1024 * 1024);
       }
-      if (!fileBuffer?.length && !proofUrl) {
+      if (!fileBuffer?.length) {
         sendJson(res, 400, { ok: false, error: "Proof file is required." });
         return true;
       }
-      const proofHash = hashProxyProof({ buffer: fileBuffer, proofUrl });
+      const mimeType = inferProofMime(contentType, fileName);
+      if (!isAllowedProofMime(mimeType)) {
+        sendJson(res, 415, { ok: false, error: "Upload a PDF or image of the order sheet." });
+        return true;
+      }
+      const proofHash = hashProxyProof({ buffer: fileBuffer });
+      const proofUrl = proofViewPath(task.id);
       const currentProof = {
         taskId: task.id,
         proofHash,
@@ -1253,15 +1393,23 @@ function createStrategyFeatures(deps) {
           return true;
         }
       }
-      if (fileBuffer?.length) {
-        const cloud = await uploadToCloudinary({
-          buffer: fileBuffer,
-          fileName,
-          mimeType: contentType.split(";")[0] || "application/pdf",
-          folder: "legal-connect/proxy-proofs",
-        });
-        if (cloud.ok) proofUrl = cloud.url;
-        else if (!proofUrl) proofUrl = `local://proof/${proofHash.slice(0, 16)}/${fileName}`;
+      let cloudPublicId = null;
+      const cloud = await uploadToCloudinary({
+        buffer: fileBuffer,
+        fileName,
+        mimeType,
+        folder: "legal-connect/proxy-proofs",
+      });
+      if (cloud.ok) cloudPublicId = cloud.publicId || null;
+      const stored = await saveTaskProofFile(task.id, {
+        buffer: fileBuffer,
+        fileName,
+        mimeType,
+        uploadedBy: authUser.id,
+      });
+      if (!stored.ok) {
+        sendJson(res, 503, { ok: false, error: stored.error || "Could not store the order sheet." });
+        return true;
       }
       const updated = await saveTaskPatch(proofMatch[1], {
         status: "Proof Uploaded",
@@ -1271,6 +1419,11 @@ function createStrategyFeatures(deps) {
         payloadPatch: {
           proofSubmittedAt: new Date().toISOString(),
           proofSubmittedBy: authUser.id,
+          proofFileName: fileName,
+          proofMimeType: mimeType,
+          proofStored: true,
+          proofViewUrl: proofUrl,
+          proofCloudinaryId: cloudPublicId,
           transparencyLayer: "proof",
           lcProofStatus: "pending",
           posterProofDecision: null,
@@ -1281,15 +1434,15 @@ function createStrategyFeatures(deps) {
       await notify({
         eventType: "proxy_proof_submitted",
         title: "Proxy proof awaits LC verification",
-        message: `Order sheet uploaded for ${updated.title || "the mission"}. Verify it, then it will be sent to the posting counsel.`,
+        message: `Order sheet uploaded for ${updated.title || "the mission"}. Open the scan, verify it, then it will be sent to the posting counsel.`,
         recipients: adminRecipients,
-        payload: { taskId: proofMatch[1], proofStatus: "submitted" },
+        payload: { taskId: proofMatch[1], proofStatus: "submitted", proofViewUrl: proofUrl },
         sendEmail: true,
         ctaLabel: "Open Missions",
         ctaUrl: portalUrl(`/admin/missions?taskId=${proofMatch[1]}`),
         priority: "high",
       });
-      sendJson(res, 200, { ok: true, task: updated });
+      sendJson(res, 200, { ok: true, task: updated, proofViewUrl: proofUrl });
       return true;
     }
 

@@ -1507,6 +1507,20 @@ function mapTask(row) {
   const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
     ? row.payload
     : {};
+  const proofStatus = row.proof_status || payload.proofStatus || "none";
+  const proofStored = Boolean(payload.proofStored || row.proofStored || row._proofFile);
+  const proofStatusViewable = ["submitted", "lc_verified", "poster_approved", "approved", "rejected"].includes(
+    String(proofStatus || "").toLowerCase(),
+  );
+  const hasProof = Boolean(
+    proofStored
+    || payload.proofFileName
+    || row.proofFileName
+    || row.proof_hash
+    || payload.proofHash
+    || proofStatusViewable,
+  );
+  const proofViewUrl = hasProof && row.id ? `/api/tasks/${row.id}/proof` : null;
   // Payload is enrichment only — never let it overwrite column workflow fields
   // (a stale payload.escrowStatus previously blocked LC proxy assignment).
   return dashboardTask({
@@ -1521,9 +1535,14 @@ function mapTask(row) {
     status: row.status || payload.status || "Open",
     postedBy: row.posted_by || payload.postedBy || payload.user_id || null,
     acceptedBy: row.accepted_by || payload.acceptedBy || payload.assignedProxyId || null,
-    proofUrl: row.proof_url || payload.proofUrl || null,
+    proofUrl: proofViewUrl,
+    proofViewUrl,
     proofHash: row.proof_hash || payload.proofHash || null,
-    proofStatus: row.proof_status || payload.proofStatus || "none",
+    proofStatus,
+    proofStored,
+    hasProof,
+    proofFileName: payload.proofFileName || row.proofFileName || null,
+    proofMimeType: payload.proofMimeType || row.proofMimeType || null,
     createdAt: row.created_at || payload.createdAt,
     updatedAt: row.updated_at || payload.updatedAt,
   });
@@ -3191,6 +3210,8 @@ const strategyFeatures = createStrategyFeatures({
   safeAttachmentName,
   dispatchSms,
   settlementLedger,
+  encryptBuffer,
+  decryptBuffer,
 });
 
 const workflowProgressions = createWorkflowProgressions({

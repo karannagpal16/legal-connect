@@ -27,6 +27,7 @@ import { useAuth, normaliseRole } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { ProxyFlowBanner, ProxyMissionTimeline } from "@/components/proxy/ProxyFlowTimeline";
+import { ViewOrderSheetButton } from "@/components/proxy/ViewOrderSheetButton";
 import { onNotificationAction } from "@/lib/notificationBus";
 import {
   canEditProxyMissionDetails,
@@ -76,6 +77,10 @@ type ProxyTask = Task & {
   mainCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
   proxyCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
   liveTrack?: { headline?: string; nodes?: Array<{ id: string; label: string; state: string; detail?: string }> };
+  hasProof?: boolean;
+  proofStored?: boolean;
+  proofViewUrl?: string;
+  proofFileName?: string;
   bookingId?: string;
   paymentLockStatus?: string;
   lockedPayment?: {
@@ -315,7 +320,7 @@ export function ProxyHub() {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Proof upload failed.");
         await refresh();
-        toast({ title: "Order sheet uploaded", description: "Waiting for the posting counsel to confirm." });
+        toast({ title: "Order sheet uploaded", description: "Legal Connect Admin will open the scan, then send it to the posting counsel." });
       } catch (error) {
         toast({ title: "Upload failed", description: (error as Error).message, variant: "destructive" });
       } finally {
@@ -686,21 +691,31 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
-                  {!t.teaserOnly && canLifecycle && t.checkedInAt && !["submitted", "lc_verified", "poster_approved", "approved"].includes(String(t.proofStatus || "")) ? (
+                  {!t.teaserOnly && isProxy && t.checkedInAt && !["lc_verified", "poster_approved", "approved"].includes(String(t.proofStatus || "")) && (String(t.proofStatus || "") !== "submitted" || !t.proofStored) ? (
                     <button
                       className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
                       onClick={() => uploadProof(t)}
                     >
                       <Camera className="w-4 h-4" />
-                      {t.proofStatus === "rejected" ? "Re-upload order sheet" : "Upload order sheet"}
+                      {t.proofStatus === "rejected" || (t.proofStatus === "submitted" && !t.proofStored)
+                        ? "Re-upload order sheet"
+                        : "Upload order sheet"}
                     </button>
+                  ) : null}
+
+                  {!t.teaserOnly && (isAdmin || isPoster || isProxy) ? (
+                    <ViewOrderSheetButton
+                      task={t}
+                      token={session?.token}
+                      onError={(message) => toast({ title: "Could not open scan", description: message, variant: "destructive" })}
+                    />
                   ) : null}
 
                   {/* Poster reviews proof — only after LC verification */}
                   {!t.teaserOnly && isPoster && t.proofStatus === "lc_verified" ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Legal Connect verified this order sheet. Satisfied releases a split settlement to ProxyHub and the appearing advocate. No reply within 24–48 hours auto-approves.</p>
+                      <p className="text-xs text-muted-foreground">Open the order sheet above, then mark satisfied or not. Satisfied releases a split settlement to ProxyHub and the appearing advocate. No reply within 24–48 hours auto-approves.</p>
                       <button
                         className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
                         disabled={busyId === String(t.id)}
@@ -742,16 +757,19 @@ export function ProxyHub() {
 
                   {/* LC verifies proof first, then forwards to poster */}
                   {!t.teaserOnly && isAdmin && t.proofStatus === "submitted" ? (
-                    <button
-                      className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
-                      disabled={busyId === String(t.id)}
-                      onClick={() => runAction(t.id, "/api/admin/task-action", {
-                        method: "POST",
-                        body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved", reason: "LC verified order sheet" }),
-                      }, "Proof verified — sent to posting counsel")}
-                    >
-                      Verify proof & send to counsel
-                    </button>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Open the order sheet above, then verify it. The posting counsel cannot mark satisfied until you do.</p>
+                      <button
+                        className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold"
+                        disabled={busyId === String(t.id)}
+                        onClick={() => runAction(t.id, "/api/admin/task-action", {
+                          method: "POST",
+                          body: JSON.stringify({ taskId: t.id, action: "mark_proof_approved", reason: "LC verified order sheet" }),
+                        }, "Proof verified — sent to posting counsel")}
+                      >
+                        Verify proof & send to counsel
+                      </button>
+                    </div>
                   ) : null}
 
                   {/* After satisfied: Release OR Refund */}
@@ -853,7 +871,7 @@ export function ProxyHub() {
                   {!t.teaserOnly && detailsOpen ? (
                     <div className="space-y-2 rounded-xl bg-muted/30 border border-border p-3 text-xs text-muted-foreground">
                       <p>Due: {urgency.slaShort}</p>
-                      <p>Proof: {t.proofStatus || "not uploaded yet"}</p>
+                      <p>Proof: {t.proofStatus || "not uploaded yet"}{t.proofFileName ? ` · ${t.proofFileName}` : ""}{t.proofStored ? " · file stored" : t.hasProof ? " · file missing — re-upload" : ""}</p>
                       <p>Payment lock: {t.lockedPayment?.status || t.escrowStatus || "—"}{t.lockedPayment?.bookingId || t.bookingId ? ` · ${t.lockedPayment?.bookingId || t.bookingId}` : ""}</p>
                       {t.lockedPayment?.autoReleaseAt && String(t.lockedPayment.status || "") === "LOCKED" ? (
                         <p>Auto-approval: {new Date(t.lockedPayment.autoReleaseAt).toLocaleString("en-IN")}</p>

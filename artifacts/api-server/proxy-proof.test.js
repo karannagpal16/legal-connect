@@ -2,7 +2,13 @@ const assert = require("assert");
 const {
   hashProxyProof,
   findConflictingProofRow,
+  canViewTaskProof,
+  proofViewPath,
+  inferProofMime,
+  isAllowedProofMime,
+  isViewableProofStatus,
   PROOF_REUSE_ERROR,
+  PROOF_MISSING_ERROR,
 } = require("./proxy-proof");
 
 const hash = hashProxyProof({ buffer: Buffer.from("order-sheet-bytes") });
@@ -100,5 +106,23 @@ const otherCounsel = findConflictingProofRow(current, [{
 }]);
 assert.ok(otherCounsel, "a live scan from another counsel must stay unique");
 assert.ok(PROOF_REUSE_ERROR.includes("fresh scan"));
+
+const task = { id: "task-1", postedBy: "priya", acceptedBy: "karan" };
+assert.strictEqual(canViewTaskProof({ role: "admin", id: "ops" }, task), true);
+assert.strictEqual(canViewTaskProof({ role: "rna", id: "ops" }, task), true);
+assert.strictEqual(canViewTaskProof({ role: "advocate", id: "priya" }, task), true, "posting counsel can open the scan");
+assert.strictEqual(canViewTaskProof({ role: "advocate", id: "karan" }, task), true, "assigned proxy can open the scan");
+assert.strictEqual(canViewTaskProof({ role: "advocate", id: "stranger" }, task), false);
+assert.strictEqual(canViewTaskProof(null, task), false);
+assert.strictEqual(proofViewPath("abc-123"), "/api/tasks/abc-123/proof");
+assert.ok(isViewableProofStatus("submitted"));
+assert.ok(isViewableProofStatus("lc_verified"));
+assert.ok(!isViewableProofStatus("window_open"));
+assert.strictEqual(inferProofMime("image/jpeg", "scan.jpg"), "image/jpeg");
+assert.strictEqual(inferProofMime("application/octet-stream", "order-sheet.pdf"), "application/pdf");
+assert.ok(isAllowedProofMime("application/pdf"));
+assert.ok(isAllowedProofMime("image/png"));
+assert.ok(!isAllowedProofMime("application/zip"));
+assert.ok(PROOF_MISSING_ERROR.includes("re-upload"));
 
 console.log("proxy-proof.test.js OK");

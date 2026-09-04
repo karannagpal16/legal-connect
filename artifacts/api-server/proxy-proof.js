@@ -90,6 +90,43 @@ function findConflictingProofRow(current, candidates = []) {
 }
 
 const PROOF_REUSE_ERROR = "This order sheet scan was already used on another mission. Upload a fresh scan.";
+const PROOF_MISSING_ERROR = "The order sheet was recorded but the file was not stored. Ask the proxy to re-upload the scan.";
+
+function proofViewPath(taskId) {
+  return `/api/tasks/${encodeURIComponent(String(taskId))}/proof`;
+}
+
+function isViewableProofStatus(status) {
+  return ["submitted", "lc_verified", "poster_approved", "approved", "rejected"].includes(lower(status));
+}
+
+function canViewTaskProof(authUser, task) {
+  if (!authUser || !task) return false;
+  const role = lower(authUser.role);
+  if (role === "admin" || role === "rna") return true;
+  const uid = String(authUser.id || "");
+  if (!uid) return false;
+  const posted = String(taskField(task, "postedBy", "posted_by") || "");
+  const accepted = String(taskField(task, "acceptedBy", "accepted_by", "assignedProxyId") || "");
+  return uid === posted || uid === accepted;
+}
+
+function inferProofMime(contentType, fileName) {
+  const mime = String(contentType || "").split(";")[0].trim().toLowerCase();
+  if (mime === "application/pdf" || mime.startsWith("image/")) return mime;
+  const name = lower(fileName);
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".heic") || name.endsWith(".heif")) return "image/heic";
+  return mime || "application/octet-stream";
+}
+
+function isAllowedProofMime(mime) {
+  const value = lower(mime);
+  return value === "application/pdf" || value.startsWith("image/");
+}
 
 module.exports = {
   hashProxyProof,
@@ -97,5 +134,11 @@ module.exports = {
   isTerminalProofRow,
   isReleasedProofRow,
   normalizeCnr,
+  canViewTaskProof,
+  proofViewPath,
+  isViewableProofStatus,
+  inferProofMime,
+  isAllowedProofMime,
   PROOF_REUSE_ERROR,
+  PROOF_MISSING_ERROR,
 };

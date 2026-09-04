@@ -26,6 +26,7 @@ import { AdminPendingUpdates } from "@/pages/admin/AdminPendingUpdates";
 import { AdminVerifications } from "@/pages/admin/AdminVerifications";
 import { onNotificationAction } from "@/lib/notificationBus";
 import { CounselLiveTrack } from "@/components/proxy/ProxyFlowTimeline";
+import { ViewOrderSheetButton } from "@/components/proxy/ViewOrderSheetButton";
 import { courtMatchScore, resolveProxyFlowStage } from "@/lib/proxyFlow";
 
 type Advocate = {
@@ -133,6 +134,10 @@ type DeskTask = {
   mainCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
   proxyCounsel?: { name?: string; practiceLabel?: string; practiceCourts?: string };
   liveTrack?: { headline?: string; nodes?: Array<{ id: string; label: string; state: string; detail?: string }> };
+  hasProof?: boolean;
+  proofStored?: boolean;
+  proofViewUrl?: string;
+  proofFileName?: string;
   settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
   settlementPreview?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
   bookingId?: string;
@@ -1278,12 +1283,28 @@ export function AdminControlDesk() {
                       </>
                     ) : null}
                     {task.proofStatus === "submitted" ? (
-                      <button className="lc-button lc-button-primary" disabled={taskAction.isPending} onClick={() => taskAction.mutate({ taskId: task.id, action: "mark_proof_approved", reason: "LC verified order sheet" })}>
-                        Verify proof & send to counsel
-                      </button>
+                      <>
+                        <ViewOrderSheetButton
+                          task={task}
+                          token={session?.token}
+                          variant="admin"
+                          onError={(message) => setError(message)}
+                        />
+                        <button className="lc-button lc-button-primary" disabled={taskAction.isPending} onClick={() => taskAction.mutate({ taskId: task.id, action: "mark_proof_approved", reason: "LC verified order sheet" })}>
+                          Verify proof & send to counsel
+                        </button>
+                      </>
                     ) : null}
                     {task.proofStatus === "lc_verified" ? (
-                      <p className="lc-ops-meta">LC verified — waiting for main counsel satisfied / not satisfied.</p>
+                      <>
+                        <ViewOrderSheetButton
+                          task={task}
+                          token={session?.token}
+                          variant="admin"
+                          onError={(message) => setError(message)}
+                        />
+                        <p className="lc-ops-meta">LC verified — waiting for main counsel satisfied / not satisfied.</p>
+                      </>
                     ) : null}
                     {stage === "counsel_ok" ? (
                       <>
@@ -1474,6 +1495,12 @@ export function AdminControlDesk() {
                   {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                 </p>
                 <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
+                  <ViewOrderSheetButton
+                    task={task}
+                    token={session?.token}
+                    variant="admin"
+                    onError={(message) => setError(message)}
+                  />
                   {task.proofStatus === "submitted" ? (
                     <button className="lc-button lc-button-primary" disabled={taskAction.isPending} onClick={() => taskAction.mutate({ taskId: task.id, action: "mark_proof_approved" })}>
                       Approve proof
