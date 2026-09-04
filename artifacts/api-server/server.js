@@ -23,6 +23,11 @@ const {
 } = require("./proxy-hub-post");
 const { createPlatformEvents } = require("./platform-events");
 const {
+  DEMO_STORE_DISABLED_MESSAGE,
+  isDbOptionalApiPath,
+  isDemoStoreDisabledError,
+} = require("./production-guards");
+const {
   createSupervisedPipeline,
   maskCounselForClient,
   pipelineProgress,
@@ -242,13 +247,13 @@ function createLocalDemoStore() {
 const demoStore = new Proxy(createLocalDemoStore(), {
   get(target, property) {
     if (config.nodeEnv === "production") {
-      throw new Error("Local demo storage is disabled in production.");
+      throw new Error(DEMO_STORE_DISABLED_MESSAGE);
     }
     return target[property];
   },
   set(target, property, value) {
     if (config.nodeEnv === "production") {
-      throw new Error("Local demo storage is disabled in production.");
+      throw new Error(DEMO_STORE_DISABLED_MESSAGE);
     }
     target[property] = value;
     return true;
@@ -2236,7 +2241,7 @@ async function writeAuditLog(actor, action, targetType, targetId, message, paylo
     } catch (error) {
       console.warn("writeAuditLog failed:", error?.message || error);
     }
-  } else {
+  } else if (config.nodeEnv !== "production") {
     demoStore.auditLogs.unshift(audit);
   }
   try {
@@ -2693,6 +2698,7 @@ async function createReceipt({
     );
     return mapReceipt(result.rows[0]);
   }
+  if (config.nodeEnv === "production") return receipt;
   demoStore.receipts.unshift(receipt);
   return receipt;
 }
@@ -2770,6 +2776,9 @@ async function createLegalSourceRecord(source) {
       [source.source_type, source.source_name, source.title, source.court, source.act_name, source.section_no, source.citation, source.source_url, source.published_date, source.status, source.text_content, source.uploaded_by],
     );
     return mapLegalSource(result.rows[0]);
+  }
+  if (config.nodeEnv === "production") {
+    throw new Error("PostgreSQL is required to store legal sources in production.");
   }
   const fallbackSource = { ...source, id: `legal-source-${Date.now()}-${Math.round(Math.random() * 1000)}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   demoStore.legalSources.unshift(fallbackSource);
@@ -3035,6 +3044,9 @@ async function lawbotHealthCounts() {
       legal_chunks_count: chunks.rows[0]?.count || 0,
     };
   }
+  if (config.nodeEnv === "production") {
+    return { approved_sources_count: 0, legal_chunks_count: 0 };
+  }
   return {
     approved_sources_count: demoStore.legalSources.filter((source) => source.status === "approved").length,
     legal_chunks_count: demoStore.legalChunks.filter((chunk) => {
@@ -3240,6 +3252,13 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // Fail closed before blueprint/strategy/workflow handlers — those still have
+  // local demoStore fallbacks that throw in production.
+  if (url.pathname.startsWith("/api/") && productionDbUnavailable() && !isDbOptionalApiPath(url.pathname)) {
+    sendProductionDbUnavailable(res);
+    return;
+  }
+
   if (await masterBlueprint.handleBlueprintRoutes(req, res, url)) {
     return;
   }
@@ -3339,11 +3358,6 @@ const server = http.createServer(async (req, res) => {
       public_url: config.publicAppUrl,
       allowed_origins_count: (config.allowedOrigins || []).filter((origin) => origin !== "*").length,
     });
-    return;
-  }
-
-  if (url.pathname.startsWith("/api/") && productionDbUnavailable()) {
-    sendProductionDbUnavailable(res);
     return;
   }
 
@@ -10848,6 +10862,10 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
       if (!res.headersSent && managedRequest) {
         const requestId = crypto.randomBytes(6).toString('hex');
         console.error(`[managed:${requestId}] ${req.method || 'UNKNOWN'} ${req.url || '/'} failed`, error);
+        if (isDemoStoreDisabledError(error)) {
+          sendProductionDbUnavailable(res);
+          return;
+        }
         sendJson(res, 500, {
           ok: false,
           error: req.url.startsWith('/api/auth')
@@ -10872,6 +10890,10 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
     const requestId = crypto.randomBytes(6).toString('hex');
     console.error(`[request:${requestId}] ${req.method || 'UNKNOWN'} ${req.url || '/'} failed`, error);
     if (!res.headersSent) {
+      if (isDemoStoreDisabledError(error)) {
+        sendProductionDbUnavailable(res);
+        return;
+      }
       sendJson(res, 500, {
         ok: false,
         error: 'The service could not complete this request. Please try again.',

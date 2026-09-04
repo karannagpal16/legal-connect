@@ -7,6 +7,7 @@
 const crypto = require("crypto");
 const { createSupervisedPipeline } = require("./supervised-pipeline");
 const compliancePolicy = require("./compliance-policy");
+const { demoMemory } = require("./production-guards");
 
 const RULE36_PATTERNS = [
   /\bguarantee(?:d)?\s+(?:win|success|acquittal|outcome|result)\b/i,
@@ -363,7 +364,8 @@ function createStrategyFeatures(deps) {
       const result = await db.query("SELECT * FROM tasks WHERE id = $1 LIMIT 1", [taskId]);
       return result.rows[0] ? mapTask(result.rows[0]) : null;
     }
-    const row = (demoStore.tasks || []).find((item) => String(item.id) === String(taskId));
+    const memory = demoMemory(config?.nodeEnv, demoStore);
+    const row = memory ? (memory.tasks || []).find((item) => String(item.id) === String(taskId)) : null;
     return row ? mapTask(row) : null;
   }
 
@@ -395,7 +397,8 @@ function createStrategyFeatures(deps) {
       );
       return mapTask(result.rows[0]);
     }
-    const task = (demoStore.tasks || []).find((item) => String(item.id) === String(taskId));
+    const memory = demoMemory(config?.nodeEnv, demoStore);
+    const task = memory ? (memory.tasks || []).find((item) => String(item.id) === String(taskId)) : null;
     if (!task) return null;
     Object.assign(task, {
       ...(status ? { status } : {}),

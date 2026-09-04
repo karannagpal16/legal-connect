@@ -396,7 +396,7 @@ export function AdminControlDesk() {
         assign: "Panel lawyer assigned (advocate_assigned).",
         "request-info": "Document / info request sent to client.",
         guidance: "Official LC guidance published.",
-        refund: "Intake rejected — work hold released. Refund (if any) is manual; not an automated Razorpay refund.",
+        refund: "Intake rejected — work hold released. Advisory/intake refunds that never entered a ProxyHub lock are processed by Admin. Locked ProxyHub payments refund to the original method after LC records refund or dispute.",
         "start-review": "Intake marked lc_under_review.",
         conclude: "Intake concluded — work hold released for manual settlement.",
       };

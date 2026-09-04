@@ -56,7 +56,7 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
   },
   terms: {
     title: "Terms of Use",
-    updated: "1 August 2026",
+    updated: "4 September 2026",
     sections: [
       {
         heading: "Service",
@@ -76,7 +76,7 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
         heading: "Payments & holds",
         body: [
           "Paid features (consultations, ProxyHub fees, Chamber Vault plans) are charged through Razorpay unless a free entitlement applies.",
-          "Work Completion Hold statuses restrict platform release of work until Admin rules for the product are met. Hold release is a platform status — it is not an automated Razorpay payout.",
+          "Work Completion Hold is a platform lock against a unique booking_id. After proof and counsel approval, or after the 24–48 hour auto-approval window, Legal Connect split-settles: ProxyHub receives only the flat technology fee plus GST; the appearing advocate receives the professional fee. Gross is never transferred to ProxyHub first. Hold status itself is not a payout — the split is a separate settlement step.",
         ],
       },
       {
@@ -97,7 +97,7 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
   },
   refund: {
     title: "Refund Policy",
-    updated: "1 August 2026",
+    updated: "4 September 2026",
     sections: [
       {
         heading: "When refunds apply",
@@ -117,7 +117,7 @@ const docs: Record<LegalDocKind, { title: string; updated: string; sections: Arr
         heading: "How to request",
         body: [
           "Open Grievance in the client portal or contact Admin with your payment id / receipt number within 7 days of the charge.",
-          "Approved refunds are processed manually by Legal Connect Admin/support to the original payment method. Automated Razorpay refund APIs are not enabled in this release; timelines depend on Admin processing and your bank/UPI provider.",
+          "Approved ProxyHub refunds are returned to the original payment method after Legal Connect records a refund or dispute on the booking lock. If Razorpay cannot complete the refund immediately, the refund is queued for Admin processing. Advisory or intake refunds that never entered a lock may still be processed by Admin. Timelines depend on Razorpay and your bank or UPI provider.",
         ],
       },
     ],

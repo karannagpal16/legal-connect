@@ -107,19 +107,18 @@ Live smoke (`NODE_ENV=development PORT=4599`):
 
 ## 11. Remaining blockers (ops, not code)
 
-1. Live `DATABASE_URL` on Render.
-2. Live Razorpay keys + webhook secret; smoke one paid advisory and one Proxy Hub mission.
-3. Seed approved LawBot sources so production answers are not all refusals.
-4. `ALLOWED_ORIGINS` set to the production hostnames.
+Live as of 4 September 2026: PostgreSQL connected, Razorpay `mode: live`, settlement layer `lc-lock` on `GET /api/health`. Remaining:
+
+1. ProxyHub Razorpay Route linked account (`PROXYHUB_RAZORPAY_ACCOUNT_ID`) plus company IFSC / account last4 so split legs transfer instead of `queued_for_payout`.
+2. Seed approved LawBot sources so production answers are not all refusals (`legal_chunks_count > 0` on admin health).
+3. Confirm `ALLOWED_ORIGINS` and Resend sender domain for email OTP.
+4. One paid advisory smoke and one Proxy Hub post → assign → proof → counsel OK → split.
 5. Independent counsel sign-off on Privacy / Terms / Refund (pages still carry a draft banner).
 6. Independent professional-conduct opinion before dispatching the BCI representation
    (`docs/compliance/`).
 
+Play Store production listing, Data Safety, and a shipping iOS wrapper are store/ops work, not this codebase.
+
 ## 12. Recommendation
 
-**NOT READY — BLOCKED BY ops configuration (database, Razorpay live keys, LawBot seed) and
-counsel sign-off on legal pages.**
-
-The application code for Phase 1 is launch-hardened. Do not flip the site to paid public traffic
-until the six items in §11 are done. After those, the recommendation becomes **READY FOR
-PRODUCTION**.
+**NOT READY FOR UNATTENDED PUBLIC PAID TRAFFIC** until items 1–4 in §11 are confirmed in the Render dashboard and one live Proxy Hub split has completed. Product code for Phase 1 is launch-hardened. Counsel sign-off (§11.5–6) is required before treating legal pages as final policy or writing to the Bar Council.

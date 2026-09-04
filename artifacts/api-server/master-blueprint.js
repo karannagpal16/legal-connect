@@ -6,6 +6,7 @@
  */
 
 const { isWorkHoldActive } = require("./work-hold");
+const { demoMemory } = require("./production-guards");
 
 const ADVISORY_AMOUNTS = {
   chat: 99,
@@ -212,12 +213,15 @@ function createMasterBlueprint(deps) {
       if (!result.rows[0]) return null;
       return mapBooking(result.rows[0]);
     }
-    return (demoStore.bookings || []).find((row) => row.id === id) || null;
+    const memory = demoMemory(config.nodeEnv, demoStore);
+    if (!memory) return null;
+    return (memory.bookings || []).find((row) => row.id === id) || null;
   }
 
   async function patchBookingPayload(id, patch = {}, columns = {}) {
     if (!db.dbAvailable) {
-      const booking = (demoStore.bookings || []).find((row) => row.id === id);
+      const memory = demoMemory(config.nodeEnv, demoStore);
+      const booking = memory ? (memory.bookings || []).find((row) => row.id === id) : null;
       if (!booking) return null;
       Object.assign(booking, columns, patch);
       booking.payload = { ...(booking.payload || {}), ...patch };
@@ -265,13 +269,15 @@ function createMasterBlueprint(deps) {
       if (!result.rows[0]) return null;
       return mapTask(result.rows[0]);
     }
-    const task = (demoStore.tasks || []).find((row) => String(row.id) === String(id)) || null;
+    const memory = demoMemory(config.nodeEnv, demoStore);
+    const task = memory ? (memory.tasks || []).find((row) => String(row.id) === String(id)) : null;
     return task ? (mapTask ? mapTask(task) : task) : null;
   }
 
   async function patchTaskPayload(id, patch = {}, columns = {}) {
     if (!db.dbAvailable) {
-      const task = (demoStore.tasks || []).find((row) => String(row.id) === String(id));
+      const memory = demoMemory(config.nodeEnv, demoStore);
+      const task = memory ? (memory.tasks || []).find((row) => String(row.id) === String(id)) : null;
       if (!task) return null;
       Object.assign(task, columns);
       if (columns.accepted_by != null) task.acceptedBy = columns.accepted_by;

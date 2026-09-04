@@ -38,16 +38,16 @@ Password login → identity check → book counsel → (free first chat or paid)
 
 ## You must confirm in Render dashboard (ops)
 
-- [ ] PostgreSQL `DATABASE_URL` connected (production refuses API work without it)
-- [ ] Razorpay **live** keys (`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET`)
+Live probes on 4 September 2026: `GET /api/health` → `{ db: connected, lawbot: source-locked, settlement: lc-lock }`; `GET /api/payments/config` → `mode: live`. Database and Razorpay live keys are already serving production. Remaining ops:
+
 - [ ] ProxyHub merchant: `PROXYHUB_RAZORPAY_ACCOUNT_ID` (Route linked account), `PROXYHUB_BANK_IFSC`, `PROXYHUB_BANK_ACCOUNT_LAST4`, optional `PROXYHUB_WEBHOOK_URL` / `PROXYHUB_WEBHOOK_SECRET`
-- [ ] Confirm `GET /api/payments/config` → `mode: live`
-- [ ] `ALLOWED_ORIGINS=https://legal-connect.in,https://www.legal-connect.in`
-- [ ] `ALLOW_MASTER_TEST_LOGIN=false`
+- [ ] Confirm `ALLOWED_ORIGINS=https://legal-connect.in,https://www.legal-connect.in`
+- [ ] Confirm `ALLOW_MASTER_TEST_LOGIN=false`
 - [ ] Seed LawBot approved sources; admin `/api/health` shows `legal_chunks_count > 0`
-- [ ] One live paid advisory smoke + one Proxy Hub paid post → assign → proof → counsel OK → release
-- [ ] Upgrade off Render free plan if you need always-on
-- [ ] Hard refresh all four portals after deploy
+- [ ] Confirm Resend (`EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `FROM_EMAIL`) so email OTP is not demo fallback
+- [ ] One live paid advisory smoke + one Proxy Hub paid post → assign → proof → counsel OK → split
+- [ ] Upgrade off Render free plan if you need always-on (`render.yaml` still `plan: free`)
+- [ ] Hard refresh all four portals after deploy (Priya: retry Pay & Post after the 12:36 UTC 4 Sep deploy)
 
 ## Intentionally hidden / Coming Soon
 
