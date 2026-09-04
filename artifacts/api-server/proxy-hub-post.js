@@ -37,6 +37,28 @@ function safeErrorDetail(error) {
   }
 }
 
+/** Never send internal demo-store / infra throws to the browser. */
+function clientSafeErrorDetail(error) {
+  const detail = safeErrorDetail(error);
+  if (!detail) return null;
+  if (/local demo storage is disabled/i.test(detail)) return null;
+  if (/demo storage/i.test(detail)) return null;
+  return detail;
+}
+
+/**
+ * Master-free must be decided from JWT/DB email only in production.
+ * Never read demoStore as a fallback — that proxy throws in production and
+ * was aborting ProxyHub create-order for every non-immediately-allowlisted user.
+ */
+function resolveMasterFreeUser({ jwtEmail, dbEmail, production = false, demoEmail = "", isAllowlisted }) {
+  const listed = typeof isAllowlisted === "function" ? isAllowlisted : () => false;
+  if (listed(jwtEmail)) return true;
+  if (dbEmail !== undefined) return listed(dbEmail);
+  if (production) return false;
+  return listed(demoEmail);
+}
+
 function isUndefinedColumnError(error) {
   const code = String(error?.code || "");
   const message = String(error?.message || error || "");
@@ -126,6 +148,8 @@ module.exports = {
   canPostProxyMission,
   isComplimentaryProxyOrder,
   safeErrorDetail,
+  clientSafeErrorDetail,
+  resolveMasterFreeUser,
   isUndefinedColumnError,
   buildProxyMissionRecord,
   ensureProxyTaskColumns,

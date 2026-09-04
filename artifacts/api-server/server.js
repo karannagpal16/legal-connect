@@ -16,6 +16,8 @@ const {
   canPostProxyMission,
   isComplimentaryProxyOrder,
   safeErrorDetail,
+  clientSafeErrorDetail,
+  resolveMasterFreeUser,
   buildProxyMissionRecord,
   insertProxyMission,
 } = require("./proxy-hub-post");
@@ -6807,7 +6809,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 502, {
         ok: false,
         error: "Payment gateway order creation failed. Please try again.",
-        detail: safeErrorDetail(error),
+        detail: clientSafeErrorDetail(error),
       });
     }
     return;
@@ -6970,7 +6972,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 500, {
         ok: false,
         error: "The proxy mission could not be saved. If you were charged, contact Legal Connect with your payment id.",
-        detail: safeErrorDetail(error),
+        detail: clientSafeErrorDetail(error),
       });
     }
     return;
@@ -9123,19 +9125,34 @@ function isMasterTestEmail(email) {
 async function isMasterTestUser(authUser) {
   if (!authUser) return false;
   if (isMasterTestEmail(authUser.email)) return true;
+  let dbEmail;
   try {
     if (db.dbAvailable && authUser.id) {
       const userId = isUuid(authUser.id) ? authUser.id : await resolveDatabaseUserId(authUser);
       if (userId) {
         const result = await db.query("SELECT email FROM users WHERE id = $1 LIMIT 1", [userId]);
-        if (isMasterTestEmail(result.rows[0]?.email)) return true;
+        dbEmail = result.rows[0]?.email ?? "";
       }
     }
-  } catch {
-    /* fall through */
+  } catch (error) {
+    console.warn("isMasterTestUser lookup failed:", safeErrorDetail(error));
   }
-  const demo = (demoStore.users || []).find((item) => String(item.id) === String(authUser.id));
-  return isMasterTestEmail(demo?.email);
+  let demoEmail;
+  if (config.nodeEnv !== "production") {
+    try {
+      const demo = (demoStore.users || []).find((item) => String(item.id) === String(authUser.id));
+      demoEmail = demo?.email;
+    } catch {
+      demoEmail = "";
+    }
+  }
+  return resolveMasterFreeUser({
+    jwtEmail: authUser.email,
+    dbEmail,
+    production: config.nodeEnv === "production",
+    demoEmail,
+    isAllowlisted: isMasterTestEmail,
+  });
 }
 
 async function claimFreeBooking(authUser, body, reason = "free") {
