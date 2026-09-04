@@ -68,6 +68,11 @@ function mapEditingDefaults(editingTask: any): TaskFormValues {
   };
 }
 
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-destructive" role="alert">{message}</p>;
+}
+
 const emptyDefaults: TaskFormValues = {
   taskDescription: "",
   taskType: "Pass-over",
@@ -316,111 +321,118 @@ export function TaskDialog({ open, onOpenChange, editingTask }: any) {
     }
   };
 
+  const errors = form.formState.errors;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px] bg-card border-border">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px] bg-card border-border">
+        <DialogHeader className="shrink-0 px-6 pb-2 pt-6 pr-12">
           <DialogTitle className="text-2xl font-serif">{isEditing ? "Edit mission details" : "Post Proxy Task"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-          <p className="text-xs text-muted-foreground">
-            Flow: Main counsel pays &amp; posts → LC reviews/assigns → Proxy appears &amp; uploads proof → Main counsel OK/Not OK → LC releases the professional fee.
-            Legal Connect keeps only its flat ₹{PLATFORM_CHARGE_TOTAL_INR} technology fee (incl. GST) and no share of the professional fee.
-            Guaranteed-outcome wording is blocked under Bar Council Rule 36.
-          </p>
-          {isEditing ? (
-            <p className="text-xs font-semibold text-foreground bg-muted/40 border border-border rounded-xl px-3 py-2">
-              Workflow status (read-only): {humanProxyStatus(editingTask)} · {String(editingTask?.status || "—")}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-3 max-h-[calc(92dvh-10.5rem)]">
+            <p className="text-xs text-muted-foreground">
+              Pay &amp; post → LC assigns → proxy uploads proof → you confirm → LC split-settles. Flat ₹{PLATFORM_CHARGE_TOTAL_INR} technology fee (incl. GST); no share of the professional fee.
             </p>
-          ) : null}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold">Passover script / instructions</label>
-            <textarea
-              {...form.register("taskDescription")}
-              className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none min-h-[100px]"
-              placeholder="Exact passover script for proxy counsel. Do not add client secrets."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+            {isEditing ? (
+              <p className="text-xs font-semibold text-foreground bg-muted/40 border border-border rounded-xl px-3 py-2">
+                Workflow status (read-only): {humanProxyStatus(editingTask)} · {String(editingTask?.status || "—")}
+              </p>
+            ) : null}
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Appearance type</label>
-              <select {...form.register("taskType")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none">
-                <option value="Pass-over">Pass-over</option>
-                <option value="Adjournment">Adjournment</option>
-                <option value="Evidence">Evidence</option>
-                <option value="Arguments">Arguments</option>
-                <option value="Other">Other</option>
-              </select>
+              <label className="text-sm font-semibold">Passover script / instructions</label>
+              <textarea
+                {...form.register("taskDescription")}
+                className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none min-h-[72px]"
+                placeholder="Exact passover script for proxy counsel (min. 12 characters). Do not add client secrets."
+              />
+              <FieldError message={errors.taskDescription?.message} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Appearance type</label>
+                <select {...form.register("taskType")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none">
+                  <option value="Pass-over">Pass-over</option>
+                  <option value="Adjournment">Adjournment</option>
+                  <option value="Evidence">Evidence</option>
+                  <option value="Arguments">Arguments</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Posting time / urgency</label>
+                <select
+                  {...form.register("urgency")}
+                  disabled={isEditing}
+                  className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none disabled:opacity-70"
+                >
+                  {(Object.keys(PROXY_URGENCY_TIERS) as ProxyUrgencyTier[]).map((key) => {
+                    const tier = PROXY_URGENCY_TIERS[key];
+                    return (
+                      <option key={key} value={key}>
+                        {tier.label} · ₹{tier.fee.toLocaleString("en-IN")}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
+              <p><strong className="text-foreground">{urgencyMeta.label}</strong> — {urgencyMeta.postingHint}. After assign: {urgencyMeta.slaAfterAssign}.</p>
+              <p>
+                You pay <strong className="text-foreground">₹{urgencyMeta.fee.toLocaleString("en-IN")}</strong>. LC locks it against a booking ID.
+                Split on release: advocate <strong className="text-foreground">₹{feeBreakdown.professionalFee.toLocaleString("en-IN")}</strong>
+                {" "}· ProxyHub <strong className="text-foreground">₹{(feeBreakdown.platformFee + feeBreakdown.gstOnPlatformFee).toLocaleString("en-IN")}</strong>
+                {" "}(₹{feeBreakdown.platformFee} + ₹{feeBreakdown.gstOnPlatformFee} GST).
+              </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Posting time / urgency</label>
-              <select
-                {...form.register("urgency")}
-                disabled={isEditing}
-                className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none disabled:opacity-70"
-              >
-                {(Object.keys(PROXY_URGENCY_TIERS) as ProxyUrgencyTier[]).map((key) => {
-                  const tier = PROXY_URGENCY_TIERS[key];
-                  return (
-                    <option key={key} value={key}>
-                      {tier.label} · ₹{tier.fee.toLocaleString("en-IN")}
-                    </option>
-                  );
-                })}
-              </select>
+              <label className="text-sm font-semibold">Fee (set by urgency)</label>
+              <input
+                {...form.register("fee")}
+                readOnly
+                className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none opacity-80"
+              />
+              {isEditing ? <p className="text-[11px] text-muted-foreground">Held fee and urgency cannot be changed after payment.</p> : null}
             </div>
-          </div>
-          <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
-            <p><strong className="text-foreground">{urgencyMeta.label}</strong> — {urgencyMeta.postingHint}</p>
-            <p>After LC verifies &amp; assigns: <strong className="text-foreground">{urgencyMeta.slaAfterAssign}</strong></p>
-            <p>You pay: <strong className="text-foreground">₹{urgencyMeta.fee.toLocaleString("en-IN")}</strong> locked by Legal Connect against a booking ID until the work is done</p>
-            <p>
-              Of that, <strong className="text-foreground">₹{feeBreakdown.professionalFee.toLocaleString("en-IN")}</strong> is the
-              professional fee split-settled to the appearing advocate, and
-              <strong className="text-foreground"> ₹{(feeBreakdown.platformFee + feeBreakdown.gstOnPlatformFee).toLocaleString("en-IN")}</strong> is
-              ProxyHub&rsquo;s merchant share (Legal Connect&rsquo;s flat technology fee ₹{feeBreakdown.platformFee} + ₹{feeBreakdown.gstOnPlatformFee} GST). LC locks the booking until proof is approved or 24–48 hours pass.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold">Fee (set by urgency)</label>
-            <input
-              {...form.register("fee")}
-              readOnly
-              className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none opacity-80"
-            />
-            {isEditing ? <p className="text-[11px] text-muted-foreground">Held fee and urgency cannot be changed after payment.</p> : null}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">CNR number</label>
-              <input {...form.register("cnr")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none uppercase" placeholder="DLCT010012342023" />
-              <p className="text-[11px] text-muted-foreground">eCourts CNR is 16 characters (example: DLCT010012342023). A court diary number of 8+ characters is accepted if CNR is not yet issued.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">CNR number</label>
+                <input {...form.register("cnr")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none uppercase" placeholder="DLCT010012342023" />
+                <FieldError message={errors.cnr?.message} />
+                <p className="text-[11px] text-muted-foreground">16-character CNR, or an 8+ character court diary number.</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Hearing date</label>
+                <input type="date" {...form.register("hearingDate")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" />
+                <FieldError message={errors.hearingDate?.message} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Court</label>
+                <input {...form.register("location")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="Saket / Tis Hazari / DHC" />
+                <FieldError message={errors.location?.message} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Room No.</label>
+                <input {...form.register("room")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="204" />
+                <FieldError message={errors.room?.message} />
+              </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Hearing date</label>
-              <input type="date" {...form.register("hearingDate")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" />
+              <label className="text-sm font-semibold">Item No. (optional)</label>
+              <input {...form.register("itemNo")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="12" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Court</label>
-              <input {...form.register("location")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="Saket / Tis Hazari / DHC" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Room No.</label>
-              <input {...form.register("room")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="204" />
-            </div>
+          <div className="shrink-0 border-t border-border bg-card px-6 py-4 space-y-2">
+            {Object.values(errors)[0]?.message ? (
+              <p className="text-sm text-destructive" role="alert">{String(Object.values(errors)[0]?.message)}</p>
+            ) : null}
+            <button type="submit" disabled={paying || saving} className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl hover:opacity-90 transition-all text-lg shadow-lg shadow-primary/20 disabled:opacity-60">
+              {paying || saving ? "Processing..." : isEditing ? "Save mission details" : `Pay ₹${urgencyMeta.fee.toLocaleString("en-IN")} & Post Task`}
+            </button>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold">Item No. (optional)</label>
-            <input {...form.register("itemNo")} className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary outline-none" placeholder="12" />
-          </div>
-          {Object.values(form.formState.errors)[0]?.message && (
-            <p className="text-sm text-destructive" role="alert">{String(Object.values(form.formState.errors)[0]?.message)}</p>
-          )}
-          <button type="submit" disabled={paying || saving} className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl mt-4 hover:opacity-90 transition-all text-lg shadow-lg shadow-primary/20 disabled:opacity-60">
-            {paying || saving ? "Processing..." : isEditing ? "Save mission details" : `Pay ₹${urgencyMeta.fee.toLocaleString("en-IN")} & Post Task`}
-          </button>
         </form>
       </DialogContent>
     </Dialog>
