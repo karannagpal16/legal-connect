@@ -7,6 +7,11 @@
 const crypto = require("crypto");
 const { createSupervisedPipeline } = require("./supervised-pipeline");
 const compliancePolicy = require("./compliance-policy");
+const {
+  hashProxyProof,
+  findConflictingProofRow,
+  PROOF_REUSE_ERROR,
+} = require("./proxy-proof");
 
 const RULE36_PATTERNS = [
   /\bguarantee(?:d)?\s+(?:win|success|acquittal|outcome|result)\b/i,
@@ -1204,21 +1209,45 @@ function createStrategyFeatures(deps) {
         sendJson(res, 400, { ok: false, error: "Proof file is required." });
         return true;
       }
-      const proofHash = fileBuffer?.length
-        ? crypto.createHash("sha256").update(fileBuffer).digest("hex")
-        : crypto.createHash("sha256").update(String(proofUrl)).digest("hex");
+      const proofHash = hashProxyProof({ buffer: fileBuffer, proofUrl });
+      const currentProof = {
+        taskId: task.id,
+        proofHash,
+        postedBy: task.postedBy || task.payload?.postedBy || authUser.id,
+        bookingId: task.bookingId || task.payload?.bookingId || "",
+        cnr: task.cnr || task.payload?.cnr || "",
+      };
       if (db.dbAvailable) {
         const reused = await db.query(
-          `SELECT id FROM tasks WHERE proof_hash = $1 AND id <> $2 LIMIT 1`,
-          [proofHash, proofMatch[1]],
+          `SELECT id, posted_by, status, escrow_status, proof_status, payload
+           FROM tasks
+           WHERE proof_hash = $1
+             AND id::text IS DISTINCT FROM $2::text
+           LIMIT 40`,
+          [proofHash, String(task.id)],
         );
-        if (reused.rows[0]) {
-          sendJson(res, 409, { ok: false, error: "This order sheet scan was already used on another mission. Upload a fresh scan." });
+        const conflict = findConflictingProofRow(currentProof, reused.rows.map((row) => ({
+          id: row.id,
+          postedBy: row.posted_by,
+          posted_by: row.posted_by,
+          status: row.status,
+          escrowStatus: row.escrow_status,
+          escrow_status: row.escrow_status,
+          proofStatus: row.proof_status,
+          proof_status: row.proof_status,
+          proofHash,
+          payload: row.payload || {},
+        })));
+        if (conflict) {
+          sendJson(res, 409, { ok: false, error: PROOF_REUSE_ERROR });
           return true;
         }
-      } else if ((demoStore.tasks || []).some((item) => item.proofHash === proofHash && String(item.id) !== String(proofMatch[1]))) {
-        sendJson(res, 409, { ok: false, error: "This order sheet scan was already used on another mission. Upload a fresh scan." });
-        return true;
+      } else {
+        const conflict = findConflictingProofRow(currentProof, demoStore.tasks || []);
+        if (conflict) {
+          sendJson(res, 409, { ok: false, error: PROOF_REUSE_ERROR });
+          return true;
+        }
       }
       if (fileBuffer?.length) {
         const cloud = await uploadToCloudinary({
