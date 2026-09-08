@@ -1,6 +1,8 @@
 const assert = require("assert");
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || "legal-connect-proof-view-test-secret-32ch";
 const { createStrategyFeatures } = require("./strategy-features");
 const { resolveTaskParties, resolveProofStatus } = require("./proxy-proof");
+const { encryptBuffer, decryptBuffer } = require("./security");
 
 /** Same identity mapping production loadTask uses — do not stub postedBy/acceptedBy. */
 function mapTask(row) {
@@ -94,6 +96,8 @@ const features = createStrategyFeatures({
   safeAttachmentName: (name) => String(name || "order-sheet.pdf").replace(/[^\w.\-]+/g, "_"),
   dispatchSms: async () => ({}),
   settlementLedger: {},
+  encryptBuffer,
+  decryptBuffer,
 });
 
 (async () => {
@@ -240,6 +244,107 @@ const features = createStrategyFeatures({
   const saketAdmin = mockRes();
   await features.handleStrategyRoutes({ method: "GET", headers: {}, url: saketUrl.pathname }, saketAdmin, saketUrl);
   assert.strictEqual(saketAdmin.statusCode, 200, "admin must open the postgres-shaped scan");
+
+  const encryptedProofs = new Map();
+  const pgTask = {
+    id: "task-encrypted",
+    title: "Pass-over · Saket",
+    posted_by: "priya",
+    accepted_by: "karan",
+    proof_status: "window_open",
+    status: "Checked In",
+    escrow_status: "Locked",
+    payload: {
+      checkedInAt: new Date().toISOString(),
+      postedBy: "priya",
+      acceptedBy: "karan",
+    },
+  };
+  const pgDb = {
+    dbAvailable: true,
+    query: async (sql, params = []) => {
+      const text = String(sql);
+      if (/CREATE |ALTER |CREATE INDEX/i.test(text)) return { rows: [] };
+      if (text.includes("INSERT INTO task_proofs")) {
+        const stored = params[6];
+        assert.ok(Buffer.isBuffer(stored) && stored.includes(Buffer.from("lc1:")), "postgres must persist encrypted bytes");
+        encryptedProofs.set(String(params[0]), {
+          file_name: params[2],
+          mime_type: params[3],
+          size_bytes: params[4],
+          file_data: stored,
+        });
+        return { rows: [] };
+      }
+      if (text.includes("FROM task_proofs")) {
+        const row = encryptedProofs.get(String(params[0]));
+        return { rows: row ? [row] : [] };
+      }
+      if (/UPDATE\s+tasks/i.test(text)) {
+        pgTask.proof_status = params[5] || pgTask.proof_status;
+        pgTask.status = params[1] || pgTask.status;
+        Object.assign(pgTask.payload, JSON.parse(params[6] || "{}"));
+        return { rows: [pgTask] };
+      }
+      if (text.includes("proof_hash") && /SELECT/i.test(text)) return { rows: [] };
+      if (text.includes("FROM tasks")) {
+        return { rows: [pgTask] };
+      }
+      return { rows: [] };
+    },
+  };
+  const pgFeatures = createStrategyFeatures({
+    db: pgDb,
+    config,
+    notify: async () => ({}),
+    resolveRecipients: async () => [],
+    resolveAdminRecipients: async () => [{ id: "admin", role: "admin" }],
+    portalUrl: (path) => path,
+    sendJson: (res, code, body) => {
+      res.statusCode = code;
+      res.body = body;
+    },
+    readBody: async () => ({}),
+    readRawBody: async () => Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]),
+    getAuthUser: () => authUser,
+    canSeeAll: (user) => user && ["admin", "rna"].includes(user.role),
+    canAccessStoredCase: () => false,
+    mapTask,
+    mapCase: (row) => row,
+    writeAuditLog: async () => undefined,
+    createReceipt: async () => ({}),
+    escapeHtml: (value) => String(value || ""),
+    sendEmail: async () => ({}),
+    demoStore: { tasks: [] },
+    isUuid: () => false,
+    safeAttachmentName: (name) => String(name || "order-sheet.pdf").replace(/[^\w.\-]+/g, "_"),
+    dispatchSms: async () => ({}),
+    settlementLedger: {},
+    encryptBuffer,
+    decryptBuffer,
+  });
+  const encJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+  authUser = { id: "karan", role: "advocate", name: "Karan" };
+  const encUrl = new URL("http://localhost/api/tasks/task-encrypted/proof");
+  const encPost = mockRes();
+  await pgFeatures.handleStrategyRoutes({
+    method: "POST",
+    headers: { "content-type": "image/jpeg", "x-file-name": "sheet.jpg" },
+    url: encUrl.pathname,
+  }, encPost, encUrl);
+  assert.strictEqual(encPost.statusCode, 200, "encrypted postgres upload must succeed");
+
+  authUser = { id: "priya", role: "advocate", name: "Priya" };
+  const encPoster = mockRes();
+  await pgFeatures.handleStrategyRoutes({ method: "GET", headers: {}, url: encUrl.pathname }, encPoster, encUrl);
+  assert.strictEqual(encPoster.statusCode, 200, "main counsel must receive decrypted scan bytes");
+  assert.deepStrictEqual(encPoster.body, encJpeg);
+
+  authUser = { id: "ops", role: "admin" };
+  const encAdmin = mockRes();
+  await pgFeatures.handleStrategyRoutes({ method: "GET", headers: {}, url: encUrl.pathname }, encAdmin, encUrl);
+  assert.strictEqual(encAdmin.statusCode, 200, "admin must receive decrypted scan bytes");
+  assert.deepStrictEqual(encAdmin.body, encJpeg);
 
   console.log("proxy-proof-view.test.js OK");
 })().catch((error) => {
