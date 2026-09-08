@@ -35,6 +35,7 @@ const {
   INTAKE_SLA_MS,
 } = require("./supervised-pipeline");
 const { LEGAL_DICTIONARY, searchLegalDictionary } = require("./legal-dictionary-data");
+const { resolveTaskParties, resolveProofStatus } = require("./proxy-proof");
 const {
   resolveSessionSecret,
   encryptBuffer,
@@ -1507,7 +1508,8 @@ function mapTask(row) {
   const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
     ? row.payload
     : {};
-  const proofStatus = row.proof_status || payload.proofStatus || "none";
+  const parties = resolveTaskParties(row);
+  const proofStatus = resolveProofStatus(row);
   const proofStored = Boolean(payload.proofStored || row.proofStored || row._proofFile);
   const proofStatusViewable = ["submitted", "lc_verified", "poster_approved", "approved", "rejected"].includes(
     String(proofStatus || "").toLowerCase(),
@@ -1533,8 +1535,11 @@ function mapTask(row) {
     fee: row.amount != null ? row.amount : (payload.fee ?? payload.amount ?? null),
     escrowStatus: row.escrow_status || payload.escrowStatus || "Not locked",
     status: row.status || payload.status || "Open",
-    postedBy: row.posted_by || payload.postedBy || payload.user_id || null,
-    acceptedBy: row.accepted_by || payload.acceptedBy || payload.assignedProxyId || null,
+    postedBy: parties.postedBy,
+    acceptedBy: parties.acceptedBy,
+    checkedInAt: parties.checkedInAt,
+    conflictDeclaredAt: parties.conflictDeclaredAt,
+    proxyAcceptedAt: parties.proxyAcceptedAt,
     proofUrl: proofViewUrl,
     proofViewUrl,
     proofHash: row.proof_hash || payload.proofHash || null,

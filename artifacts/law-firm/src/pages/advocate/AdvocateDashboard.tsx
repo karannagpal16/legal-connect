@@ -22,6 +22,8 @@ import { dailyQuote, greetingFor, workspaceRequest, type WorkspaceCase } from "@
 import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
 import { TaskDialog } from "@/components/forms/TaskDialog";
 import { humanProxyStatus, nextProxyActor, proxyUrgencyMeta, resolveProxyFlowStage } from "@/lib/proxyFlow";
+import { OrderSheetPreview } from "@/components/proxy/OrderSheetPreview";
+import { ViewOrderSheetButton } from "@/components/proxy/ViewOrderSheetButton";
 
 interface ChamberTask {
   id: string;
@@ -68,6 +70,11 @@ type ProxyDeskTask = {
   roomNo?: string | null;
   hearingDate?: string | null;
   proofStatus?: string | null;
+  hasProof?: boolean;
+  proofStored?: boolean;
+  proofViewUrl?: string | null;
+  proofFileName?: string | null;
+  proofMimeType?: string | null;
   urgency?: string | null;
   timingTier?: string | null;
   slaAfterAssign?: string | null;
@@ -339,6 +346,10 @@ export function AdvocateDashboard() {
                   </small>
                 </span>
                 <em>{humanProxyStatus(task)}</em>
+                <div style={{ gridColumn: "1 / -1", display: "grid", gap: 8, marginTop: 8 }}>
+                  <OrderSheetPreview task={task} token={session?.token} />
+                  <ViewOrderSheetButton task={task} token={session?.token} variant="admin" />
+                </div>
               </div>
             );
           }) : (
@@ -379,6 +390,10 @@ export function AdvocateDashboard() {
                     </small>
                   </span>
                   <em>{proxyStatusLabel(task.status)}</em>
+                  <div style={{ gridColumn: "1 / -1", display: "grid", gap: 8, marginTop: 8 }}>
+                    <OrderSheetPreview task={task} token={session?.token} />
+                    <ViewOrderSheetButton task={task} token={session?.token} variant="admin" />
+                  </div>
                 </div>
               ))}
               {!postedByMe.length && !proxyQuery.isLoading && (

@@ -28,6 +28,8 @@ import { workspaceRequest } from "@/lib/workspace";
 import { ActivityAuditTimeline } from "@/components/ActivityAuditTimeline";
 import { ProxyFlowBanner, ProxyMissionTimeline } from "@/components/proxy/ProxyFlowTimeline";
 import { ViewOrderSheetButton } from "@/components/proxy/ViewOrderSheetButton";
+import { OrderSheetPreview } from "@/components/proxy/OrderSheetPreview";
+import { parseProofError } from "@/lib/openProxyProof";
 import { onNotificationAction } from "@/lib/notificationBus";
 import {
   canEditProxyMissionDetails,
@@ -81,6 +83,7 @@ type ProxyTask = Task & {
   proofStored?: boolean;
   proofViewUrl?: string;
   proofFileName?: string;
+  proofMimeType?: string;
   bookingId?: string;
   paymentLockStatus?: string;
   lockedPayment?: {
@@ -313,12 +316,11 @@ export function ProxyHub() {
           headers: {
             Authorization: `Bearer ${session?.token}`,
             "Content-Type": file.type || "application/octet-stream",
-            "X-File-Name": file.name,
+            "X-File-Name": encodeURIComponent(file.name || "order-sheet.jpg"),
           },
           body: file,
         });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || "Proof upload failed.");
+        if (!response.ok) throw new Error(await parseProofError(response, "Proof upload failed."));
         await refresh();
         toast({ title: "Order sheet uploaded", description: "Legal Connect Admin will open the scan, then send it to the posting counsel." });
       } catch (error) {
@@ -458,8 +460,10 @@ export function ProxyHub() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredTasks.map((t) => {
             const myRole = roleOnMission(t, userId, isAdmin);
-            const isProxy = myRole === "proxy";
-            const isPoster = myRole === "poster";
+            const isAssignedProxy = String(t.acceptedBy || "") === String(userId || "");
+            const isPostingCounsel = String(t.postedBy || "") === String(userId || "");
+            const isProxy = myRole === "proxy" || isAssignedProxy;
+            const isPoster = myRole === "poster" || isPostingCounsel;
             const stage = resolveProxyFlowStage(t);
             const urgency = proxyUrgencyMeta(t.urgency || t.timingTier);
             const next = nextProxyActor(t);
@@ -691,7 +695,7 @@ export function ProxyHub() {
                     </button>
                   ) : null}
 
-                  {!t.teaserOnly && isProxy && t.checkedInAt && !["lc_verified", "poster_approved", "approved"].includes(String(t.proofStatus || "")) && (String(t.proofStatus || "") !== "submitted" || !t.proofStored) ? (
+                  {!t.teaserOnly && canLifecycle && t.checkedInAt && !["lc_verified", "poster_approved", "approved"].includes(String(t.proofStatus || "")) && (String(t.proofStatus || "") !== "submitted" || !t.proofStored) ? (
                     <button
                       className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                       disabled={busyId === String(t.id)}
@@ -705,11 +709,14 @@ export function ProxyHub() {
                   ) : null}
 
                   {!t.teaserOnly && (isAdmin || isPoster || isProxy) ? (
-                    <ViewOrderSheetButton
-                      task={t}
-                      token={session?.token}
-                      onError={(message) => toast({ title: "Could not open scan", description: message, variant: "destructive" })}
-                    />
+                    <>
+                      <OrderSheetPreview task={t} token={session?.token} />
+                      <ViewOrderSheetButton
+                        task={t}
+                        token={session?.token}
+                        onError={(message) => toast({ title: "Could not open scan", description: message, variant: "destructive" })}
+                      />
+                    </>
                   ) : null}
 
                   {/* Poster reviews proof — only after LC verification */}

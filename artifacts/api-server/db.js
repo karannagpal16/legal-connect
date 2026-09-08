@@ -432,6 +432,13 @@ async function initDb() {
         updated_at timestamptz DEFAULT now()
       )
     `);
+    await query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS uploaded_by text`);
+    await query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS size_bytes bigint`);
+    await query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS checksum text`);
+    await query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS mime_type text`);
+    await query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS file_name text`);
+    await query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS file_data bytea`);
+    await query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`);
     await query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_score integer`);
     await query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_scored_at timestamptz`);
     await query(`
