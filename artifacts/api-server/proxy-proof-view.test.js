@@ -1,5 +1,28 @@
 const assert = require("assert");
 const { createStrategyFeatures } = require("./strategy-features");
+const { resolveTaskParties, resolveProofStatus } = require("./proxy-proof");
+
+/** Same identity mapping production loadTask uses — do not stub postedBy/acceptedBy. */
+function mapTask(row) {
+  const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+    ? row.payload
+    : {};
+  const parties = resolveTaskParties(row);
+  return {
+    ...payload,
+    ...row,
+    id: row.id,
+    postedBy: parties.postedBy,
+    acceptedBy: parties.acceptedBy,
+    checkedInAt: parties.checkedInAt,
+    conflictDeclaredAt: parties.conflictDeclaredAt,
+    proxyAcceptedAt: parties.proxyAcceptedAt,
+    proofStatus: resolveProofStatus(row),
+    proofUrl: row.proofUrl,
+    proofStored: row.proofStored,
+    hasProof: Boolean(row.proofStored || row.proofUrl || row._proofFile),
+  };
+}
 
 function mockRes() {
   return {
@@ -60,16 +83,7 @@ const features = createStrategyFeatures({
   getAuthUser: () => authUser,
   canSeeAll: (user) => user && ["admin", "rna"].includes(user.role),
   canAccessStoredCase: () => false,
-  mapTask: (row) => ({
-    ...row,
-    id: row.id,
-    postedBy: row.postedBy,
-    acceptedBy: row.acceptedBy,
-    proofStatus: row.proofStatus,
-    proofUrl: row.proofUrl,
-    proofStored: row.proofStored,
-    hasProof: Boolean(row.proofStored || row.proofUrl),
-  }),
+  mapTask,
   mapCase: (row) => row,
   writeAuditLog: async () => undefined,
   createReceipt: async () => ({}),
@@ -183,6 +197,49 @@ const features = createStrategyFeatures({
   const familyAdminView = mockRes();
   await features.handleStrategyRoutes({ method: "GET", headers: {}, url: familyUrl.pathname }, familyAdminView, familyUrl);
   assert.strictEqual(familyAdminView.statusCode, 200, "Karan as admin must see the scan");
+
+  demoStore.tasks.push({
+    id: "b543bb9f-eaac-4f62-9616-1f4cb8a5b6b8",
+    title: "Pass-over · Saket",
+    posted_by: "priya",
+    accepted_by: "karan",
+    proof_status: "none",
+    status: "Checked In",
+    escrow_status: "Locked",
+    payload: {
+      checkedInAt: new Date().toISOString(),
+      postedBy: "priya",
+      acceptedBy: "karan",
+      proofStatus: "window_open",
+      bookingId: "LCBK-20260908-589C1AFA",
+      cnr: "DL12456790",
+    },
+  });
+  const saketJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]);
+  jsonBody = {};
+  rawBody = saketJpeg;
+  authUser = { id: "karan", role: "advocate", name: "Karan Nagpal" };
+  const saketUrl = new URL("http://localhost/api/tasks/b543bb9f-eaac-4f62-9616-1f4cb8a5b6b8/proof");
+  const saketPost = mockRes();
+  await features.handleStrategyRoutes({
+    method: "POST",
+    headers: { "content-type": "application/octet-stream", "x-file-name": "order%20sheet.jpg" },
+    url: saketUrl.pathname,
+  }, saketPost, saketUrl);
+  assert.strictEqual(saketPost.statusCode, 200, "postgres-shaped checked-in mission must accept proxy upload");
+  assert.strictEqual(saketPost.body.ok, true);
+  assert.ok(saketPost.body.proofViewUrl.includes("b543bb9f"));
+
+  authUser = { id: "priya", role: "advocate", name: "Priya Nagpal" };
+  const saketPoster = mockRes();
+  await features.handleStrategyRoutes({ method: "GET", headers: {}, url: saketUrl.pathname }, saketPoster, saketUrl);
+  assert.strictEqual(saketPoster.statusCode, 200, "main counsel must open the postgres-shaped scan");
+  assert.deepStrictEqual(saketPoster.body, saketJpeg);
+
+  authUser = { id: "ops", role: "admin", name: "LC Admin" };
+  const saketAdmin = mockRes();
+  await features.handleStrategyRoutes({ method: "GET", headers: {}, url: saketUrl.pathname }, saketAdmin, saketUrl);
+  assert.strictEqual(saketAdmin.statusCode, 200, "admin must open the postgres-shaped scan");
 
   console.log("proxy-proof-view.test.js OK");
 })().catch((error) => {

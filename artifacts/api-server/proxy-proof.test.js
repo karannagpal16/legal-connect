@@ -8,6 +8,9 @@ const {
   sniffProofMime,
   isAllowedProofMime,
   isViewableProofStatus,
+  resolveTaskParties,
+  resolveProofStatus,
+  decodeProofFileName,
   PROOF_REUSE_ERROR,
   PROOF_MISSING_ERROR,
   PROOF_MAX_BYTES,
@@ -132,5 +135,37 @@ assert.ok(isAllowedProofMime("image/png"));
 assert.ok(!isAllowedProofMime("application/zip"));
 assert.ok(PROOF_MISSING_ERROR.includes("re-upload"));
 assert.ok(PROOF_MAX_BYTES >= 8 * 1024 * 1024);
+
+const pgRow = {
+  id: "b543bb9f-eaac-4f62-9616-1f4cb8a5b6b8",
+  posted_by: "karan",
+  accepted_by: "karan",
+  proof_status: "none",
+  payload: {
+    postedBy: "karan",
+    acceptedBy: "karan",
+    checkedInAt: "2026-09-08T05:00:00.000Z",
+    proofStatus: "window_open",
+  },
+};
+const pgParties = resolveTaskParties(pgRow);
+assert.strictEqual(pgParties.postedBy, "karan");
+assert.strictEqual(pgParties.acceptedBy, "karan");
+assert.strictEqual(pgParties.checkedInAt, "2026-09-08T05:00:00.000Z");
+assert.strictEqual(resolveProofStatus(pgRow), "window_open", "column 'none' must not hide payload proofStatus");
+assert.strictEqual(canViewTaskProof({ role: "advocate", id: "karan" }, pgRow), true);
+
+const demoRow = {
+  id: "task-demo",
+  postedBy: "priya",
+  acceptedBy: "karan",
+  checkedInAt: "2026-09-08T06:00:00.000Z",
+  proofStatus: "window_open",
+};
+const demoParties = resolveTaskParties(demoRow);
+assert.strictEqual(demoParties.postedBy, "priya", "camelCase demo rows must keep posting counsel");
+assert.strictEqual(demoParties.acceptedBy, "karan", "camelCase demo rows must keep assigned proxy");
+assert.strictEqual(demoParties.checkedInAt, "2026-09-08T06:00:00.000Z");
+assert.strictEqual(decodeProofFileName("order%20sheet.jpg"), "order sheet.jpg");
 
 console.log("proxy-proof.test.js OK");

@@ -24,13 +24,58 @@ function normalizeCnr(value) {
   return String(value || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 }
 
+function storedPayload(row) {
+  return row?.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+    ? row.payload
+    : {};
+}
+
+function presentValue(...values) {
+  for (const value of values) {
+    if (value == null) continue;
+    if (String(value).trim() !== "") return value;
+  }
+  return null;
+}
+
 function taskField(row, ...keys) {
-  const payload = row?.payload && typeof row.payload === "object" ? row.payload : {};
+  const payload = storedPayload(row);
   for (const key of keys) {
     const value = row?.[key] ?? payload[key];
     if (value != null && String(value).trim() !== "") return value;
   }
   return "";
+}
+
+/**
+ * Identity and day-of-court fields live on Postgres columns, jsonb payload,
+ * or camelCase demo-store rows. Upload/view must see the same parties either way.
+ */
+function resolveTaskParties(row) {
+  const payload = storedPayload(row);
+  return {
+    postedBy: presentValue(row?.posted_by, row?.postedBy, payload.postedBy, payload.user_id),
+    acceptedBy: presentValue(row?.accepted_by, row?.acceptedBy, payload.acceptedBy, payload.assignedProxyId),
+    checkedInAt: presentValue(payload.checkedInAt, row?.checkedInAt, row?.checked_in_at),
+    conflictDeclaredAt: presentValue(payload.conflictDeclaredAt, row?.conflictDeclaredAt),
+    proxyAcceptedAt: presentValue(payload.proxyAcceptedAt, row?.proxyAcceptedAt),
+  };
+}
+
+function resolveProofStatus(row) {
+  const payload = storedPayload(row);
+  const column = row?.proof_status ?? row?.proofStatus;
+  if (column && String(column).trim().toLowerCase() !== "none") return column;
+  return payload.proofStatus || column || "none";
+}
+
+function decodeProofFileName(raw, fallback = "order-sheet.jpg") {
+  const value = String(raw || fallback);
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function hashProxyProof({ buffer, proofUrl } = {}) {
@@ -106,9 +151,8 @@ function canViewTaskProof(authUser, task) {
   if (role === "admin" || role === "rna") return true;
   const uid = String(authUser.id || "");
   if (!uid) return false;
-  const posted = String(taskField(task, "postedBy", "posted_by") || "");
-  const accepted = String(taskField(task, "acceptedBy", "accepted_by", "assignedProxyId") || "");
-  return uid === posted || uid === accepted;
+  const parties = resolveTaskParties(task);
+  return uid === String(parties.postedBy || "") || uid === String(parties.acceptedBy || "");
 }
 
 function inferProofMime(contentType, fileName) {
@@ -164,6 +208,10 @@ module.exports = {
   inferProofMime,
   sniffProofMime,
   isAllowedProofMime,
+  resolveTaskParties,
+  resolveProofStatus,
+  decodeProofFileName,
+  storedPayload,
   PROOF_REUSE_ERROR,
   PROOF_MISSING_ERROR,
   PROOF_MAX_BYTES,

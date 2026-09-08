@@ -15,6 +15,8 @@ const {
   proofViewPath,
   sniffProofMime,
   isAllowedProofMime,
+  resolveTaskParties,
+  decodeProofFileName,
   PROOF_REUSE_ERROR,
   PROOF_MISSING_ERROR,
   PROOF_MAX_BYTES,
@@ -1361,12 +1363,13 @@ function createStrategyFeatures(deps) {
           sendJson(res, 404, { ok: false, error: "Task not found." });
           return true;
         }
-        const isAssignedProxy = String(task.acceptedBy || task.payload?.acceptedBy || "") === String(authUser.id || "");
+        const parties = resolveTaskParties(task);
+        const isAssignedProxy = String(parties.acceptedBy || "") === String(authUser.id || "");
         if (!isAssignedProxy && !canSeeAll(authUser)) {
           sendJson(res, 403, { ok: false, error: "Only the assigned proxy or Legal Connect Admin can upload this order sheet." });
           return true;
         }
-        if (!(task.checkedInAt || task.payload?.checkedInAt)) {
+        if (!parties.checkedInAt) {
           sendJson(res, 409, { ok: false, error: "Check in before uploading proof." });
           return true;
         }
@@ -1377,7 +1380,7 @@ function createStrategyFeatures(deps) {
         }
         const contentType = String(req.headers["content-type"] || "");
         let fileBuffer = null;
-        let fileName = safeAttachmentName(req.headers["x-file-name"] || "order-sheet.jpg");
+        let fileName = safeAttachmentName(decodeProofFileName(req.headers["x-file-name"], "order-sheet.jpg"));
         if (contentType.includes("application/json")) {
           const body = await readBody(req);
           const encoded = body.base64 || body.fileBase64 || "";
@@ -1412,7 +1415,7 @@ function createStrategyFeatures(deps) {
         const currentProof = {
           taskId: task.id,
           proofHash,
-          postedBy: task.postedBy || task.payload?.postedBy || authUser.id,
+          postedBy: parties.postedBy || task.postedBy || task.payload?.postedBy || authUser.id,
           bookingId: task.bookingId || task.payload?.bookingId || "",
           cnr: task.cnr || task.payload?.cnr || "",
         };
@@ -1528,7 +1531,7 @@ function createStrategyFeatures(deps) {
       const body = await readBody(req);
       const decision = String(body.decision || body.verdict || "").trim().toLowerCase();
       const reason = String(body.reason || body.note || "").trim();
-      const isPoster = String(task.postedBy || task.payload?.postedBy || "") === String(authUser.id || "");
+      const isPoster = String(resolveTaskParties(task).postedBy || "") === String(authUser.id || "");
       if (!isPoster && !canSeeAll(authUser)) {
         sendJson(res, 403, { ok: false, error: "Only the posting counsel (or LC Admin) can review proof." });
         return true;
