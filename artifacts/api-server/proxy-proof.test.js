@@ -116,6 +116,9 @@ assert.strictEqual(canViewTaskProof({ role: "advocate", id: "priya" }, task), tr
 assert.strictEqual(canViewTaskProof({ role: "advocate", id: "karan" }, task), true, "assigned proxy can open the scan");
 assert.strictEqual(canViewTaskProof({ role: "advocate", id: "stranger" }, task), false);
 assert.strictEqual(canViewTaskProof(null, task), false);
+const familySmoke = { id: "task-saket", postedBy: "karan", acceptedBy: "karan" };
+assert.strictEqual(canViewTaskProof({ role: "admin", id: "karan" }, familySmoke), true, "admin who is also counsel can open the scan");
+assert.strictEqual(canViewTaskProof({ role: "advocate", id: "karan" }, familySmoke), true, "same person as main and proxy counsel can open the scan");
 assert.strictEqual(proofViewPath("abc-123"), "/api/tasks/abc-123/proof");
 assert.ok(isViewableProofStatus("submitted"));
 assert.ok(isViewableProofStatus("lc_verified"));

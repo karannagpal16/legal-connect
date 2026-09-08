@@ -39,6 +39,7 @@ const config = {
   cloudinaryApiSecret: "secret",
 };
 
+let jsonBody = {};
 const originalFetch = global.fetch;
 global.fetch = () => Promise.reject(new Error("cloudinary hang"));
 
@@ -54,7 +55,7 @@ const features = createStrategyFeatures({
     res.body = body;
     responses.push({ code, body });
   },
-  readBody: async () => ({}),
+  readBody: async () => jsonBody,
   readRawBody: async () => rawBody,
   getAuthUser: () => authUser,
   canSeeAll: (user) => user && ["admin", "rna"].includes(user.role),
@@ -149,6 +150,39 @@ const features = createStrategyFeatures({
   const posterView = mockRes();
   await features.handleStrategyRoutes({ method: "GET", headers: {}, url: adminPostUrl.pathname }, posterView, adminPostUrl);
   assert.strictEqual(posterView.statusCode, 200, "main counsel must see the scan");
+
+  demoStore.tasks.push({
+    id: "task-family",
+    title: "Pass-over · Saket",
+    postedBy: "karan",
+    acceptedBy: "karan",
+    checkedInAt: new Date().toISOString(),
+    status: "Checked In",
+    proofStatus: "window_open",
+    escrowStatus: "Locked",
+  });
+  const familyJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]);
+  jsonBody = { base64: familyJpeg.toString("base64"), fileName: "order-sheet.jpg" };
+  authUser = { id: "karan", role: "admin", name: "Karan Nagpal" };
+  const familyUrl = new URL("http://localhost/api/tasks/task-family/proof");
+  const familyPost = mockRes();
+  await features.handleStrategyRoutes({
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    url: familyUrl.pathname,
+  }, familyPost, familyUrl);
+  assert.strictEqual(familyPost.statusCode, 200, "same-person admin/proxy/poster upload must succeed");
+
+  authUser = { id: "karan", role: "advocate", name: "Karan Nagpal" };
+  const familyAdvocateView = mockRes();
+  await features.handleStrategyRoutes({ method: "GET", headers: {}, url: familyUrl.pathname }, familyAdvocateView, familyUrl);
+  assert.strictEqual(familyAdvocateView.statusCode, 200, "Karan as counsel must see his own scan");
+  assert.deepStrictEqual(familyAdvocateView.body, familyJpeg);
+
+  authUser = { id: "karan", role: "admin", name: "Karan Nagpal" };
+  const familyAdminView = mockRes();
+  await features.handleStrategyRoutes({ method: "GET", headers: {}, url: familyUrl.pathname }, familyAdminView, familyUrl);
+  assert.strictEqual(familyAdminView.statusCode, 200, "Karan as admin must see the scan");
 
   console.log("proxy-proof-view.test.js OK");
 })().catch((error) => {
