@@ -13,10 +13,11 @@ const {
   findConflictingProofRow,
   canViewTaskProof,
   proofViewPath,
-  inferProofMime,
+  sniffProofMime,
   isAllowedProofMime,
   PROOF_REUSE_ERROR,
   PROOF_MISSING_ERROR,
+  PROOF_MAX_BYTES,
 } = require("./proxy-proof");
 
 const RULE36_PATTERNS = [
@@ -260,6 +261,13 @@ function createStrategyFeatures(deps) {
         updated_at timestamptz DEFAULT now()
       )
     `);
+    await db.query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS uploaded_by text`);
+    await db.query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS size_bytes bigint`);
+    await db.query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS checksum text`);
+    await db.query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS mime_type text`);
+    await db.query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS file_name text`);
+    await db.query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS file_data bytea`);
+    await db.query(`ALTER TABLE task_proofs ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`);
     await db.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_score integer`);
     await db.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS health_scored_at timestamptz`);
     await db.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS public_url text`);
@@ -444,41 +452,51 @@ function createStrategyFeatures(deps) {
 
   function unwrapProofBytes(stored) {
     if (!stored) return stored;
-    return typeof decryptBuffer === "function" ? decryptBuffer(stored) : stored;
+    try {
+      return typeof decryptBuffer === "function" ? decryptBuffer(stored) : stored;
+    } catch (error) {
+      console.warn("[proof] decrypt failed, serving stored bytes:", error.message);
+      return stored;
+    }
   }
 
   async function saveTaskProofFile(taskId, { buffer, fileName, mimeType, uploadedBy }) {
     if (!buffer?.length) return { ok: false, error: "Proof file is required." };
     const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
-    if (db.dbAvailable) {
-      await db.query(
-        `INSERT INTO task_proofs (task_id, uploaded_by, file_name, mime_type, size_bytes, checksum, file_data, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
-         ON CONFLICT (task_id) DO UPDATE SET
-           uploaded_by = EXCLUDED.uploaded_by,
-           file_name = EXCLUDED.file_name,
-           mime_type = EXCLUDED.mime_type,
-           size_bytes = EXCLUDED.size_bytes,
-           checksum = EXCLUDED.checksum,
-           file_data = EXCLUDED.file_data,
-           updated_at = now()`,
-        [
-          String(taskId),
-          uploadedBy || null,
-          fileName,
-          mimeType,
-          buffer.length,
-          checksum,
-          wrapProofBytes(buffer),
-        ],
-      );
+    try {
+      if (db.dbAvailable) {
+        await db.query(
+          `INSERT INTO task_proofs (task_id, uploaded_by, file_name, mime_type, size_bytes, checksum, file_data, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+           ON CONFLICT (task_id) DO UPDATE SET
+             uploaded_by = EXCLUDED.uploaded_by,
+             file_name = EXCLUDED.file_name,
+             mime_type = EXCLUDED.mime_type,
+             size_bytes = EXCLUDED.size_bytes,
+             checksum = EXCLUDED.checksum,
+             file_data = EXCLUDED.file_data,
+             updated_at = now()`,
+          [
+            String(taskId),
+            uploadedBy || null,
+            fileName,
+            mimeType,
+            buffer.length,
+            checksum,
+            wrapProofBytes(buffer),
+          ],
+        );
+        return { ok: true, checksum, stored: true };
+      }
+      const memory = demoMemory(config?.nodeEnv, demoStore);
+      const task = memory ? (memory.tasks || []).find((item) => String(item.id) === String(taskId)) : null;
+      if (!task) return { ok: false, error: "Task not found." };
+      task._proofFile = { buffer, fileName, mimeType, checksum };
       return { ok: true, checksum, stored: true };
+    } catch (error) {
+      console.error("[proof] store failed:", error.message);
+      return { ok: false, error: "Could not store the order sheet. Retry with a PDF or a smaller photo." };
     }
-    const memory = demoMemory(config?.nodeEnv, demoStore);
-    const task = memory ? (memory.tasks || []).find((item) => String(item.id) === String(taskId)) : null;
-    if (!task) return { ok: false, error: "Task not found." };
-    task._proofFile = { buffer, fileName, mimeType, checksum };
-    return { ok: true, checksum, stored: true };
   }
 
   async function loadTaskProofFile(taskId) {
@@ -529,36 +547,45 @@ function createStrategyFeatures(deps) {
     if (!config.cloudinaryCloudName || !config.cloudinaryApiKey || !config.cloudinaryApiSecret) {
       return { ok: false, reason: "Cloudinary not configured" };
     }
-    const timestamp = Math.floor(Date.now() / 1000);
-    const publicId = `${folder}/${Date.now()}-${safeAttachmentName(fileName).replace(/\.[^.]+$/, "")}`;
-    // Authenticated uploads — documents are not publicly enumerable by URL.
-    const toSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}&type=authenticated${config.cloudinaryApiSecret}`;
-    const signature = crypto.createHash("sha1").update(toSign).digest("hex");
-    const form = new FormData();
-    form.append("file", new Blob([buffer], { type: mimeType || "application/octet-stream" }), fileName);
-    form.append("api_key", config.cloudinaryApiKey);
-    form.append("timestamp", String(timestamp));
-    form.append("folder", folder);
-    form.append("public_id", publicId);
-    form.append("type", "authenticated");
-    form.append("signature", signature);
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${config.cloudinaryCloudName}/auto/upload`, {
-      method: "POST",
-      body: form,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { ok: false, reason: data.error?.message || `Cloudinary ${response.status}` };
+    try {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const publicId = `${folder}/${Date.now()}-${safeAttachmentName(fileName).replace(/\.[^.]+$/, "")}`;
+      const toSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}&type=authenticated${config.cloudinaryApiSecret}`;
+      const signature = crypto.createHash("sha1").update(toSign).digest("hex");
+      const form = new FormData();
+      form.append("file", new Blob([buffer], { type: mimeType || "application/octet-stream" }), fileName);
+      form.append("api_key", config.cloudinaryApiKey);
+      form.append("timestamp", String(timestamp));
+      form.append("folder", folder);
+      form.append("public_id", publicId);
+      form.append("type", "authenticated");
+      form.append("signature", signature);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      try {
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${config.cloudinaryCloudName}/auto/upload`, {
+          method: "POST",
+          body: form,
+          signal: controller.signal,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, reason: data.error?.message || `Cloudinary ${response.status}` };
+        }
+        return {
+          ok: true,
+          url: null,
+          publicId: data.public_id,
+          bytes: data.bytes,
+          etag: data.etag,
+          accessMode: "authenticated",
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error) {
+      return { ok: false, reason: error.message || "Cloudinary failed" };
     }
-    return {
-      ok: true,
-      // Prefer delivery through Legal Connect download routes, not durable public CDN URLs.
-      url: null,
-      publicId: data.public_id,
-      bytes: data.bytes,
-      etag: data.etag,
-      accessMode: "authenticated",
-    };
   }
 
   async function dispatchWhatsApp({ to, body }) {
@@ -1294,156 +1321,196 @@ function createStrategyFeatures(deps) {
         });
         return true;
       }
+      let bytes = stored.bytes;
+      try {
+        if (!Buffer.isBuffer(bytes)) bytes = Buffer.from(bytes);
+      } catch {
+        bytes = stored.bytes;
+      }
+      if (!bytes?.length) {
+        sendJson(res, 409, {
+          ok: false,
+          error: PROOF_MISSING_ERROR,
+          code: "PROOF_FILE_MISSING",
+          reupload: true,
+        });
+        return true;
+      }
       const fileName = safeAttachmentName(stored.fileName || "order-sheet.pdf");
       const mimeType = stored.mimeType || "application/octet-stream";
       res.writeHead(200, {
         "Content-Type": mimeType,
         "Content-Disposition": `inline; filename="${fileName}"`,
-        "Content-Length": String(stored.bytes.length),
+        "Content-Length": String(bytes.length),
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       });
-      res.end(stored.bytes);
+      res.end(bytes);
       return true;
     }
 
     if (proofMatch && req.method === "POST") {
-      const authUser = getAuthUser(req);
-      if (!authUser) {
-        sendJson(res, 401, { ok: false, error: "Login is required." });
-        return true;
-      }
-      const task = await loadTask(proofMatch[1]);
-      if (!task) {
-        sendJson(res, 404, { ok: false, error: "Task not found." });
-        return true;
-      }
-      const isAssignedProxy = String(task.acceptedBy || task.payload?.acceptedBy || "") === String(authUser.id || "");
-      if (!isAssignedProxy && !canSeeAll(authUser)) {
-        sendJson(res, 403, { ok: false, error: "Only the assigned proxy can upload this order sheet." });
-        return true;
-      }
-      if (!(task.checkedInAt || task.payload?.checkedInAt)) {
-        sendJson(res, 409, { ok: false, error: "Check in before uploading proof." });
-        return true;
-      }
-      const existingProofStatus = String(task.proofStatus || task.proof_status || "").toLowerCase();
-      if (["lc_verified", "poster_approved", "approved"].includes(existingProofStatus) && !canSeeAll(authUser)) {
-        sendJson(res, 409, { ok: false, error: "This order sheet is already with Legal Connect or the posting counsel. Wait for a re-upload request." });
-        return true;
-      }
-      const contentType = String(req.headers["content-type"] || "");
-      let fileBuffer = null;
-      let fileName = safeAttachmentName(req.headers["x-file-name"] || "order-sheet.pdf");
-      if (contentType.includes("application/json")) {
-        const body = await readBody(req);
-        if (body.base64) fileBuffer = Buffer.from(String(body.base64).replace(/^data:[^;]+;base64,/, ""), "base64");
-        if (body.fileName) fileName = safeAttachmentName(body.fileName);
-      } else {
-        fileBuffer = await readRawBody(req, 8 * 1024 * 1024);
-      }
-      if (!fileBuffer?.length) {
-        sendJson(res, 400, { ok: false, error: "Proof file is required." });
-        return true;
-      }
-      const mimeType = inferProofMime(contentType, fileName);
-      if (!isAllowedProofMime(mimeType)) {
-        sendJson(res, 415, { ok: false, error: "Upload a PDF or image of the order sheet." });
-        return true;
-      }
-      const proofHash = hashProxyProof({ buffer: fileBuffer });
-      const proofUrl = proofViewPath(task.id);
-      const currentProof = {
-        taskId: task.id,
-        proofHash,
-        postedBy: task.postedBy || task.payload?.postedBy || authUser.id,
-        bookingId: task.bookingId || task.payload?.bookingId || "",
-        cnr: task.cnr || task.payload?.cnr || "",
-      };
-      if (db.dbAvailable) {
-        const reused = await db.query(
-          `SELECT id, posted_by, status, escrow_status, proof_status, payload
-           FROM tasks
-           WHERE proof_hash = $1
-             AND id::text IS DISTINCT FROM $2::text
-           LIMIT 40`,
-          [proofHash, String(task.id)],
-        );
-        const conflict = findConflictingProofRow(currentProof, reused.rows.map((row) => ({
-          id: row.id,
-          postedBy: row.posted_by,
-          posted_by: row.posted_by,
-          status: row.status,
-          escrowStatus: row.escrow_status,
-          escrow_status: row.escrow_status,
-          proofStatus: row.proof_status,
-          proof_status: row.proof_status,
+      try {
+        const authUser = getAuthUser(req);
+        if (!authUser) {
+          sendJson(res, 401, { ok: false, error: "Login is required." });
+          return true;
+        }
+        const task = await loadTask(proofMatch[1]);
+        if (!task) {
+          sendJson(res, 404, { ok: false, error: "Task not found." });
+          return true;
+        }
+        const isAssignedProxy = String(task.acceptedBy || task.payload?.acceptedBy || "") === String(authUser.id || "");
+        if (!isAssignedProxy && !canSeeAll(authUser)) {
+          sendJson(res, 403, { ok: false, error: "Only the assigned proxy or Legal Connect Admin can upload this order sheet." });
+          return true;
+        }
+        if (!(task.checkedInAt || task.payload?.checkedInAt)) {
+          sendJson(res, 409, { ok: false, error: "Check in before uploading proof." });
+          return true;
+        }
+        const existingProofStatus = String(task.proofStatus || task.proof_status || "").toLowerCase();
+        if (["lc_verified", "poster_approved", "approved"].includes(existingProofStatus) && !canSeeAll(authUser)) {
+          sendJson(res, 409, { ok: false, error: "This order sheet is already with Legal Connect or the posting counsel. Wait for a re-upload request." });
+          return true;
+        }
+        const contentType = String(req.headers["content-type"] || "");
+        let fileBuffer = null;
+        let fileName = safeAttachmentName(req.headers["x-file-name"] || "order-sheet.jpg");
+        if (contentType.includes("application/json")) {
+          const body = await readBody(req);
+          const encoded = body.base64 || body.fileBase64 || "";
+          if (encoded) fileBuffer = Buffer.from(String(encoded).replace(/^data:[^;]+;base64,/, ""), "base64");
+          if (body.fileName) fileName = safeAttachmentName(body.fileName);
+        } else {
+          try {
+            fileBuffer = await readRawBody(req, PROOF_MAX_BYTES);
+          } catch (readError) {
+            if (readError.statusCode === 413) {
+              sendJson(res, 413, { ok: false, error: "That scan is too large (max 8MB). Use a photo or a compressed PDF." });
+              return true;
+            }
+            throw readError;
+          }
+        }
+        if (!fileBuffer?.length) {
+          sendJson(res, 400, { ok: false, error: "Proof file is required." });
+          return true;
+        }
+        if (fileBuffer.length > PROOF_MAX_BYTES) {
+          sendJson(res, 413, { ok: false, error: "That scan is too large (max 8MB). Use a photo or a compressed PDF." });
+          return true;
+        }
+        const mimeType = sniffProofMime(fileBuffer, contentType, fileName);
+        if (!isAllowedProofMime(mimeType)) {
+          sendJson(res, 415, { ok: false, error: "Upload a PDF or image of the order sheet." });
+          return true;
+        }
+        const proofHash = hashProxyProof({ buffer: fileBuffer });
+        const proofUrl = proofViewPath(task.id);
+        const currentProof = {
+          taskId: task.id,
           proofHash,
-          payload: row.payload || {},
-        })));
-        if (conflict) {
-          sendJson(res, 409, { ok: false, error: PROOF_REUSE_ERROR });
+          postedBy: task.postedBy || task.payload?.postedBy || authUser.id,
+          bookingId: task.bookingId || task.payload?.bookingId || "",
+          cnr: task.cnr || task.payload?.cnr || "",
+        };
+        if (db.dbAvailable) {
+          const reused = await db.query(
+            `SELECT id, posted_by, status, escrow_status, proof_status, payload
+             FROM tasks
+             WHERE proof_hash = $1
+               AND id::text IS DISTINCT FROM $2::text
+             LIMIT 40`,
+            [proofHash, String(task.id)],
+          ).catch(() => ({ rows: [] }));
+          const conflict = findConflictingProofRow(currentProof, reused.rows.map((row) => ({
+            id: row.id,
+            postedBy: row.posted_by,
+            posted_by: row.posted_by,
+            status: row.status,
+            escrowStatus: row.escrow_status,
+            escrow_status: row.escrow_status,
+            proofStatus: row.proof_status,
+            proof_status: row.proof_status,
+            proofHash,
+            payload: row.payload || {},
+          })));
+          if (conflict) {
+            sendJson(res, 409, { ok: false, error: PROOF_REUSE_ERROR });
+            return true;
+          }
+        } else {
+          const memory = demoMemory(config?.nodeEnv, demoStore);
+          const conflict = findConflictingProofRow(currentProof, memory?.tasks || []);
+          if (conflict) {
+            sendJson(res, 409, { ok: false, error: PROOF_REUSE_ERROR });
+            return true;
+          }
+        }
+        const stored = await saveTaskProofFile(task.id, {
+          buffer: fileBuffer,
+          fileName,
+          mimeType,
+          uploadedBy: authUser.id,
+        });
+        if (!stored.ok) {
+          sendJson(res, 503, { ok: false, error: stored.error || "Could not store the order sheet." });
           return true;
         }
-      } else {
-        const memory = demoMemory(config?.nodeEnv, demoStore);
-        const conflict = findConflictingProofRow(currentProof, memory?.tasks || []);
-        if (conflict) {
-          sendJson(res, 409, { ok: false, error: PROOF_REUSE_ERROR });
+        // Bytes are the source of truth. Cloudinary is optional backup and must never
+        // block or fail the upload (authenticated Cloudinary calls can hang).
+        uploadToCloudinary({
+          buffer: fileBuffer,
+          fileName,
+          mimeType,
+          folder: "legal-connect/proxy-proofs",
+        }).catch((error) => {
+          console.warn("[proof] cloudinary backup skipped:", error?.message || error);
+        });
+        const updated = await saveTaskPatch(proofMatch[1], {
+          status: "Proof Uploaded",
+          proofUrl,
+          proofHash,
+          proofStatus: "submitted",
+          payloadPatch: {
+            proofSubmittedAt: new Date().toISOString(),
+            proofSubmittedBy: authUser.id,
+            proofFileName: fileName,
+            proofMimeType: mimeType,
+            proofStored: true,
+            proofViewUrl: proofUrl,
+            transparencyLayer: "proof",
+            lcProofStatus: "pending",
+            posterProofDecision: null,
+          },
+        });
+        const adminRecipients = await resolveAdminRecipients().catch(() => []);
+        await notify({
+          eventType: "proxy_proof_submitted",
+          title: "Proxy proof awaits LC verification",
+          message: `Order sheet uploaded for ${updated.title || "the mission"}. Open the scan, verify it, then it will be sent to the posting counsel.`,
+          recipients: adminRecipients,
+          payload: { taskId: proofMatch[1], proofStatus: "submitted", proofViewUrl: proofUrl },
+          sendEmail: true,
+          ctaLabel: "Open Missions",
+          ctaUrl: portalUrl(`/admin/missions?taskId=${proofMatch[1]}`),
+          priority: "high",
+        }).catch((error) => {
+          console.warn("[proof] notify skipped:", error?.message || error);
+        });
+        sendJson(res, 200, { ok: true, task: updated, proofViewUrl: proofUrl });
+        return true;
+      } catch (error) {
+        console.error("[proof] upload failed:", error);
+        if (error.statusCode === 413) {
+          sendJson(res, 413, { ok: false, error: "That scan is too large (max 8MB). Use a photo or a compressed PDF." });
           return true;
         }
-      }
-      let cloudPublicId = null;
-      const cloud = await uploadToCloudinary({
-        buffer: fileBuffer,
-        fileName,
-        mimeType,
-        folder: "legal-connect/proxy-proofs",
-      });
-      if (cloud.ok) cloudPublicId = cloud.publicId || null;
-      const stored = await saveTaskProofFile(task.id, {
-        buffer: fileBuffer,
-        fileName,
-        mimeType,
-        uploadedBy: authUser.id,
-      });
-      if (!stored.ok) {
-        sendJson(res, 503, { ok: false, error: stored.error || "Could not store the order sheet." });
+        sendJson(res, 500, { ok: false, error: "Could not save the order sheet. Try a PDF or a smaller photo." });
         return true;
       }
-      const updated = await saveTaskPatch(proofMatch[1], {
-        status: "Proof Uploaded",
-        proofUrl,
-        proofHash,
-        proofStatus: "submitted",
-        payloadPatch: {
-          proofSubmittedAt: new Date().toISOString(),
-          proofSubmittedBy: authUser.id,
-          proofFileName: fileName,
-          proofMimeType: mimeType,
-          proofStored: true,
-          proofViewUrl: proofUrl,
-          proofCloudinaryId: cloudPublicId,
-          transparencyLayer: "proof",
-          lcProofStatus: "pending",
-          posterProofDecision: null,
-        },
-      });
-      // LC verifies first — notify admins only (not the posting counsel yet).
-      const adminRecipients = await resolveAdminRecipients();
-      await notify({
-        eventType: "proxy_proof_submitted",
-        title: "Proxy proof awaits LC verification",
-        message: `Order sheet uploaded for ${updated.title || "the mission"}. Open the scan, verify it, then it will be sent to the posting counsel.`,
-        recipients: adminRecipients,
-        payload: { taskId: proofMatch[1], proofStatus: "submitted", proofViewUrl: proofUrl },
-        sendEmail: true,
-        ctaLabel: "Open Missions",
-        ctaUrl: portalUrl(`/admin/missions?taskId=${proofMatch[1]}`),
-        priority: "high",
-      });
-      sendJson(res, 200, { ok: true, task: updated, proofViewUrl: proofUrl });
-      return true;
     }
 
     const proofReviewMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/proof-review$/);

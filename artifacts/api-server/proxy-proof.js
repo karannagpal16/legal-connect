@@ -123,10 +123,34 @@ function inferProofMime(contentType, fileName) {
   return mime || "application/octet-stream";
 }
 
+function sniffProofMime(buffer, contentType, fileName) {
+  const bytes = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer || []);
+  if (bytes.length >= 4) {
+    if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "application/pdf";
+    if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+    if (
+      bytes.length >= 12
+      && bytes.toString("ascii", 0, 4) === "RIFF"
+      && bytes.toString("ascii", 8, 12) === "WEBP"
+    ) {
+      return "image/webp";
+    }
+    const brand = bytes.length >= 12 ? bytes.toString("ascii", 8, 12).toLowerCase() : "";
+    if (bytes.toString("ascii", 4, 8) === "ftyp" && /heic|heif|mif1|msf1/.test(brand)) {
+      return "image/heic";
+    }
+  }
+  return inferProofMime(contentType, fileName);
+}
+
 function isAllowedProofMime(mime) {
   const value = lower(mime);
   return value === "application/pdf" || value.startsWith("image/");
 }
+
+const PROOF_MAX_BYTES = 8 * 1024 * 1024;
 
 module.exports = {
   hashProxyProof,
@@ -138,7 +162,9 @@ module.exports = {
   proofViewPath,
   isViewableProofStatus,
   inferProofMime,
+  sniffProofMime,
   isAllowedProofMime,
   PROOF_REUSE_ERROR,
   PROOF_MISSING_ERROR,
+  PROOF_MAX_BYTES,
 };

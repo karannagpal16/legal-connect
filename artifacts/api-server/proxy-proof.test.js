@@ -5,10 +5,12 @@ const {
   canViewTaskProof,
   proofViewPath,
   inferProofMime,
+  sniffProofMime,
   isAllowedProofMime,
   isViewableProofStatus,
   PROOF_REUSE_ERROR,
   PROOF_MISSING_ERROR,
+  PROOF_MAX_BYTES,
 } = require("./proxy-proof");
 
 const hash = hashProxyProof({ buffer: Buffer.from("order-sheet-bytes") });
@@ -120,9 +122,12 @@ assert.ok(isViewableProofStatus("lc_verified"));
 assert.ok(!isViewableProofStatus("window_open"));
 assert.strictEqual(inferProofMime("image/jpeg", "scan.jpg"), "image/jpeg");
 assert.strictEqual(inferProofMime("application/octet-stream", "order-sheet.pdf"), "application/pdf");
+assert.strictEqual(sniffProofMime(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), "application/octet-stream", "blob"), "image/jpeg");
+assert.strictEqual(sniffProofMime(Buffer.from("%PDF-1.4"), "application/octet-stream", "blob"), "application/pdf");
 assert.ok(isAllowedProofMime("application/pdf"));
 assert.ok(isAllowedProofMime("image/png"));
 assert.ok(!isAllowedProofMime("application/zip"));
 assert.ok(PROOF_MISSING_ERROR.includes("re-upload"));
+assert.ok(PROOF_MAX_BYTES >= 8 * 1024 * 1024);
 
 console.log("proxy-proof.test.js OK");

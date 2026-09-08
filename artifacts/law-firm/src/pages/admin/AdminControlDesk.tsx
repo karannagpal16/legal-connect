@@ -27,6 +27,7 @@ import { AdminVerifications } from "@/pages/admin/AdminVerifications";
 import { onNotificationAction } from "@/lib/notificationBus";
 import { CounselLiveTrack } from "@/components/proxy/ProxyFlowTimeline";
 import { ViewOrderSheetButton } from "@/components/proxy/ViewOrderSheetButton";
+import { OrderSheetPreview } from "@/components/proxy/OrderSheetPreview";
 import { courtMatchScore, resolveProxyFlowStage } from "@/lib/proxyFlow";
 
 type Advocate = {
@@ -138,6 +139,7 @@ type DeskTask = {
   proofStored?: boolean;
   proofViewUrl?: string;
   proofFileName?: string;
+  proofMimeType?: string;
   settlement?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
   settlementPreview?: { gross?: number; platformFee?: number; appTaxGst?: number; netToProxy?: number };
   bookingId?: string;
@@ -1284,6 +1286,7 @@ export function AdminControlDesk() {
                     ) : null}
                     {task.proofStatus === "submitted" ? (
                       <>
+                        <OrderSheetPreview task={task} token={session?.token} />
                         <ViewOrderSheetButton
                           task={task}
                           token={session?.token}
@@ -1297,6 +1300,7 @@ export function AdminControlDesk() {
                     ) : null}
                     {task.proofStatus === "lc_verified" ? (
                       <>
+                        <OrderSheetPreview task={task} token={session?.token} />
                         <ViewOrderSheetButton
                           task={task}
                           token={session?.token}
@@ -1494,6 +1498,7 @@ export function AdminControlDesk() {
                   {task.cnr ? ` · CNR ${task.cnr}` : ""}
                   {task.amount != null || task.fee != null ? ` · ₹${Number(task.amount ?? task.fee).toLocaleString("en-IN")}` : ""}
                 </p>
+                <OrderSheetPreview task={task} token={session?.token} />
                 <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
                   <ViewOrderSheetButton
                     task={task}
