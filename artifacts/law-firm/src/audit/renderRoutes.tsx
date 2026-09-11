@@ -29,10 +29,11 @@ import { AdvocateDashboard } from "@/pages/advocate/AdvocateDashboard";
 import { AdvocateCaseTracker } from "@/pages/advocate/AdvocateCaseTracker";
 import { AdvocateDiary } from "@/pages/advocate/AdvocateDiary";
 import { AdvocateBookings } from "@/pages/advocate/AdvocateBookings";
+import { AdvocateCalls } from "@/pages/advocate/AdvocateCalls";
 import { AdvocateChat } from "@/pages/advocate/AdvocateChat";
 import { AdvocateLawBot } from "@/pages/advocate/AdvocateLawBot";
 import { AdvocateLibrary } from "@/pages/advocate/AdvocateLibrary";
-import { AdvocateCalls } from "@/pages/advocate/AdvocateCalls";
+import { ConsultationRoomPage } from "@/pages/ConsultationRoom";
 import { AdvocateProxy } from "@/pages/advocate/AdvocateProxy";
 import { AdvocateReminders } from "@/pages/advocate/AdvocateReminders";
 import { AdvocateRevenue } from "@/pages/advocate/AdvocateRevenue";
@@ -72,6 +73,8 @@ const pages: Array<[string, React.ComponentType]> = [
   ["/client/diy-docs", ClientDIYDocs],
   ["/client/library", ClientLibrary],
   ["/client/connect", ClientConnectChat],
+  ["/client/room/demo", ConsultationRoomPage],
+  ["/advocate/room/demo", ConsultationRoomPage],
   ["/client/wellness", ClientWellness],
   ["/client/rights", ClientRightsFeed],
   ["/client/reminders", ClientReminders],

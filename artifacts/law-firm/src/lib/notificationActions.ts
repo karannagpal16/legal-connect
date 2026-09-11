@@ -104,6 +104,8 @@ const EVENT_MAP: Record<string, Partial<ResolvedNotificationAction>> = {
   identity_approved: { actionType: "CASE_UPDATE", targetUrl: "/client", overlay: "none", ctaLabel: "Open workspace" },
   identity_rejected: { actionType: "KYC_VERIFICATION", targetUrl: "/client", overlay: "none", ctaLabel: "Fix verification" },
   advisory_booked: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=intakes", overlay: "none", ctaLabel: "Open intake" },
+  intake_advocate_accepted: { actionType: "CHAT_MESSAGE", targetUrl: "/client/connect", overlay: "chat", ctaLabel: "Open LC room" },
+  consultation_leak_flagged: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=intakes", overlay: "none", ctaLabel: "Open Case Card" },
   retention_requested: { actionType: "ADMIN_ASSIGN", targetUrl: "/admin/control?tab=gateway", overlay: "none", ctaLabel: "Open LC Gateway" },
   retention_terms_quoted: { actionType: "CASE_UPDATE", targetUrl: "/client/engagement", overlay: "none", ctaLabel: "View terms" },
   retention_panel_assigned: { actionType: "LAWYER_ASSIGNED", targetUrl: "/client", overlay: "chat", ctaLabel: "Open matter" },
@@ -212,6 +214,10 @@ export function resolveNotificationAction(
     targetUrl = eventType.includes("proxy")
       ? withQuery("/advocate/proxy", { taskId: actionPayload.taskId })
       : withQuery("/advocate", { caseId: actionPayload.caseId, bookingId: actionPayload.bookingId });
+  }
+  if ((eventType.includes("advocate_accepted") || eventType.includes("consultation_leak")) && actionPayload.bookingId) {
+    if (role === "client") targetUrl = `/client/room/${actionPayload.bookingId}`;
+    if (role === "advocate") targetUrl = `/advocate/room/${actionPayload.bookingId}`;
   }
   if (role === "admin") {
     targetUrl = adminDeepLink(eventType, explicitType, actionPayload, targetUrl);

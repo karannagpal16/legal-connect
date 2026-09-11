@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BriefcaseBusiness,
   CheckCircle2,
+  Eye,
   FileSearch,
   FileWarning,
   Gavel,
@@ -28,6 +29,7 @@ import { onNotificationAction } from "@/lib/notificationBus";
 import { CounselLiveTrack } from "@/components/proxy/ProxyFlowTimeline";
 import { ViewOrderSheetButton } from "@/components/proxy/ViewOrderSheetButton";
 import { OrderSheetPreview } from "@/components/proxy/OrderSheetPreview";
+import { ConsultationRoom } from "@/pages/ConsultationRoom";
 import { courtMatchScore, resolveProxyFlowStage } from "@/lib/proxyFlow";
 
 type Advocate = {
@@ -305,6 +307,7 @@ export function AdminControlDesk() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [expanded, setExpanded] = useState<string>("");
+  const [revealedContacts, setRevealedContacts] = useState<Record<string, { email?: string; phone?: string }>>({});
 
   useEffect(() => {
     applyOpsDeepLink(searchString || window.location.search, setTab, setExpanded, setSearch, setFilter);
@@ -854,7 +857,36 @@ export function AdminControlDesk() {
                         <p className="lc-ops-meta"><strong>Channel / court:</strong> {intake.consultationChannel || "—"}{intake.court ? ` · ${intake.court}` : ""}</p>
                         <p className="lc-ops-meta"><strong>Status:</strong> {intake.intakeStatus || intake.stageStatus || intake.paymentStatus || intake.status || "—"}</p>
                         <p className="lc-ops-meta"><strong>Notes:</strong> {intake.problemSummary || intake.particulars || "No particulars recorded."}</p>
+                        <p className="lc-ops-meta"><strong>Client contact:</strong> {revealedContacts[intake.id]?.phone || (intake as { clientPhoneMasked?: string }).clientPhoneMasked || (intake as { phoneMasked?: string }).phoneMasked || "Masked"} · {revealedContacts[intake.id]?.email || (intake as { clientEmailMasked?: string }).clientEmailMasked || (intake as { emailMasked?: string }).emailMasked || "Masked"}</p>
+                        <p className="lc-ops-meta">Raw numbers stay in the vault. Reveal is audited.</p>
                       </dl>
+                      <button
+                        type="button"
+                        className="lc-button"
+                        style={{ width: "fit-content", marginTop: "0.35rem" }}
+                        onClick={async () => {
+                          if (!session?.token) return;
+                          try {
+                            const data = await workspaceRequest<{ reveal: { clientEmail?: string; clientPhone?: string } }>(
+                              `/api/consultation-rooms/${intake.id}/reveal-contact`,
+                              session.token,
+                              { method: "POST", body: "{}" },
+                            );
+                            setRevealedContacts((current) => ({
+                              ...current,
+                              [intake.id]: { email: data.reveal?.clientEmail, phone: data.reveal?.clientPhone },
+                            }));
+                          } catch (revealError) {
+                            setError(revealError instanceof Error ? revealError.message : "Reveal failed.");
+                          }
+                        }}
+                      >
+                        <Eye className="h-4 w-4" /> Reveal contact (audited)
+                      </button>
+                      <div style={{ marginTop: "0.85rem" }}>
+                        <h4><MessageSquareText className="h-4 w-4" /> LC Consultation Room transcript</h4>
+                        <ConsultationRoom bookingId={intake.id} />
+                      </div>
                       {(intake.attachments && intake.attachments.length > 0) ? (
                         <div className="lc-ops-stack" style={{ marginTop: "0.75rem" }}>
                           <p className="lc-ops-meta"><strong>Uploaded PDFs / files</strong></p>
