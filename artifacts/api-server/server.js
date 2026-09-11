@@ -165,7 +165,28 @@ function createDemoBookings(createdAt = new Date().toISOString()) {
       assignedAdvocateName: "Adv. Rishika Nagpal",
       workHoldStatus: "pending",
       createdAt,
-    }
+    },
+    {
+      id: "BK-ROOM-1",
+      userId: "demo-client",
+      clientName: "Priya Sharma",
+      clientEmail: "client@demo.legal-connect.in",
+      clientPhone: "+91 98765 43210",
+      serviceType: "1-time advisory",
+      amount: 99,
+      paymentStatus: "paid",
+      receiptNo: "LC-REC-ROOM-1",
+      caseTitle: "Consumer notice strategy",
+      consultationChannel: "chat",
+      intakeStatus: "advocate_accepted",
+      stageStatus: "advocate_accepted",
+      assignedAdvocateId: "demo-advocate",
+      assignedAdvocateName: "Adv. Rishika Nagpal",
+      advocateAcceptedAt: createdAt,
+      conflictClearedAt: createdAt,
+      workHoldStatus: "active",
+      createdAt,
+    },
   ];
 }
 
