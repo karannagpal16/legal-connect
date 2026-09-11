@@ -38,6 +38,7 @@ import {
   type WorkspaceCase,
 } from "@/lib/workspace";
 import { onNotificationAction } from "@/lib/notificationBus";
+import { ConsultationRoomLink } from "@/pages/ConsultationRoom";
 
 interface ClientBooking {
   id: string;
@@ -343,7 +344,7 @@ export function ClientHome() {
             </button>
           </div>
           <p className="lc-ops-meta" style={{ marginTop: "0.75rem" }}>
-            First chat free · then ₹99 / 2 mins · audio from ₹299 · video from ₹499. One-time advisory only —
+            First chat free · then ₹99 chat session (45 min) · audio ₹299 (20 min) · video ₹499 (30 min). One-time advisory only —
             full court representation requires LC Gateway retention (no direct in-app hiring).
           </p>
           {bookingGateNotice ? (
@@ -406,6 +407,7 @@ export function ClientHome() {
                   {retention ? ` · Retention: ${retention}` : ""}
                 </p>
                 <div className="lc-ops-inline" style={{ marginTop: "0.65rem" }}>
+                  <ConsultationRoomLink bookingId={item.id} />
                   <button
                     className="lc-button lc-button-primary"
                     disabled={!paid || Boolean(retention) || requestRetention.isPending}

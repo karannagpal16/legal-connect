@@ -646,11 +646,18 @@ function createWorkflowProgressions(deps) {
         title: "Counsel accepted your matter",
         message: `${authUser.name || "Your advocate"} has accepted the engagement and work is in progress.`,
         recipients: [...(await resolveRecipients([intake.userId || intake.user_id].filter(Boolean))), ...(await resolveAdminRecipients())],
-        payload: { intakeId, intakeStatus: "advocate_accepted", workPhase: "work_in_progress" },
+        payload: {
+          intakeId,
+          bookingId: intakeId,
+          intakeStatus: "advocate_accepted",
+          workPhase: "work_in_progress",
+          actionType: "CHAT_MESSAGE",
+          targetUrl: `/client/room/${intakeId}`,
+        },
         sendEmail: true,
         sendSms: true,
-        ctaLabel: "Open case tracker",
-        ctaUrl: portalUrl("/client"),
+        ctaLabel: "Open consultation room",
+        ctaUrl: portalUrl(`/client/room/${intakeId}`),
         priority: "high",
       });
       sendJson(res, 200, { ok: true, intake: updated, workPhase: "work_in_progress" });

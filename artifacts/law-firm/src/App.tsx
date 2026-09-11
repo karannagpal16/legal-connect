@@ -69,6 +69,7 @@ const AdminVerifications = lazyNamed(() => import("@/pages/admin/AdminVerificati
 const AdminPendingUpdates = lazyNamed(() => import("@/pages/admin/AdminPendingUpdates"), "AdminPendingUpdates");
 const AdminControlDesk = lazyNamed(() => import("@/pages/admin/AdminControlDesk"), "AdminControlDesk");
 const CaseUpdatesBoard = lazyNamed(() => import("@/pages/CaseUpdatesBoard"), "CaseUpdatesBoard");
+const ConsultationRoomPage = lazyNamed(() => import("@/pages/ConsultationRoom"), "ConsultationRoomPage");
 
 const InternDashboard = lazyNamed(() => import("@/pages/intern/InternDashboard"), "InternDashboard");
 const InternQuestsPage = lazyNamed(() => import("@/pages/intern/InternQuestsPage"), "InternQuestsPage");
@@ -150,6 +151,7 @@ function AdminPortal() {
             <Route path="/admin" component={Dashboard} />
             <Route path="/admin/dashboard"><Redirect to="/admin" /></Route>
             <Route path="/admin/control" component={AdminControlDesk} />
+            <Route path="/admin/room/:bookingId" component={ConsultationRoomPage} />
             <Route path="/admin/users" component={Users} />
             <Route path="/admin/verifications" component={AdminVerifications} />
             <Route path="/admin/identity-vault" component={IdentityVault} />
@@ -181,6 +183,7 @@ function ClientPortal() {
             <Route path="/client/engagement" component={ClientEngagement} />
             <Route path="/client/updates" component={CaseUpdatesBoard} />
             <Route path="/client/connect" component={ClientConnectChat} />
+            <Route path="/client/room/:bookingId" component={ConsultationRoomPage} />
             <Route path="/client/wellness" component={ClientWellness} />
             <Route path="/client/rights" component={ClientRightsFeed} />
             <Route path="/client/cases" component={ClientCaseTracker} />
@@ -213,6 +216,7 @@ function AdvocatePortal() {
             <Route path="/advocate" component={AdvocateDashboard} />
             <Route path="/advocate/dashboard"><Redirect to="/advocate" /></Route>
             <Route path="/advocate/calls" component={AdvocateCalls} />
+            <Route path="/advocate/room/:bookingId" component={ConsultationRoomPage} />
             <Route path="/advocate/diary" component={AdvocateDiary} />
             <Route path="/advocate/proxy" component={AdvocateProxy} />
             <Route path="/advocate/reminders" component={AdvocateReminders} />

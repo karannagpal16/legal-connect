@@ -49,6 +49,8 @@ const {
   redactSecrets,
 } = require("./security");
 const { createIdentityVault } = require("./identity-vault");
+const { createConsultationRoom, publicPricing, maskBookingContacts } = require("./consultation-room");
+const { redactContactLeaks } = require("./leak-filter");
 const {
   enrichTasksWithCounselTrack,
   enrichTaskWithCounselTrack,
@@ -3190,6 +3192,22 @@ function serveStatic(req, res) {
   });
 }
 
+const consultationRoom = createConsultationRoom({
+  db,
+  config,
+  demoStore,
+  sendJson,
+  readBody,
+  getAuthUser: (req) => getAuthUser(req),
+  canSeeAll: (user) => canSeeAll(user),
+  mapBooking,
+  writeAuditLog,
+  notify,
+  resolveRecipients,
+  resolveAdminRecipients,
+  portalUrl,
+});
+
 const strategyFeatures = createStrategyFeatures({
   db,
   config,
@@ -3286,6 +3304,16 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (await masterBlueprint.handleBlueprintRoutes(req, res, url)) {
+    return;
+  }
+
+  try {
+    if (await consultationRoom.handleConsultationRoomRoutes(req, res, url)) {
+      return;
+    }
+  } catch (error) {
+    console.warn("consultation room failed:", redactSecrets(error?.message || error));
+    sendJson(res, 500, { ok: false, error: "Consultation room is unavailable." });
     return;
   }
 
@@ -4808,7 +4836,7 @@ const server = http.createServer(async (req, res) => {
           || "draft";
         const attachments = attachmentsByBooking.get(row.id) || [];
         return {
-          ...mapped,
+          ...maskBookingContacts(mapped, "admin"),
           intakeStatus,
           productType: payload.productType || mapped.productType || null,
           retention: payload.retention || mapped.retention || null,
@@ -4874,6 +4902,8 @@ const server = http.createServer(async (req, res) => {
           // Client-visible field stays initials-masked even in demo memory mode.
           assignedAdvocateName: demoMasked.displayName,
           assignedAdvocateEnrollment: demoMasked.enrollment || null,
+          conflictClearedAt: new Date().toISOString(),
+          conflictClearedBy: authUser.id,
           stageStatus: "advocate_assigned",
           intakeStatus: "advocate_assigned",
         });
@@ -4921,6 +4951,8 @@ const server = http.createServer(async (req, res) => {
             assignmentNote: note || null,
             assignedByAdmin: authUser.id,
             assignedAt: new Date().toISOString(),
+            conflictClearedAt: new Date().toISOString(),
+            conflictClearedBy: authUser.id,
           }),
         ],
       );
@@ -5796,22 +5828,38 @@ const server = http.createServer(async (req, res) => {
       const result = await db.query("SELECT * FROM case_communications WHERE case_id = $1 ORDER BY occurred_at, created_at", [caseId]);
       sendJson(res, 200, {
         ok: true,
-        communications: result.rows.map((row) => ({ id: row.id, type: row.communication_type, title: row.title, summary: row.summary || "", occurredAt: row.occurred_at, senderId: row.sender_id })),
+        communications: result.rows.map((row) => {
+          const summary = String(row.summary || "");
+          return {
+            id: row.id,
+            type: row.communication_type,
+            title: row.title,
+            summary: canSeeAll(authUser) ? summary : redactContactLeaks(summary).redacted,
+            occurredAt: row.occurred_at,
+            senderId: row.sender_id,
+          };
+        }),
         dataMode: "live",
       });
       return;
     }
     const body = await readBody(req);
-    const summary = String(body.summary || body.message || "").trim();
-    if (!summary || summary.length > 4000) {
+    const summaryRaw = String(body.summary || body.message || "").trim();
+    if (!summaryRaw || summaryRaw.length > 4000) {
       sendJson(res, 400, { error: "Message must contain between 1 and 4,000 characters." });
       return;
     }
+    const filteredComm = redactContactLeaks(summaryRaw);
+    const summary = filteredComm.redacted;
     const senderId = await resolveDatabaseUserId(authUser);
     const created = await db.query(
       `INSERT INTO case_communications (case_id, sender_id, communication_type, title, summary, payload)
        VALUES ($1, $2, 'message', $3, $4, $5) RETURNING *`,
-      [caseId, senderId, body.title || "Matter message", summary, JSON.stringify({ senderRole: authUser.role })],
+      [caseId, senderId, body.title || "Matter message", summary, JSON.stringify({
+        senderRole: authUser.role,
+        leakHits: filteredComm.hits,
+        original: canSeeAll(authUser) || filteredComm.leaked ? filteredComm.original : undefined,
+      })],
     );
     await db.query("UPDATE cases SET updated_at = now() WHERE id = $1", [caseId]);
     const row = created.rows[0];
@@ -7172,20 +7220,21 @@ const server = http.createServer(async (req, res) => {
           razorpay_ready: status.razorpay_ready,
           // Never expose merchant VPA / webhook readiness to anonymous callers.
         };
+    const advisoryPricing = publicPricing();
     sendJson(res, 200, {
       ok: true,
       ...publicStatus,
       first_chat_free_available: Boolean(authUser) && (masterFree || !firstChatUsed),
       first_chat_free_amount: 0,
-      chat_amount: 99,
-      call_amount: 299,
-      video_amount: 499,
-      chat_unit: "2 mins",
+      chat_amount: advisoryPricing.chat.amount,
+      call_amount: advisoryPricing.call.amount,
+      video_amount: advisoryPricing.video.amount,
+      chat_unit: "session",
       pricing: {
         first_chat_free: true,
-        chat: { amount: 99, unit: "2 mins", label: "₹99 / 2 mins" },
-        call: { amount: 299, unit: "session", label: "from ₹299" },
-        video: { amount: 499, unit: "session", label: "from ₹499" },
+        chat: advisoryPricing.chat,
+        call: advisoryPricing.call,
+        video: advisoryPricing.video,
       },
       proxy_urgency_tiers: PROXY_URGENCY_TIERS,
       settlement: {
@@ -8217,8 +8266,13 @@ const server = http.createServer(async (req, res) => {
           ? await db.query("SELECT * FROM bookings WHERE payload->>'assignedAdvocateId' = $1 OR payload->>'assignedTo' = $1 ORDER BY created_at DESC", [databaseUserId])
           : await db.query("SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC", [databaseUserId]);
       const mapped = result.rows.map(mapBooking);
-      const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
-      sendJson(res, 200, isClientAudience ? mapped.map(sanitizeBookingForClient) : mapped);
+      const audience = String(authUser.role || "").toLowerCase();
+      const masked = canSeeAll(authUser)
+        ? mapped.map((item) => maskBookingContacts(item, "admin"))
+        : audience === "client"
+          ? mapped.map((item) => maskBookingContacts(sanitizeBookingForClient(item), "client"))
+          : mapped.map((item) => maskBookingContacts(item, audience));
+      sendJson(res, 200, masked);
       return;
     }
     if (!authUser) {
@@ -8231,8 +8285,13 @@ const server = http.createServer(async (req, res) => {
         ? demoStore.bookings.filter((item) => item.userId === authUser.id)
         : [];
     const mappedDemo = visibleBookings.map(dashboardBooking);
-    const isClientAudience = String(authUser.role || "").toLowerCase() === "client";
-    sendJson(res, 200, isClientAudience ? mappedDemo.map(sanitizeBookingForClient) : mappedDemo);
+    const audienceDemo = String(authUser.role || "").toLowerCase();
+    const maskedDemo = canSeeAll(authUser)
+      ? mappedDemo.map((item) => maskBookingContacts(item, "admin"))
+      : audienceDemo === "client"
+        ? mappedDemo.map((item) => maskBookingContacts(sanitizeBookingForClient(item), "client"))
+        : mappedDemo.map((item) => maskBookingContacts(item, audienceDemo));
+    sendJson(res, 200, maskedDemo);
     return;
   }
 
@@ -10164,7 +10223,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       },
       cases: supervisedCases,
       bookings: bookings.map((booking) => {
-        const safeBooking = sanitizeBookingForClient(booking);
+        const safeBooking = maskBookingContacts(sanitizeBookingForClient(booking), "client");
         return {
           ...safeBooking,
           pipeline: pipelineProgress(booking.intakeStatus || booking.stageStatus || booking.paymentStatus),
@@ -10223,7 +10282,9 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         verificationStatus: profileResult.rows[0]?.verification_status || (useDemo ? 'verified' : 'pending'),
       },
       cases,
-      paidIntakes: useDemo ? createDemoBookings().map(dashboardBooking) : bookingsResult.rows.map(mapBooking),
+      paidIntakes: useDemo
+        ? createDemoBookings().map(dashboardBooking).map((item) => maskBookingContacts(item, "advocate"))
+        : bookingsResult.rows.map((row) => maskBookingContacts(mapBooking(row), "advocate")),
       chamber: chamberResult.rows[0] ? { id: chamberId, name: chamberResult.rows[0].name, members: membersResult.rows, tasks: tasksResult.rows } : null,
       dataMode: useDemo ? 'sample' : 'live',
     });
