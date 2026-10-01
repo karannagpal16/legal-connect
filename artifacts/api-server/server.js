@@ -573,6 +573,12 @@ function isUuid(value) {
   return UUID_PATTERN.test(String(value || ""));
 }
 
+function indiaCourtDate(value = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(value);
+  const byType = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return `${byType.year}-${byType.month}-${byType.day}`;
+}
+
 async function resolveDatabaseUserId(user) {
   if (!user?.id) return null;
   if (!db.dbAvailable || isUuid(user.id)) return user.id;
@@ -9598,6 +9604,16 @@ async function ensureChamberVaultSchema() {
   )`);
   await db.query(`CREATE INDEX IF NOT EXISTS case_hearing_assignments_day_idx ON case_hearing_assignments (chamber_id, hearing_date, status)`);
   await db.query(`CREATE INDEX IF NOT EXISTS case_hearing_assignments_assignee_idx ON case_hearing_assignments (assigned_to, hearing_date, status)`);
+  await db.query(`CREATE TABLE IF NOT EXISTS case_hearing_updates (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+    hearing_assignment_id uuid NOT NULL REFERENCES case_hearing_assignments(id) ON DELETE CASCADE,
+    hearing_date date NOT NULL, outcome text NOT NULL, next_hearing_date date, next_purpose text,
+    next_purpose_note text, court_directions text, internal_note text, order_status text NOT NULL,
+    source text NOT NULL DEFAULT 'manual', entered_by uuid REFERENCES users(id) ON DELETE SET NULL,
+    action_required boolean NOT NULL DEFAULT false, supersedes_id uuid REFERENCES case_hearing_updates(id), created_at timestamptz DEFAULT now()
+  )`);
+  await db.query(`CREATE INDEX IF NOT EXISTS case_hearing_updates_case_date_idx ON case_hearing_updates (case_id, hearing_date DESC, created_at DESC)`);
   return true;
 }
 
@@ -10344,7 +10360,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const userId = await resolveDatabaseUserId(authUser);
     const date = /^\d{4}-\d{2}-\d{2}$/.test(String(url.searchParams.get('date') || ''))
       ? String(url.searchParams.get('date'))
-      : new Date().toISOString().slice(0, 10);
+      : indiaCourtDate();
     const access = await db.query(`
       SELECT c.id, c.name, c.owner_id, 'owner'::text AS access_role
       FROM chambers c WHERE c.owner_id = $1
@@ -10369,12 +10385,14 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       ORDER BY CASE WHEN u.id = $2 THEN 0 ELSE 1 END, u.name`, [chamber.id, chamber.owner_id]);
     const hearingsResult = await db.query(`
       SELECT c.*, h.id AS hearing_assignment_id, h.hearing_time, h.assigned_to,
-        h.status AS hearing_status, h.assigned_at, h.accepted_at, assignee.name AS assignee_name
+        h.status AS hearing_status, h.assigned_at, h.accepted_at, assignee.name AS assignee_name,
+        hu.outcome, hu.next_hearing_date, hu.next_purpose
       FROM cases c
       LEFT JOIN case_hearing_assignments h
         ON h.case_id = c.id AND h.chamber_id = $1 AND h.hearing_date = $2::date
       LEFT JOIN users assignee ON assignee.id = h.assigned_to
-      WHERE c.next_date = $2
+      LEFT JOIN LATERAL (SELECT outcome, next_hearing_date, next_purpose FROM case_hearing_updates WHERE hearing_assignment_id = h.id ORDER BY created_at DESC LIMIT 1) hu ON true
+      WHERE (c.next_date = $2 OR EXISTS (SELECT 1 FROM case_hearing_assignments closed_today WHERE closed_today.case_id = c.id AND closed_today.chamber_id = $1 AND closed_today.hearing_date = $2::date))
         AND (
           EXISTS (SELECT 1 FROM case_hearing_assignments visible WHERE visible.case_id = c.id AND visible.chamber_id = $1 AND visible.hearing_date = $2::date)
           OR EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_id = c.id AND ca.status = 'active' AND ca.advocate_id IN (
@@ -10392,7 +10410,8 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         room: payload.room || payload.roomNo || null, itemNumber: payload.itemNumber || null,
         time: hearingTime, purpose: payload.hearingPurpose || payload.purpose || row.status || null,
         assignedTo: row.assigned_to ? { id: row.assigned_to, name: row.assignee_name || 'Assigned counsel' } : null,
-        status: row.hearing_status || (row.assigned_to ? 'assigned' : 'unassigned'),
+        status: row.hearing_status || (row.assigned_to ? 'assigned' : 'unassigned'), outcome: row.outcome || null,
+        nextDate: row.next_hearing_date || null, nextPurpose: row.next_purpose || null,
         requiresSenior: payload.requiresSenior === true, clash: false,
       };
     });
@@ -10406,9 +10425,10 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     for (const group of timeGroups.values()) if (group.length > 1) { group.forEach((hearing) => { hearing.clash = true; }); clashes.push(...group); }
     const attention = [
       ...hearings.filter((hearing) => hearing.status === 'unassigned').map((hearing) => ({ type: 'unassigned_hearing', matterId: hearing.matterId, title: `Unassigned hearing · ${hearing.title}` })),
+      ...hearings.filter((hearing) => ['assigned', 'accepted', 'in_court'].includes(hearing.status)).map((hearing) => ({ type: 'hearing_update_required', matterId: hearing.matterId, title: `Hearing update required · ${hearing.title}` })),
       ...clashes.map((hearing) => ({ type: 'court_clash', matterId: hearing.matterId, title: `Court clash · ${hearing.title}` })),
     ];
-    sendJson(res, 200, { ok: true, date, hasChamber: true, chamber: { id: chamber.id, name: chamber.name, accessRole: chamber.access_role }, canAssign: chamber.owner_id === userId, summary: { hearings: hearings.length, requiresSenior: hearings.filter((item) => item.requiresSenior).length, unassigned: hearings.filter((item) => item.status === 'unassigned').length, clashes: clashes.length }, hearings, attention, eligibleMembers: eligibleResult.rows });
+    sendJson(res, 200, { ok: true, date, hasChamber: true, chamber: { id: chamber.id, name: chamber.name, accessRole: chamber.access_role }, canAssign: chamber.owner_id === userId, summary: { hearings: hearings.length, completed: hearings.filter((item) => item.status === 'completed').length, missingUpdates: hearings.filter((item) => ['assigned', 'accepted'].includes(item.status)).length, requiresSenior: hearings.filter((item) => item.requiresSenior).length, unassigned: hearings.filter((item) => item.status === 'unassigned').length, clashes: clashes.length }, hearings, attention, eligibleMembers: eligibleResult.rows });
     return true;
   }
 
@@ -10437,6 +10457,51 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     if (!accepted.rows[0]) { sendJson(res, 403, { ok: false, error: 'Only the assigned counsel may accept this hearing.' }); return true; }
     await writeAuditLog(authUser, 'hearing_assignment_accepted', 'case', caseId, 'Hearing assignment accepted.', { matterId: caseId, hearingDate });
     sendJson(res, 200, { ok: true, assignment: accepted.rows[0] }); return true;
+  }
+
+  const hearingCloseMatch = url.pathname.match(/^\/api\/chamber\/today\/hearings\/([^/]+)\/close$/);
+  if (hearingCloseMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req); const body = await readBody(req); const caseId = hearingCloseMatch[1];
+    const outcomes = new Set(['heard', 'adjourned', 'pass_over', 'part_heard', 'order_reserved', 'notice_issued', 'disposed', 'not_reached', 'other']);
+    const purposes = new Set(['arguments', 'cross_examination', 'examination_in_chief', 'evidence', 'final_arguments', 'reply', 'rejoinder', 'compliance', 'filing', 'orders', 'miscellaneous', 'other']);
+    const orderStatuses = new Set(['uploaded', 'not_available', 'not_expected']);
+    const hearingDate = String(body.hearingDate || ''); const outcome = String(body.outcome || ''); const nextDate = body.nextHearingDate ? String(body.nextHearingDate) : null;
+    if (!authUser || authUser.role !== 'advocate' || !isUuid(caseId) || !/^\d{4}-\d{2}-\d{2}$/.test(hearingDate) || !outcomes.has(outcome) || !orderStatuses.has(String(body.orderStatus || ''))) { sendJson(res, 400, { ok: false, error: 'A valid manual hearing update is required.' }); return true; }
+    if (nextDate && !/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) { sendJson(res, 400, { ok: false, error: 'Next hearing date must be valid.' }); return true; }
+    const dayConcluded = body.dayConcluded === true;
+    if (outcome === 'disposed' && nextDate) { sendJson(res, 400, { ok: false, error: 'Disposed matters cannot have a next hearing date.' }); return true; }
+    if (outcome === 'pass_over' && !dayConcluded && nextDate) { sendJson(res, 400, { ok: false, error: 'A return-expected pass over cannot have a next hearing date.' }); return true; }
+    if (body.nextPurpose && !purposes.has(String(body.nextPurpose))) { sendJson(res, 400, { ok: false, error: 'Select a valid next purpose.' }); return true; }
+    await ensureChamberVaultSchema(); const userId = await resolveDatabaseUserId(authUser);
+    const assignmentResult = await db.query(`SELECT h.*, c.owner_id AS chamber_owner_id, m.title FROM case_hearing_assignments h JOIN chambers c ON c.id = h.chamber_id JOIN cases m ON m.id = h.case_id WHERE h.case_id = $1 AND h.hearing_date = $2::date LIMIT 1`, [caseId, hearingDate]);
+    const assignment = assignmentResult.rows[0];
+    if (!assignment || (String(assignment.assigned_to || '') !== String(userId) && String(assignment.chamber_owner_id || '') !== String(userId))) { sendJson(res, 403, { ok: false, error: 'Only the assigned advocate or Chamber Owner may close this hearing.' }); return true; }
+    const actionAssigneeId = isUuid(body.actionAssigneeId) ? body.actionAssigneeId : null;
+    if (actionAssigneeId) {
+      const permittedAssignee = await db.query(`SELECT 1 FROM chamber_members WHERE chamber_id = $1 AND user_id = $2 AND status = 'active' UNION ALL SELECT 1 FROM chambers WHERE id = $1 AND owner_id = $2 LIMIT 1`, [assignment.chamber_id, actionAssigneeId]);
+      if (!permittedAssignee.rows[0]) { sendJson(res, 400, { ok: false, error: 'Follow-up assignee must be an active chamber member.' }); return true; }
+    }
+    const dbClient = await db.pool.connect(); let update; let followupTask;
+    try { await dbClient.query('BEGIN');
+      const prior = await dbClient.query(`SELECT id FROM case_hearing_updates WHERE hearing_assignment_id = $1 ORDER BY created_at DESC LIMIT 1`, [assignment.id]);
+      const inserted = await dbClient.query(`INSERT INTO case_hearing_updates (case_id, chamber_id, hearing_assignment_id, hearing_date, outcome, next_hearing_date, next_purpose, next_purpose_note, court_directions, internal_note, order_status, source, entered_by, action_required, supersedes_id) VALUES ($1,$2,$3,$4::date,$5,$6::date,$7,$8,$9,$10,$11,'manual',$12,$13,$14) RETURNING *`, [caseId, assignment.chamber_id, assignment.id, hearingDate, outcome, nextDate, body.nextPurpose || null, body.nextPurposeNote || null, body.courtDirections || null, body.internalNote || null, body.orderStatus, userId, body.actionRequired === true, prior.rows[0]?.id || null]); update = inserted.rows[0];
+      await dbClient.query(`UPDATE case_hearing_assignments SET status = $2, updated_at = now() WHERE id = $1`, [assignment.id, outcome === 'pass_over' && !dayConcluded ? 'in_court' : 'completed']);
+      const status = outcome === 'disposed' ? 'Closed' : undefined;
+      if (status) await dbClient.query(`UPDATE cases SET status = $2, next_date = NULL, updated_at = now() WHERE id = $1`, [caseId, status]);
+      else if (nextDate) await dbClient.query(`UPDATE cases SET next_date = $2, updated_at = now() WHERE id = $1`, [caseId, nextDate]);
+      if (body.actionRequired && String(body.actionTitle || '').trim()) {
+        followupTask = await dbClient.query(`INSERT INTO chamber_tasks (chamber_id, case_id, title, details, assigned_to, assignee_name, status, priority, due_at, created_by) VALUES ($1,$2,$3,$4,$5,$6,'assigned','normal',$7,$8) RETURNING id`, [assignment.chamber_id, caseId, String(body.actionTitle).trim(), body.actionNote || null, actionAssigneeId, body.actionAssigneeName || 'Unassigned', body.actionDeadline || null, userId]);
+      }
+      await dbClient.query('COMMIT');
+    } catch (error) { await dbClient.query('ROLLBACK'); throw error; } finally { dbClient.release(); }
+    await writeAuditLog(authUser, 'hearing_update_created', 'case', caseId, 'Manual hearing update recorded.', { hearingDate, outcome, nextDate, source: 'manual' });
+    if (nextDate) await writeAuditLog(authUser, 'next_date_recorded', 'case', caseId, 'Manual next hearing date recorded.', { hearingDate, nextDate });
+    await writeAuditLog(authUser, update.supersedes_id ? 'hearing_update_corrected' : 'hearing_closed', 'case', caseId, update.supersedes_id ? 'Manual hearing update corrected; prior entry remains in history.' : 'Hearing lifecycle updated.', { hearingDate, outcome, dayConcluded });
+    if (body.actionRequired && String(body.actionTitle || '').trim()) await writeAuditLog(authUser, 'followup_task_created', 'case', caseId, 'Follow-up chamber task created from hearing.', { hearingDate });
+    const recipients = await resolveRecipients([assignment.chamber_owner_id].filter((id) => String(id) !== String(userId)));
+    if (recipients.length) await notify({ eventType: 'hearing_updated', title: 'Hearing updated', message: `${assignment.title || 'Matter'} — ${nextDate ? `next date ${nextDate}` : outcome.replace(/_/g, ' ')}.`, recipients, payload: { caseId, hearingDate, outcome, nextDate }, sendEmail: true, ctaLabel: 'Open Today', ctaUrl: portalUrl('/advocate') });
+    if (actionAssigneeId && followupTask?.rows[0]) await notify({ eventType: 'hearing_followup_assigned', title: 'Hearing follow-up assigned', message: `${assignment.title || 'Matter'} requires a chamber follow-up.`, recipients: await resolveRecipients([actionAssigneeId]), payload: { caseId, taskId: followupTask.rows[0].id }, sendEmail: true, ctaLabel: 'Open Chamber', ctaUrl: portalUrl('/advocate/chamber') });
+    sendJson(res, 201, { ok: true, hearingUpdate: update }); return true;
   }
 
   if (url.pathname === '/api/chamber' && req.method === 'GET') {
