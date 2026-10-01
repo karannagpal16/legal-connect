@@ -40,6 +40,7 @@ const {
   getChamberPlan,
   isTopTierPlan,
   quoteChamberPlan,
+  quoteFromPaidOrder,
   assertMemberSeat,
 } = require("./chamber-plans");
 const { resolveTaskParties, resolveProofStatus } = require("./proxy-proof");
@@ -10472,7 +10473,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         amount: quoted.chargeAmount * 100,
         currency: 'INR',
         key_id: 'rzp_test_demo',
-        order_id: `order_chamber_demo_${quoted.billingCycle}_${Date.now()}`,
+        order_id: `order_chamber_demo_${quoted.id}_${quoted.billingCycle}_${Date.now()}`,
         message: 'Demo mode chamber subscription — no real charge.',
       });
       return true;
@@ -10511,41 +10512,58 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     }
     await ensureChamberVaultSchema();
     const body = await readBody(req);
-    const plan = getChamberPlan(body.planId || body.plan || 'core');
     const userId = await resolveDatabaseUserId(authUser);
     const orderId = body.order_id || body.razorpay_order_id;
     const paymentId = body.payment_id || body.razorpay_payment_id;
     const signature = body.signature || body.razorpay_signature;
     const isDemo = String(orderId || '').startsWith('order_chamber_demo_');
 
+    if (isDemo && config.nodeEnv === 'production') {
+      sendJson(res, 400, { ok: false, error: 'Demo chamber orders are not accepted.' });
+      return true;
+    }
     if (!isDemo && config.razorpayKeySecret) {
       if (!verifyRazorpayPaymentSignature(orderId, paymentId, signature)) {
         sendJson(res, 400, { ok: false, error: 'Payment signature verification failed.' });
         return true;
       }
-    } else if (!isDemo && config.nodeEnv === 'production') {
+    } else if (!isDemo) {
       sendJson(res, 503, { ok: false, error: 'Payment gateway is not configured.' });
       return true;
     }
 
-    let billingCycle = 'monthly';
+    let quoted;
     if (isDemo) {
-      billingCycle = String(orderId).includes('_annual_') ? 'annual' : 'monthly';
-    } else if (config.razorpayKeyId && config.razorpayKeySecret && orderId) {
+      const resolved = quoteFromPaidOrder({ id: orderId });
+      if (!resolved.ok) {
+        sendJson(res, 400, { ok: false, error: resolved.error });
+        return true;
+      }
+      quoted = resolved.quoted;
+    } else {
+      let payload = null;
       try {
         const auth = Buffer.from(`${config.razorpayKeyId}:${config.razorpayKeySecret}`).toString('base64');
         const response = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}`, {
           headers: { Authorization: `Basic ${auth}` },
         });
-        const payload = await response.json().catch(() => ({}));
-        const noteCycle = payload?.notes?.billingCycle || payload?.notes?.billing_cycle;
-        const receipt = String(payload?.receipt || '');
-        if (noteCycle === 'annual' || receipt.includes('_yr_')) billingCycle = 'annual';
+        payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          sendJson(res, 502, { ok: false, error: 'Could not confirm the paid chamber order.' });
+          return true;
+        }
       } catch (error) {
         console.warn('Chamber order lookup failed:', redactSecrets(error.message || error));
+        sendJson(res, 502, { ok: false, error: 'Could not confirm the paid chamber order.' });
+        return true;
       }
+      const resolved = quoteFromPaidOrder(payload);
+      if (!resolved.ok) {
+        sendJson(res, 400, { ok: false, error: resolved.error });
+        return true;
+      }
+      quoted = resolved.quoted;
     }
-    const quoted = quoteChamberPlan(plan.id, billingCycle);
     const paidUntil = new Date(Date.now() + quoted.periodDays * 24 * 60 * 60 * 1000);
     const updated = await db.query(
       `UPDATE chambers

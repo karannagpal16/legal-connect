@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const {
   getChamberPlan,
   quoteChamberPlan,
+  quoteFromPaidOrder,
   assertMemberSeat,
   chamberPlanCatalog,
   isTopTierPlan,
@@ -38,5 +39,42 @@ assert.equal(assertMemberSeat(core, sixTeam, "senior").ok, true);
 const oneSenior = [{ member_role: "partner" }];
 assert.equal(assertMemberSeat(core, oneSenior, "senior").ok, false);
 assert.match(assertMemberSeat(core, oneSenior, "partner").error, /Senior\/Partner/);
+
+const paidAnnual = quoteFromPaidOrder({
+  receipt: "ch_pro_yr_1750000000000",
+  amount: 2499900,
+  notes: { planId: "pro", billingCycle: "annual" },
+});
+assert.equal(paidAnnual.ok, true);
+assert.equal(paidAnnual.quoted.id, "pro");
+assert.equal(paidAnnual.quoted.billingCycle, "annual");
+assert.equal(paidAnnual.quoted.chargeAmount, 24999);
+
+const fromReceiptOnly = quoteFromPaidOrder({
+  receipt: "ch_elite_mo_1750000000000",
+  amount: 499900,
+});
+assert.equal(fromReceiptOnly.quoted.id, "elite");
+assert.equal(fromReceiptOnly.quoted.periodDays, 30);
+
+const mismatch = quoteFromPaidOrder({
+  receipt: "ch_core_mo_1750000000000",
+  amount: 499900,
+  notes: { planId: "core", billingCycle: "monthly" },
+});
+assert.equal(mismatch.ok, false);
+
+const conflict = quoteFromPaidOrder({
+  receipt: "ch_core_mo_1",
+  notes: { planId: "elite", billingCycle: "monthly" },
+  amount: 99900,
+});
+assert.equal(conflict.ok, false);
+
+const demo = quoteFromPaidOrder({ id: "order_chamber_demo_core_annual_1750000000000" });
+assert.equal(demo.ok, true);
+assert.equal(demo.quoted.id, "core");
+assert.equal(demo.quoted.chargeAmount, 9999);
+assert.equal(quoteFromPaidOrder({ id: "order_chamber_demo_annual_1" }).ok, false);
 
 console.log("chamber-plans.test.js ok");
