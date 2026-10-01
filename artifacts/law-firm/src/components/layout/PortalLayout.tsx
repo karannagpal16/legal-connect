@@ -68,7 +68,7 @@ const navigation: Record<AppRole, NavItem[]> = {
     { label: "Library", href: "/admin/library", icon: Library },
   ],
   advocate: [
-    { label: "Dashboard", href: "/advocate", icon: Home },
+    { label: "Today", href: "/advocate", icon: Home },
     { label: "My cases", href: "/advocate/cases", icon: FileSearch },
     { label: "Case updates", href: "/advocate/updates", icon: MessageSquare },
     { label: "Chamber Vault", href: "/advocate/chamber", icon: Vault },

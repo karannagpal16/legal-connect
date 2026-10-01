@@ -847,6 +847,26 @@ async function initDb() {
     await query(`CREATE INDEX IF NOT EXISTS case_assignments_advocate_idx ON case_assignments (advocate_id, status)`);
 
     await query(`
+      CREATE TABLE IF NOT EXISTS case_hearing_assignments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+        hearing_date date NOT NULL,
+        hearing_time text,
+        assigned_to uuid REFERENCES users(id) ON DELETE SET NULL,
+        assigned_by uuid REFERENCES users(id) ON DELETE SET NULL,
+        status text NOT NULL DEFAULT 'unassigned',
+        assigned_at timestamptz,
+        accepted_at timestamptz,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now(),
+        UNIQUE (case_id, hearing_date)
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS case_hearing_assignments_day_idx ON case_hearing_assignments (chamber_id, hearing_date, status)`);
+    await query(`CREATE INDEX IF NOT EXISTS case_hearing_assignments_assignee_idx ON case_hearing_assignments (assigned_to, hearing_date, status)`);
+
+    await query(`
       CREATE TABLE IF NOT EXISTS case_documents (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,

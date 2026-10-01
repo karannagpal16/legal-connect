@@ -9581,6 +9581,23 @@ async function ensureChamberVaultSchema() {
   await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS accepted_at timestamptz`);
   await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS completed_at timestamptz`);
   await db.query(`ALTER TABLE chamber_tasks ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`);
+  await db.query(`CREATE TABLE IF NOT EXISTS case_hearing_assignments (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+    hearing_date date NOT NULL,
+    hearing_time text,
+    assigned_to uuid REFERENCES users(id) ON DELETE SET NULL,
+    assigned_by uuid REFERENCES users(id) ON DELETE SET NULL,
+    status text NOT NULL DEFAULT 'unassigned',
+    assigned_at timestamptz,
+    accepted_at timestamptz,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    UNIQUE (case_id, hearing_date)
+  )`);
+  await db.query(`CREATE INDEX IF NOT EXISTS case_hearing_assignments_day_idx ON case_hearing_assignments (chamber_id, hearing_date, status)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS case_hearing_assignments_assignee_idx ON case_hearing_assignments (assigned_to, hearing_date, status)`);
   return true;
 }
 
@@ -10311,6 +10328,115 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     }
     sendJson(res, 200, { ok: true, matter: enrichWorkspaceCase(mapCase(updated.rows[0])), syncedAt: new Date().toISOString() });
     return true;
+  }
+
+  // Phase 1 court-day board. `cases.id` is the existing matter identifier.
+  // This is intentionally a composed, date-scoped read model; it does not
+  // invent hearing records where the production case has no next_date.
+  const todayMatch = url.pathname === '/api/chamber/today';
+  if (todayMatch && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') {
+      sendJson(res, 403, { ok: false, error: 'Verified advocate access is required.' });
+      return true;
+    }
+    await ensureChamberVaultSchema();
+    const userId = await resolveDatabaseUserId(authUser);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(url.searchParams.get('date') || ''))
+      ? String(url.searchParams.get('date'))
+      : new Date().toISOString().slice(0, 10);
+    const access = await db.query(`
+      SELECT c.id, c.name, c.owner_id, 'owner'::text AS access_role
+      FROM chambers c WHERE c.owner_id = $1
+      UNION ALL
+      SELECT c.id, c.name, c.owner_id, cm.member_role AS access_role
+      FROM chamber_members cm JOIN chambers c ON c.id = cm.chamber_id
+      WHERE cm.user_id = $1 AND cm.status = 'active'
+      LIMIT 1`, [userId]);
+    const chamber = access.rows[0];
+    if (!chamber) {
+      sendJson(res, 200, { ok: true, date, hasChamber: false, summary: { hearings: 0, requiresSenior: 0, unassigned: 0, clashes: 0 }, hearings: [], attention: [], eligibleMembers: [] });
+      return true;
+    }
+    const eligibleResult = await db.query(`
+      SELECT u.id, u.name, COALESCE(cm.member_role, 'senior_advocate') AS role
+      FROM users u
+      LEFT JOIN chamber_members cm ON cm.user_id = u.id AND cm.chamber_id = $1 AND cm.status = 'active'
+      LEFT JOIN profile_advocates pa ON pa.user_id = u.id
+      WHERE (u.id = $2 OR cm.member_role = 'associate')
+        AND u.role = 'advocate'
+        AND COALESCE(pa.verification_status, 'pending') IN ('approved', 'verified')
+      ORDER BY CASE WHEN u.id = $2 THEN 0 ELSE 1 END, u.name`, [chamber.id, chamber.owner_id]);
+    const hearingsResult = await db.query(`
+      SELECT c.*, h.id AS hearing_assignment_id, h.hearing_time, h.assigned_to,
+        h.status AS hearing_status, h.assigned_at, h.accepted_at, assignee.name AS assignee_name
+      FROM cases c
+      LEFT JOIN case_hearing_assignments h
+        ON h.case_id = c.id AND h.chamber_id = $1 AND h.hearing_date = $2::date
+      LEFT JOIN users assignee ON assignee.id = h.assigned_to
+      WHERE c.next_date = $2
+        AND (
+          EXISTS (SELECT 1 FROM case_hearing_assignments visible WHERE visible.case_id = c.id AND visible.chamber_id = $1 AND visible.hearing_date = $2::date)
+          OR EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_id = c.id AND ca.status = 'active' AND ca.advocate_id IN (
+            SELECT $3::uuid UNION SELECT cm.user_id FROM chamber_members cm WHERE cm.chamber_id = $1 AND cm.status = 'active' AND cm.user_id IS NOT NULL
+          ))
+          OR EXISTS (SELECT 1 FROM chamber_tasks ct WHERE ct.chamber_id = $1 AND ct.case_id = c.id)
+        )
+      ORDER BY COALESCE(h.hearing_time, c.payload->>'hearingTime', c.payload->>'time') NULLS LAST, c.title`, [chamber.id, date, chamber.owner_id]);
+    const hearings = hearingsResult.rows.map((row) => {
+      const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+      const hearingTime = row.hearing_time || payload.hearingTime || payload.time || null;
+      return {
+        matterId: row.id,
+        title: row.title || 'Untitled matter', caseNumber: row.case_number || null, court: row.court || null,
+        room: payload.room || payload.roomNo || null, itemNumber: payload.itemNumber || null,
+        time: hearingTime, purpose: payload.hearingPurpose || payload.purpose || row.status || null,
+        assignedTo: row.assigned_to ? { id: row.assigned_to, name: row.assignee_name || 'Assigned counsel' } : null,
+        status: row.hearing_status || (row.assigned_to ? 'assigned' : 'unassigned'),
+        requiresSenior: payload.requiresSenior === true, clash: false,
+      };
+    });
+    const timeGroups = new Map();
+    for (const hearing of hearings) {
+      if (!hearing.time || !hearing.assignedTo?.id) continue;
+      const key = `${hearing.assignedTo.id}:${String(hearing.time).trim().slice(0, 5)}`;
+      timeGroups.set(key, [...(timeGroups.get(key) || []), hearing]);
+    }
+    const clashes = [];
+    for (const group of timeGroups.values()) if (group.length > 1) { group.forEach((hearing) => { hearing.clash = true; }); clashes.push(...group); }
+    const attention = [
+      ...hearings.filter((hearing) => hearing.status === 'unassigned').map((hearing) => ({ type: 'unassigned_hearing', matterId: hearing.matterId, title: `Unassigned hearing · ${hearing.title}` })),
+      ...clashes.map((hearing) => ({ type: 'court_clash', matterId: hearing.matterId, title: `Court clash · ${hearing.title}` })),
+    ];
+    sendJson(res, 200, { ok: true, date, hasChamber: true, chamber: { id: chamber.id, name: chamber.name, accessRole: chamber.access_role }, canAssign: chamber.owner_id === userId, summary: { hearings: hearings.length, requiresSenior: hearings.filter((item) => item.requiresSenior).length, unassigned: hearings.filter((item) => item.status === 'unassigned').length, clashes: clashes.length }, hearings, attention, eligibleMembers: eligibleResult.rows });
+    return true;
+  }
+
+  const todayAssignmentMatch = url.pathname.match(/^\/api\/chamber\/today\/hearings\/([^/]+)\/(assign|accept)$/);
+  if (todayAssignmentMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser || authUser.role !== 'advocate') { sendJson(res, 403, { ok: false, error: 'Verified advocate access is required.' }); return true; }
+    await ensureChamberVaultSchema();
+    const caseId = todayAssignmentMatch[1]; const action = todayAssignmentMatch[2]; const body = await readBody(req);
+    const hearingDate = String(body.hearingDate || '').trim();
+    if (!isUuid(caseId) || !/^\d{4}-\d{2}-\d{2}$/.test(hearingDate)) { sendJson(res, 400, { ok: false, error: 'A valid matter and hearing date are required.' }); return true; }
+    const userId = await resolveDatabaseUserId(authUser);
+    const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    if (action === 'assign') {
+      const chamber = chamberResult.rows[0]; if (!chamber) { sendJson(res, 403, { ok: false, error: 'Only the Chamber Owner may assign a hearing.' }); return true; }
+      const assigneeId = String(body.assignedTo || '');
+      const eligible = await db.query(`SELECT u.id, u.name FROM users u LEFT JOIN chamber_members cm ON cm.user_id = u.id AND cm.chamber_id = $1 AND cm.status = 'active' LEFT JOIN profile_advocates pa ON pa.user_id = u.id WHERE (u.id = $2 OR cm.member_role = 'associate') AND u.id = $3 AND u.role = 'advocate' AND COALESCE(pa.verification_status, 'pending') IN ('approved', 'verified') LIMIT 1`, [chamber.id, userId, assigneeId]);
+      const matter = await db.query('SELECT id, title FROM cases WHERE id = $1 AND next_date = $2 LIMIT 1', [caseId, hearingDate]);
+      if (!matter.rows[0] || !eligible.rows[0]) { sendJson(res, 404, { ok: false, error: 'The selected eligible counsel or today’s matter was not found.' }); return true; }
+      const assignment = await db.query(`INSERT INTO case_hearing_assignments (case_id, chamber_id, hearing_date, hearing_time, assigned_to, assigned_by, status, assigned_at) VALUES ($1, $2, $3::date, $4, $5, $6, 'assigned', now()) ON CONFLICT (case_id, hearing_date) DO UPDATE SET chamber_id = EXCLUDED.chamber_id, hearing_time = COALESCE(EXCLUDED.hearing_time, case_hearing_assignments.hearing_time), assigned_to = EXCLUDED.assigned_to, assigned_by = EXCLUDED.assigned_by, status = 'assigned', assigned_at = now(), accepted_at = NULL, updated_at = now() RETURNING *`, [caseId, chamber.id, hearingDate, body.hearingTime || null, assigneeId, userId]);
+      await writeAuditLog(authUser, 'hearing_assigned', 'case', caseId, `Hearing assigned to ${eligible.rows[0].name}.`, { matterId: caseId, hearingDate, assignedTo: assigneeId });
+      await notify({ eventType: 'hearing_assignment', title: 'Court appearance assigned', message: `${matter.rows[0].title || 'A matter'} has been assigned to you for ${hearingDate}.`, recipients: await resolveRecipients([assigneeId]), payload: { caseId, hearingDate }, sendEmail: true, ctaLabel: 'Open Today', ctaUrl: portalUrl('/advocate') });
+      sendJson(res, 200, { ok: true, assignment: assignment.rows[0] }); return true;
+    }
+    const accepted = await db.query(`UPDATE case_hearing_assignments SET status = 'accepted', accepted_at = COALESCE(accepted_at, now()), updated_at = now() WHERE case_id = $1 AND hearing_date = $2::date AND assigned_to = $3 RETURNING *`, [caseId, hearingDate, userId]);
+    if (!accepted.rows[0]) { sendJson(res, 403, { ok: false, error: 'Only the assigned counsel may accept this hearing.' }); return true; }
+    await writeAuditLog(authUser, 'hearing_assignment_accepted', 'case', caseId, 'Hearing assignment accepted.', { matterId: caseId, hearingDate });
+    sendJson(res, 200, { ok: true, assignment: accepted.rows[0] }); return true;
   }
 
   if (url.pathname === '/api/chamber' && req.method === 'GET') {

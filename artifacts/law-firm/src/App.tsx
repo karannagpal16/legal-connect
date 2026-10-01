@@ -53,6 +53,7 @@ const ClientCaseTracker = lazyNamed(() => import("@/pages/client/ClientCaseTrack
 const ClientPayments = lazyNamed(() => import("@/pages/client/ClientPayments"), "ClientPayments");
 
 const AdvocateDashboard = lazyNamed(() => import("@/pages/advocate/AdvocateDashboard"), "AdvocateDashboard");
+const AdvocateToday = lazyNamed(() => import("@/pages/advocate/AdvocateToday"), "AdvocateToday");
 const AdvocateCalls = lazyNamed(() => import("@/pages/advocate/AdvocateCalls"), "AdvocateCalls");
 const AdvocateDiary = lazyNamed(() => import("@/pages/advocate/AdvocateDiary"), "AdvocateDiary");
 const AdvocateProxy = lazyNamed(() => import("@/pages/advocate/AdvocateProxy"), "AdvocateProxy");
@@ -210,7 +211,8 @@ function AdvocatePortal() {
       <AdvocateLayout>
         <PortalPages>
           <Switch>
-            <Route path="/advocate" component={AdvocateDashboard} />
+            <Route path="/advocate/overview" component={AdvocateDashboard} />
+            <Route path="/advocate" component={AdvocateToday} />
             <Route path="/advocate/dashboard"><Redirect to="/advocate" /></Route>
             <Route path="/advocate/calls" component={AdvocateCalls} />
             <Route path="/advocate/diary" component={AdvocateDiary} />
