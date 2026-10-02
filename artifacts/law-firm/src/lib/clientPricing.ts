@@ -6,21 +6,21 @@ export const CLIENT_ADVISORY_PRICING = {
   firstChatFree: true,
   chat: {
     amount: 99,
-    unitLabel: "2 mins",
-    detail: "First chat free, then ₹99 / 2 mins",
-    shortPrice: "₹99 / 2 mins",
+    unitLabel: "session",
+    detail: "First chat free, then ₹99 for a 45-minute LC chat session",
+    shortPrice: "₹99 session",
   },
   call: {
     amount: 299,
     unitLabel: "session",
-    detail: "Private audio consultation — from ₹299",
-    shortPrice: "from ₹299",
+    detail: "LC audio session — ₹299 for 20 minutes",
+    shortPrice: "₹299 session",
   },
   video: {
     amount: 499,
     unitLabel: "session",
-    detail: "Private video consultation — from ₹499",
-    shortPrice: "from ₹499",
+    detail: "LC video session — ₹499 for 30 minutes",
+    shortPrice: "₹499 session",
   },
 } as const;
 

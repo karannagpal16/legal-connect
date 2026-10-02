@@ -14,6 +14,7 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { workspaceRequest } from "@/lib/workspace";
+import { ConsultationRoomLink } from "@/pages/ConsultationRoom";
 
 type AdvisoryBooking = {
   id: string;
@@ -134,7 +135,7 @@ export function AdvocateBookings() {
           <span className="lc-kicker">ADVISORY SESSION DESK</span>
           <h2>1-time advisory → LC Gateway retention</h2>
           <p>
-            Complete Astrotalk-style advisory sessions, then trigger LC Gateway retention when the matter
+            Complete LC-supervised advisory sessions, then trigger LC Gateway retention when the matter
             needs full court representation. Clients never hire you directly inside the app.
           </p>
         </div>
@@ -203,6 +204,7 @@ export function AdvocateBookings() {
                 <ChannelIcon value={booking.consultationChannel} />
               </div>
               <div className="lc-ops-inline" style={{ marginTop: "0.75rem" }}>
+                <ConsultationRoomLink bookingId={booking.id} />
                 <button
                   className="lc-button"
                   disabled={completeAdvisory.isPending || completed}

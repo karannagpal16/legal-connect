@@ -414,9 +414,9 @@ function createMasterBlueprint(deps) {
         amount: bookingBody.amount,
         nextStep: freeActivated
           ? {
-              action: "open_advisory_room",
+              action: "await_lc_assign",
               href: "/client",
-              message: "Advisory session secured. After the session you can request LC Gateway retention for full court representation.",
+              message: "Session paid. Legal Connect will complete the conflict check and assign counsel. The consultation room opens after counsel accepts.",
             }
           : {
               action: "pay_escrow",
@@ -506,9 +506,9 @@ function createMasterBlueprint(deps) {
       amount: bookingBody.amount,
       nextStep: masterFree || firstChatFree
         ? {
-            action: "open_advisory_room",
+            action: "await_lc_assign",
             href: "/client",
-            message: "Advisory session secured. Use Request LC Gateway retention when you want full court representation.",
+            message: "Session paid. Legal Connect will complete the conflict check and assign counsel. The consultation room opens after counsel accepts.",
           }
         : {
             action: "create_payment_order",

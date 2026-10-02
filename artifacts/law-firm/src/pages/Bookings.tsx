@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Calendar, Clock, Phone, Mail, User, Briefcase, CheckCircle2, XCircle, Trash2, ShieldQuestion } from "lucide-react";
+import { Calendar, Clock, Phone, Mail, Briefcase, CheckCircle2, XCircle, Trash2, ShieldQuestion, Eye } from "lucide-react";
 import { useListBookings, useUpdateBooking, useDeleteBooking } from "@workspace/api-client-react";
 import type { Booking } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { workspaceRequest } from "@/lib/workspace";
 
 type FilterStatus = "All" | "Pending" | "Confirmed" | "Completed" | "Cancelled";
 
 export function Bookings() {
   const [filter, setFilter] = useState<FilterStatus>("All");
+  const [revealed, setRevealed] = useState<Record<string, { email?: string; phone?: string }>>({});
   const { toast } = useToast();
+  const { session } = useAuth();
 
   const { data: bookings = [], isLoading, refetch } = useListBookings();
   const updateBooking = useUpdateBooking();
@@ -147,12 +151,34 @@ export function Bookings() {
               <div className="space-y-3 mb-6 flex-1 bg-secondary/30 rounded-2xl p-4 border border-border/50">
                 <div className="flex items-center gap-3 text-sm text-foreground">
                   <Mail className="w-4 h-4 text-muted-foreground" />
-                  <a href={`mailto:${booking.clientEmail}`} className="hover:text-primary transition-colors truncate">{booking.clientEmail}</a>
+                  <span className="truncate">{revealed[String(booking.id)]?.email || (booking as { emailMasked?: string }).emailMasked || (booking as { clientEmailMasked?: string }).clientEmailMasked || "Hidden · LC vault"}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-foreground">
                   <Phone className="w-4 h-4 text-muted-foreground" />
-                  <a href={`tel:${booking.clientPhone}`} className="hover:text-primary transition-colors">{booking.clientPhone}</a>
+                  <span>{revealed[String(booking.id)]?.phone || (booking as { phoneMasked?: string }).phoneMasked || (booking as { clientPhoneMasked?: string }).clientPhoneMasked || "Hidden · LC vault"}</span>
                 </div>
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-primary inline-flex items-center gap-1"
+                  onClick={async () => {
+                    if (!session?.token) return;
+                    try {
+                      const data = await workspaceRequest<{ reveal: { clientEmail?: string; clientPhone?: string } }>(
+                        `/api/admin/bookings/${booking.id}/reveal-contact`,
+                        session.token,
+                        { method: "POST", body: "{}" },
+                      );
+                      setRevealed((current) => ({
+                        ...current,
+                        [String(booking.id)]: { email: data.reveal?.clientEmail, phone: data.reveal?.clientPhone },
+                      }));
+                    } catch {
+                      toast({ title: "Reveal failed", description: "Admin audit is required to unmask.", variant: "destructive" });
+                    }
+                  }}
+                >
+                  <Eye className="w-3 h-3" /> Reveal contact (audited)
+                </button>
                 <div className="flex items-center gap-3 text-sm text-foreground mt-4 pt-3 border-t border-border/50">
                   <Calendar className="w-4 h-4 text-primary" />
                   <span className="font-semibold">{format(new Date(booking.preferredDate), "MMM d, yyyy")}</span>

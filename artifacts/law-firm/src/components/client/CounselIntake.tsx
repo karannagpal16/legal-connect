@@ -490,11 +490,11 @@ export function CounselIntake({
             {masterFree
               ? "Owner account — every client booking is free on this login."
               : firstChatFree
-                ? "Your first Secure chat is free. After that: ₹99 / 2 mins. Audio from ₹299 · Video from ₹499."
-                : "Minimal prices: first chat free once, then ₹99 / 2 mins. Audio from ₹299 · Video from ₹499. Full court representation is only via LC Gateway retention."}
+                ? "Your first Secure chat is free. After that: ₹99 for a 45-minute LC chat session. Audio ₹299 (20 min) · Video ₹499 (30 min)."
+                : "First chat free once, then ₹99 chat session · ₹299 audio session · ₹499 video session. Full court representation is only via LC Gateway retention."}
           </p>
           <p className="lc-ops-meta" style={{ marginTop: "0.5rem" }}>
-            First chat free · then ₹99 / 2 mins · call from ₹299 · video from ₹499
+            First chat free · then ₹99 chat session · audio ₹299 · video ₹499
           </p>
           <p className="lc-ops-meta warn" style={{ marginTop: "0.5rem" }}>
             No direct in-app hiring. After advisory, use Request LC Gateway retention for panel representation.
@@ -529,7 +529,7 @@ export function CounselIntake({
                       ? Number(paymentConfig?.pricing?.call?.amount ?? paymentConfig?.call_amount ?? option.amount)
                       : Number(paymentConfig?.pricing?.video?.amount ?? paymentConfig?.video_amount ?? option.amount);
                   const priceEm = value === "chat"
-                    ? (paymentConfig?.pricing?.chat?.label || `₹${liveAmount.toLocaleString("en-IN")} / 2 mins`)
+                    ? (paymentConfig?.pricing?.chat?.label || `₹${liveAmount.toLocaleString("en-IN")} session`)
                     : value === "call"
                       ? (paymentConfig?.pricing?.call?.label || `from ₹${liveAmount.toLocaleString("en-IN")}`)
                       : (paymentConfig?.pricing?.video?.label || `from ₹${liveAmount.toLocaleString("en-IN")}`);
@@ -542,7 +542,7 @@ export function CounselIntake({
                           {masterFree
                             ? "Free on owner login"
                             : freeBadge
-                              ? "First chat free — then ₹99 / 2 mins"
+                              ? "First chat free — then ₹99 session"
                               : option.detail}
                         </small>
                       </span>
