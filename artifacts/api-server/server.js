@@ -48,6 +48,7 @@ const { createPaymentService } = require("./services/payments");
 const { createIntakeService } = require("./services/intake");
 const { createProxyHubService } = require("./services/proxy-hub");
 const { createAuthService } = require("./services/auth");
+const { presignS3Url } = require('./s3-presigner');
 
 enforceStartupGuards(config);
 
@@ -9429,40 +9430,52 @@ function masterTestRole(requested) {
   return ["client", "advocate", "intern", "admin"].includes(role) ? role : "client";
 }
 
-/** Chamber Vault monthly plans — Core ₹500, upsell packages for higher ARPU. */
+/** Server-owned Chamber Command plans. Legacy plan ids remain stable for existing subscriptions. */
 const CHAMBER_PLANS = {
   core: {
     id: "core",
     name: "Chamber Core",
-    amount: 500,
+    amount: 999,
+    annualAmount: 9999,
     periodDays: 30,
-    seats: 2,
-    maxOpenTasks: 25,
-    tagline: "Start the ledger",
-    profitNote: "Base SaaS · covers chamber ops",
-    perks: ["Owner + 2 members", "25 open tasks", "Task delegation ledger", "Status tracking"],
+    seniorSeats: 2,
+    teamSeats: 6,
+    seats: 6,
+    maxOpenTasks: null,
+    storageGb: 10,
+    tagline: "For small litigation chambers",
+    profitNote: "2 Senior/Partner seats + 6 Team Members",
+    perks: ["Unlimited matters and tasks", "Court Day, assignment and NDOH", "Case diary and Chamber Vault", "Notifications and activity history"],
   },
   growth: {
     id: "growth",
-    name: "Chamber Growth",
-    amount: 1499,
+    name: "Chamber Pro",
+    amount: 2499,
+    annualAmount: 24999,
     periodDays: 30,
-    seats: 8,
+    seniorSeats: 4,
+    teamSeats: 20,
+    seats: 20,
     maxOpenTasks: null,
-    tagline: "Scale the practice",
-    profitNote: "3× seats · sticky mid-chamber ARPU",
-    perks: ["Owner + 8 members", "Unlimited open tasks", "Priority support lane", "Proxy Hub fee insight"],
+    storageGb: 50,
+    tagline: "Most popular · growing chambers",
+    profitNote: "4 Senior/Partner seats + 20 Team Members",
+    perks: ["Everything in Core", "Draft, review and filing workflows", "Court clash detection and Matter Timeline", "Advanced analytics and full Proxy Hub workflow"],
   },
   chambers_plus: {
     id: "chambers_plus",
-    name: "Chambers+",
-    amount: 2499,
+    name: "Chamber Elite",
+    amount: 4999,
+    annualAmount: 49999,
     periodDays: 30,
-    seats: 20,
+    seniorSeats: 8,
+    teamSeats: 50,
+    seats: 50,
     maxOpenTasks: null,
-    tagline: "Maximum chamber profit",
-    profitNote: "Highest margin · seats + attach products",
-    perks: ["Owner + 20 members", "Unlimited tasks", "Audit-ready export", "10% Proxy Hub fee relief", "Intern invite slots"],
+    storageGb: 200,
+    tagline: "For large chambers and firms",
+    profitNote: "8 Senior/Partner seats + 50 Team Members",
+    perks: ["Everything in Pro", "Advanced permissions and multi-team management", "Full audit exports and advanced analytics", "Priority support and guided onboarding"],
   },
 };
 
@@ -9473,6 +9486,11 @@ function chamberPlanCatalog() {
 function getChamberPlan(planId) {
   const key = String(planId || "core").toLowerCase();
   return CHAMBER_PLANS[key] || CHAMBER_PLANS.core;
+}
+
+function chamberPlanPrice(plan, billingCycle) {
+  const annual = billingCycle === 'annual';
+  return { amount: annual ? plan.annualAmount : plan.amount, periodDays: annual ? 365 : plan.periodDays, billingCycle: annual ? 'annual' : 'monthly' };
 }
 
 function chamberSubscriptionSnapshot(chamberRow, authUserIsMaster = false) {
@@ -9487,6 +9505,8 @@ function chamberSubscriptionSnapshot(chamberRow, authUserIsMaster = false) {
       status: "master_test_free",
       paidUntil: null,
       seats: plan.seats,
+      seniorSeats: plan.seniorSeats,
+      teamSeats: plan.teamSeats,
       maxOpenTasks: plan.maxOpenTasks,
       masterTestFree: true,
       developerAccount: true,
@@ -9507,6 +9527,8 @@ function chamberSubscriptionSnapshot(chamberRow, authUserIsMaster = false) {
     status: active ? (chamberRow.subscription_status || "active") : (chamberRow?.subscription_status || "inactive"),
     paidUntil: active ? paidUntil.toISOString() : null,
     seats: active ? plan.seats : 0,
+    seniorSeats: active ? plan.seniorSeats : 0,
+    teamSeats: active ? plan.teamSeats : 0,
     maxOpenTasks: active ? plan.maxOpenTasks : 0,
     masterTestFree: false,
     plans: chamberPlanCatalog(),
@@ -9789,6 +9811,29 @@ async function ensureChamberVaultSchema() {
     action_required boolean NOT NULL DEFAULT false, supersedes_id uuid REFERENCES case_hearing_updates(id), created_at timestamptz DEFAULT now()
   )`);
   await db.query(`CREATE INDEX IF NOT EXISTS case_hearing_updates_case_date_idx ON case_hearing_updates (case_id, hearing_date DESC, created_at DESC)`);
+  await db.query(`CREATE TABLE IF NOT EXISTS case_documents (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL, file_name text NOT NULL, category text,
+    storage_key text NOT NULL, mime_type text, size_bytes bigint, checksum text, public_url text,
+    provider text DEFAULT 'local', created_at timestamptz DEFAULT now()
+  )`);
+  await db.query(`CREATE TABLE IF NOT EXISTS case_hearing_orders (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+    hearing_assignment_id uuid NOT NULL REFERENCES case_hearing_assignments(id) ON DELETE CASCADE,
+    hearing_update_id uuid NOT NULL REFERENCES case_hearing_updates(id), document_id uuid REFERENCES case_documents(id),
+    storage_key text NOT NULL, file_name text NOT NULL, mime_type text NOT NULL, expected_size bigint NOT NULL,
+    order_date date, verification_status text NOT NULL DEFAULT 'upload_pending', uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+    uploaded_at timestamptz, verified_by uuid REFERENCES users(id) ON DELETE SET NULL, verified_at timestamptz,
+    verification_note text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now()
+  )`);
+  await db.query(`CREATE INDEX IF NOT EXISTS case_hearing_orders_assignment_idx ON case_hearing_orders (hearing_assignment_id, created_at DESC)`);
+  await db.query(`CREATE TABLE IF NOT EXISTS chamber_subscription_orders (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+    provider_order_id text NOT NULL UNIQUE, provider_payment_id text, plan_id text NOT NULL, billing_cycle text NOT NULL,
+    amount integer NOT NULL, status text NOT NULL DEFAULT 'pending', created_at timestamptz DEFAULT now(), paid_at timestamptz
+  )`);
+  await db.query(`CREATE INDEX IF NOT EXISTS chamber_subscription_orders_chamber_idx ON chamber_subscription_orders (chamber_id, created_at DESC)`);
   return true;
 }
 
@@ -10561,12 +10606,15 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const hearingsResult = await db.query(`
       SELECT c.*, h.id AS hearing_assignment_id, h.hearing_time, h.assigned_to,
         h.status AS hearing_status, h.assigned_at, h.accepted_at, assignee.name AS assignee_name,
-        hu.outcome, hu.next_hearing_date, hu.next_purpose
+        hu.outcome, hu.next_hearing_date, hu.next_purpose, hu.order_status,
+        ho.id AS hearing_order_id, ho.verification_status AS order_verification_status,
+        ho.file_name AS order_file_name, ho.uploaded_at AS order_uploaded_at
       FROM cases c
       LEFT JOIN case_hearing_assignments h
         ON h.case_id = c.id AND h.chamber_id = $1 AND h.hearing_date = $2::date
       LEFT JOIN users assignee ON assignee.id = h.assigned_to
-      LEFT JOIN LATERAL (SELECT outcome, next_hearing_date, next_purpose FROM case_hearing_updates WHERE hearing_assignment_id = h.id ORDER BY created_at DESC LIMIT 1) hu ON true
+      LEFT JOIN LATERAL (SELECT outcome, next_hearing_date, next_purpose, order_status FROM case_hearing_updates WHERE hearing_assignment_id = h.id ORDER BY created_at DESC LIMIT 1) hu ON true
+      LEFT JOIN LATERAL (SELECT id, verification_status, file_name, uploaded_at FROM case_hearing_orders WHERE hearing_assignment_id = h.id AND verification_status <> 'upload_pending' ORDER BY created_at DESC LIMIT 1) ho ON true
       WHERE (c.next_date = $2 OR EXISTS (SELECT 1 FROM case_hearing_assignments closed_today WHERE closed_today.case_id = c.id AND closed_today.chamber_id = $1 AND closed_today.hearing_date = $2::date))
         AND (
           EXISTS (SELECT 1 FROM case_hearing_assignments visible WHERE visible.case_id = c.id AND visible.chamber_id = $1 AND visible.hearing_date = $2::date)
@@ -10586,7 +10634,8 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         time: hearingTime, purpose: payload.hearingPurpose || payload.purpose || row.status || null,
         assignedTo: row.assigned_to ? { id: row.assigned_to, name: row.assignee_name || 'Assigned counsel' } : null,
         status: row.hearing_status || (row.assigned_to ? 'assigned' : 'unassigned'), outcome: row.outcome || null,
-        nextDate: row.next_hearing_date || null, nextPurpose: row.next_purpose || null,
+        nextDate: row.next_hearing_date || null, nextPurpose: row.next_purpose || null, orderStatus: row.order_status || null,
+        order: row.hearing_order_id ? { id: row.hearing_order_id, status: row.order_verification_status, fileName: row.order_file_name, uploadedAt: row.order_uploaded_at } : null,
         requiresSenior: payload.requiresSenior === true, clash: false,
       };
     });
@@ -10639,7 +10688,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const authUser = getAuthUser(req); const body = await readBody(req); const caseId = hearingCloseMatch[1];
     const outcomes = new Set(['heard', 'adjourned', 'pass_over', 'part_heard', 'order_reserved', 'notice_issued', 'disposed', 'not_reached', 'other']);
     const purposes = new Set(['arguments', 'cross_examination', 'examination_in_chief', 'evidence', 'final_arguments', 'reply', 'rejoinder', 'compliance', 'filing', 'orders', 'miscellaneous', 'other']);
-    const orderStatuses = new Set(['uploaded', 'not_available', 'not_expected']);
+    const orderStatuses = new Set(['not_available', 'not_expected']);
     const hearingDate = String(body.hearingDate || ''); const outcome = String(body.outcome || ''); const nextDate = body.nextHearingDate ? String(body.nextHearingDate) : null;
     if (!authUser || authUser.role !== 'advocate' || !isUuid(caseId) || !/^\d{4}-\d{2}-\d{2}$/.test(hearingDate) || !outcomes.has(outcome) || !orderStatuses.has(String(body.orderStatus || ''))) { sendJson(res, 400, { ok: false, error: 'A valid manual hearing update is required.' }); return true; }
     if (nextDate && !/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) { sendJson(res, 400, { ok: false, error: 'Next hearing date must be valid.' }); return true; }
@@ -10677,6 +10726,93 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     if (recipients.length) await notify({ eventType: 'hearing_updated', title: 'Hearing updated', message: `${assignment.title || 'Matter'} — ${nextDate ? `next date ${nextDate}` : outcome.replace(/_/g, ' ')}.`, recipients, payload: { caseId, hearingDate, outcome, nextDate }, sendEmail: true, ctaLabel: 'Open Today', ctaUrl: portalUrl('/advocate') });
     if (actionAssigneeId && followupTask?.rows[0]) await notify({ eventType: 'hearing_followup_assigned', title: 'Hearing follow-up assigned', message: `${assignment.title || 'Matter'} requires a chamber follow-up.`, recipients: await resolveRecipients([actionAssigneeId]), payload: { caseId, taskId: followupTask.rows[0].id }, sendEmail: true, ctaLabel: 'Open Chamber', ctaUrl: portalUrl('/advocate/chamber') });
     sendJson(res, 201, { ok: true, hearingUpdate: update }); return true;
+  }
+
+  const orderUploadUrlMatch = url.pathname.match(/^\/api\/chamber\/today\/hearings\/([^/]+)\/order-upload-url$/);
+  if (orderUploadUrlMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req); const body = await readBody(req); const caseId = orderUploadUrlMatch[1];
+    if (!authUser || authUser.role !== 'advocate' || !isUuid(caseId)) { sendJson(res, 403, { ok: false, error: 'Advocate access is required.' }); return true; }
+    if (!config.s3Bucket || !config.s3AccessKeyId || !config.s3SecretAccessKey) { sendJson(res, 503, { ok: false, error: 'Court-order storage is not configured.' }); return true; }
+    const hearingDate = String(body.hearingDate || ''); const mimeType = String(body.mimeType || '').toLowerCase(); const sizeBytes = Number(body.sizeBytes || 0); const fileName = safeAttachmentName(body.fileName);
+    const extensions = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(hearingDate) || !extensions[mimeType] || !Number.isSafeInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > 20 * 1024 * 1024) { sendJson(res, 400, { ok: false, error: 'Upload a PDF, JPG or PNG court order up to 20 MB.' }); return true; }
+    await ensureChamberVaultSchema(); const userId = await resolveDatabaseUserId(authUser);
+    const assignmentResult = await db.query(`SELECT h.*, c.owner_id AS chamber_owner_id FROM case_hearing_assignments h JOIN chambers c ON c.id = h.chamber_id WHERE h.case_id = $1 AND h.hearing_date = $2::date LIMIT 1`, [caseId, hearingDate]);
+    const assignment = assignmentResult.rows[0];
+    if (!assignment || (![assignment.assigned_to, assignment.chamber_owner_id].map(String).includes(String(userId)))) { sendJson(res, 403, { ok: false, error: 'Only the assigned advocate or Chamber Owner may upload this order.' }); return true; }
+    const updateResult = await db.query(`SELECT * FROM case_hearing_updates WHERE hearing_assignment_id = $1 ORDER BY created_at DESC LIMIT 1`, [assignment.id]);
+    const hearingUpdate = updateResult.rows[0];
+    if (!hearingUpdate) { sendJson(res, 409, { ok: false, error: 'Record the hearing outcome before uploading its court order.' }); return true; }
+    const storageKey = `court-orders/${assignment.chamber_id}/${caseId}/${assignment.id}/${crypto.randomUUID()}.${extensions[mimeType]}`;
+    const created = await db.query(`INSERT INTO case_hearing_orders (case_id, chamber_id, hearing_assignment_id, hearing_update_id, storage_key, file_name, mime_type, expected_size, order_date, uploaded_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10) RETURNING id`, [caseId, assignment.chamber_id, assignment.id, hearingUpdate.id, storageKey, fileName, mimeType, sizeBytes, body.orderDate || hearingDate, userId]);
+    const uploadUrl = presignS3Url({ method: 'PUT', bucket: config.s3Bucket, region: config.s3Region, key: storageKey, accessKeyId: config.s3AccessKeyId, secretAccessKey: config.s3SecretAccessKey, sessionToken: config.s3SessionToken, contentType: mimeType, expiresSeconds: 900 });
+    sendJson(res, 201, { ok: true, orderId: created.rows[0].id, uploadUrl, method: 'PUT', contentType: mimeType, expiresIn: 900 }); return true;
+  }
+
+  const orderCompleteMatch = url.pathname.match(/^\/api\/chamber\/orders\/([^/]+)\/complete$/);
+  if (orderCompleteMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req); const orderId = orderCompleteMatch[1];
+    if (!authUser || authUser.role !== 'advocate' || !isUuid(orderId)) { sendJson(res, 403, { ok: false, error: 'Advocate access is required.' }); return true; }
+    await ensureChamberVaultSchema(); const userId = await resolveDatabaseUserId(authUser);
+    const orderResult = await db.query(`SELECT hearing_order.*, chamber.owner_id AS chamber_owner_id FROM case_hearing_orders hearing_order JOIN chambers chamber ON chamber.id = hearing_order.chamber_id JOIN case_hearing_assignments hearing ON hearing.id = hearing_order.hearing_assignment_id WHERE hearing_order.id = $1 AND (hearing.assigned_to = $2 OR chamber.owner_id = $2) LIMIT 1`, [orderId, userId]);
+    const order = orderResult.rows[0];
+    if (!order) { sendJson(res, 404, { ok: false, error: 'Court-order upload was not found.' }); return true; }
+    if (order.verification_status !== 'upload_pending') { sendJson(res, 200, { ok: true, order: { id: order.id, status: order.verification_status, documentId: order.document_id } }); return true; }
+    const headUrl = presignS3Url({ method: 'HEAD', bucket: config.s3Bucket, region: config.s3Region, key: order.storage_key, accessKeyId: config.s3AccessKeyId, secretAccessKey: config.s3SecretAccessKey, sessionToken: config.s3SessionToken, expiresSeconds: 120 });
+    let headResponse;
+    try { headResponse = await fetch(headUrl, { method: 'HEAD', signal: AbortSignal.timeout(10000) }); } catch { sendJson(res, 502, { ok: false, error: 'The uploaded object could not be verified in storage. Please retry.' }); return true; }
+    const storedSize = Number(headResponse.headers.get('content-length') || 0);
+    if (!headResponse.ok || storedSize !== Number(order.expected_size)) { sendJson(res, 409, { ok: false, error: 'The S3 upload is missing or incomplete.' }); return true; }
+    const dbClient = await db.pool.connect(); let document; let updatedOrder;
+    try { await dbClient.query('BEGIN');
+      document = await dbClient.query(`INSERT INTO case_documents (case_id, uploaded_by, file_name, category, storage_key, mime_type, size_bytes, provider) VALUES ($1,$2,$3,'Court order',$4,$5,$6,'s3') RETURNING *`, [order.case_id, userId, order.file_name, order.storage_key, order.mime_type, storedSize]);
+      const current = await dbClient.query(`SELECT * FROM case_hearing_updates WHERE hearing_assignment_id = $1 ORDER BY created_at DESC LIMIT 1`, [order.hearing_assignment_id]);
+      const latest = current.rows[0];
+      const uploadUpdate = await dbClient.query(`INSERT INTO case_hearing_updates (case_id, chamber_id, hearing_assignment_id, hearing_date, outcome, next_hearing_date, next_purpose, next_purpose_note, court_directions, internal_note, order_status, source, entered_by, action_required, supersedes_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'uploaded','manual',$11,$12,$13) RETURNING id`, [latest.case_id, latest.chamber_id, latest.hearing_assignment_id, latest.hearing_date, latest.outcome, latest.next_hearing_date, latest.next_purpose, latest.next_purpose_note, latest.court_directions, latest.internal_note, userId, latest.action_required, latest.id]);
+      updatedOrder = await dbClient.query(`UPDATE case_hearing_orders SET document_id = $2, hearing_update_id = $3, verification_status = 'verification_pending', uploaded_at = now(), updated_at = now() WHERE id = $1 RETURNING *`, [orderId, document.rows[0].id, uploadUpdate.rows[0].id]);
+      await dbClient.query('COMMIT');
+    } catch (error) { await dbClient.query('ROLLBACK'); throw error; } finally { dbClient.release(); }
+    await writeAuditLog(authUser, 'court_order_uploaded', 'case', order.case_id, 'Court order uploaded; advocate verification is pending.', { orderId, documentId: document.rows[0].id, hearingAssignmentId: order.hearing_assignment_id });
+    if (String(order.chamber_owner_id) !== String(userId)) await notify({ eventType: 'court_order_verification_required', title: 'Court order needs verification', message: `${order.file_name} was uploaded and is ready for review.`, recipients: await resolveRecipients([order.chamber_owner_id]), payload: { caseId: order.case_id, orderId }, sendEmail: true, ctaLabel: 'Open Today', ctaUrl: portalUrl('/advocate') });
+    sendJson(res, 201, { ok: true, order: updatedOrder.rows[0] }); return true;
+  }
+
+  const orderViewMatch = url.pathname.match(/^\/api\/chamber\/orders\/([^/]+)\/view-url$/);
+  if (orderViewMatch && req.method === 'GET') {
+    const authUser = getAuthUser(req); const orderId = orderViewMatch[1];
+    if (!authUser || authUser.role !== 'advocate' || !isUuid(orderId)) { sendJson(res, 403, { ok: false, error: 'Advocate access is required.' }); return true; }
+    const userId = await resolveDatabaseUserId(authUser);
+    const result = await db.query(`SELECT hearing_order.* FROM case_hearing_orders hearing_order JOIN chambers chamber ON chamber.id = hearing_order.chamber_id JOIN case_hearing_assignments hearing ON hearing.id = hearing_order.hearing_assignment_id WHERE hearing_order.id = $1 AND hearing_order.document_id IS NOT NULL AND (hearing.assigned_to = $2 OR chamber.owner_id = $2) LIMIT 1`, [orderId, userId]);
+    const order = result.rows[0]; if (!order) { sendJson(res, 404, { ok: false, error: 'Court order was not found.' }); return true; }
+    const viewUrl = presignS3Url({ method: 'GET', bucket: config.s3Bucket, region: config.s3Region, key: order.storage_key, accessKeyId: config.s3AccessKeyId, secretAccessKey: config.s3SecretAccessKey, sessionToken: config.s3SessionToken, expiresSeconds: 300 });
+    sendJson(res, 200, { ok: true, viewUrl, expiresIn: 300 }); return true;
+  }
+
+  const orderVerifyMatch = url.pathname.match(/^\/api\/chamber\/orders\/([^/]+)\/verify$/);
+  if (orderVerifyMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req); const body = await readBody(req); const orderId = orderVerifyMatch[1];
+    if (!authUser || authUser.role !== 'advocate' || !isUuid(orderId) || !['matches', 'correct'].includes(String(body.action))) { sendJson(res, 400, { ok: false, error: 'A valid advocate verification action is required.' }); return true; }
+    const userId = await resolveDatabaseUserId(authUser);
+    const result = await db.query(`SELECT hearing_order.*, chamber.owner_id AS chamber_owner_id, hearing_update.* FROM case_hearing_orders hearing_order JOIN chambers chamber ON chamber.id = hearing_order.chamber_id JOIN case_hearing_updates hearing_update ON hearing_update.id = hearing_order.hearing_update_id WHERE hearing_order.id = $1 LIMIT 1`, [orderId]);
+    const row = result.rows[0];
+    if (!row || String(row.chamber_owner_id) !== String(userId)) { sendJson(res, 403, { ok: false, error: 'Only the Chamber Owner may verify a court order.' }); return true; }
+    if (row.verification_status !== 'verification_pending') { sendJson(res, 409, { ok: false, error: 'This order is not awaiting verification.' }); return true; }
+    const nextDate = body.nextHearingDate ? String(body.nextHearingDate) : row.next_hearing_date;
+    const purpose = body.nextPurpose ? String(body.nextPurpose) : row.next_purpose;
+    const validPurposes = new Set(['arguments', 'cross_examination', 'examination_in_chief', 'evidence', 'final_arguments', 'reply', 'rejoinder', 'compliance', 'filing', 'orders', 'miscellaneous', 'other']);
+    if (body.action === 'correct' && ((nextDate && !/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) || (purpose && !validPurposes.has(purpose)))) { sendJson(res, 400, { ok: false, error: 'Corrected NDOH or purpose is invalid.' }); return true; }
+    const dbClient = await db.pool.connect(); let verifiedUpdateId = row.hearing_update_id;
+    try { await dbClient.query('BEGIN');
+      if (body.action === 'correct') {
+        const corrected = await dbClient.query(`INSERT INTO case_hearing_updates (case_id, chamber_id, hearing_assignment_id, hearing_date, outcome, next_hearing_date, next_purpose, next_purpose_note, court_directions, internal_note, order_status, source, entered_by, action_required, supersedes_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'manual',$12,$13,$14) RETURNING id`, [row.case_id, row.chamber_id, row.hearing_assignment_id, row.hearing_date, row.outcome, nextDate || null, purpose || null, row.next_purpose_note, body.courtDirections ?? row.court_directions, row.internal_note, row.order_status, userId, row.action_required, row.hearing_update_id]);
+        verifiedUpdateId = corrected.rows[0].id;
+        await dbClient.query(`UPDATE cases SET next_date = $2, updated_at = now() WHERE id = $1`, [row.case_id, nextDate || null]);
+      }
+      await dbClient.query(`UPDATE case_hearing_orders SET verification_status = 'verified', hearing_update_id = $2, verified_by = $3, verified_at = now(), verification_note = $4, updated_at = now() WHERE id = $1`, [orderId, verifiedUpdateId, userId, body.action === 'correct' ? 'Hearing record corrected after manual court-order comparison.' : 'Manually reviewed; chamber record matches the court order.']);
+      await dbClient.query('COMMIT');
+    } catch (error) { await dbClient.query('ROLLBACK'); throw error; } finally { dbClient.release(); }
+    await writeAuditLog(authUser, body.action === 'correct' ? 'court_order_mismatch_corrected' : 'court_order_verified', 'case', row.case_id, body.action === 'correct' ? 'Court-order mismatch corrected with append-only hearing history.' : 'Court order manually verified against the chamber record.', { orderId, previousHearingUpdateId: row.hearing_update_id, hearingUpdateId: verifiedUpdateId });
+    sendJson(res, 200, { ok: true, verificationStatus: 'verified', hearingUpdateId: verifiedUpdateId }); return true;
   }
 
   if (url.pathname === '/api/chamber' && req.method === 'GET') {
@@ -10751,8 +10887,12 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     await ensureChamberVaultSchema();
     const body = await readBody(req);
     const plan = getChamberPlan(body.planId || body.plan || 'core');
+    const pricing = chamberPlanPrice(plan, body.billingCycle === 'annual' ? 'annual' : 'monthly');
+    const userId = await resolveDatabaseUserId(authUser);
+    const chamberResult = await db.query('SELECT * FROM chambers WHERE owner_id = $1 LIMIT 1', [userId]);
+    const chamber = chamberResult.rows[0];
+    if (!chamber) { sendJson(res, 404, { ok: false, error: 'Chamber not found.' }); return true; }
     if (await isMasterTestUser(authUser)) {
-      const userId = await resolveDatabaseUserId(authUser);
       if (!userId || !isUuid(userId)) {
         sendJson(res, 401, { ok: false, error: 'Your session could not be linked to a chamber account. Please sign in again.' });
         return true;
@@ -10768,7 +10908,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         mode: 'master_test_free',
         planId: 'chambers_plus',
         amount: 0,
-        message: 'Master test account — Chamber Vault Chambers+ is unlocked free.',
+        message: 'Master test account — Chamber Elite is unlocked free.',
       });
       return true;
     }
@@ -10778,34 +10918,38 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         sendJson(res, 503, { ok: false, error: 'Payment gateway is not configured.' });
         return true;
       }
+      const demoOrderId = `order_chamber_demo_${Date.now()}`;
+      await db.query(`INSERT INTO chamber_subscription_orders (chamber_id, provider_order_id, plan_id, billing_cycle, amount) VALUES ($1,$2,$3,$4,$5)`, [chamber.id, demoOrderId, plan.id, pricing.billingCycle, pricing.amount]);
       sendJson(res, 200, {
         ok: true,
         mode: 'demo',
         planId: plan.id,
-        amount: plan.amount * 100,
+        amount: pricing.amount * 100,
         currency: 'INR',
         key_id: 'rzp_test_demo',
-        order_id: `order_chamber_demo_${Date.now()}`,
+        order_id: demoOrderId,
         message: 'Demo mode chamber subscription — no real charge.',
       });
       return true;
     }
     const orderResult = await createRazorpayOrder({
-      amount: plan.amount,
+      amount: pricing.amount,
       currency: 'INR',
       receipt: `chamber_${plan.id}_${Date.now()}`.slice(0, 40),
-      notes: { product: 'chamber_vault', planId: plan.id, userId: authUser.id },
+      notes: { product: 'chamber_vault', planId: plan.id, billingCycle: pricing.billingCycle, userId: authUser.id },
     });
     if (!orderResult.ok) {
       sendJson(res, 502, { ok: false, error: orderResult.error_message || 'Could not create subscription order.' });
       return true;
     }
+    await db.query(`INSERT INTO chamber_subscription_orders (chamber_id, provider_order_id, plan_id, billing_cycle, amount) VALUES ($1,$2,$3,$4,$5)`, [chamber.id, orderResult.order.id, plan.id, pricing.billingCycle, pricing.amount]);
     sendJson(res, 200, {
       ok: true,
       mode: paymentConfigStatus().mode,
       provider: 'razorpay',
       planId: plan.id,
       planName: plan.name,
+      billingCycle: pricing.billingCycle,
       key_id: config.razorpayKeyId,
       order_id: orderResult.order.id,
       amount: orderResult.order.amount,
@@ -10822,12 +10966,17 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     }
     await ensureChamberVaultSchema();
     const body = await readBody(req);
-    const plan = getChamberPlan(body.planId || body.plan || 'core');
     const userId = await resolveDatabaseUserId(authUser);
     const orderId = body.order_id || body.razorpay_order_id;
     const paymentId = body.payment_id || body.razorpay_payment_id;
     const signature = body.signature || body.razorpay_signature;
     const isDemo = String(orderId || '').startsWith('order_chamber_demo_');
+    const recordedOrder = await db.query(`SELECT subscription_order.* FROM chamber_subscription_orders subscription_order JOIN chambers chamber ON chamber.id = subscription_order.chamber_id WHERE subscription_order.provider_order_id = $1 AND chamber.owner_id = $2 LIMIT 1`, [orderId, userId]);
+    const orderRecord = recordedOrder.rows[0];
+    if (!orderRecord || orderRecord.status !== 'pending') { sendJson(res, 409, { ok: false, error: 'This subscription order is missing, already used, or does not belong to your chamber.' }); return true; }
+    const plan = getChamberPlan(orderRecord.plan_id);
+    const pricing = chamberPlanPrice(plan, orderRecord.billing_cycle);
+    if (Number(orderRecord.amount) !== pricing.amount) { sendJson(res, 409, { ok: false, error: 'Subscription order pricing no longer matches the server catalog.' }); return true; }
 
     if (!isDemo && config.razorpayKeySecret) {
       if (!verifyRazorpayPaymentSignature(orderId, paymentId, signature)) {
@@ -10839,8 +10988,10 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       return true;
     }
 
-    const paidUntil = new Date(Date.now() + plan.periodDays * 24 * 60 * 60 * 1000);
-    const updated = await db.query(
+    const paidUntil = new Date(Date.now() + pricing.periodDays * 24 * 60 * 60 * 1000);
+    const dbClient = await db.pool.connect(); let updated;
+    try { await dbClient.query('BEGIN');
+      updated = await dbClient.query(
       `UPDATE chambers
        SET plan_tier = $2,
            subscription_status = 'active',
@@ -10852,13 +11003,17 @@ async function handleStrictJwtAuthRoute(req, res, url) {
        RETURNING *`,
       [userId, plan.id, paidUntil.toISOString(), orderId || null, paymentId || null],
     );
+      await dbClient.query(`UPDATE chamber_subscription_orders SET status = 'paid', provider_payment_id = $2, paid_at = now() WHERE id = $1 AND status = 'pending'`, [orderRecord.id, paymentId || null]);
+      await dbClient.query('COMMIT');
+    } catch (error) { await dbClient.query('ROLLBACK'); throw error; } finally { dbClient.release(); }
     if (!updated.rows[0]) {
       sendJson(res, 404, { ok: false, error: 'Chamber not found.' });
       return true;
     }
-    await writeAuditLog(authUser, 'chamber_subscription_activated', 'chamber', updated.rows[0].id, `Chamber Vault ${plan.name} activated for 30 days.`, {
+    await writeAuditLog(authUser, 'chamber_subscription_activated', 'chamber', updated.rows[0].id, `Chamber Vault ${plan.name} ${pricing.billingCycle} subscription activated.`, {
       planId: plan.id,
-      amount: plan.amount,
+      amount: pricing.amount,
+      billingCycle: pricing.billingCycle,
       paidUntil: paidUntil.toISOString(),
     });
     sendJson(res, 200, {
@@ -10879,8 +11034,9 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const body = await readBody(req);
     const displayName = String(body.displayName || '').trim();
     const email = normalizeEmail(body.email);
-    if (!displayName || !email) {
-      sendJson(res, 400, { ok: false, error: 'Member name and email are required.' });
+    const memberRole = ['senior_partner', 'associate', 'junior', 'intern', 'clerk'].includes(String(body.memberRole)) ? String(body.memberRole) : null;
+    if (!displayName || !email || !memberRole) {
+      sendJson(res, 400, { ok: false, error: 'Member name, email and a valid chamber role are required.' });
       return true;
     }
     const userId = await resolveDatabaseUserId(authUser);
@@ -10895,13 +11051,19 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 402, { ok: false, error: 'Activate a Chamber Vault plan to invite members.', code: 'subscription_required', subscription });
       return true;
     }
-    const memberCount = await db.query('SELECT count(*)::int AS count FROM chamber_members WHERE chamber_id = $1', [chamber.id]);
-    if (subscription.seats && memberCount.rows[0].count >= subscription.seats) {
-      sendJson(res, 403, { ok: false, error: `Your ${subscription.planName} plan allows ${subscription.seats} members. Upgrade for more seats.` });
+    const memberCount = await db.query(`SELECT count(*) FILTER (WHERE member_role = 'senior_partner')::int AS senior_count, count(*) FILTER (WHERE member_role <> 'senior_partner')::int AS team_count FROM chamber_members WHERE chamber_id = $1 AND status <> 'removed'`, [chamber.id]);
+    const usedSeniorSeats = Number(memberCount.rows[0].senior_count || 0) + 1;
+    const usedTeamSeats = Number(memberCount.rows[0].team_count || 0);
+    if (memberRole === 'senior_partner' && usedSeniorSeats >= subscription.seniorSeats) {
+      sendJson(res, 403, { ok: false, error: `Your ${subscription.planName} plan includes ${subscription.seniorSeats} Senior/Partner seats, including the chamber owner.` });
+      return true;
+    }
+    if (memberRole !== 'senior_partner' && usedTeamSeats >= subscription.teamSeats) {
+      sendJson(res, 403, { ok: false, error: `Your ${subscription.planName} plan includes ${subscription.teamSeats} Team Member seats.` });
       return true;
     }
     const created = await db.query(`INSERT INTO chamber_members (chamber_id, display_name, email, member_role, status)
-      VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamber.id, displayName, email, body.memberRole || 'associate']);
+      VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamber.id, displayName, email, memberRole]);
     await writeAuditLog(authUser, 'chamber_member_invited', 'chamber_member', created.rows[0].id, 'A chamber member was invited.', { emailMasked: maskEmail(email) });
     {
       const inviteeUsers = await db.query('SELECT id, name, email, phone, role FROM users WHERE lower(email) = lower($1) LIMIT 1', [email]);

@@ -126,6 +126,11 @@ const config = {
   cloudinaryCloudName: optionalString("CLOUDINARY_CLOUD_NAME"),
   cloudinaryApiKey: optionalString("CLOUDINARY_API_KEY"),
   cloudinaryApiSecret: optionalString("CLOUDINARY_API_SECRET"),
+  s3Bucket: optionalString("S3_BUCKET") || optionalString("AWS_S3_BUCKET"),
+  s3Region: optionalString("S3_REGION") || optionalString("AWS_REGION", "ap-south-1"),
+  s3AccessKeyId: optionalString("S3_ACCESS_KEY_ID") || optionalString("AWS_ACCESS_KEY_ID"),
+  s3SecretAccessKey: optionalString("S3_SECRET_ACCESS_KEY") || optionalString("AWS_SECRET_ACCESS_KEY"),
+  s3SessionToken: optionalString("AWS_SESSION_TOKEN"),
 };
 
 if (config.nodeEnv === "production") {

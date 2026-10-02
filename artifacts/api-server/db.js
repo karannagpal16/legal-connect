@@ -719,6 +719,12 @@ async function initDb() {
     `);
     await query(`CREATE INDEX IF NOT EXISTS chamber_tasks_chamber_idx ON chamber_tasks (chamber_id, status, updated_at DESC)`);
     await query(`CREATE INDEX IF NOT EXISTS chamber_tasks_assignee_idx ON chamber_tasks (assigned_to, status)`);
+    await query(`CREATE TABLE IF NOT EXISTS chamber_subscription_orders (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+      provider_order_id text NOT NULL UNIQUE, provider_payment_id text, plan_id text NOT NULL, billing_cycle text NOT NULL,
+      amount integer NOT NULL, status text NOT NULL DEFAULT 'pending', created_at timestamptz DEFAULT now(), paid_at timestamptz
+    )`);
+    await query(`CREATE INDEX IF NOT EXISTS chamber_subscription_orders_chamber_idx ON chamber_subscription_orders (chamber_id, created_at DESC)`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS case_assignments (
@@ -784,6 +790,17 @@ async function initDb() {
     await query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS provider text DEFAULT 'local'`);
     await query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS checksum text`);
     await query(`CREATE INDEX IF NOT EXISTS case_documents_case_idx ON case_documents (case_id, created_at DESC)`);
+    await query(`CREATE TABLE IF NOT EXISTS case_hearing_orders (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+      chamber_id uuid NOT NULL REFERENCES chambers(id) ON DELETE CASCADE,
+      hearing_assignment_id uuid NOT NULL REFERENCES case_hearing_assignments(id) ON DELETE CASCADE,
+      hearing_update_id uuid NOT NULL REFERENCES case_hearing_updates(id), document_id uuid REFERENCES case_documents(id),
+      storage_key text NOT NULL, file_name text NOT NULL, mime_type text NOT NULL, expected_size bigint NOT NULL,
+      order_date date, verification_status text NOT NULL DEFAULT 'upload_pending', uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+      uploaded_at timestamptz, verified_by uuid REFERENCES users(id) ON DELETE SET NULL, verified_at timestamptz,
+      verification_note text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now()
+    )`);
+    await query(`CREATE INDEX IF NOT EXISTS case_hearing_orders_assignment_idx ON case_hearing_orders (hearing_assignment_id, created_at DESC)`);
     await query(`
       CREATE TABLE IF NOT EXISTS case_communications (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
