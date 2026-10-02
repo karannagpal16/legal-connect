@@ -46,8 +46,12 @@ interface ChamberPlan {
   id: string;
   name: string;
   amount: number;
+  annualAmount: number;
   periodDays: number;
   seats: number;
+  seniorSeats: number;
+  teamSeats: number;
+  storageGb: number;
   maxOpenTasks: number | null;
   tagline: string;
   profitNote: string;
@@ -62,6 +66,8 @@ interface ChamberSubscription {
   status?: string;
   paidUntil?: string | null;
   seats?: number;
+  seniorSeats?: number;
+  teamSeats?: number;
   maxOpenTasks?: number | null;
   masterTestFree?: boolean;
   plans: ChamberPlan[];
@@ -90,6 +96,7 @@ export function ChamberVault() {
   const [member, setMember] = useState({ displayName: "", email: "", memberRole: "associate" });
   const [task, setTask] = useState({ title: "", details: "", assigneeName: "", priority: "normal", dueAt: "" });
   const [buyingPlan, setBuyingPlan] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
   const [payError, setPayError] = useState("");
 
   const query = useQuery({
@@ -134,7 +141,7 @@ export function ChamberVault() {
     try {
       const order = await workspaceRequest<any>("/api/chamber/subscription/create-order", session?.token, {
         method: "POST",
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId, billingCycle }),
       });
       if (order.mode === "master_test_free" || order.mode === "demo") {
         if (order.mode === "demo") {
@@ -200,12 +207,14 @@ export function ChamberVault() {
   const chamber = query.data.chamber;
   const subscription = query.data.subscription;
   const openTasks = chamber.tasks.filter((item) => item.status !== "completed");
+  const seniorMembers = 1 + chamber.members.filter((item) => item.member_role === "senior_partner").length;
+  const teamMembers = chamber.members.filter((item) => item.member_role !== "senior_partner").length;
   const plans = subscription.plans?.length
     ? subscription.plans
     : [
-        { id: "core", name: "Chamber Core", amount: 500, periodDays: 30, seats: 2, maxOpenTasks: 25, tagline: "Start the ledger", profitNote: "Base SaaS", perks: ["Owner + 2 members", "25 open tasks"] },
-        { id: "growth", name: "Chamber Growth", amount: 1499, periodDays: 30, seats: 8, maxOpenTasks: null, tagline: "Scale the practice", profitNote: "Higher ARPU", perks: ["Owner + 8 members", "Unlimited tasks"] },
-        { id: "chambers_plus", name: "Chambers+", amount: 2499, periodDays: 30, seats: 20, maxOpenTasks: null, tagline: "Maximum profit", profitNote: "Top margin", perks: ["Owner + 20 members", "Audit export"] },
+        { id: "core", name: "Chamber Core", amount: 999, annualAmount: 9999, periodDays: 30, seats: 6, seniorSeats: 2, teamSeats: 6, storageGb: 10, maxOpenTasks: null, tagline: "For small litigation chambers", profitNote: "2 Senior/Partner seats + 6 Team Members", perks: ["Unlimited matters and tasks", "Court Day, assignment and NDOH", "Case diary and Chamber Vault", "Notifications and activity history"] },
+        { id: "growth", name: "Chamber Pro", amount: 2499, annualAmount: 24999, periodDays: 30, seats: 20, seniorSeats: 4, teamSeats: 20, storageGb: 50, maxOpenTasks: null, tagline: "Most popular · growing chambers", profitNote: "4 Senior/Partner seats + 20 Team Members", perks: ["Everything in Core", "Draft, review and filing workflows", "Matter Timeline and analytics", "Full Proxy Hub workflow"] },
+        { id: "chambers_plus", name: "Chamber Elite", amount: 4999, annualAmount: 49999, periodDays: 30, seats: 50, seniorSeats: 8, teamSeats: 50, storageGb: 200, maxOpenTasks: null, tagline: "For large chambers and firms", profitNote: "8 Senior/Partner seats + 50 Team Members", perks: ["Everything in Pro", "Advanced permissions and multi-team management", "Full audit exports", "Priority support and guided onboarding"] },
       ];
 
   if (subscription.required) {
@@ -215,7 +224,7 @@ export function ChamberVault() {
           <div>
             <span className="lc-kicker">CHAMBER VAULT SUBSCRIPTION</span>
             <h2>Unlock {chamber.name}</h2>
-            <p>Pay monthly for the private practice ledger. Start at ₹500 — larger packages add seats and chamber workflow.</p>
+            <p>Choose the chamber operating system that fits your team. Core workflows and unlimited tasks are included in every plan.</p>
           </div>
           <span className="lc-live-badge"><LockKeyhole className="h-3.5 w-3.5" /> Paid access</span>
         </section>
@@ -226,6 +235,7 @@ export function ChamberVault() {
           </div>
         )}
 
+        <div className="lc-hero-button-row" style={{ marginBottom: "1rem" }}><button className={`lc-button ${billingCycle === "monthly" ? "lc-button-primary" : "lc-button-secondary"}`} onClick={() => setBillingCycle("monthly")}>Monthly</button><button className={`lc-button ${billingCycle === "annual" ? "lc-button-primary" : "lc-button-secondary"}`} onClick={() => setBillingCycle("annual")}>Annual · save about 2 months</button></div>
         <section className="lc-vault-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           {plans.map((plan) => {
             const featured = plan.id === "growth";
@@ -246,8 +256,8 @@ export function ChamberVault() {
                   {featured ? <Sparkles /> : <IndianRupee />}
                 </header>
                 <p style={{ fontSize: "1.75rem", fontWeight: 800, margin: "0.5rem 0" }}>
-                  ₹{plan.amount.toLocaleString("en-IN")}
-                  <small style={{ fontSize: "0.85rem", fontWeight: 500, opacity: 0.6 }}> / month</small>
+                  ₹{(billingCycle === "annual" ? plan.annualAmount : plan.amount).toLocaleString("en-IN")}
+                  <small style={{ fontSize: "0.85rem", fontWeight: 500, opacity: 0.6 }}> / {billingCycle === "annual" ? "year" : "month"}</small>
                 </p>
                 <p style={{ fontSize: "0.8rem", opacity: 0.65, marginBottom: "0.75rem" }}>{plan.profitNote}</p>
                 <ul style={{ listStyle: "none", padding: 0, margin: "0 0 1.25rem", display: "grid", gap: "0.45rem" }}>
@@ -258,6 +268,7 @@ export function ChamberVault() {
                     </li>
                   ))}
                 </ul>
+                <p style={{ fontSize: "0.78rem", opacity: 0.7 }}>{plan.storageGb} GB chamber storage</p>
                 <button
                   className={`lc-button ${featured ? "lc-button-primary" : "lc-button-secondary"} lc-button-full`}
                   disabled={Boolean(buyingPlan)}
@@ -283,7 +294,7 @@ export function ChamberVault() {
           <p>Delegate work, record acceptance, and see who owns each next action.</p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-          <span className="lc-live-badge"><i /> {subscription.masterTestFree ? "Master free · Chambers+" : `${subscription.planName || "Active"} · Live`}</span>
+          <span className="lc-live-badge"><i /> {subscription.masterTestFree ? "Master free · Chamber Elite" : `${subscription.planName || "Active"} · Live`}</span>
           {subscription.paidUntil && !subscription.masterTestFree && (
             <span className="lc-live-badge">Until {new Date(subscription.paidUntil).toLocaleDateString("en-IN")}</span>
           )}
@@ -291,7 +302,8 @@ export function ChamberVault() {
       </section>
 
       <section className="lc-workspace-metrics">
-        <div><UsersRound /><span><strong>{chamber.members.length}</strong><small>Members{subscription.seats ? ` / ${subscription.seats}` : ""}</small></span></div>
+        <div><UsersRound /><span><strong>{seniorMembers}</strong><small>Senior / Partner{subscription.seniorSeats ? ` / ${subscription.seniorSeats}` : ""}</small></span></div>
+        <div><UsersRound /><span><strong>{teamMembers}</strong><small>Team members{subscription.teamSeats ? ` / ${subscription.teamSeats}` : ""}</small></span></div>
         <div><BriefcaseBusiness /><span><strong>{openTasks.length}</strong><small>Open tasks</small></span></div>
         <div><Clock3 /><span><strong>{openTasks.filter((item) => item.status === "in_progress").length}</strong><small>In progress</small></span></div>
         <div><CheckCircle2 /><span><strong>{chamber.tasks.filter((item) => item.status === "completed").length}</strong><small>Completed</small></span></div>
@@ -335,7 +347,7 @@ export function ChamberVault() {
             <header><div><span>Team access</span><h2>Invite member</h2></div><UserPlus /></header>
             <label><span>Full name</span><input value={member.displayName} onChange={(event) => setMember({ ...member, displayName: event.target.value })} placeholder="Associate or intern name" required /></label>
             <label><span>Email</span><input value={member.email} onChange={(event) => setMember({ ...member, email: event.target.value })} placeholder="member@example.com" type="email" required /></label>
-            <label><span>Role</span><select value={member.memberRole} onChange={(event) => setMember({ ...member, memberRole: event.target.value })}><option value="associate">Associate</option><option value="junior">Junior advocate</option><option value="intern">Intern</option><option value="clerk">Clerk</option></select></label>
+            <label><span>Role</span><select value={member.memberRole} onChange={(event) => setMember({ ...member, memberRole: event.target.value })}><option value="senior_partner">Senior / Partner</option><option value="associate">Associate</option><option value="junior">Junior advocate</option><option value="intern">Intern</option><option value="clerk">Clerk</option></select></label>
             {memberMutation.isError && <p className="lc-sync-error"><AlertTriangle /> {memberMutation.error.message}</p>}
             <button className="lc-button lc-button-secondary" disabled={memberMutation.isPending}><UserPlus /> Send invite</button>
           </form>
