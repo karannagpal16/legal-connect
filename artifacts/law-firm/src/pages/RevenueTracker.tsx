@@ -30,10 +30,12 @@ export function RevenueTracker() {
   const { session, ready } = useAuth();
   const role = normaliseRole(session?.user?.role);
   const { data: analytics, isLoading } = useGetRevenueAnalytics({
-    query: { enabled: role === "admin" },
+    query: { queryKey: ["/api/analytics/revenue"], enabled: role === "admin" },
   });
 
-  if (!ready) return null;
+  if (!ready) {
+    return <div className="lc-workspace-loading"><span className="lc-spinner" /><p>Loading founder analytics...</p></div>;
+  }
   if (role !== "admin") {
     return <Redirect to={role === "advocate" ? "/advocate/revenue" : `/${role}`} />;
   }

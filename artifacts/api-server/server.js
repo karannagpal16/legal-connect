@@ -10495,7 +10495,26 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       const chamber = chamberResult.rows[0]; if (!chamber) { sendJson(res, 403, { ok: false, error: 'Only the Chamber Owner may assign a hearing.' }); return true; }
       const assigneeId = String(body.assignedTo || '');
       const eligible = await db.query(`SELECT u.id, u.name FROM users u LEFT JOIN chamber_members cm ON cm.user_id = u.id AND cm.chamber_id = $1 AND cm.status = 'active' LEFT JOIN profile_advocates pa ON pa.user_id = u.id WHERE (u.id = $2 OR cm.member_role = 'associate') AND u.id = $3 AND u.role = 'advocate' AND COALESCE(pa.verification_status, 'pending') IN ('approved', 'verified') LIMIT 1`, [chamber.id, userId, assigneeId]);
-      const matter = await db.query('SELECT id, title FROM cases WHERE id = $1 AND next_date = $2 LIMIT 1', [caseId, hearingDate]);
+      const matter = await db.query(`
+        SELECT c.id, c.title
+        FROM cases c
+        WHERE c.id = $1
+          AND c.next_date = $2::date
+          AND (
+            EXISTS (
+              SELECT 1 FROM case_assignments ca
+              WHERE ca.case_id = c.id AND ca.status = 'active'
+                AND ca.advocate_id IN (
+                  SELECT $4::uuid
+                  UNION
+                  SELECT cm.user_id FROM chamber_members cm
+                  WHERE cm.chamber_id = $3 AND cm.status = 'active' AND cm.user_id IS NOT NULL
+                )
+            )
+            OR EXISTS (SELECT 1 FROM chamber_tasks ct WHERE ct.chamber_id = $3 AND ct.case_id = c.id)
+            OR EXISTS (SELECT 1 FROM case_hearing_assignments ha WHERE ha.chamber_id = $3 AND ha.case_id = c.id)
+          )
+        LIMIT 1`, [caseId, hearingDate, chamber.id, userId]);
       if (!matter.rows[0] || !eligible.rows[0]) { sendJson(res, 404, { ok: false, error: 'The selected eligible counsel or today’s matter was not found.' }); return true; }
       const assignment = await db.query(`INSERT INTO case_hearing_assignments (case_id, chamber_id, hearing_date, hearing_time, assigned_to, assigned_by, status, assigned_at) VALUES ($1, $2, $3::date, $4, $5, $6, 'assigned', now()) ON CONFLICT (case_id, hearing_date) DO UPDATE SET chamber_id = EXCLUDED.chamber_id, hearing_time = COALESCE(EXCLUDED.hearing_time, case_hearing_assignments.hearing_time), assigned_to = EXCLUDED.assigned_to, assigned_by = EXCLUDED.assigned_by, status = 'assigned', assigned_at = now(), accepted_at = NULL, updated_at = now() RETURNING *`, [caseId, chamber.id, hearingDate, body.hearingTime || null, assigneeId, userId]);
       await writeAuditLog(authUser, 'hearing_assigned', 'case', caseId, `Hearing assigned to ${eligible.rows[0].name}.`, { matterId: caseId, hearingDate, assignedTo: assigneeId });

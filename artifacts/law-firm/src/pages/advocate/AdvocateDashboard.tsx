@@ -110,6 +110,7 @@ export function AdvocateDashboard() {
   });
   const proxyQuery = useListTasks({
     query: {
+      queryKey: ["/api/tasks"],
       enabled: Boolean(session?.token),
       staleTime: 15_000,
     },

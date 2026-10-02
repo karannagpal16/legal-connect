@@ -137,15 +137,18 @@ try {
   created.taskId = createdTask.id;
   assert.equal(createdTask.taskDescription, "Collect certified order copy");
   assert.equal(createdTask.location, "Saket District Court");
-  assert.equal((await request(`/api/tasks/${created.taskId}/accept`, { method: "POST", token })).status, "Accepted");
+  await assert.rejects(
+    () => request(`/api/tasks/${created.taskId}/accept`, { method: "POST", token }),
+    /Work Completion Hold is active and payment is verified/,
+  );
   const updatedTask = await request(`/api/tasks/${created.taskId}`, {
     method: "PUT",
     token,
     body: { status: "Completed", fee: "₹1,750" },
   });
-  assert.equal(updatedTask.status, "Completed");
+  assert.equal(updatedTask.status, "Open");
   assert.equal((await request(`/api/tasks/${created.taskId}`, { token })).taskType, "Other");
-  console.log("PASS task create, accept, read, and update contract");
+  console.log("PASS task create, unpaid workflow-tamper gates, read, and update contract");
 
   const createdBooking = await request("/api/bookings", {
     method: "POST",

@@ -152,9 +152,9 @@ function AdminPortal() {
             <Route path="/admin/dashboard"><Redirect to="/admin" /></Route>
             <Route path="/admin/control" component={AdminControlDesk} />
             <Route path="/admin/users" component={Users} />
-            <Route path="/admin/verifications" component={AdminVerifications} />
+            <Route path="/admin/verifications"><AdminVerifications /></Route>
             <Route path="/admin/identity-vault" component={IdentityVault} />
-            <Route path="/admin/pending-updates" component={AdminPendingUpdates} />
+            <Route path="/admin/pending-updates"><AdminPendingUpdates /></Route>
             <Route path="/admin/cases" component={MyDiary} />
             <Route path="/admin/bookings" component={Bookings} />
             <Route path="/admin/missions" component={ProxyHub} />

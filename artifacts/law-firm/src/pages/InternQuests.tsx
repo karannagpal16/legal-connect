@@ -19,7 +19,8 @@ const COMPLETION_TIMES = [
   "2 weeks",
 ];
 
-type QuestRow = InternQuest & {
+type QuestRow = Omit<InternQuest, "status"> & {
+  status: InternQuest["status"] | "Assigned" | "Submitted for Review";
   assignedTo?: string | null;
   studentId?: string | null;
   completionEta?: string | null;
@@ -39,7 +40,7 @@ const questSchema = z.object({
 export function InternQuests() {
   const { data: quests, isLoading } = useListInternQuests();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingQuest, setEditingQuest] = useState<InternQuest | null>(null);
+  const [editingQuest, setEditingQuest] = useState<QuestRow | null>(null);
   const [acceptQuest, setAcceptQuest] = useState<QuestRow | null>(null);
   const [submitQuest, setSubmitQuest] = useState<QuestRow | null>(null);
   const [awardQuest, setAwardQuest] = useState<QuestRow | null>(null);
