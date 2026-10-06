@@ -6047,6 +6047,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+
+
   if (url.pathname === "/api/notifications/unread-count" && req.method === "GET") {
     const authUser = getAuthUser(req);
     if (!authUser) {

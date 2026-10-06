@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:artifacts/api-server/public/assets/AdvocateJudges-CKIIah8_.js
+import{r as o,j as e}from"./tanstack-query-BLUn7k_x.js";import{L as H,B as b}from"./list-ordered-NP7oZ_Tx.js";import{E as y}from"./eye-BWJv0GEZ.js";import{c as p,F as B,x as f,S as w,m as x,b as D,f as I}from"./index-DdCqXAB9.js";import{S as k}from"./shield-7qBFAonv.js";import{E as M}from"./external-link-DttGF2mL.js";import{S as P}from"./search-COdbaIRz.js";import{C as R}from"./chevron-down-Bvz6MdYZ.js";/**
+========
 import{r as o,j as e}from"./tanstack-query-BLUn7k_x.js";import{L as H,B as b}from"./list-ordered-CrGYy2yw.js";import{E as y}from"./eye-D15giqic.js";import{c as p,F as B,r as f,S as w,m as x,b as D,t as I}from"./index-RJUN-bDg.js";import{S as k}from"./shield-BGFT8eos.js";import{E as M}from"./external-link-ACsZbwWq.js";import{S as P}from"./search-DFfOhh6R.js";import{C as R}from"./chevron-down-DGPSjCcW.js";/**
+>>>>>>>> origin/main:artifacts/api-server/public/assets/AdvocateJudges-D2pk5qHJ.js
  * @license lucide-react v0.468.0 - ISC
  *
  * This source code is licensed under the ISC license.

@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:artifacts/api-server/public/assets/AdvocateCalls-yjmgS2dX.js
+import{r as l,j as e}from"./tanstack-query-BLUn7k_x.js";import{c as i,m as f,V as d,P as p,X as C}from"./index-DdCqXAB9.js";import{S as M}from"./shield-7qBFAonv.js";import{C as S}from"./clock-BVUD8K6z.js";import{S as I}from"./star-CpTz7-Mc.js";import{C as V}from"./check-GjZ6yHvW.js";/**
+========
 import{r as l,j as e}from"./tanstack-query-BLUn7k_x.js";import{c as i,m as f,V as d,P as p,X as C}from"./index-RJUN-bDg.js";import{S as M}from"./shield-BGFT8eos.js";import{C as S}from"./clock-BG8xzitX.js";import{S as I}from"./star-CGg5b9IM.js";import{C as V}from"./check-BZ1Mcvhg.js";/**
+>>>>>>>> origin/main:artifacts/api-server/public/assets/AdvocateCalls-4N9qgy3F.js
  * @license lucide-react v0.468.0 - ISC
  *
  * This source code is licensed under the ISC license.

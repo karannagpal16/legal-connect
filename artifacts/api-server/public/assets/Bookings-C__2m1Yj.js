@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:artifacts/api-server/public/assets/Bookings-3UwderMa.js
+import{r as j,j as e}from"./tanstack-query-BLUn7k_x.js";import{m as v,p as N,q as w}from"./api-_ChPpeeh.js";import{c as h,t as C,r as m,P as B,C as k}from"./index-DdCqXAB9.js";import{C as x}from"./calendar-mS1iway2.js";import{B as D}from"./briefcase-Cxu5HZRY.js";import{M}from"./mail-Ccdp6Nse.js";import{f as P}from"./format-D46ChU1D.js";import{C as A}from"./clock-BVUD8K6z.js";import{T as u}from"./trash-2-ChgabKAP.js";/**
+========
 import{r as j,j as e}from"./tanstack-query-BLUn7k_x.js";import{m as v,p as N,q as w}from"./api-D6JsszyN.js";import{c as h,q as C,o as m,P as B,C as k}from"./index-BL2t458w.js";import{C as x}from"./calendar-D2DIYd6h.js";import{B as D}from"./briefcase-D0Lmwk8X.js";import{M}from"./mail-Cmepqm3A.js";import{f as P}from"./format-sbWH3_uq.js";import{C as A}from"./clock-ConAKAhH.js";import{T as u}from"./trash-2-2xSBk76e.js";/**
+>>>>>>>> origin/main:artifacts/api-server/public/assets/Bookings-C__2m1Yj.js
  * @license lucide-react v0.468.0 - ISC
  *
  * This source code is licensed under the ISC license.

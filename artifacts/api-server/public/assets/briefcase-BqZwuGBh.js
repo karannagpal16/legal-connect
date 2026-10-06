@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:artifacts/api-server/public/assets/briefcase-Cxu5HZRY.js
+import{c as e}from"./index-DdCqXAB9.js";/**
+========
 import{c as e}from"./index-RJUN-bDg.js";/**
+>>>>>>>> origin/main:artifacts/api-server/public/assets/briefcase-BqZwuGBh.js
  * @license lucide-react v0.468.0 - ISC
  *
  * This source code is licensed under the ISC license.
