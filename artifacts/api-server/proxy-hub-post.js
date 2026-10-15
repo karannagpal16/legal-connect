@@ -37,13 +37,87 @@ function safeErrorDetail(error) {
   }
 }
 
-/** Never send internal demo-store / infra throws to the browser. */
+const DB_ERROR_MESSAGE = /\b(relation|column|constraint|violates|duplicate key|syntax error|database|postgres|password authentication|connection terminated|timeout exceeded when trying to connect)\b/i;
+const DB_CONNECTION_CODES = new Set(["ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "ETIMEDOUT", "EHOSTUNREACH"]);
+
+/** PostgreSQL / driver errors carry schema, constraint and sometimes row values — never client-safe. */
+function isDatabaseError(error) {
+  if (!error || typeof error !== "object") {
+    return DB_ERROR_MESSAGE.test(String(error || ""));
+  }
+  const code = String(error.code || "");
+  if (/^[0-9A-Z]{5}$/.test(code) && (error.severity || error.routine || /^[0-9]/.test(code))) return true;
+  if (DB_CONNECTION_CODES.has(code)) return true;
+  if (error.severity || error.routine || error.constraint || error.table || error.schema) return true;
+  return DB_ERROR_MESSAGE.test(String(error.message || ""));
+}
+
+/** Never send internal demo-store / infra / database throws to the browser. */
 function clientSafeErrorDetail(error) {
   const detail = safeErrorDetail(error);
   if (!detail) return null;
   if (/local demo storage is disabled/i.test(detail)) return null;
   if (/demo storage/i.test(detail)) return null;
+  if (isDatabaseError(error)) return null;
   return detail;
+}
+
+/** Short opaque id that ties a client-facing failure to its server log line. */
+function proxyRequestRef(randomBytes) {
+  return randomBytes(6).toString("hex");
+}
+
+/**
+ * Razorpay ids are safe to log for reconciliation; the signature and secrets are not.
+ * Demo/complimentary orders carry no real payment, so they log nulls.
+ */
+function proxyPaymentLogContext({ requestId, orderId, paymentId, userId, taskId = null, stage = null, complimentary = false } = {}) {
+  return {
+    requestId: requestId || null,
+    stage,
+    orderId: complimentary ? null : orderId || null,
+    paymentId: complimentary ? null : paymentId || null,
+    userId: userId == null ? null : String(userId),
+    taskId: taskId == null ? null : String(taskId),
+  };
+}
+
+/**
+ * Process-local guard so concurrent verify-payment calls for one Razorpay payment
+ * cannot both pass the duplicate check. Cross-instance protection relies on the
+ * payment-id lookup in findProxyMissionByPaymentId.
+ */
+function createPaymentInFlightGuard() {
+  const active = new Set();
+  return {
+    acquire(key) {
+      if (!key) return true;
+      if (active.has(key)) return false;
+      active.add(key);
+      return true;
+    },
+    release(key) {
+      if (key) active.delete(key);
+    },
+    size() {
+      return active.size;
+    },
+  };
+}
+
+/** One Razorpay payment opens at most one ProxyHub mission. */
+async function findProxyMissionByPaymentId({ db, demoTasks, paymentId }) {
+  const id = String(paymentId || "").trim();
+  if (!id) return null;
+  if (db?.dbAvailable) {
+    const result = await db.query(
+      `SELECT * FROM tasks WHERE payload->>'razorpayPaymentId' = $1 ORDER BY created_at ASC LIMIT 1`,
+      [id],
+    );
+    return result.rows[0] ? { row: result.rows[0] } : null;
+  }
+  const match = (demoTasks || []).find((task) => String(task?.razorpayPaymentId || "") === id);
+  return match ? { task: match } : null;
 }
 
 /**
@@ -149,6 +223,11 @@ module.exports = {
   isComplimentaryProxyOrder,
   safeErrorDetail,
   clientSafeErrorDetail,
+  isDatabaseError,
+  proxyRequestRef,
+  proxyPaymentLogContext,
+  createPaymentInFlightGuard,
+  findProxyMissionByPaymentId,
   resolveMasterFreeUser,
   isUndefinedColumnError,
   buildProxyMissionRecord,

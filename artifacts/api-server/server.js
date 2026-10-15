@@ -17,10 +17,16 @@ const {
   isComplimentaryProxyOrder,
   safeErrorDetail,
   clientSafeErrorDetail,
+  proxyRequestRef,
+  proxyPaymentLogContext,
+  createPaymentInFlightGuard,
+  findProxyMissionByPaymentId,
   resolveMasterFreeUser,
   buildProxyMissionRecord,
   insertProxyMission,
 } = require("./proxy-hub-post");
+
+const proxyPaymentsInFlight = createPaymentInFlightGuard();
 const { createPlatformEvents } = require("./platform-events");
 const {
   DEMO_STORE_DISABLED_MESSAGE,
@@ -6864,6 +6870,9 @@ const server = http.createServer(async (req, res) => {
 
   // ProxyHub: Verify payment signature and open the proxy task (fail-closed — task is NOT created if verification fails).
   if (url.pathname === "/api/proxy-hub/verify-payment" && req.method === "POST") {
+    const requestId = proxyRequestRef(crypto.randomBytes);
+    const reconcile = { requestId, orderId: null, paymentId: null, userId: null, taskId: null, stage: "auth", complimentary: false };
+    let inFlightKey = null;
     try {
       const authUser = getAuthUser(req);
       if (!canPostProxyMission(authUser) && !canSeeAll(authUser)) {
@@ -6880,6 +6889,13 @@ const server = http.createServer(async (req, res) => {
       });
       const isDemoOrder = complimentary.demo;
       const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+      Object.assign(reconcile, {
+        orderId: razorpay_order_id || null,
+        paymentId: razorpay_payment_id || null,
+        userId: authUser?.id ?? null,
+        complimentary: Boolean(isDemoOrder),
+        stage: "verify_signature",
+      });
 
       if (!isDemoOrder && hasRazorpay) {
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -6900,6 +6916,60 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      // One Razorpay payment opens at most one mission: retries/replays return the original.
+      if (!isDemoOrder && razorpay_payment_id) {
+        reconcile.stage = "dedupe";
+        const paymentKey = String(razorpay_payment_id);
+        if (!proxyPaymentsInFlight.acquire(paymentKey)) {
+          console.warn("proxy-hub verify-payment concurrent duplicate:", proxyPaymentLogContext(reconcile));
+          sendJson(res, 409, { ok: false, error: "This payment is already being processed. Refresh ProxyHub in a moment.", requestId });
+          return;
+        }
+        inFlightKey = paymentKey;
+        const existing = await findProxyMissionByPaymentId({
+          db,
+          demoTasks: db.dbAvailable ? null : demoStore.tasks,
+          paymentId: paymentKey,
+        });
+        if (existing) {
+          const existingTask = existing.row ? mapTask(existing.row) : existing.task;
+          reconcile.taskId = existingTask.id;
+          const existingOwner = String(existingTask.postedBy ?? existing.row?.posted_by ?? "");
+          if (existingOwner !== String(authUser.id) && !canSeeAll(authUser)) {
+            console.warn("proxy-hub verify-payment payment reused by another user:", proxyPaymentLogContext({ ...reconcile, stage: "dedupe_foreign" }));
+            await writeAuditLog(authUser, "proxy_hub_payment_reuse_blocked", "proxy_hub", razorpay_order_id, "ProxyHub payment already used for another mission.", { orderId: razorpay_order_id, paymentId: razorpay_payment_id, requestId });
+            sendJson(res, 409, { ok: false, error: "This payment has already been used for a proxy mission.", requestId });
+            return;
+          }
+          // lockPayment is idempotent per task — this also heals a lock that failed on the first attempt.
+          const relock = await settlementLedger.lockPayment({
+            taskId: existingTask.id,
+            payerUserId: existingTask.postedBy || authUser.id,
+            collected: existingTask.amount,
+            complimentary: false,
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+          }).catch((error) => {
+            console.error("proxy-hub lockPayment failed:", proxyPaymentLogContext({ ...reconcile, stage: "relock" }), safeErrorDetail(error));
+            return null;
+          });
+          console.warn("proxy-hub verify-payment duplicate payment ignored:", proxyPaymentLogContext(reconcile));
+          await writeAuditLog(authUser, "proxy_hub_payment_replay", "task", existingTask.id, "Duplicate ProxyHub payment verification returned the existing mission.", { orderId: razorpay_order_id, paymentId: razorpay_payment_id, requestId });
+          const lockedPayment = relock?.lock ? settlementLedger.publicLockView(relock.lock) : existingTask.lockedPayment || null;
+          sendJson(res, 200, {
+            ok: true,
+            idempotent: true,
+            task: existing.row ? existingTask : dashboardTask(existingTask),
+            paymentVerified: true,
+            mode: existingTask.mode || "razorpay",
+            bookingId: relock?.lock?.bookingId || existingTask.bookingId || null,
+            lockedPayment,
+          });
+          return;
+        }
+      }
+
+      reconcile.stage = "validate_posting";
       const posting = strategyFeatures.validateProxyPostingFields(body);
       if (!posting.ok) {
         sendJson(res, 400, { ok: false, error: posting.error });
@@ -6937,8 +7007,11 @@ const server = http.createServer(async (req, res) => {
         task.posterName = task.mainCounsel?.name || authUser.name || "Main counsel";
       }
       if (db.dbAvailable) {
+        reconcile.stage = "insert_mission";
         const result = await insertProxyMission(db, task);
         const mappedTask = mapTask(result.rows[0]);
+        reconcile.taskId = mappedTask.id;
+        reconcile.stage = "lock_payment";
         const locked = await settlementLedger.lockPayment({
           taskId: mappedTask.id,
           payerUserId: authUser.id,
@@ -6947,9 +7020,10 @@ const server = http.createServer(async (req, res) => {
           razorpayOrderId: razorpay_order_id,
           razorpayPaymentId: razorpay_payment_id,
         }).catch((error) => {
-          console.error("proxy-hub lockPayment failed:", safeErrorDetail(error));
+          console.error("proxy-hub lockPayment failed:", proxyPaymentLogContext(reconcile), safeErrorDetail(error));
           return null;
         });
+        reconcile.stage = "post_save";
         if (locked?.lock) {
           mappedTask.bookingId = locked.lock.bookingId;
           mappedTask.lockedPayment = settlementLedger.publicLockView(locked.lock);
@@ -6983,7 +7057,10 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 201, { ok: true, task: mappedTask, paymentVerified: task.paymentVerified, mode: task.mode, bookingId: locked?.lock?.bookingId || null, lockedPayment: mappedTask.lockedPayment || null });
         return;
       }
+      reconcile.stage = "insert_mission";
       demoStore.tasks.unshift(task);
+      reconcile.taskId = task.id;
+      reconcile.stage = "post_save";
       const demoLock = await settlementLedger.lockPayment({
         taskId: task.id,
         payerUserId: authUser.id,
@@ -7015,12 +7092,27 @@ const server = http.createServer(async (req, res) => {
       }
         sendJson(res, 201, { ok: true, task: dashboardTask(task), paymentVerified: task.paymentVerified, mode: task.mode || "demo", bookingId: task.bookingId || null, lockedPayment: task.lockedPayment || null });
     } catch (error) {
-      console.error("proxy-hub verify-payment failed:", safeErrorDetail(error));
-      sendJson(res, 500, {
-        ok: false,
-        error: "The proxy mission could not be saved. If you were charged, contact Legal Connect with your payment id.",
-        detail: clientSafeErrorDetail(error),
-      });
+      // Full detail stays server-side; the client only gets opaque references.
+      console.error(
+        "proxy-hub verify-payment failed:",
+        proxyPaymentLogContext(reconcile),
+        { code: error?.code || null },
+        safeErrorDetail(error),
+      );
+      if (!res.headersSent) {
+        const paymentRef = reconcile.complimentary ? null : reconcile.paymentId;
+        sendJson(res, 500, {
+          ok: false,
+          error: reconcile.taskId
+            ? "Your proxy mission was saved but could not be fully confirmed. Refresh ProxyHub before trying again."
+            : "The proxy mission could not be saved. If you were charged, contact Legal Connect with your payment id.",
+          detail: paymentRef ? `Reference ${requestId} · payment ${paymentRef}` : `Reference ${requestId}`,
+          requestId,
+          paymentId: paymentRef,
+        });
+      }
+    } finally {
+      proxyPaymentsInFlight.release(inFlightKey);
     }
     return;
   }
