@@ -221,7 +221,8 @@ function AdvocatePortal() {
             <Route path="/advocate/bookings" component={AdvocateBookings} />
             <Route path="/advocate/library" component={AdvocateLibrary} />
             <Route path="/advocate/revenue" component={AdvocateRevenue} />
-            <Route path="/advocate/team" component={AdvocateTeam} />
+            {/* Team management lives in Chamber Vault; the old page called the admin-only user list (403). */}
+            <Route path="/advocate/team"><Redirect to="/advocate/chamber" /></Route>
             <Route path="/advocate/chamber" component={ChamberVault} />
             <Route path="/advocate/identity-vault" component={IdentityVault} />
             <Route path="/advocate/chat" component={AdvocateChat} />
