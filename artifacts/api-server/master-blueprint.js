@@ -203,6 +203,7 @@ function createMasterBlueprint(deps) {
     activateBookingAsPaid,
     numericAmount,
     isMasterTestUser,
+    userHasUsedFirstChat,
     strategyFeatures,
     settlementLedger,
   } = deps;
@@ -344,7 +345,12 @@ function createMasterBlueprint(deps) {
     const catalogAmount = ADVISORY_AMOUNTS[channel] ?? ADVISORY_AMOUNTS.chat;
     const amount = catalogAmount;
     const masterFree = await isMasterTestUser(authUser);
-    const firstChatFree = channel === "chat" && Boolean(body.firstChatFree);
+    // One free chat per client, ever. A client-supplied flag alone never unlocks it.
+    const firstChatFree = channel === "chat"
+      && Boolean(body.firstChatFree)
+      && !masterFree
+      && typeof userHasUsedFirstChat === "function"
+      && !(await userHasUsedFirstChat(authUser.id));
     if (!masterFree) {
       const kycOk = await clientIdentityApproved(authUser);
       if (!kycOk) {
@@ -363,6 +369,7 @@ function createMasterBlueprint(deps) {
       serviceType,
       legalIssueType: body.legalIssueType || body.issueType || serviceType,
       amount: masterFree || firstChatFree ? 0 : amount,
+      firstChatFree,
       consultationChannel: channel,
       productType: "advisory",
       assignmentPolicy: "legal-connect-managed",

@@ -43,11 +43,11 @@ assert.deepStrictEqual(
   { demo: false, master: false },
 );
 
-const allow = (email) => String(email || "").toLowerCase() === "priyanagpal16@gmail.com";
-assert.strictEqual(resolveMasterFreeUser({ jwtEmail: "priyanagpal16@gmail.com", isAllowlisted: allow, production: true }), true);
+const allow = (email) => String(email || "").toLowerCase() === "family-tester@example.com";
+assert.strictEqual(resolveMasterFreeUser({ jwtEmail: "family-tester@example.com", isAllowlisted: allow, production: true }), true);
 assert.strictEqual(resolveMasterFreeUser({
   jwtEmail: "",
-  dbEmail: "priyanagpal16@gmail.com",
+  dbEmail: "family-tester@example.com",
   production: true,
   isAllowlisted: allow,
 }), true, "DB email must grant master-free in production");
@@ -55,13 +55,13 @@ assert.strictEqual(resolveMasterFreeUser({
   jwtEmail: "advocate@example.com",
   dbEmail: "advocate@example.com",
   production: true,
-  demoEmail: "priyanagpal16@gmail.com",
+  demoEmail: "family-tester@example.com",
   isAllowlisted: allow,
 }), false, "production must not use demoStore email");
 assert.strictEqual(resolveMasterFreeUser({
   jwtEmail: "",
   production: true,
-  demoEmail: "priyanagpal16@gmail.com",
+  demoEmail: "family-tester@example.com",
   isAllowlisted: allow,
 }), false, "missing DB lookup must not throw or grant via demo in production");
 assert.strictEqual(clientSafeErrorDetail(new Error("Local demo storage is disabled in production.")), null);
@@ -147,3 +147,9 @@ async function withMockDb(queryImpl) {
   console.error(error);
   process.exit(1);
 });
+
+// Production must never honour demo order ids (they would skip payment verification).
+assert.deepStrictEqual(
+  isComplimentaryProxyOrder({ razorpayOrderId: "order_proxy_demo_1", masterFree: false, production: true }),
+  { demo: false, master: false },
+);

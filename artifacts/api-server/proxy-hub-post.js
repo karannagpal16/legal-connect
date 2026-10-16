@@ -14,10 +14,11 @@ function canPostProxyMission(authUser) {
   return Boolean(authUser) && (role === "advocate" || role === "admin" || role === "rna");
 }
 
-function isComplimentaryProxyOrder({ razorpayOrderId, mode, masterFree } = {}) {
+function isComplimentaryProxyOrder({ razorpayOrderId, mode, masterFree, production = false } = {}) {
   const orderId = String(razorpayOrderId || "");
   const orderMode = String(mode || "").toLowerCase().trim();
-  if (orderId.startsWith("order_proxy_demo_")) {
+  // Demo order ids are only honoured outside production; in production they are just unknown orders.
+  if (!production && orderId.startsWith("order_proxy_demo_")) {
     return { demo: true, master: false };
   }
   const masterIntent = orderId.startsWith("order_proxy_master_") || orderMode === "master_test_free";

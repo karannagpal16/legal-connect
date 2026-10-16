@@ -12,6 +12,7 @@ const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
 const { isWorkHoldActive } = require("./work-hold");
 const { createSettlementLedger } = require("./settlement-ledger");
+const { quoteProduct } = require("./products");
 const {
   canPostProxyMission,
   isComplimentaryProxyOrder,
@@ -1449,6 +1450,21 @@ async function createRazorpayOrder({ amount, currency = "INR", receipt, notes = 
     return { ok: false, status: response.status, error_message: String(message).slice(0, 180) };
   }
   return { ok: true, order: payload };
+}
+
+async function fetchRazorpayOrder(orderId) {
+  if (!config.razorpayKeyId || !config.razorpayKeySecret || !orderId) return { ok: false };
+  try {
+    const auth = Buffer.from(`${config.razorpayKeyId}:${config.razorpayKeySecret}`).toString("base64");
+    const response = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}`, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+    if (!response.ok) return { ok: false, status: response.status };
+    return { ok: true, order: await response.json() };
+  } catch (error) {
+    console.warn("Razorpay order lookup failed:", redactSecrets(error?.message || error));
+    return { ok: false };
+  }
 }
 
 function verifyRazorpayPaymentSignature(orderId, paymentId, signature) {
@@ -3262,6 +3278,7 @@ const masterBlueprint = createMasterBlueprint({
   activateBookingAsPaid,
   numericAmount,
   isMasterTestUser,
+  userHasUsedFirstChat,
   strategyFeatures,
   settlementLedger,
 });
@@ -6877,6 +6894,7 @@ const server = http.createServer(async (req, res) => {
         razorpayOrderId: razorpay_order_id,
         mode: body.mode,
         masterFree,
+        production: config.nodeEnv === "production",
       });
       const isDemoOrder = complimentary.demo;
       const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
@@ -6905,10 +6923,46 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, error: posting.error });
         return;
       }
+      let paidOrderAmountInr = null;
+      if (!isDemoOrder && hasRazorpay) {
+        // One payment = one mission: refuse an order that already opened a mission.
+        if (db.dbAvailable) {
+          const reused = await db.query(
+            `SELECT 1 FROM locked_payments WHERE razorpay_order_id = $1
+             UNION ALL SELECT 1 FROM tasks WHERE payload->>'razorpayOrderId' = $1 LIMIT 1`,
+            [razorpay_order_id],
+          ).catch(() => ({ rows: [] }));
+          if (reused.rows[0]) {
+            await writeAuditLog(authUser, "proxy_hub_order_reuse_blocked", "proxy_hub", razorpay_order_id, "ProxyHub order already used for a mission.", {}).catch(() => undefined);
+            sendJson(res, 409, { ok: false, error: "This payment has already been used to post a mission." });
+            return;
+          }
+        }
+        // The amount actually paid comes from Razorpay, never from the browser.
+        const fetched = await fetchRazorpayOrder(razorpay_order_id);
+        if (!fetched.ok) {
+          sendJson(res, 502, { ok: false, error: "Could not confirm the payment with Razorpay. Please retry." });
+          return;
+        }
+        const catalogFeeForTier = Number(posting.fields.catalogFee || PROXY_URGENCY_TIERS.standard.fee);
+        const orderPaise = Number(fetched.order.amount || 0);
+        const postedBy = String(fetched.order.notes?.postedBy || "");
+        if (postedBy && postedBy !== String(authUser.id)) {
+          sendJson(res, 403, { ok: false, error: "This payment belongs to a different account." });
+          return;
+        }
+        if (orderPaise < catalogFeeForTier * 100) {
+          await writeAuditLog(authUser, "proxy_hub_underpaid_tier", "proxy_hub", razorpay_order_id, "Paid amount is below the fee for the selected timing tier.", { orderPaise, required: catalogFeeForTier * 100 }).catch(() => undefined);
+          sendJson(res, 409, { ok: false, error: `The payment (₹${orderPaise / 100}) is less than the ${posting.fields.urgencyLabel || "selected"} fee of ₹${catalogFeeForTier}. Please pay again for this tier.` });
+          return;
+        }
+        paidOrderAmountInr = orderPaise / 100;
+      }
       const taskTitle = String(body.title || body.missionTitle || `${posting.fields.appearanceType} · ${posting.fields.cnr}`).trim();
       const taskCourt = String(body.court || body.location || "").trim();
       const catalogFee = Number(posting.fields.catalogFee || PROXY_URGENCY_TIERS.standard.fee);
-      const fee = Math.max(numericAmount(body.fee || body.amount), catalogFee);
+      // Real payments: the fee is what Razorpay says was paid. Demo/complimentary: the catalogue fee.
+      const fee = paidOrderAmountInr != null ? paidOrderAmountInr : Math.max(numericAmount(body.fee || body.amount), catalogFee);
       if (fee < catalogFee) {
         sendJson(res, 400, {
           ok: false,
@@ -7217,7 +7271,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
-    const amount = Number(body.amount || 0);
+    // Price is never taken from the browser: it comes from the booking record / server catalogue.
+    const clientAmount = Number(body.amount || 0);
+    let amount = 0;
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
     const paymentStatus = paymentConfigStatus();
     const wantsFirstChatFree = Boolean(body.firstChatFree || body.mode === "first_chat_free");
@@ -7225,17 +7281,38 @@ const server = http.createServer(async (req, res) => {
     const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
     const masterFree = await isMasterTestUser(authUser);
     const bookingIdForOrder = body.bookingId || body.booking_id;
+    let bookingRowForPrice = null;
     if (db.dbAvailable && bookingIdForOrder && isUuid(String(bookingIdForOrder))) {
       const bookingRow = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingIdForOrder]).catch(() => ({ rows: [] }));
       if (bookingRow.rows[0] && !canAccessBooking(authUser, mapBooking(bookingRow.rows[0]))) {
         sendJson(res, 403, { ok: false, error: "Forbidden" });
         return;
       }
+      bookingRowForPrice = bookingRow.rows[0] || null;
+    }
+    if (db.dbAvailable && bookingIdForOrder && isUuid(String(bookingIdForOrder)) && !bookingRowForPrice) {
+      sendJson(res, 404, { ok: false, error: "Booking not found." });
+      return;
+    }
+    {
+      const bookingChannel = bookingRowForPrice?.payload?.consultationChannel || null;
+      let quote = null;
+      try {
+        quote = quoteProduct(bookingChannel
+          ? { channel: bookingChannel }
+          : { productId: body.product_id || body.productId, channel, urgency: body.urgency, planId: body.planId });
+      } catch {
+        quote = null;
+      }
+      amount = quote ? quote.amountInr : 0;
+      if (quote && clientAmount && clientAmount !== quote.amountInr) {
+        await writeAuditLog(authUser, "payment_amount_mismatch", "payment", bookingIdForOrder || "create-order", "Browser sent a different amount; server catalogue price used.", { clientAmount, serverAmount: quote.amountInr, productId: quote.productId }).catch(() => undefined);
+      }
     }
 
     // Zero-amount / developer / first-chat free — never call Razorpay.
     // Client-supplied masterTestFree flags are ignored unless the signed-in user is the developer account.
-    if (authUser && (masterFree || wantsFirstChatFree || amount === 0)) {
+    if (authUser && (masterFree || wantsFirstChatFree)) {
       const bookingId = body.bookingId || body.booking_id;
       // Idempotent: book-advisory may have already activated the free booking.
       if (bookingId && db.dbAvailable && isUuid(String(bookingId))) {
@@ -7272,20 +7349,16 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { ok: false, error: "Developer free unlock is limited to the authorised developer account." });
         return;
       }
-      if (wantsFirstChatFree || (amount === 0 && channel === "chat")) {
-        if (channel && channel !== "chat") {
+      if (wantsFirstChatFree) {
+        // Use the channel stored on the booking, not the one the browser sends.
+        const freeChannel = String(bookingRowForPrice?.payload?.consultationChannel || channel || "").toLowerCase();
+        if (freeChannel !== "chat") {
           sendJson(res, 400, { ok: false, error: "Free trial applies only to the Secure chat channel." });
           return;
         }
         if (await userHasUsedFirstChat(authUser.id)) {
-          // Still allow zero-amount retry to complete an already-activated free booking.
-          if (bookingId) {
-            const claimed = await claimFreeBooking(authUser, body, "first_chat_free");
-            if (claimed.ok) {
-              sendJson(res, 200, { ...claimed.body, message: "Free chat booking confirmed." });
-              return;
-            }
-          }
+          // A free booking that was already activated was answered above (idempotent "already paid").
+          // Anything else is a second free claim and must be paid.
           sendJson(res, 409, { ok: false, error: "Your free first chat has already been used. Please pay to continue." });
           return;
         }
@@ -7298,7 +7371,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (!amount || amount <= 0) {
-      sendJson(res, 400, { ok: false, error: "Valid amount is required." });
+      sendJson(res, 400, { ok: false, error: "Unknown product. Book a consultation first or send a valid product_id." });
       return;
     }
     if (isReviewUser(authUser)) {
@@ -7321,7 +7394,7 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    if (/^Demo Client$/i.test(String(authUser?.name || ''))) {
+    if (config.nodeEnv !== "production" && String(authUser?.email || "").toLowerCase() === "client@demo.legal-connect.in") {
       sendJson(res, 200, {
         ok: true,
         success: true,
@@ -7366,9 +7439,9 @@ const server = http.createServer(async (req, res) => {
       if (db.dbAvailable && (body.bookingId || body.booking_id)) {
         await db.query(
           `UPDATE bookings
-           SET razorpay_order_id = $2, payment_status = 'order_created', work_hold_status = COALESCE(work_hold_status, 'pending'), payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+           SET razorpay_order_id = $2, amount = $4, payment_status = 'order_created', work_hold_status = COALESCE(work_hold_status, 'pending'), payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
            WHERE id = $1`,
-          [body.bookingId || body.booking_id, orderResult.order.id, JSON.stringify({ razorpay_order_id: orderResult.order.id })],
+          [body.bookingId || body.booking_id, orderResult.order.id, JSON.stringify({ razorpay_order_id: orderResult.order.id, expected_amount_paise: amount * 100 }), amount],
         );
       }
       await recordPaymentEvent({
@@ -7441,6 +7514,13 @@ const server = http.createServer(async (req, res) => {
       }
       if (!canAccessBooking(authUser, mapBooking(bookingRow.rows[0]))) {
         sendJson(res, 403, { ok: false, error: "Forbidden" });
+        return;
+      }
+      // The order must be the one the server created for THIS booking (blocks paying a cheap order and claiming a dearer booking).
+      const storedOrderId = bookingRow.rows[0].razorpay_order_id;
+      if (!storedOrderId || String(storedOrderId) !== String(orderId)) {
+        await writeAuditLog(authUser, "payment_order_mismatch", "booking", bookingId, "Verify rejected: order does not belong to this booking.", { orderId, storedOrderId: storedOrderId || null }).catch(() => undefined);
+        sendJson(res, 409, { ok: false, error: "This payment does not match the booking. Please start the payment again." });
         return;
       }
     }
@@ -7582,7 +7662,21 @@ const server = http.createServer(async (req, res) => {
     const order = body.payload?.order?.entity || {};
     const orderId = payment.order_id || order.id || null;
     const paymentId = payment.id || null;
+    let webhookAmountOk = true;
     if (db.dbAvailable && orderId && ["payment.captured", "order.paid"].includes(event)) {
+      const expected = await db.query("SELECT id, amount, payload FROM bookings WHERE razorpay_order_id = $1 LIMIT 1", [orderId]).catch(() => ({ rows: [] }));
+      const expectedPaise = Number(expected.rows[0]?.payload?.expected_amount_paise || (expected.rows[0]?.amount ? expected.rows[0].amount * 100 : 0));
+      const paidPaise = Number(payment.amount || order.amount_paid || order.amount || 0);
+      if (expectedPaise && paidPaise && paidPaise !== expectedPaise) {
+        webhookAmountOk = false;
+        await db.query(
+          `UPDATE bookings SET payment_status = 'amount_mismatch', failure_reason = $2 WHERE razorpay_order_id = $1 AND COALESCE(payment_status, '') <> 'paid'`,
+          [orderId, `Paid ${paidPaise / 100}, expected ${expectedPaise / 100}`],
+        );
+        await writeAuditLog({ role: "system" }, "payment_webhook_amount_mismatch", "payment", orderId, "Webhook amount does not match booking price. Booking not activated.", { paidPaise, expectedPaise }).catch(() => undefined);
+      }
+    }
+    if (webhookAmountOk && db.dbAvailable && orderId && ["payment.captured", "order.paid"].includes(event)) {
       await db.query(
         `UPDATE bookings
          SET payment_status = 'paid', work_hold_status = 'active', razorpay_payment_id = COALESCE($2, razorpay_payment_id),
@@ -9131,15 +9225,10 @@ const MASTER_TEST_LOGIN = {
   label: "master",
 };
 
-/** Built-in master-free accounts (existing Users directory). Extend via MASTER_FREE_EMAILS. */
+/** Built-in master-free accounts: developer + support only. Family/tester emails belong in the MASTER_FREE_EMAILS env var, never in this public repo. */
 const BUILTIN_MASTER_FREE_EMAILS = [
   "karannagpal16@gmail.com",
-  "priyanagpal16@gmail.com",
-  "samayraina@gmail.com",
   "legalconnect0s@gmail.com",
-  "kartiknagpal16@gmail.com",
-  "nagpal.manoj1973@gmail.com",
-  "muktanagpal25@gmail.com",
 ];
 
 function masterFreeEmailSet() {
@@ -10204,7 +10293,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const casesResult = await db.query('SELECT * FROM cases WHERE user_id = $1 ORDER BY updated_at DESC', [userId]);
     const bookingsResult = await db.query('SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
     const paymentsResult = await db.query('SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
-    const useDemo = /^Demo Client$/i.test(String(authUser.name || '')) && casesResult.rows.length === 0;
+    const useDemo = config.nodeEnv !== "production" && String(authUser.email || "").toLowerCase() === "client@demo.legal-connect.in" && casesResult.rows.length === 0;
     const cases = useDemo ? clientWorkspaceDemo(authUser.name) : await attachStoredCaseRecords(casesResult.rows.map(mapCase));
     const bookings = bookingsResult.rows.map(mapBooking);
     const bookingById = new Map(bookings.map((item) => [String(item.id), item]));
@@ -10814,7 +10903,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const orderId = body.order_id || body.razorpay_order_id;
     const paymentId = body.payment_id || body.razorpay_payment_id;
     const signature = body.signature || body.razorpay_signature;
-    const isDemo = String(orderId || '').startsWith('order_chamber_demo_');
+    const isDemo = config.nodeEnv !== 'production' && String(orderId || '').startsWith('order_chamber_demo_');
     const recordedOrder = await db.query(`SELECT subscription_order.* FROM chamber_subscription_orders subscription_order JOIN chambers chamber ON chamber.id = subscription_order.chamber_id WHERE subscription_order.provider_order_id = $1 AND chamber.owner_id = $2 LIMIT 1`, [orderId, userId]);
     const orderRecord = recordedOrder.rows[0];
     if (!orderRecord || orderRecord.status !== 'pending') { sendJson(res, 409, { ok: false, error: 'This subscription order is missing, already used, or does not belong to your chamber.' }); return true; }
@@ -10906,6 +10995,11 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: `Your ${subscription.planName} plan includes ${subscription.teamSeats} Team Member seats.` });
       return true;
     }
+    const duplicate = await db.query(`SELECT 1 FROM chamber_members WHERE chamber_id = $1 AND lower(email) = lower($2) AND status NOT IN ('removed', 'declined') LIMIT 1`, [chamber.id, email]);
+    if (duplicate.rows[0]) {
+      sendJson(res, 409, { ok: false, error: 'This person is already invited to or a member of your chamber.' });
+      return true;
+    }
     const created = await db.query(`INSERT INTO chamber_members (chamber_id, display_name, email, member_role, status)
       VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamber.id, displayName, email, memberRole]);
     await writeAuditLog(authUser, 'chamber_member_invited', 'chamber_member', created.rows[0].id, 'A chamber member was invited.', { emailMasked: maskEmail(email) });
@@ -10926,6 +11020,81 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       });
     }
     sendJson(res, 201, { ok: true, member: created.rows[0] });
+    return true;
+  }
+
+  // Invitations addressed to the signed-in user. Joining a chamber needs the invitee's own consent.
+  if (url.pathname === '/api/chamber/invitations' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: 'Login is required.' });
+      return true;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 200, { ok: true, invitations: [] });
+      return true;
+    }
+    await ensureChamberVaultSchema();
+    const myEmail = normalizeEmail(authUser.email);
+    if (!myEmail) {
+      sendJson(res, 200, { ok: true, invitations: [] });
+      return true;
+    }
+    const invites = await db.query(`SELECT cm.id, cm.member_role, cm.status, cm.created_at, c.id AS chamber_id, c.name AS chamber_name, owner.name AS owner_name
+      FROM chamber_members cm JOIN chambers c ON c.id = cm.chamber_id LEFT JOIN users owner ON owner.id = c.owner_id
+      WHERE lower(cm.email) = lower($1) AND cm.status = 'invited' ORDER BY cm.created_at DESC`, [myEmail]);
+    sendJson(res, 200, { ok: true, invitations: invites.rows });
+    return true;
+  }
+  const invitationMatch = url.pathname.match(/^\/api\/chamber\/invitations\/([^/]+)\/(accept|decline)$/);
+  if (invitationMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: 'Login is required.' });
+      return true;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 503, { ok: false, error: 'Chamber invitations need the database.' });
+      return true;
+    }
+    await ensureChamberVaultSchema();
+    const [, memberId, decision] = invitationMatch;
+    if (!isUuid(memberId)) {
+      sendJson(res, 404, { ok: false, error: 'Invitation not found.' });
+      return true;
+    }
+    const myUserId = await resolveDatabaseUserId(authUser);
+    const myEmail = normalizeEmail(authUser.email);
+    const found = await db.query(`SELECT cm.*, c.owner_id FROM chamber_members cm JOIN chambers c ON c.id = cm.chamber_id WHERE cm.id = $1 LIMIT 1`, [memberId]);
+    const invite = found.rows[0];
+    if (!invite || !myEmail || normalizeEmail(invite.email) !== myEmail) {
+      sendJson(res, 404, { ok: false, error: 'Invitation not found.' });
+      return true;
+    }
+    if (invite.status !== 'invited') {
+      sendJson(res, 409, { ok: false, error: `This invitation is already ${invite.status}.` });
+      return true;
+    }
+    if (String(invite.owner_id) === String(myUserId)) {
+      sendJson(res, 400, { ok: false, error: 'You already own this chamber.' });
+      return true;
+    }
+    const nextStatus = decision === 'accept' ? 'active' : 'declined';
+    const updated = await db.query(`UPDATE chamber_members SET status = $2, user_id = CASE WHEN $2 = 'active' THEN $3::uuid ELSE user_id END, updated_at = now()
+      WHERE id = $1 AND status = 'invited' RETURNING id, chamber_id, display_name, member_role, status`, [memberId, nextStatus, myUserId]);
+    await writeAuditLog(authUser, `chamber_invitation_${decision === 'accept' ? 'accepted' : 'declined'}`, 'chamber_member', memberId, `Chamber invitation ${nextStatus}.`, { chamberId: invite.chamber_id });
+    const ownerRecipients = await resolveRecipients([invite.owner_id].filter(Boolean));
+    await notify({
+      eventType: decision === 'accept' ? 'chamber_member_joined' : 'chamber_member_declined',
+      title: decision === 'accept' ? 'Chamber member joined' : 'Chamber invitation declined',
+      message: `${authUser.name || invite.display_name} ${decision === 'accept' ? 'joined your Chamber Vault' : 'declined your Chamber Vault invitation'}.`,
+      recipients: ownerRecipients,
+      payload: { chamberId: invite.chamber_id, memberId },
+      sendEmail: false,
+      ctaLabel: 'Open Chamber Vault',
+      ctaUrl: portalUrl('/advocate/chamber'),
+    }).catch(() => undefined);
+    sendJson(res, 200, { ok: true, member: updated.rows[0] });
     return true;
   }
 
@@ -11290,6 +11459,11 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
     if (!res.headersSent) {
       if (isDemoStoreDisabledError(error)) {
         sendProductionDbUnavailable(res);
+        return;
+      }
+      // Postgres 22P02 = malformed id/number in the URL or body: a bad request, not a server crash.
+      if (error && error.code === '22P02') {
+        sendJson(res, 400, { ok: false, error: 'That record id is not valid.', requestId });
         return;
       }
       sendJson(res, 500, {
