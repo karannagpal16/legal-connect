@@ -152,6 +152,9 @@ async function initDb() {
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at timestamptz`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at timestamptz`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status text NOT NULL DEFAULT 'active'`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_at timestamptz`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS suspension_reason text`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS login_verifications (
@@ -254,6 +257,7 @@ async function initDb() {
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS failure_reason text`);
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS verified_at timestamptz`);
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS stage_status text`);
+    await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`);
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS case_title text`);
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS case_number text`);
     await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS court_name text`);

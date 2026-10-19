@@ -214,7 +214,8 @@ function AdvocatePortal() {
             <Route path="/advocate/overview" component={AdvocateDashboard} />
             <Route path="/advocate" component={AdvocateToday} />
             <Route path="/advocate/dashboard"><Redirect to="/advocate" /></Route>
-            <Route path="/advocate/calls" component={AdvocateCalls} />
+            {/* The old Calls page showed sample clients only; real consultations live in Bookings. */}
+            <Route path="/advocate/calls"><Redirect to="/advocate/bookings" /></Route>
             <Route path="/advocate/diary" component={AdvocateDiary} />
             <Route path="/advocate/proxy" component={AdvocateProxy} />
             <Route path="/advocate/reminders" component={AdvocateReminders} />

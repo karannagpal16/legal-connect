@@ -13,6 +13,7 @@ const { createMasterBlueprint } = require("./master-blueprint");
 const { isWorkHoldActive } = require("./work-hold");
 const { createSettlementLedger } = require("./settlement-ledger");
 const { quoteProduct } = require("./products");
+const { createSupervision } = require("./supervision");
 const {
   canPostProxyMission,
   isComplimentaryProxyOrder,
@@ -1240,20 +1241,39 @@ async function sendEmail({ to, subject, html, text }) {
   }
 }
 
+const MAX_JSON_BODY_BYTES = 12 * 1024 * 1024; // 8 MB order-sheet scans arrive base64-encoded (~11 MB)
+
 function readBody(req) {
-  return new Promise((resolve) => {
-    let body = "";
+  // Cached so a guard can inspect the body and the route handler still receives it.
+  if (req.__lcBodyPromise) return req.__lcBodyPromise;
+  req.__lcBodyPromise = new Promise((resolve) => {
+    const chunks = [];
+    let total = 0;
+    let tooLarge = false;
     req.on("data", (chunk) => {
-      body += chunk;
+      if (tooLarge) return;
+      total += chunk.length;
+      if (total > MAX_JSON_BODY_BYTES) {
+        tooLarge = true;
+        req.__lcBodyTooLarge = true;
+        resolve({});
+        req.destroy();
+        return;
+      }
+      chunks.push(Buffer.from(chunk));
     });
     req.on("end", () => {
+      if (tooLarge) return;
       try {
-        resolve(body ? JSON.parse(body) : {});
+        const text = Buffer.concat(chunks).toString("utf8");
+        resolve(text ? JSON.parse(text) : {});
       } catch {
         resolve({});
       }
     });
+    req.on("error", () => resolve({}));
   });
+  return req.__lcBodyPromise;
 }
 
 function readRawBody(req, maxBytes = 1024 * 1024) {
@@ -1796,7 +1816,18 @@ function dashboardUser(item) {
     barIdMasked: barLast4 ? `•••• ${barLast4}` : null,
     lastLoginAt: item.lastLoginAt || item.last_login_at || null,
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+    accountStatus: item.accountStatus || item.account_status || "active",
+    suspensionReason: item.suspensionReason || item.suspension_reason || null,
   };
+}
+
+// Self-tracked matters must not link themselves to bookings, counsel or LC pipeline state.
+function stripCaseLinkFields(body, isAdmin) {
+  const copy = { ...(body || {}) };
+  if (isAdmin) return copy;
+  for (const key of ["bookingId", "booking_id", "assignedTo", "assignedAdvocateId", "assigned_advocate_id", "counsel", "pipelineStage", "pipeline",
+    "lcApproved", "lcApprovedAt", "health", "healthScore", "user_id", "userId", "role", "paymentStatus", "workHoldStatus"]) delete copy[key];
+  return copy;
 }
 
 function internalUserRole(role) {
@@ -3260,6 +3291,21 @@ const workflowProgressions = createWorkflowProgressions({
   ensureInternQuestsTable,
 });
 
+const supervision = createSupervision({
+  db,
+  sendJson: (...args) => sendJson(...args),
+  readBody: (req) => readBody(req),
+  getAuthUser: (req) => getAuthUser(req),
+  canSeeAll: (user) => canSeeAll(user),
+  writeAuditLog: (...args) => writeAuditLog(...args),
+  notify: (...args) => notify(...args),
+  resolveRecipients: (...args) => resolveRecipients(...args),
+  portalUrl: (...args) => portalUrl(...args),
+  isUuid: (value) => isUuid(value),
+  resolveDatabaseUserId: (user) => resolveDatabaseUserId(user),
+  isMasterTestUser: (user) => isMasterTestUser(user),
+});
+
 const masterBlueprint = createMasterBlueprint({
   db,
   config,
@@ -3980,6 +4026,10 @@ const server = http.createServer(async (req, res) => {
           ? await db.query("SELECT * FROM users WHERE phone = $1 LIMIT 1", [phone])
           : { rows: [] };
 
+      if (existing.rows.length && String(existing.rows[0].account_status || "active") === "suspended") {
+        sendJson(res, 403, { ok: false, code: "ACCOUNT_SUSPENDED", error: "This account is suspended. Contact Legal Connect support." });
+        return;
+      }
       if (existing.rows.length) {
         const previousRole = existing.rows[0].role;
         role = resolveLoginRole(requestedRole, previousRole, isReviewLogin);
@@ -5242,6 +5292,8 @@ const server = http.createServer(async (req, res) => {
           u.role,
           u.created_at,
           u.last_login_at,
+          COALESCE(u.account_status, 'active') AS account_status,
+          u.suspension_reason,
           COALESCE(pa.practice_areas, '') AS practice_areas,
           COALESCE(pa.office_address, '') AS office_address,
           COALESCE(pa.enrollment_no, '') AS enrollment_no,
@@ -5289,6 +5341,8 @@ const server = http.createServer(async (req, res) => {
           locationBase: contactAddress || row.practice_courts || "",
           barId: row.enrollment_no || row.college_id_no || null,
           verificationStatus: row.advocate_verification || row.client_verification || row.intern_verification || null,
+          accountStatus: row.account_status || "active",
+          suspensionReason: row.suspension_reason || null,
         });
       }));
       return;
@@ -5337,6 +5391,22 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { error: "You cannot delete the account currently in use." });
         return;
       }
+      if (db.dbAvailable && isUuid(id)) {
+        // Users with matters, payments or work history must be suspended, not deleted (records must be kept).
+        const footprint = await db.query(
+          `SELECT
+             (SELECT count(*) FROM bookings WHERE user_id = $1)
+           + (SELECT count(*) FROM cases WHERE user_id = $1)
+           + (SELECT count(*) FROM tasks WHERE posted_by::text = $1::text OR accepted_by::text = $1::text)
+           + (SELECT count(*) FROM case_assignments WHERE advocate_id = $1) AS n`,
+          [id],
+        ).catch(() => ({ rows: [{ n: 1 }] }));
+        if (Number(footprint.rows[0]?.n || 0) > 0) {
+          sendJson(res, 409, { error: "This user has bookings, matters or ProxyHub work on record. Suspend the account instead of deleting it." });
+          return;
+        }
+        await writeAuditLog(authUser, "user_deleted", "user", id, "User without records deleted by LC Admin.", {}).catch(() => undefined);
+      }
       if (db.dbAvailable) await db.query("DELETE FROM users WHERE id = $1", [id]);
       else demoStore.users = demoStore.users.filter((item) => String(item.id) !== String(id));
       sendJson(res, 200, { ok: true });
@@ -5355,6 +5425,7 @@ const server = http.createServer(async (req, res) => {
     }
     const body = await readBody(req);
     if (db.dbAvailable) {
+      const before = await db.query("SELECT role FROM users WHERE id = $1 LIMIT 1", [id]).catch(() => ({ rows: [] }));
       const result = await db.query(
         `UPDATE users SET name = COALESCE($2, name), email = COALESCE($3, email), phone = COALESCE($4, phone), role = COALESCE($5, role)
          WHERE id = $1 RETURNING id, name, email, phone, role, created_at`,
@@ -5364,6 +5435,8 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 404, { error: "User not found" });
         return;
       }
+      await writeAuditLog(authUser, before.rows[0] && before.rows[0].role !== result.rows[0].role ? "user_role_changed" : "user_updated", "user", id,
+        "User details updated by LC Admin.", { previousRole: before.rows[0]?.role || null, role: result.rows[0].role, fields: Object.keys(body || {}).slice(0, 10) }).catch(() => undefined);
       sendJson(res, 200, dashboardUser(result.rows[0]));
       return;
     }
@@ -5530,15 +5603,47 @@ const server = http.createServer(async (req, res) => {
         db.query("SELECT id, name, role FROM users"),
         db.query("SELECT * FROM bookings"),
       ]);
+      // Real money only: verified consultation payments, paid chamber plans and non-complimentary ProxyHub collections.
+      const monthly = await db.query(`
+        WITH m AS (
+          SELECT date_trunc('month', COALESCE(verified_at, created_at)) AS mo, COALESCE(amount, 0)::bigint AS v, 'consultations' AS src
+            FROM bookings WHERE payment_status = 'paid' AND COALESCE(amount, 0) > 0
+          UNION ALL
+          SELECT date_trunc('month', COALESCE(paid_at, created_at)), amount::bigint, 'chamber'
+            FROM chamber_subscription_orders WHERE status = 'paid'
+          UNION ALL
+          SELECT date_trunc('month', created_at), collected::bigint, 'proxyhub'
+            FROM locked_payments WHERE NOT COALESCE(complimentary, false) AND collected > 0 AND status <> 'REFUNDED'
+        )
+        SELECT to_char(mo, 'YYYY-MM') AS month, src, SUM(v)::bigint AS total
+        FROM m WHERE mo >= date_trunc('month', now()) - interval '5 months'
+        GROUP BY 1, 2 ORDER BY 1`).catch(() => ({ rows: [] }));
+      const months = [];
+      for (let i = 5; i >= 0; i -= 1) {
+        const d = new Date();
+        d.setUTCDate(1);
+        d.setUTCMonth(d.getUTCMonth() - i);
+        months.push(d.toISOString().slice(0, 7));
+      }
+      const monthlyRevenue = months.map((month) => {
+        const rows = monthly.rows.filter((row) => row.month === month);
+        const part = (src) => Number(rows.find((row) => row.src === src)?.total || 0);
+        const label = new Date(`${month}-01T00:00:00Z`).toLocaleString("en-IN", { month: "short", timeZone: "UTC" });
+        return { month, name: label, consultations: part("consultations"), chamber: part("chamber"), proxyhub: part("proxyhub"), revenue: part("consultations") + part("chamber") + part("proxyhub") };
+      });
       sendJson(
         res,
         200,
-        revenueAnalytics(
-          cases.rows.map(mapCase),
-          tasks.rows.map(mapTask),
-          users.rows.map(mapUser),
-          bookings.rows.map(mapBooking),
-        ),
+        {
+          ...revenueAnalytics(
+            cases.rows.map(mapCase),
+            tasks.rows.map(mapTask),
+            users.rows.map(mapUser),
+            bookings.rows.map(mapBooking),
+          ),
+          monthlyRevenue,
+          monthlyRevenueBasis: "Verified payments collected (consultations, chamber plans, ProxyHub); excludes free, demo and refunded.",
+        },
       );
       return;
     }
@@ -5708,7 +5813,7 @@ const server = http.createServer(async (req, res) => {
           trackedCase.nextDate,
           trackedCase.status,
           body.notes || null,
-          JSON.stringify({ ...body, user_id: databaseUserId, role: userRole(authUser), stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
+          JSON.stringify({ ...stripCaseLinkFields(body, canSeeAll(authUser)), user_id: databaseUserId, role: userRole(authUser), stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
         ],
       );
       {
@@ -5816,6 +5921,12 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, matterResult.rows[0] ? 403 : 404, { error: matterResult.rows[0] ? "Forbidden" : "Case not found." });
       return;
     }
+    // This is the client <-> Legal Connect channel. Counsel never reads or writes it directly;
+    // counsel's messages go through LC-reviewed case updates.
+    if (!canSeeAll(authUser) && String(authUser.role) !== "client") {
+      sendJson(res, 403, { error: "Client messages go to Legal Connect. Counsel updates are sent through LC-reviewed case updates." });
+      return;
+    }
     if (req.method === "GET") {
       const result = await db.query("SELECT * FROM case_communications WHERE case_id = $1 ORDER BY occurred_at, created_at", [caseId]);
       sendJson(res, 200, {
@@ -5839,6 +5950,17 @@ const server = http.createServer(async (req, res) => {
     );
     await db.query("UPDATE cases SET updated_at = now() WHERE id = $1", [caseId]);
     const row = created.rows[0];
+    if (!canSeeAll(authUser)) {
+      await notify({
+        eventType: "client_message_to_lc",
+        title: "New client message for Legal Connect",
+        message: `${authUser.name || "A client"} wrote about ${matterResult.rows[0].title || "a matter"}.`,
+        recipients: await resolveAdminRecipients(),
+        payload: { caseId, communicationId: row.id, actionType: "ADMIN_REPLY", targetUrl: "/admin/cases" },
+        sendEmail: true,
+        priority: "high",
+      }).catch(() => undefined);
+    }
     sendJson(res, 201, { ok: true, communication: { id: row.id, type: row.communication_type, title: row.title, summary: row.summary, occurredAt: row.occurred_at, senderId: row.sender_id }, dataMode: "live" });
     return;
   }
@@ -5901,17 +6023,51 @@ const server = http.createServer(async (req, res) => {
       }
       const current = mapCase(existing.rows[0]);
       const databaseUserId = await resolveDatabaseUserId(authUser);
-      if (!canSeeAll(authUser) && current.userId !== databaseUserId && current.assignedTo !== databaseUserId) {
+      // Counsel is whoever LC assigned in case_assignments (the case row itself has no assignee column).
+      const assignedRow = databaseUserId && isUuid(String(databaseUserId)) && String(authUser.role) === "advocate"
+        ? await db.query("SELECT 1 FROM case_assignments WHERE case_id = $1 AND advocate_id = $2 AND status = 'active' LIMIT 1", [id, databaseUserId]).catch(() => ({ rows: [] }))
+        : { rows: [] };
+      const isCaseCounsel = Boolean(assignedRow.rows[0]) || (current.assignedTo && current.assignedTo === databaseUserId);
+      if (!canSeeAll(authUser) && current.userId !== databaseUserId && !isCaseCounsel) {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
+      const isAdminActor = canSeeAll(authUser);
+      const isAssignedCounsel = !isAdminActor && isCaseCounsel;
       if (req.method === "DELETE") {
+        // Matters carry the client's history, counsel's work and LC's audit trail: only LC Admin may delete.
+        if (!isAdminActor) {
+          sendJson(res, 403, { error: "Matters can't be deleted from here. Ask Legal Connect to close or archive it." });
+          return;
+        }
+        await writeAuditLog(authUser, "case_deleted", "case", id, "Matter deleted by LC Admin.", { title: current.caseTitle || null }).catch(() => undefined);
         await db.query("DELETE FROM cases WHERE id = $1", [id]);
         sendJson(res, 204, {});
         return;
       }
 
-      const body = await readBody(req);
+      const rawCaseBody = await readBody(req);
+      // Who may edit what. Stage/status changes by counsel go through the LC-reviewed stage route.
+      const CLIENT_FIELDS = ["title", "caseTitle", "notes"];
+      const COUNSEL_FIELDS = ["title", "caseTitle", "notes", "court", "courtName", "caseNumber", "caseNo", "case_number", "nextDate", "hearingTime", "time", "room", "roomNo", "itemNumber", "hearingPurpose", "purpose"];
+      const ADMIN_FIELDS = [...COUNSEL_FIELDS, "status"];
+      const allowedCaseFields = isAdminActor ? ADMIN_FIELDS : isAssignedCounsel ? COUNSEL_FIELDS : CLIENT_FIELDS;
+      const body = {};
+      for (const key of allowedCaseFields) {
+        if (rawCaseBody[key] !== undefined) body[key] = typeof rawCaseBody[key] === "string" ? rawCaseBody[key].slice(0, 4000) : rawCaseBody[key];
+      }
+      if (rawCaseBody.status !== undefined && !isAdminActor) {
+        sendJson(res, 403, { error: isAssignedCounsel ? "Update the matter stage from your case tracker; Legal Connect reviews it before the client sees it." : "Only Legal Connect or your counsel can change the matter status." });
+        return;
+      }
+      if (body.nextDate !== undefined && body.nextDate !== null && body.nextDate !== "" && !/^\d{4}-\d{2}-\d{2}/.test(String(body.nextDate))) {
+        sendJson(res, 400, { error: "Next date must be YYYY-MM-DD." });
+        return;
+      }
+      const ignoredCaseKeys = Object.keys(rawCaseBody).filter((key) => !allowedCaseFields.includes(key));
+      if (ignoredCaseKeys.length) {
+        await writeAuditLog(authUser, "case_update_fields_ignored", "case", id, "Protected matter fields were ignored.", { ignored: ignoredCaseKeys.slice(0, 20) }).catch(() => undefined);
+      }
       const next = {
         ...current,
         ...body,
@@ -5926,8 +6082,9 @@ const server = http.createServer(async (req, res) => {
          SET title = $2, court = $3, case_number = $4, next_date = $5, status = $6, notes = $7, payload = $8, updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, next.title, next.court, next.caseNumber, next.nextDate, next.status, body.notes ?? current.notes ?? null, JSON.stringify({ ...next, user_id: current.userId })],
+        [id, next.title, next.court, next.caseNumber, next.nextDate, next.status, body.notes ?? current.notes ?? null, JSON.stringify({ ...(existing.rows[0].payload && typeof existing.rows[0].payload === "object" ? existing.rows[0].payload : {}), ...body, title: next.title, user_id: current.userId })],
       );
+      await writeAuditLog(authUser, "case_updated", "case", id, "Matter details updated.", { fields: Object.keys(body).slice(0, 20), role: authUser.role }).catch(() => undefined);
       const mapped = mapCase(result.rows[0]);
       const previousDate = current.nextDate ? String(current.nextDate).slice(0, 10) : "";
       const upcomingDate = mapped.nextDate ? String(mapped.nextDate).slice(0, 10) : "";
@@ -8192,13 +8349,40 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { error: "Only the task owner or an admin can change this task." });
         return;
       }
+      const currentPayload = current.payload && typeof current.payload === "object" ? current.payload : {};
+      const hasPayment = Boolean(
+        current.razorpayOrderId || currentPayload.razorpayOrderId || current.paymentLockStatus || currentPayload.paymentLockStatus
+        || current.bookingId || /held|lock|escrow|paid|released|refund/i.test(String(current.escrowStatus || "")),
+      );
+      const workStarted = Boolean(current.acceptedBy || current.assignedToId || currentPayload.checkedInAt || current.proofUrl || currentPayload.proofStatus);
       if (req.method === "DELETE") {
+        // Paid or assigned missions hold client money and an advocate's commitment: cancel/refund through LC, never delete.
+        if (hasPayment || workStarted) {
+          sendJson(res, 409, { error: "This mission is paid or already assigned, so it can't be deleted. Ask Legal Connect to cancel and refund it." });
+          return;
+        }
+        await writeAuditLog(authUser, "task_deleted", "task", id, "Unpaid, unassigned mission deleted.", { byAdmin: canSeeAll(authUser) }).catch(() => undefined);
         await db.query("DELETE FROM tasks WHERE id = $1", [id]);
         sendJson(res, 204, {});
         return;
       }
-      const body = await readBody(req);
-      const escrowLocked = /held|lock|escrow/i.test(String(current.escrowStatus || ""));
+      const rawBody = await readBody(req);
+      const proofStage = String(currentPayload.proofStatus || current.proofStatus || "").toLowerCase();
+      if (["submitted", "lc_verified", "approved", "accepted", "completed", "released"].includes(proofStage) || /complete|released|closed/i.test(String(current.status || ""))) {
+        sendJson(res, 409, { error: "Proof is already filed for this mission, so its brief can no longer be edited." });
+        return;
+      }
+      // Only the brief can be edited. Money, workflow, proof and assignment fields move through their own audited actions.
+      const BRIEF_FIELDS = ["title", "taskDescription", "court", "location", "taskType", "task_type", "appearanceType", "cnr", "room", "roomNo", "itemNo", "hearingDate", "passoverScript", "passoverInstructions"];
+      const body = {};
+      for (const key of BRIEF_FIELDS) {
+        if (rawBody[key] !== undefined) body[key] = typeof rawBody[key] === "string" ? rawBody[key].slice(0, 4000) : rawBody[key];
+      }
+      const ignoredKeys = Object.keys(rawBody).filter((key) => !BRIEF_FIELDS.includes(key) && !["fee", "amount", "urgency"].includes(key));
+      if (ignoredKeys.length) {
+        await writeAuditLog(authUser, "task_update_fields_ignored", "task", id, "Protected mission fields were ignored.", { ignored: ignoredKeys.slice(0, 20) }).catch(() => undefined);
+      }
+      const escrowLocked = true; // amount never changes through this route
       const next = {
         ...current,
         ...body,
@@ -8230,7 +8414,7 @@ const server = http.createServer(async (req, res) => {
          SET title = $2, court = $3, task_type = $4, amount = $5, escrow_status = $6, status = $7, accepted_by = $8, proof_url = $9, payload = $10, updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, next.proofUrl || body.proof_url || current.proofUrl || null, JSON.stringify(payload)],
+        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, current.proofUrl || null, JSON.stringify(payload)],
       );
       const updatedTask = mapTask(result.rows[0]);
       const proofAdded = Boolean((body.proofUrl || body.proof_url) && !(current.proofUrl));
@@ -8356,7 +8540,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const bookingUserId = userIdForWrite(body, authUser);
-    const booking = { id: `booking-${Date.now()}`, userId: bookingUserId, status: "Pending", createdAt: new Date().toISOString(), ...body };
+    const isAdminBooking = canSeeAll(authUser);
+    // Only payments verified by Razorpay can make a booking paid. Strip every money/assignment/free flag
+    // from non-admin requests and price from the server catalogue.
+    const PROTECTED_BOOKING_KEYS = ["paymentStatus", "payment_status", "status", "workHoldStatus", "work_hold_status", "razorpayOrderId", "razorpay_order_id",
+      "razorpayPaymentId", "razorpay_payment_id", "failureReason", "failure_reason", "firstChatFree", "masterTestFree", "expected_amount_paise",
+      "assignedAdvocateId", "assigned_advocate_id", "assignedAdvocateName", "intakeStatus", "stageStatus", "verifiedAt", "amount", "price"];
+    const safeBody = { ...body };
+    if (!isAdminBooking) for (const key of PROTECTED_BOOKING_KEYS) delete safeBody[key];
+    let serverAmount = numericAmount(body.amount || body.price);
+    if (!isAdminBooking) {
+      try {
+        serverAmount = quoteProduct({ channel: body.consultationChannel || body.channel, productId: body.product_id || body.productId }).amountInr;
+      } catch {
+        serverAmount = 0;
+      }
+    } else {
+      await writeAuditLog(authUser, "booking_created_by_admin", "booking", "new", "Booking created directly by LC Admin.", { paymentStatus: body.paymentStatus || null }).catch(() => undefined);
+    }
+    const booking = { id: `booking-${Date.now()}`, userId: bookingUserId, status: "Pending", createdAt: new Date().toISOString(), ...safeBody };
     if (db.dbAvailable) {
       const result = await db.query(
         `INSERT INTO bookings (user_id, service_type, amount, payment_status, receipt_no, next_destination, razorpay_order_id, razorpay_payment_id, work_hold_status, failure_reason, payload)
@@ -8365,15 +8567,15 @@ const server = http.createServer(async (req, res) => {
         [
           bookingUserId,
           body.serviceType || body.service_type || body.legalIssueType || body.plan || "Legal Connect booking",
-          numericAmount(body.amount || body.price),
-          body.paymentStatus || body.payment_status || body.status || "Pending",
+          serverAmount,
+          isAdminBooking ? (body.paymentStatus || body.payment_status || body.status || "Pending") : "Pending",
           body.receiptNo || body.receipt_no || null,
           body.nextDestination || body.next_destination || body.route || null,
-          body.razorpayOrderId || body.razorpay_order_id || null,
-          body.razorpayPaymentId || body.razorpay_payment_id || null,
-          body.workHoldStatus || body.work_hold_status || "pending",
-          body.failureReason || body.failure_reason || null,
-          JSON.stringify({ ...body, user_id: bookingUserId, role: userRole(authUser) }),
+          isAdminBooking ? (body.razorpayOrderId || body.razorpay_order_id || null) : null,
+          isAdminBooking ? (body.razorpayPaymentId || body.razorpay_payment_id || null) : null,
+          isAdminBooking ? (body.workHoldStatus || body.work_hold_status || "pending") : "pending",
+          isAdminBooking ? (body.failureReason || body.failure_reason || null) : null,
+          JSON.stringify({ ...safeBody, amount: serverAmount, user_id: bookingUserId, role: userRole(authUser) }),
         ],
       );
       const savedBooking = mapBooking(result.rows[0]);
@@ -8573,29 +8775,63 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
+      const paymentState = String(existing.rows[0].payment_status || "").toLowerCase();
+      const moneyMoved = ["paid", "order_created", "verification_pending", "refunded", "refund_pending", "amount_mismatch"].includes(paymentState)
+        || Boolean(existing.rows[0].razorpay_payment_id);
       if (req.method === "DELETE") {
-        if (!canSeeAll(authUser) && current.userId !== authUser.id) {
+        if (!canSeeAll(authUser) && String(current.userId) !== String(authUser.id)) {
           sendJson(res, 403, { error: "Only the booking owner or an admin can delete this booking." });
           return;
         }
+        // Paid or in-payment bookings are financial records: cancel/refund them, never delete.
+        if (moneyMoved) {
+          sendJson(res, 409, { error: "This booking has a payment record and cannot be deleted. Cancel or refund it instead." });
+          return;
+        }
+        await writeAuditLog(authUser, "booking_deleted", "booking", id, "Unpaid booking deleted.", { byAdmin: canSeeAll(authUser) }).catch(() => undefined);
         await db.query("DELETE FROM bookings WHERE id = $1", [id]);
         sendJson(res, 204, {});
         return;
       }
       const body = await readBody(req);
-      const next = {
-        ...current,
-        ...body,
-        legalIssueType: body.legalIssueType ?? body.serviceType ?? current.legalIssueType,
-        status: body.status ?? body.paymentStatus ?? current.status,
-      };
+      const isAdmin = canSeeAll(authUser);
+      // Only descriptive fields can change here. Money, assignment and free-chat flags never can.
+      const EDITABLE = ["caseTitle", "problemSummary", "particulars", "oppositeParty", "partyName", "clientName", "court", "caseType", "legalIssueType"];
+      const patch = {};
+      for (const key of EDITABLE) {
+        if (body[key] !== undefined) patch[key] = typeof body[key] === "string" ? body[key].slice(0, 4000) : body[key];
+      }
+      let nextStatus = null;
+      const requested = body.status !== undefined ? String(body.status) : null;
+      if (requested) {
+        const allowed = isAdmin ? ["Pending", "Confirmed", "Completed", "Cancelled"] : ["Cancelled"];
+        if (!allowed.includes(requested)) {
+          sendJson(res, 403, { error: isAdmin ? "Unknown booking status." : "You can only cancel your own booking. Status changes are made by Legal Connect." });
+          return;
+        }
+        if (!isAdmin && moneyMoved) {
+          sendJson(res, 409, { error: "This booking is paid. Raise a refund request or grievance instead of cancelling it here." });
+          return;
+        }
+        nextStatus = requested;
+      }
+      const ignored = Object.keys(body).filter((key) => !EDITABLE.includes(key) && key !== "status");
+      if (ignored.length) {
+        await writeAuditLog(authUser, "booking_update_fields_ignored", "booking", id, "Protected booking fields were ignored.", { ignored: ignored.slice(0, 20) }).catch(() => undefined);
+      }
+      const payloadPatch = { ...patch, ...(nextStatus ? { status: nextStatus, bookingStatus: nextStatus, statusChangedBy: authUser.role, statusChangedAt: new Date().toISOString() } : {}) };
       const result = await db.query(
         `UPDATE bookings
-         SET service_type = $2, amount = $3, payment_status = $4, payload = $5
+         SET service_type = COALESCE($2, service_type),
+             stage_status = COALESCE($3, stage_status),
+             payload = COALESCE(payload, '{}'::jsonb) || $4::jsonb
          WHERE id = $1
          RETURNING *`,
-        [id, next.legalIssueType, numericAmount(body.amount, numericAmount(current.amount)), next.status, JSON.stringify({ ...next, user_id: current.userId })],
+        [id, patch.legalIssueType || null, nextStatus ? nextStatus.toLowerCase() : null, JSON.stringify(payloadPatch)],
       );
+      if (nextStatus) {
+        await writeAuditLog(authUser, "booking_status_changed", "booking", id, `Booking status set to ${nextStatus}.`, { from: current.status || null, to: nextStatus }).catch(() => undefined);
+      }
       sendJson(res, 200, mapBooking(result.rows[0]));
       return;
     }
@@ -8776,6 +9012,15 @@ const server = http.createServer(async (req, res) => {
         message: "Google Play review court mission is synthetic and cannot release funds.",
       });
       return;
+    }
+    // Missions are posted through ProxyHub checkout (create-order + verify-payment), which proves payment.
+    // This raw route is only for LC Admin (and the developer account); others could otherwise fake a "held" escrow.
+    if (!canSeeAll(authUser) && !(await isMasterTestUser(authUser))) {
+      sendJson(res, 403, { ok: false, error: "Post missions through ProxyHub checkout so the payment is verified." });
+      return;
+    }
+    if (canSeeAll(authUser)) {
+      await writeAuditLog(authUser, "task_created_by_admin", "task", "new", "Mission created directly by LC Admin.", { title: body.title || null, escrowStatus: body.escrowStatus || null }).catch(() => undefined);
     }
     const PROXY_MIN_FEE = PROXY_URGENCY_TIERS.standard.fee;
     const feeAmount = numericAmount(body.amount || body.fee);
@@ -9767,7 +10012,7 @@ function strictPublicUser(row) {
 async function strictUserByEmail(email) {
   if (!db.dbAvailable) return null;
   const result = await db.query(`SELECT users.id, users.name, users.email, users.phone, users.password_hash,
-    COALESCE(roles.name, users.role) AS role, users.created_at,
+    COALESCE(roles.name, users.role) AS role, users.created_at, users.account_status,
     COALESCE((SELECT iv.status FROM identity_verifications iv WHERE iv.user_id = users.id ORDER BY iv.created_at DESC LIMIT 1), 'pending') AS verification_status
     FROM users LEFT JOIN roles ON roles.id = users.role_id WHERE lower(users.email) = lower($1) LIMIT 1`, [email]);
   const user = result.rows[0] || null;
@@ -10248,6 +10493,11 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 401, { ok: false, error: 'Invalid email or password.' });
       return true;
     }
+    if (String(user.account_status || 'active') === 'suspended') {
+      await writeAuditLog(user, 'login_blocked_suspended', 'user', user.id, 'Sign-in refused: account suspended.', {}).catch(() => undefined);
+      sendJson(res, 403, { ok: false, code: 'ACCOUNT_SUSPENDED', error: 'This account is suspended. Contact Legal Connect support.' });
+      return true;
+    }
     const token = strictSignJwt(user);
     await saveSessionToken(user, token);
     await writeAuditLog(user, 'jwt_login', 'user', user.id, 'Strict JWT login completed.', { role: user.role, emailMasked: maskEmail(user.email) });
@@ -10529,7 +10779,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       LEFT JOIN users assignee ON assignee.id = h.assigned_to
       LEFT JOIN LATERAL (SELECT outcome, next_hearing_date, next_purpose, order_status FROM case_hearing_updates WHERE hearing_assignment_id = h.id ORDER BY created_at DESC LIMIT 1) hu ON true
       LEFT JOIN LATERAL (SELECT id, verification_status, file_name, uploaded_at FROM case_hearing_orders WHERE hearing_assignment_id = h.id AND verification_status <> 'upload_pending' ORDER BY created_at DESC LIMIT 1) ho ON true
-      WHERE (c.next_date = $2 OR EXISTS (SELECT 1 FROM case_hearing_assignments closed_today WHERE closed_today.case_id = c.id AND closed_today.chamber_id = $1 AND closed_today.hearing_date = $2::date))
+      WHERE (left(c.next_date, 10) = to_char($2::date, 'YYYY-MM-DD') OR EXISTS (SELECT 1 FROM case_hearing_assignments closed_today WHERE closed_today.case_id = c.id AND closed_today.chamber_id = $1 AND closed_today.hearing_date = $2::date))
         AND (
           EXISTS (SELECT 1 FROM case_hearing_assignments visible WHERE visible.case_id = c.id AND visible.chamber_id = $1 AND visible.hearing_date = $2::date)
           OR EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_id = c.id AND ca.status = 'active' AND ca.advocate_id IN (
@@ -10588,7 +10838,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         SELECT c.id, c.title
         FROM cases c
         WHERE c.id = $1
-          AND c.next_date = $2::date
+          AND left(c.next_date, 10) = to_char($2::date, 'YYYY-MM-DD')
           AND (
             EXISTS (
               SELECT 1 FROM case_assignments ca
@@ -11415,6 +11665,20 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
         } catch (error) {
           console.warn('bindAuthUser failed:', redactSecrets(error?.message || error));
         }
+        // LC supervision: suspended accounts, unverified advocates and unverified assignees are stopped here,
+        // before any route runs. Fails closed for gated actions if the check itself errors.
+        let blocked = null;
+        try {
+          blocked = await supervision.guard(req, url);
+        } catch (error) {
+          console.error('supervision guard failed:', redactSecrets(error?.message || error));
+          if (req.method !== 'GET') blocked = { status: 503, body: { ok: false, error: 'Safety checks are unavailable. Please retry shortly.' } };
+        }
+        if (blocked) {
+          sendJson(res, blocked.status, blocked.body);
+          return;
+        }
+        if (await supervision.handle(req, res, url)) return;
       }
       if (await handleStrictJwtAuthRoute(req, res, url)) return;
     } catch (error) {

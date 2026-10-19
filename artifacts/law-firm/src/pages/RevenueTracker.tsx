@@ -5,14 +5,6 @@ import { Redirect } from "wouter";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
 import { normaliseRole, useAuth } from "@/lib/auth";
 
-const mockChartData = [
-  { name: "Jan", revenue: 1500000 },
-  { name: "Feb", revenue: 1800000 },
-  { name: "Mar", revenue: 1600000 },
-  { name: "Apr", revenue: 2100000 },
-  { name: "May", revenue: 2500000 },
-  { name: "Jun", revenue: 2800000 },
-];
 
 type ParticipantRow = {
   id: string;
@@ -227,10 +219,11 @@ export function RevenueTracker() {
         </div>
 
         <div className="lg:col-span-2 bg-card border border-border rounded-3xl p-6 shadow-lg">
-          <h3 className="text-lg font-bold mb-6">Revenue Growth (Projected)</h3>
+          <h3 className="text-lg font-bold mb-1">Verified collections by month</h3>
+          <p className="text-muted-foreground text-xs mb-5">Last 6 months of paid consultations, chamber plans and ProxyHub fees. Free, demo and refunded payments are excluded.</p>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockChartData}>
+              <AreaChart data={((analytics as any)?.monthlyRevenue ?? []) as Array<{ name: string; revenue: number }>}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
