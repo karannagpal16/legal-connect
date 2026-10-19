@@ -220,6 +220,166 @@ async function main() {
     check("Access", "client cannot open an advocate's proxy mission", view.status === 403 || view.status === 404 || !JSON.stringify(view.json).includes(mission.cnr), brief(view));
   }
 
+  // ---------- LC Admin supervision ----------
+  const istToday = () => {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const by = Object.fromEntries(parts.filter((x) => x.type !== "literal").map((x) => [x.type, x.value]));
+    return `${by.year}-${by.month}-${by.day}`;
+  };
+  const meId = async (slug) => { const r = await call("/api/auth/me", { token: tokens[slug] }); return r.json.user?.id || r.json.id; };
+  const queue = await call("/api/admin/supervision", { token: tokens.admin });
+  check("Supervision", "admin sees the needs-attention queue", queue.status === 200 && Array.isArray(queue.json.queue) && queue.json.queue.length >= 8, brief(queue));
+  const queueClient = await call("/api/admin/supervision", { token: tokens.client });
+  check("Supervision", "client cannot see the supervision queue", queueClient.status === 403, brief(queueClient));
+
+  // Unverified advocate: can sign in and look around, but cannot take paid or client work.
+  const unverifiedEmail = acct("admin").email.replace("lc-test-admin", `lc-test-unverified${Date.now()}`);
+  const unverifiedPassword = `Unv-${Date.now()}#a`;
+  const reg = await call("/api/auth/strict/register", { method: "POST", body: { name: "Adv. Unverified (test)", email: unverifiedEmail, password: unverifiedPassword, role: "advocate", privacyConsent: true, enrollmentNo: "D/TEST/9999/2024", stateBarCouncil: "Bar Council of Delhi", practiceCourts: "Saket" } });
+  const unvLogin = await call("/api/auth/strict/login", { method: "POST", body: { email: unverifiedEmail, password: unverifiedPassword } });
+  tokens.unverified = unvLogin.json.token;
+  check("Supervision", "unverified advocate can register and sign in", reg.status < 300 && Boolean(tokens.unverified), brief(unvLogin));
+  const unvPost = await call("/api/proxy-hub/create-order", { method: "POST", token: tokens.unverified, body: { title: "x", fee: 499, urgency: "standard" } });
+  check("Supervision", "unverified advocate cannot post a paid ProxyHub mission", unvPost.status === 403 && unvPost.json.code === "ADVOCATE_NOT_VERIFIED", brief(unvPost));
+  const unvWs = await call("/api/workspaces/advocate", { token: tokens.unverified });
+  check("Supervision", "unverified advocate can still open their workspace", unvWs.status === 200, brief(unvWs));
+  const unverifiedId = await meId("unverified");
+  if (taskId) {
+    const badAssign = await call(`/api/admin/proxy-tasks/${encodeURIComponent(taskId)}/assign-proxy`, { method: "POST", token: tokens.admin, body: { proxyAdvocateId: unverifiedId, proxyAdvocateName: "Unverified" } });
+    check("Supervision", "admin cannot assign work to an unverified advocate", badAssign.status === 409 && badAssign.json.code === "ASSIGNEE_NOT_VERIFIED", brief(badAssign));
+  }
+
+  // Suspension.
+  const client2Id = await meId("client2");
+  const adminId = await meId("admin");
+  const noReason = await call(`/api/admin/users/${client2Id}/suspend`, { method: "POST", token: tokens.admin, body: {} });
+  check("Supervision", "suspension needs a written reason", noReason.status === 400, brief(noReason));
+  const selfSuspend = await call(`/api/admin/users/${adminId}/suspend`, { method: "POST", token: tokens.admin, body: { reason: "Testing self suspension" } });
+  check("Supervision", "admin cannot suspend themselves", selfSuspend.status === 400, brief(selfSuspend));
+  const advSuspend = await call(`/api/admin/users/${client2Id}/suspend`, { method: "POST", token: tokens.advocate, body: { reason: "Not allowed to do this" } });
+  check("Access", "advocate cannot suspend accounts", advSuspend.status === 403, brief(advSuspend));
+  const suspend = await call(`/api/admin/users/${client2Id}/suspend`, { method: "POST", token: tokens.admin, body: { reason: "E2E: suspected misuse, checking" } });
+  check("Supervision", "admin suspends a client with a reason", suspend.status === 200 && suspend.json.user?.account_status === "suspended", brief(suspend));
+  const oldSession = await call("/api/workspaces/client", { token: tokens.client2 });
+  check("Supervision", "suspended client's live session stops working", oldSession.status === 401 || oldSession.status === 403, brief(oldSession));
+  const suspendedLogin = await call("/api/auth/strict/login", { method: "POST", body: { email: acct("client2").email, password: acct("client2").password } });
+  check("Supervision", "suspended client cannot sign in", suspendedLogin.status === 403 && suspendedLogin.json.code === "ACCOUNT_SUSPENDED", brief(suspendedLogin));
+  const client1Id = await meId("client");
+  const hardDelete = await call(`/api/users/${client1Id}`, { method: "DELETE", token: tokens.admin });
+  check("Supervision", "users with bookings or matters can't be hard-deleted", hardDelete.status === 409, brief(hardDelete));
+  const userList = await call("/api/users", { token: tokens.admin });
+  const listed = (Array.isArray(userList.json) ? userList.json : []).find((u) => String(u.id) === String(client2Id));
+  check("Supervision", "admin user list shows suspension status", listed?.accountStatus === "suspended", JSON.stringify(listed || {}).slice(0, 120));
+  const reactivate = await call(`/api/admin/users/${client2Id}/reactivate`, { method: "POST", token: tokens.admin, body: { reason: "E2E: cleared after review" } });
+  const backIn = await call("/api/auth/strict/login", { method: "POST", body: { email: acct("client2").email, password: acct("client2").password } });
+  tokens.client2 = backIn.json.token || tokens.client2;
+  check("Supervision", "reactivated client can sign in again", reactivate.status === 200 && backIn.status === 200, brief(backIn));
+
+  // Legal SOS handled by admin.
+  const sos = await call("/api/sos", { method: "POST", token: tokens.client, body: { serviceType: "Legal SOS", urgency: "High", note: "Police at my door (test)" } });
+  check("Supervision", "client raises Legal SOS", sos.status === 201 || sos.status === 200, brief(sos));
+  const sosList = await call("/api/admin/sos", { token: tokens.admin });
+  const sosRow = (sosList.json.sos || [])[0];
+  check("Supervision", "admin sees open SOS with contact details", sosList.status === 200 && Boolean(sosRow?.requester_email), brief(sosList));
+  if (sosRow) {
+    const ack = await call(`/api/admin/sos/${sosRow.id}`, { method: "PATCH", token: tokens.admin, body: { status: "acknowledged" } });
+    check("Supervision", "admin acknowledges SOS", ack.status === 200, brief(ack));
+    const resolveNoNote = await call(`/api/admin/sos/${sosRow.id}`, { method: "PATCH", token: tokens.admin, body: { status: "resolved" } });
+    check("Supervision", "SOS cannot be resolved without saying what was done", resolveNoNote.status === 400, brief(resolveNoNote));
+    const resolve = await call(`/api/admin/sos/${sosRow.id}`, { method: "PATCH", token: tokens.admin, body: { status: "resolved", note: "Called client, connected duty counsel" } });
+    check("Supervision", "admin resolves SOS with a note", resolve.status === 200, brief(resolve));
+    const clientSos = await call(`/api/admin/sos/${sosRow.id}`, { method: "PATCH", token: tokens.client, body: { status: "closed", note: "client closing own sos" } });
+    check("Access", "client cannot change SOS handling", clientSos.status === 403, brief(clientSos));
+  }
+
+  // Account deletion requests.
+  const del = await call("/api/account/deletion-request", { method: "POST", token: tokens.client2, body: { reason: "No longer need the service (test)", confirm: true } });
+  const delList = await call("/api/admin/deletion-requests", { token: tokens.admin });
+  const delRows = Array.isArray(delList.json) ? delList.json : delList.json.requests || delList.json.deletionRequests || [];
+  const delId = del.json.request?.id || del.json.id || delRows[0]?.id;
+  check("Supervision", "deletion request reaches admin", (del.status < 300) && delList.status === 200 && Boolean(delId), `${brief(del)} | ${brief(delList)}`);
+  if (delId) {
+    const review = await call(`/api/admin/deletion-requests/${delId}`, { method: "PATCH", token: tokens.admin, body: { status: "in_review" } });
+    const rejectNoNote = await call(`/api/admin/deletion-requests/${delId}`, { method: "PATCH", token: tokens.admin, body: { status: "rejected" } });
+    const reject = await call(`/api/admin/deletion-requests/${delId}`, { method: "PATCH", token: tokens.admin, body: { status: "rejected", note: "Open paid matter must close first" } });
+    check("Supervision", "admin reviews and closes deletion requests with a note", review.status === 200 && rejectNoNote.status === 400 && reject.status === 200, `${review.status}/${rejectNoNote.status}/${reject.status}`);
+  }
+
+  // Create routes cannot fabricate paid records.
+  const fakeTask = await call("/api/tasks", { method: "POST", token: tokens.client, body: { title: "Fake paid mission", taskType: "Adjournment", escrowStatus: "Held", paymentConfirmed: true, amount: 1299 } });
+  check("Safety", "client cannot create a ProxyHub mission directly", fakeTask.status === 403, brief(fakeTask));
+  const fakeAdvTask = await call("/api/tasks", { method: "POST", token: tokens.advocate, body: { title: "Unpaid mission", taskType: "Adjournment", paymentConfirmed: true, amount: 499 } });
+  check("Safety", "advocate cannot skip ProxyHub checkout", fakeAdvTask.status === 403, brief(fakeAdvTask));
+  const fakePaid = await call("/api/bookings", { method: "POST", token: tokens.client, body: { consultationChannel: "video", paymentStatus: "paid", workHoldStatus: "active", amount: 1, razorpayPaymentId: "pay_fake", caseTitle: "Fake paid booking (test)" } });
+  const fakePaidStatus = String(fakePaid.json.paymentStatus || "").toLowerCase();
+  check("Safety", "a booking cannot be created already paid", fakePaid.status < 300 && fakePaidStatus !== "paid" && Number(fakePaid.json.amount) === 499, brief(fakePaid));
+
+  // Booking protections.
+  const draft = await book("call");
+  const draftId = draft.json.consultation?.id;
+  const sneaky = await call(`/api/bookings/${draftId}`, { method: "PUT", token: tokens.client, body: { paymentStatus: "paid", amount: 0, workHoldStatus: "active", caseTitle: "Edited title (test)" } });
+  const afterSneaky = await call("/api/bookings", { token: tokens.client });
+  const sneakyRow = (Array.isArray(afterSneaky.json) ? afterSneaky.json : []).find((b) => String(b.id) === String(draftId));
+  check("Booking", "client cannot mark own booking paid by editing it", sneaky.status === 200 && String(sneakyRow?.paymentStatus || "").toLowerCase() !== "paid", `${brief(sneaky)} | status ${sneakyRow?.paymentStatus}`);
+  const selfConfirm = await call(`/api/bookings/${draftId}`, { method: "PUT", token: tokens.client, body: { status: "Confirmed" } });
+  check("Booking", "client cannot confirm own booking", selfConfirm.status === 403, brief(selfConfirm));
+  const cancel = await call(`/api/bookings/${draftId}`, { method: "PUT", token: tokens.client, body: { status: "Cancelled" } });
+  check("Booking", "client can cancel an unpaid booking", cancel.status === 200, brief(cancel));
+  if (videoId) {
+    const delPaid = await call(`/api/bookings/${videoId}`, { method: "DELETE", token: tokens.client });
+    check("Booking", "paid booking cannot be deleted", delPaid.status === 409, brief(delPaid));
+    const adminDelPaid = await call(`/api/bookings/${videoId}`, { method: "DELETE", token: tokens.admin });
+    check("Booking", "even admin cannot delete a paid booking", adminDelPaid.status === 409, brief(adminDelPaid));
+  }
+
+  // Matter protections, client <-> LC channel, and the Chamber court day.
+  const ws = await call("/api/workspaces/client", { token: tokens.client });
+  const myCase = (ws.json.cases || []).find((c) => /^[0-9a-f-]{36}$/.test(String(c.id)));
+  check("Matters", "paid booking created a matter for the client", Boolean(myCase), brief(ws));
+  if (myCase) {
+    const caseDel = await call(`/api/cases/${myCase.id}`, { method: "DELETE", token: tokens.client });
+    check("Matters", "client cannot delete a matter", caseDel.status === 403, brief(caseDel));
+    const caseStatus = await call(`/api/cases/${myCase.id}`, { method: "PUT", token: tokens.client, body: { status: "Closed" } });
+    check("Matters", "client cannot change matter status", caseStatus.status === 403, brief(caseStatus));
+    const msg = await call(`/api/cases/${myCase.id}/communications`, { method: "POST", token: tokens.client, body: { summary: "When is my next hearing? (test)" } });
+    check("Matters", "client messages Legal Connect", msg.status === 201, brief(msg));
+    const advRead = await call(`/api/cases/${myCase.id}/communications`, { token: tokens.advocate });
+    check("Access", "counsel cannot read the client-LC channel directly", advRead.status === 403, brief(advRead));
+    const ownerId = await meId("advocate");
+    const associateId = await meId("associate");
+    const assignCase = await call(`/api/admin/cases/${myCase.id}/assign`, { method: "POST", token: tokens.admin, body: { advocateId: ownerId, note: "E2E assignment" } });
+    check("Chamber", "admin assigns the matter to verified counsel", assignCase.status < 300, brief(assignCase));
+    const today = istToday();
+    const setDate = await call(`/api/cases/${myCase.id}`, { method: "PUT", token: tokens.advocate, body: { nextDate: today, room: "Court 7" } });
+    check("Chamber", "assigned counsel sets the next hearing date", setDate.status === 200, brief(setDate));
+    const counselStatus = await call(`/api/cases/${myCase.id}`, { method: "PUT", token: tokens.advocate, body: { status: "Closed" } });
+    check("Matters", "counsel cannot close a matter without LC review", counselStatus.status === 403, brief(counselStatus));
+    const board = await call(`/api/chamber/today?date=${today}`, { token: tokens.advocate });
+    const onBoard = (board.json.hearings || []).some((h) => String(h.matterId) === String(myCase.id));
+    check("Chamber", "today's hearing appears on the court-day board", board.status === 200 && onBoard, brief(board));
+    const hAssign = await call(`/api/chamber/today/hearings/${myCase.id}/assign`, { method: "POST", token: tokens.advocate, body: { assignedTo: associateId, hearingDate: today, hearingTime: "10:30" } });
+    check("Chamber", "chamber owner assigns the hearing to the associate", hAssign.status < 300, brief(hAssign));
+    const hAccept = await call(`/api/chamber/today/hearings/${myCase.id}/accept`, { method: "POST", token: tokens.associate, body: { hearingDate: today } });
+    check("Chamber", "associate accepts the hearing", hAccept.status < 300, brief(hAccept));
+    const next = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    const hClose = await call(`/api/chamber/today/hearings/${myCase.id}/close`, { method: "POST", token: tokens.associate, body: { hearingDate: today, outcome: "adjourned", nextHearingDate: next, orderStatus: "not_available", courtDirections: "Reply to be filed (test)" } });
+    check("Chamber", "associate closes the hearing with the next date", hClose.status < 300, brief(hClose));
+  }
+
+  // Mission protections after proof is filed.
+  if (taskId) {
+    const tamper = await call(`/api/tasks/${encodeURIComponent(taskId)}`, { method: "PUT", token: tokens.advocate, body: { proofStatus: "lc_verified", fee: 1, cnr: "CHANGED" } });
+    check("ProxyHub", "mission brief is locked once proof is filed", tamper.status === 409, brief(tamper));
+    const delTask = await call(`/api/tasks/${encodeURIComponent(taskId)}`, { method: "DELETE", token: tokens.advocate });
+    check("ProxyHub", "paid mission cannot be deleted", delTask.status === 409, brief(delTask));
+  }
+
+  // Real revenue figures and request size limit.
+  const revenue = await call("/api/analytics/revenue", { token: tokens.admin });
+  check("Supervision", "admin revenue shows 6 months of real collections", revenue.status === 200 && Array.isArray(revenue.json.monthlyRevenue) && revenue.json.monthlyRevenue.length === 6, brief(revenue));
+  const huge = await call("/api/sos", { method: "POST", token: tokens.client, raw: JSON.stringify({ note: "x".repeat(13 * 1024 * 1024) }) }).catch(() => ({ status: 413, json: {} }));
+  check("Safety", "oversized requests are refused", huge.status === 413 || huge.status === 400, brief(huge));
+
   // ---------- Report ----------
   console.table(results);
   const failed = results.filter((item) => item.result === "FAIL").length;
