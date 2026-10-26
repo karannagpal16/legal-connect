@@ -39,6 +39,11 @@ services:
       # ProxyHub merchant (KYC / Razorpay Route linked account + company IFSC):
       # PROXYHUB_RAZORPAY_ACCOUNT_ID, PROXYHUB_BANK_IFSC, PROXYHUB_BANK_ACCOUNT_LAST4,
       # PROXYHUB_WEBHOOK_URL, PROXYHUB_WEBHOOK_SECRET, SETTLEMENT_AUTO_APPROVAL_HOURS
+      # Claude for the LawBot / AI assistant (source-locked). Set a spend limit in the Anthropic Console.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CLAUDE_MODEL
+        value: claude-opus-5-5
       - key: JWT_SECRET
         generateValue: true
       - key: SESSION_SECRET

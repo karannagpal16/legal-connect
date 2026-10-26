@@ -14,6 +14,7 @@ const { isWorkHoldActive } = require("./work-hold");
 const { createSettlementLedger } = require("./settlement-ledger");
 const { quoteProduct } = require("./products");
 const { createSupervision } = require("./supervision");
+const { answerWithClaude } = require("./claude-answer");
 const {
   canPostProxyMission,
   isComplimentaryProxyOrder,
@@ -3095,7 +3096,14 @@ async function queryLawbot(question, userId, mode = "lawbot") {
     };
   }
   const chunks = await searchApprovedLegalChunks(question);
-  const result = answerFromChunks(question, chunks);
+  const templateResult = answerFromChunks(question, chunks);
+  const claudeResult = await answerWithClaude(question, chunks, {
+    citationForChunk,
+    cautionLine: `Caution\n${needsAdvocateReview(question)
+      ? "This is source-based legal information only; a verified advocate must review strategy, drafting, risk, bail, settlement, or court action before you rely on it."
+      : "This is legal information, not legal advice. Consult a verified advocate before taking action."}`,
+  });
+  const result = claudeResult || templateResult;
   const queryId = await saveLawbotQuery(userId, question, result, mode);
   return { ...result, queryId };
 }
