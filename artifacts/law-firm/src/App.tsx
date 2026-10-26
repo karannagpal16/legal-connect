@@ -214,14 +214,16 @@ function AdvocatePortal() {
             <Route path="/advocate/overview" component={AdvocateDashboard} />
             <Route path="/advocate" component={AdvocateToday} />
             <Route path="/advocate/dashboard"><Redirect to="/advocate" /></Route>
-            <Route path="/advocate/calls" component={AdvocateCalls} />
+            {/* The old Calls page showed sample clients only; real consultations live in Bookings. */}
+            <Route path="/advocate/calls"><Redirect to="/advocate/bookings" /></Route>
             <Route path="/advocate/diary" component={AdvocateDiary} />
             <Route path="/advocate/proxy" component={AdvocateProxy} />
             <Route path="/advocate/reminders" component={AdvocateReminders} />
             <Route path="/advocate/bookings" component={AdvocateBookings} />
             <Route path="/advocate/library" component={AdvocateLibrary} />
             <Route path="/advocate/revenue" component={AdvocateRevenue} />
-            <Route path="/advocate/team" component={AdvocateTeam} />
+            {/* Team management lives in Chamber Vault; the old page called the admin-only user list (403). */}
+            <Route path="/advocate/team"><Redirect to="/advocate/chamber" /></Route>
             <Route path="/advocate/chamber" component={ChamberVault} />
             <Route path="/advocate/identity-vault" component={IdentityVault} />
             <Route path="/advocate/chat" component={AdvocateChat} />

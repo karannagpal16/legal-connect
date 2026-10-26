@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useListUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@workspace/api-client-react";
 import type { User, CreateUserRequestRole } from "@workspace/api-client-react";
-import { Plus, Search, Edit2, Trash2, Shield, User as UserIcon, Phone, MapPin, Mail } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Shield, User as UserIcon, Phone, MapPin, Mail, Ban, RotateCcw } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { workspaceRequest } from "@/lib/workspace";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,9 +34,36 @@ export function Users() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/users"] });
         toast({ title: "User deleted" });
-      }
+      },
+      onError: (error: unknown) => {
+        toast({ title: "User not deleted", description: error instanceof Error ? error.message : "Suspend the account instead.", variant: "destructive" });
+      },
     }
   });
+  const { session } = useAuth();
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
+
+  // Suspension is the supervisor's tool: it blocks sign-in and ends live sessions, keeping records intact.
+  const changeAccountStatus = async (user: User, action: "suspend" | "reactivate") => {
+    const reason = window.prompt(action === "suspend"
+      ? `Why are you suspending ${user.name}? (saved in the audit log)`
+      : `Why are you reactivating ${user.name}? (saved in the audit log)`);
+    if (reason === null) return;
+    if (reason.trim().length < 8) {
+      toast({ title: "Reason too short", description: "Write at least 8 characters.", variant: "destructive" });
+      return;
+    }
+    setStatusBusy(String(user.id));
+    try {
+      await workspaceRequest(`/api/admin/users/${user.id}/${action}`, session?.token, { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: action === "suspend" ? "Account suspended" : "Account reactivated" });
+    } catch (error) {
+      toast({ title: "Could not update account", description: error instanceof Error ? error.message : "Please retry.", variant: "destructive" });
+    } finally {
+      setStatusBusy(null);
+    }
+  };
 
   const filteredUsers = users?.filter(u => 
     u.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -136,6 +165,11 @@ export function Users() {
                 ) : (
                   <p className="text-xs pt-1">Last login: not recorded yet</p>
                 )}
+                {(u as User & { accountStatus?: string }).accountStatus === "suspended" && (
+                  <p className="text-xs pt-1 font-bold text-destructive">
+                    Suspended{(u as User & { suspensionReason?: string | null }).suspensionReason ? `: ${(u as User & { suspensionReason?: string | null }).suspensionReason}` : ""}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -145,8 +179,28 @@ export function Users() {
                 >
                   <Edit2 className="w-4 h-4" /> Edit
                 </button>
+                {(u as User & { accountStatus?: string }).accountStatus === "suspended" ? (
+                  <button
+                    onClick={() => changeAccountStatus(u, "reactivate")}
+                    disabled={statusBusy === String(u.id)}
+                    title="Reactivate account"
+                    className="p-2.5 bg-background border border-border rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => changeAccountStatus(u, "suspend")}
+                    disabled={statusBusy === String(u.id)}
+                    title="Suspend account"
+                    className="p-2.5 bg-background border border-border rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Ban className="w-4 h-4" />
+                  </button>
+                )}
                 <button 
-                  onClick={() => { if(confirm("Delete user?")) deleteUser({ id: u.id }) }}
+                  title="Delete user (only accounts with no bookings, matters or work)"
+                  onClick={() => { if(confirm("Delete this user permanently? Accounts with bookings, matters or ProxyHub work can't be deleted; suspend them instead.")) deleteUser({ id: u.id }) }}
                   className="p-2.5 bg-background border border-border rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="w-4 h-4" />

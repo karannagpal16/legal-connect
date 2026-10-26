@@ -114,7 +114,7 @@ export function CaseUpdatesBoard() {
               : "Approved counsel updates appear here. Your replies are also reviewed by Legal Connect."}
           </p>
         </div>
-        <button className="lc-button" onClick={() => updatesQuery.refetch()} disabled={updatesQuery.isFetching}>
+        <button className="lc-button" onClick={() => { if (selectedCaseId) updatesQuery.refetch(); }} disabled={updatesQuery.isFetching || !selectedCaseId}>
           {updatesQuery.isFetching ? <Loader2 className="lc-spin" /> : <RefreshCw />} Refresh
         </button>
       </section>

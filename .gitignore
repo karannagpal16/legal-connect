@@ -68,3 +68,18 @@ android/local.properties
 android/app/build/
 android/build/
 .pnpm-store/
+
+# Never commit: IDE state, signed bundles, keystores, personal documents
+android/.idea/
+android/app/release/
+*.aab
+*.apk
+*.jks
+*.keystore
+*.pdf
+!docs/**/*.pdf
+file_map.txt
+
+# Local test-account credentials written by seed-test-accounts.js --out
+*.test-accounts.json
+test-accounts*.json

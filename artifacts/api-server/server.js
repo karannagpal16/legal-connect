@@ -12,6 +12,8 @@ const { createWorkflowProgressions } = require("./workflow-progressions");
 const { createMasterBlueprint } = require("./master-blueprint");
 const { isWorkHoldActive } = require("./work-hold");
 const { createSettlementLedger } = require("./settlement-ledger");
+const { quoteProduct } = require("./products");
+const { createSupervision } = require("./supervision");
 const {
   canPostProxyMission,
   isComplimentaryProxyOrder,
@@ -1239,20 +1241,39 @@ async function sendEmail({ to, subject, html, text }) {
   }
 }
 
+const MAX_JSON_BODY_BYTES = 12 * 1024 * 1024; // 8 MB order-sheet scans arrive base64-encoded (~11 MB)
+
 function readBody(req) {
-  return new Promise((resolve) => {
-    let body = "";
+  // Cached so a guard can inspect the body and the route handler still receives it.
+  if (req.__lcBodyPromise) return req.__lcBodyPromise;
+  req.__lcBodyPromise = new Promise((resolve) => {
+    const chunks = [];
+    let total = 0;
+    let tooLarge = false;
     req.on("data", (chunk) => {
-      body += chunk;
+      if (tooLarge) return;
+      total += chunk.length;
+      if (total > MAX_JSON_BODY_BYTES) {
+        tooLarge = true;
+        req.__lcBodyTooLarge = true;
+        resolve({});
+        req.destroy();
+        return;
+      }
+      chunks.push(Buffer.from(chunk));
     });
     req.on("end", () => {
+      if (tooLarge) return;
       try {
-        resolve(body ? JSON.parse(body) : {});
+        const text = Buffer.concat(chunks).toString("utf8");
+        resolve(text ? JSON.parse(text) : {});
       } catch {
         resolve({});
       }
     });
+    req.on("error", () => resolve({}));
   });
+  return req.__lcBodyPromise;
 }
 
 function readRawBody(req, maxBytes = 1024 * 1024) {
@@ -1449,6 +1470,21 @@ async function createRazorpayOrder({ amount, currency = "INR", receipt, notes = 
     return { ok: false, status: response.status, error_message: String(message).slice(0, 180) };
   }
   return { ok: true, order: payload };
+}
+
+async function fetchRazorpayOrder(orderId) {
+  if (!config.razorpayKeyId || !config.razorpayKeySecret || !orderId) return { ok: false };
+  try {
+    const auth = Buffer.from(`${config.razorpayKeyId}:${config.razorpayKeySecret}`).toString("base64");
+    const response = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}`, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+    if (!response.ok) return { ok: false, status: response.status };
+    return { ok: true, order: await response.json() };
+  } catch (error) {
+    console.warn("Razorpay order lookup failed:", redactSecrets(error?.message || error));
+    return { ok: false };
+  }
 }
 
 function verifyRazorpayPaymentSignature(orderId, paymentId, signature) {
@@ -1780,7 +1816,18 @@ function dashboardUser(item) {
     barIdMasked: barLast4 ? `•••• ${barLast4}` : null,
     lastLoginAt: item.lastLoginAt || item.last_login_at || null,
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+    accountStatus: item.accountStatus || item.account_status || "active",
+    suspensionReason: item.suspensionReason || item.suspension_reason || null,
   };
+}
+
+// Self-tracked matters must not link themselves to bookings, counsel or LC pipeline state.
+function stripCaseLinkFields(body, isAdmin) {
+  const copy = { ...(body || {}) };
+  if (isAdmin) return copy;
+  for (const key of ["bookingId", "booking_id", "assignedTo", "assignedAdvocateId", "assigned_advocate_id", "counsel", "pipelineStage", "pipeline",
+    "lcApproved", "lcApprovedAt", "health", "healthScore", "user_id", "userId", "role", "paymentStatus", "workHoldStatus"]) delete copy[key];
+  return copy;
 }
 
 function internalUserRole(role) {
@@ -3244,6 +3291,21 @@ const workflowProgressions = createWorkflowProgressions({
   ensureInternQuestsTable,
 });
 
+const supervision = createSupervision({
+  db,
+  sendJson: (...args) => sendJson(...args),
+  readBody: (req) => readBody(req),
+  getAuthUser: (req) => getAuthUser(req),
+  canSeeAll: (user) => canSeeAll(user),
+  writeAuditLog: (...args) => writeAuditLog(...args),
+  notify: (...args) => notify(...args),
+  resolveRecipients: (...args) => resolveRecipients(...args),
+  portalUrl: (...args) => portalUrl(...args),
+  isUuid: (value) => isUuid(value),
+  resolveDatabaseUserId: (user) => resolveDatabaseUserId(user),
+  isMasterTestUser: (user) => isMasterTestUser(user),
+});
+
 const masterBlueprint = createMasterBlueprint({
   db,
   config,
@@ -3262,6 +3324,7 @@ const masterBlueprint = createMasterBlueprint({
   activateBookingAsPaid,
   numericAmount,
   isMasterTestUser,
+  userHasUsedFirstChat,
   strategyFeatures,
   settlementLedger,
 });
@@ -3963,6 +4026,10 @@ const server = http.createServer(async (req, res) => {
           ? await db.query("SELECT * FROM users WHERE phone = $1 LIMIT 1", [phone])
           : { rows: [] };
 
+      if (existing.rows.length && String(existing.rows[0].account_status || "active") === "suspended") {
+        sendJson(res, 403, { ok: false, code: "ACCOUNT_SUSPENDED", error: "This account is suspended. Contact Legal Connect support." });
+        return;
+      }
       if (existing.rows.length) {
         const previousRole = existing.rows[0].role;
         role = resolveLoginRole(requestedRole, previousRole, isReviewLogin);
@@ -5225,6 +5292,8 @@ const server = http.createServer(async (req, res) => {
           u.role,
           u.created_at,
           u.last_login_at,
+          COALESCE(u.account_status, 'active') AS account_status,
+          u.suspension_reason,
           COALESCE(pa.practice_areas, '') AS practice_areas,
           COALESCE(pa.office_address, '') AS office_address,
           COALESCE(pa.enrollment_no, '') AS enrollment_no,
@@ -5272,6 +5341,8 @@ const server = http.createServer(async (req, res) => {
           locationBase: contactAddress || row.practice_courts || "",
           barId: row.enrollment_no || row.college_id_no || null,
           verificationStatus: row.advocate_verification || row.client_verification || row.intern_verification || null,
+          accountStatus: row.account_status || "active",
+          suspensionReason: row.suspension_reason || null,
         });
       }));
       return;
@@ -5320,6 +5391,22 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { error: "You cannot delete the account currently in use." });
         return;
       }
+      if (db.dbAvailable && isUuid(id)) {
+        // Users with matters, payments or work history must be suspended, not deleted (records must be kept).
+        const footprint = await db.query(
+          `SELECT
+             (SELECT count(*) FROM bookings WHERE user_id = $1)
+           + (SELECT count(*) FROM cases WHERE user_id = $1)
+           + (SELECT count(*) FROM tasks WHERE posted_by::text = $1::text OR accepted_by::text = $1::text)
+           + (SELECT count(*) FROM case_assignments WHERE advocate_id = $1) AS n`,
+          [id],
+        ).catch(() => ({ rows: [{ n: 1 }] }));
+        if (Number(footprint.rows[0]?.n || 0) > 0) {
+          sendJson(res, 409, { error: "This user has bookings, matters or ProxyHub work on record. Suspend the account instead of deleting it." });
+          return;
+        }
+        await writeAuditLog(authUser, "user_deleted", "user", id, "User without records deleted by LC Admin.", {}).catch(() => undefined);
+      }
       if (db.dbAvailable) await db.query("DELETE FROM users WHERE id = $1", [id]);
       else demoStore.users = demoStore.users.filter((item) => String(item.id) !== String(id));
       sendJson(res, 200, { ok: true });
@@ -5338,6 +5425,7 @@ const server = http.createServer(async (req, res) => {
     }
     const body = await readBody(req);
     if (db.dbAvailable) {
+      const before = await db.query("SELECT role FROM users WHERE id = $1 LIMIT 1", [id]).catch(() => ({ rows: [] }));
       const result = await db.query(
         `UPDATE users SET name = COALESCE($2, name), email = COALESCE($3, email), phone = COALESCE($4, phone), role = COALESCE($5, role)
          WHERE id = $1 RETURNING id, name, email, phone, role, created_at`,
@@ -5347,6 +5435,8 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 404, { error: "User not found" });
         return;
       }
+      await writeAuditLog(authUser, before.rows[0] && before.rows[0].role !== result.rows[0].role ? "user_role_changed" : "user_updated", "user", id,
+        "User details updated by LC Admin.", { previousRole: before.rows[0]?.role || null, role: result.rows[0].role, fields: Object.keys(body || {}).slice(0, 10) }).catch(() => undefined);
       sendJson(res, 200, dashboardUser(result.rows[0]));
       return;
     }
@@ -5513,15 +5603,47 @@ const server = http.createServer(async (req, res) => {
         db.query("SELECT id, name, role FROM users"),
         db.query("SELECT * FROM bookings"),
       ]);
+      // Real money only: verified consultation payments, paid chamber plans and non-complimentary ProxyHub collections.
+      const monthly = await db.query(`
+        WITH m AS (
+          SELECT date_trunc('month', COALESCE(verified_at, created_at)) AS mo, COALESCE(amount, 0)::bigint AS v, 'consultations' AS src
+            FROM bookings WHERE payment_status = 'paid' AND COALESCE(amount, 0) > 0
+          UNION ALL
+          SELECT date_trunc('month', COALESCE(paid_at, created_at)), amount::bigint, 'chamber'
+            FROM chamber_subscription_orders WHERE status = 'paid'
+          UNION ALL
+          SELECT date_trunc('month', created_at), collected::bigint, 'proxyhub'
+            FROM locked_payments WHERE NOT COALESCE(complimentary, false) AND collected > 0 AND status <> 'REFUNDED'
+        )
+        SELECT to_char(mo, 'YYYY-MM') AS month, src, SUM(v)::bigint AS total
+        FROM m WHERE mo >= date_trunc('month', now()) - interval '5 months'
+        GROUP BY 1, 2 ORDER BY 1`).catch(() => ({ rows: [] }));
+      const months = [];
+      for (let i = 5; i >= 0; i -= 1) {
+        const d = new Date();
+        d.setUTCDate(1);
+        d.setUTCMonth(d.getUTCMonth() - i);
+        months.push(d.toISOString().slice(0, 7));
+      }
+      const monthlyRevenue = months.map((month) => {
+        const rows = monthly.rows.filter((row) => row.month === month);
+        const part = (src) => Number(rows.find((row) => row.src === src)?.total || 0);
+        const label = new Date(`${month}-01T00:00:00Z`).toLocaleString("en-IN", { month: "short", timeZone: "UTC" });
+        return { month, name: label, consultations: part("consultations"), chamber: part("chamber"), proxyhub: part("proxyhub"), revenue: part("consultations") + part("chamber") + part("proxyhub") };
+      });
       sendJson(
         res,
         200,
-        revenueAnalytics(
-          cases.rows.map(mapCase),
-          tasks.rows.map(mapTask),
-          users.rows.map(mapUser),
-          bookings.rows.map(mapBooking),
-        ),
+        {
+          ...revenueAnalytics(
+            cases.rows.map(mapCase),
+            tasks.rows.map(mapTask),
+            users.rows.map(mapUser),
+            bookings.rows.map(mapBooking),
+          ),
+          monthlyRevenue,
+          monthlyRevenueBasis: "Verified payments collected (consultations, chamber plans, ProxyHub); excludes free, demo and refunded.",
+        },
       );
       return;
     }
@@ -5691,7 +5813,7 @@ const server = http.createServer(async (req, res) => {
           trackedCase.nextDate,
           trackedCase.status,
           body.notes || null,
-          JSON.stringify({ ...body, user_id: databaseUserId, role: userRole(authUser), stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
+          JSON.stringify({ ...stripCaseLinkFields(body, canSeeAll(authUser)), user_id: databaseUserId, role: userRole(authUser), stateCode: body.stateCode, courtType: trackedCase.courtType, reminder: trackedCase.reminder, stage: trackedCase.stage }),
         ],
       );
       {
@@ -5799,6 +5921,12 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, matterResult.rows[0] ? 403 : 404, { error: matterResult.rows[0] ? "Forbidden" : "Case not found." });
       return;
     }
+    // This is the client <-> Legal Connect channel. Counsel never reads or writes it directly;
+    // counsel's messages go through LC-reviewed case updates.
+    if (!canSeeAll(authUser) && String(authUser.role) !== "client") {
+      sendJson(res, 403, { error: "Client messages go to Legal Connect. Counsel updates are sent through LC-reviewed case updates." });
+      return;
+    }
     if (req.method === "GET") {
       const result = await db.query("SELECT * FROM case_communications WHERE case_id = $1 ORDER BY occurred_at, created_at", [caseId]);
       sendJson(res, 200, {
@@ -5822,6 +5950,17 @@ const server = http.createServer(async (req, res) => {
     );
     await db.query("UPDATE cases SET updated_at = now() WHERE id = $1", [caseId]);
     const row = created.rows[0];
+    if (!canSeeAll(authUser)) {
+      await notify({
+        eventType: "client_message_to_lc",
+        title: "New client message for Legal Connect",
+        message: `${authUser.name || "A client"} wrote about ${matterResult.rows[0].title || "a matter"}.`,
+        recipients: await resolveAdminRecipients(),
+        payload: { caseId, communicationId: row.id, actionType: "ADMIN_REPLY", targetUrl: "/admin/cases" },
+        sendEmail: true,
+        priority: "high",
+      }).catch(() => undefined);
+    }
     sendJson(res, 201, { ok: true, communication: { id: row.id, type: row.communication_type, title: row.title, summary: row.summary, occurredAt: row.occurred_at, senderId: row.sender_id }, dataMode: "live" });
     return;
   }
@@ -5884,17 +6023,51 @@ const server = http.createServer(async (req, res) => {
       }
       const current = mapCase(existing.rows[0]);
       const databaseUserId = await resolveDatabaseUserId(authUser);
-      if (!canSeeAll(authUser) && current.userId !== databaseUserId && current.assignedTo !== databaseUserId) {
+      // Counsel is whoever LC assigned in case_assignments (the case row itself has no assignee column).
+      const assignedRow = databaseUserId && isUuid(String(databaseUserId)) && String(authUser.role) === "advocate"
+        ? await db.query("SELECT 1 FROM case_assignments WHERE case_id = $1 AND advocate_id = $2 AND status = 'active' LIMIT 1", [id, databaseUserId]).catch(() => ({ rows: [] }))
+        : { rows: [] };
+      const isCaseCounsel = Boolean(assignedRow.rows[0]) || (current.assignedTo && current.assignedTo === databaseUserId);
+      if (!canSeeAll(authUser) && current.userId !== databaseUserId && !isCaseCounsel) {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
+      const isAdminActor = canSeeAll(authUser);
+      const isAssignedCounsel = !isAdminActor && isCaseCounsel;
       if (req.method === "DELETE") {
+        // Matters carry the client's history, counsel's work and LC's audit trail: only LC Admin may delete.
+        if (!isAdminActor) {
+          sendJson(res, 403, { error: "Matters can't be deleted from here. Ask Legal Connect to close or archive it." });
+          return;
+        }
+        await writeAuditLog(authUser, "case_deleted", "case", id, "Matter deleted by LC Admin.", { title: current.caseTitle || null }).catch(() => undefined);
         await db.query("DELETE FROM cases WHERE id = $1", [id]);
         sendJson(res, 204, {});
         return;
       }
 
-      const body = await readBody(req);
+      const rawCaseBody = await readBody(req);
+      // Who may edit what. Stage/status changes by counsel go through the LC-reviewed stage route.
+      const CLIENT_FIELDS = ["title", "caseTitle", "notes"];
+      const COUNSEL_FIELDS = ["title", "caseTitle", "notes", "court", "courtName", "caseNumber", "caseNo", "case_number", "nextDate", "hearingTime", "time", "room", "roomNo", "itemNumber", "hearingPurpose", "purpose"];
+      const ADMIN_FIELDS = [...COUNSEL_FIELDS, "status"];
+      const allowedCaseFields = isAdminActor ? ADMIN_FIELDS : isAssignedCounsel ? COUNSEL_FIELDS : CLIENT_FIELDS;
+      const body = {};
+      for (const key of allowedCaseFields) {
+        if (rawCaseBody[key] !== undefined) body[key] = typeof rawCaseBody[key] === "string" ? rawCaseBody[key].slice(0, 4000) : rawCaseBody[key];
+      }
+      if (rawCaseBody.status !== undefined && !isAdminActor) {
+        sendJson(res, 403, { error: isAssignedCounsel ? "Update the matter stage from your case tracker; Legal Connect reviews it before the client sees it." : "Only Legal Connect or your counsel can change the matter status." });
+        return;
+      }
+      if (body.nextDate !== undefined && body.nextDate !== null && body.nextDate !== "" && !/^\d{4}-\d{2}-\d{2}/.test(String(body.nextDate))) {
+        sendJson(res, 400, { error: "Next date must be YYYY-MM-DD." });
+        return;
+      }
+      const ignoredCaseKeys = Object.keys(rawCaseBody).filter((key) => !allowedCaseFields.includes(key));
+      if (ignoredCaseKeys.length) {
+        await writeAuditLog(authUser, "case_update_fields_ignored", "case", id, "Protected matter fields were ignored.", { ignored: ignoredCaseKeys.slice(0, 20) }).catch(() => undefined);
+      }
       const next = {
         ...current,
         ...body,
@@ -5909,8 +6082,9 @@ const server = http.createServer(async (req, res) => {
          SET title = $2, court = $3, case_number = $4, next_date = $5, status = $6, notes = $7, payload = $8, updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, next.title, next.court, next.caseNumber, next.nextDate, next.status, body.notes ?? current.notes ?? null, JSON.stringify({ ...next, user_id: current.userId })],
+        [id, next.title, next.court, next.caseNumber, next.nextDate, next.status, body.notes ?? current.notes ?? null, JSON.stringify({ ...(existing.rows[0].payload && typeof existing.rows[0].payload === "object" ? existing.rows[0].payload : {}), ...body, title: next.title, user_id: current.userId })],
       );
+      await writeAuditLog(authUser, "case_updated", "case", id, "Matter details updated.", { fields: Object.keys(body).slice(0, 20), role: authUser.role }).catch(() => undefined);
       const mapped = mapCase(result.rows[0]);
       const previousDate = current.nextDate ? String(current.nextDate).slice(0, 10) : "";
       const upcomingDate = mapped.nextDate ? String(mapped.nextDate).slice(0, 10) : "";
@@ -6877,6 +7051,7 @@ const server = http.createServer(async (req, res) => {
         razorpayOrderId: razorpay_order_id,
         mode: body.mode,
         masterFree,
+        production: config.nodeEnv === "production",
       });
       const isDemoOrder = complimentary.demo;
       const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
@@ -6905,10 +7080,46 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, error: posting.error });
         return;
       }
+      let paidOrderAmountInr = null;
+      if (!isDemoOrder && hasRazorpay) {
+        // One payment = one mission: refuse an order that already opened a mission.
+        if (db.dbAvailable) {
+          const reused = await db.query(
+            `SELECT 1 FROM locked_payments WHERE razorpay_order_id = $1
+             UNION ALL SELECT 1 FROM tasks WHERE payload->>'razorpayOrderId' = $1 LIMIT 1`,
+            [razorpay_order_id],
+          ).catch(() => ({ rows: [] }));
+          if (reused.rows[0]) {
+            await writeAuditLog(authUser, "proxy_hub_order_reuse_blocked", "proxy_hub", razorpay_order_id, "ProxyHub order already used for a mission.", {}).catch(() => undefined);
+            sendJson(res, 409, { ok: false, error: "This payment has already been used to post a mission." });
+            return;
+          }
+        }
+        // The amount actually paid comes from Razorpay, never from the browser.
+        const fetched = await fetchRazorpayOrder(razorpay_order_id);
+        if (!fetched.ok) {
+          sendJson(res, 502, { ok: false, error: "Could not confirm the payment with Razorpay. Please retry." });
+          return;
+        }
+        const catalogFeeForTier = Number(posting.fields.catalogFee || PROXY_URGENCY_TIERS.standard.fee);
+        const orderPaise = Number(fetched.order.amount || 0);
+        const postedBy = String(fetched.order.notes?.postedBy || "");
+        if (postedBy && postedBy !== String(authUser.id)) {
+          sendJson(res, 403, { ok: false, error: "This payment belongs to a different account." });
+          return;
+        }
+        if (orderPaise < catalogFeeForTier * 100) {
+          await writeAuditLog(authUser, "proxy_hub_underpaid_tier", "proxy_hub", razorpay_order_id, "Paid amount is below the fee for the selected timing tier.", { orderPaise, required: catalogFeeForTier * 100 }).catch(() => undefined);
+          sendJson(res, 409, { ok: false, error: `The payment (₹${orderPaise / 100}) is less than the ${posting.fields.urgencyLabel || "selected"} fee of ₹${catalogFeeForTier}. Please pay again for this tier.` });
+          return;
+        }
+        paidOrderAmountInr = orderPaise / 100;
+      }
       const taskTitle = String(body.title || body.missionTitle || `${posting.fields.appearanceType} · ${posting.fields.cnr}`).trim();
       const taskCourt = String(body.court || body.location || "").trim();
       const catalogFee = Number(posting.fields.catalogFee || PROXY_URGENCY_TIERS.standard.fee);
-      const fee = Math.max(numericAmount(body.fee || body.amount), catalogFee);
+      // Real payments: the fee is what Razorpay says was paid. Demo/complimentary: the catalogue fee.
+      const fee = paidOrderAmountInr != null ? paidOrderAmountInr : Math.max(numericAmount(body.fee || body.amount), catalogFee);
       if (fee < catalogFee) {
         sendJson(res, 400, {
           ok: false,
@@ -7217,7 +7428,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
-    const amount = Number(body.amount || 0);
+    // Price is never taken from the browser: it comes from the booking record / server catalogue.
+    const clientAmount = Number(body.amount || 0);
+    let amount = 0;
     const hasRazorpay = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
     const paymentStatus = paymentConfigStatus();
     const wantsFirstChatFree = Boolean(body.firstChatFree || body.mode === "first_chat_free");
@@ -7225,17 +7438,38 @@ const server = http.createServer(async (req, res) => {
     const channel = String(body.consultationChannel || body.channel || "").toLowerCase();
     const masterFree = await isMasterTestUser(authUser);
     const bookingIdForOrder = body.bookingId || body.booking_id;
+    let bookingRowForPrice = null;
     if (db.dbAvailable && bookingIdForOrder && isUuid(String(bookingIdForOrder))) {
       const bookingRow = await db.query("SELECT * FROM bookings WHERE id = $1 LIMIT 1", [bookingIdForOrder]).catch(() => ({ rows: [] }));
       if (bookingRow.rows[0] && !canAccessBooking(authUser, mapBooking(bookingRow.rows[0]))) {
         sendJson(res, 403, { ok: false, error: "Forbidden" });
         return;
       }
+      bookingRowForPrice = bookingRow.rows[0] || null;
+    }
+    if (db.dbAvailable && bookingIdForOrder && isUuid(String(bookingIdForOrder)) && !bookingRowForPrice) {
+      sendJson(res, 404, { ok: false, error: "Booking not found." });
+      return;
+    }
+    {
+      const bookingChannel = bookingRowForPrice?.payload?.consultationChannel || null;
+      let quote = null;
+      try {
+        quote = quoteProduct(bookingChannel
+          ? { channel: bookingChannel }
+          : { productId: body.product_id || body.productId, channel, urgency: body.urgency, planId: body.planId });
+      } catch {
+        quote = null;
+      }
+      amount = quote ? quote.amountInr : 0;
+      if (quote && clientAmount && clientAmount !== quote.amountInr) {
+        await writeAuditLog(authUser, "payment_amount_mismatch", "payment", bookingIdForOrder || "create-order", "Browser sent a different amount; server catalogue price used.", { clientAmount, serverAmount: quote.amountInr, productId: quote.productId }).catch(() => undefined);
+      }
     }
 
     // Zero-amount / developer / first-chat free — never call Razorpay.
     // Client-supplied masterTestFree flags are ignored unless the signed-in user is the developer account.
-    if (authUser && (masterFree || wantsFirstChatFree || amount === 0)) {
+    if (authUser && (masterFree || wantsFirstChatFree)) {
       const bookingId = body.bookingId || body.booking_id;
       // Idempotent: book-advisory may have already activated the free booking.
       if (bookingId && db.dbAvailable && isUuid(String(bookingId))) {
@@ -7272,20 +7506,16 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { ok: false, error: "Developer free unlock is limited to the authorised developer account." });
         return;
       }
-      if (wantsFirstChatFree || (amount === 0 && channel === "chat")) {
-        if (channel && channel !== "chat") {
+      if (wantsFirstChatFree) {
+        // Use the channel stored on the booking, not the one the browser sends.
+        const freeChannel = String(bookingRowForPrice?.payload?.consultationChannel || channel || "").toLowerCase();
+        if (freeChannel !== "chat") {
           sendJson(res, 400, { ok: false, error: "Free trial applies only to the Secure chat channel." });
           return;
         }
         if (await userHasUsedFirstChat(authUser.id)) {
-          // Still allow zero-amount retry to complete an already-activated free booking.
-          if (bookingId) {
-            const claimed = await claimFreeBooking(authUser, body, "first_chat_free");
-            if (claimed.ok) {
-              sendJson(res, 200, { ...claimed.body, message: "Free chat booking confirmed." });
-              return;
-            }
-          }
+          // A free booking that was already activated was answered above (idempotent "already paid").
+          // Anything else is a second free claim and must be paid.
           sendJson(res, 409, { ok: false, error: "Your free first chat has already been used. Please pay to continue." });
           return;
         }
@@ -7298,7 +7528,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (!amount || amount <= 0) {
-      sendJson(res, 400, { ok: false, error: "Valid amount is required." });
+      sendJson(res, 400, { ok: false, error: "Unknown product. Book a consultation first or send a valid product_id." });
       return;
     }
     if (isReviewUser(authUser)) {
@@ -7321,7 +7551,7 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    if (/^Demo Client$/i.test(String(authUser?.name || ''))) {
+    if (config.nodeEnv !== "production" && String(authUser?.email || "").toLowerCase() === "client@demo.legal-connect.in") {
       sendJson(res, 200, {
         ok: true,
         success: true,
@@ -7366,9 +7596,9 @@ const server = http.createServer(async (req, res) => {
       if (db.dbAvailable && (body.bookingId || body.booking_id)) {
         await db.query(
           `UPDATE bookings
-           SET razorpay_order_id = $2, payment_status = 'order_created', work_hold_status = COALESCE(work_hold_status, 'pending'), payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+           SET razorpay_order_id = $2, amount = $4, payment_status = 'order_created', work_hold_status = COALESCE(work_hold_status, 'pending'), payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
            WHERE id = $1`,
-          [body.bookingId || body.booking_id, orderResult.order.id, JSON.stringify({ razorpay_order_id: orderResult.order.id })],
+          [body.bookingId || body.booking_id, orderResult.order.id, JSON.stringify({ razorpay_order_id: orderResult.order.id, expected_amount_paise: amount * 100 }), amount],
         );
       }
       await recordPaymentEvent({
@@ -7441,6 +7671,13 @@ const server = http.createServer(async (req, res) => {
       }
       if (!canAccessBooking(authUser, mapBooking(bookingRow.rows[0]))) {
         sendJson(res, 403, { ok: false, error: "Forbidden" });
+        return;
+      }
+      // The order must be the one the server created for THIS booking (blocks paying a cheap order and claiming a dearer booking).
+      const storedOrderId = bookingRow.rows[0].razorpay_order_id;
+      if (!storedOrderId || String(storedOrderId) !== String(orderId)) {
+        await writeAuditLog(authUser, "payment_order_mismatch", "booking", bookingId, "Verify rejected: order does not belong to this booking.", { orderId, storedOrderId: storedOrderId || null }).catch(() => undefined);
+        sendJson(res, 409, { ok: false, error: "This payment does not match the booking. Please start the payment again." });
         return;
       }
     }
@@ -7582,7 +7819,21 @@ const server = http.createServer(async (req, res) => {
     const order = body.payload?.order?.entity || {};
     const orderId = payment.order_id || order.id || null;
     const paymentId = payment.id || null;
+    let webhookAmountOk = true;
     if (db.dbAvailable && orderId && ["payment.captured", "order.paid"].includes(event)) {
+      const expected = await db.query("SELECT id, amount, payload FROM bookings WHERE razorpay_order_id = $1 LIMIT 1", [orderId]).catch(() => ({ rows: [] }));
+      const expectedPaise = Number(expected.rows[0]?.payload?.expected_amount_paise || (expected.rows[0]?.amount ? expected.rows[0].amount * 100 : 0));
+      const paidPaise = Number(payment.amount || order.amount_paid || order.amount || 0);
+      if (expectedPaise && paidPaise && paidPaise !== expectedPaise) {
+        webhookAmountOk = false;
+        await db.query(
+          `UPDATE bookings SET payment_status = 'amount_mismatch', failure_reason = $2 WHERE razorpay_order_id = $1 AND COALESCE(payment_status, '') <> 'paid'`,
+          [orderId, `Paid ${paidPaise / 100}, expected ${expectedPaise / 100}`],
+        );
+        await writeAuditLog({ role: "system" }, "payment_webhook_amount_mismatch", "payment", orderId, "Webhook amount does not match booking price. Booking not activated.", { paidPaise, expectedPaise }).catch(() => undefined);
+      }
+    }
+    if (webhookAmountOk && db.dbAvailable && orderId && ["payment.captured", "order.paid"].includes(event)) {
       await db.query(
         `UPDATE bookings
          SET payment_status = 'paid', work_hold_status = 'active', razorpay_payment_id = COALESCE($2, razorpay_payment_id),
@@ -8098,13 +8349,40 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { error: "Only the task owner or an admin can change this task." });
         return;
       }
+      const currentPayload = current.payload && typeof current.payload === "object" ? current.payload : {};
+      const hasPayment = Boolean(
+        current.razorpayOrderId || currentPayload.razorpayOrderId || current.paymentLockStatus || currentPayload.paymentLockStatus
+        || current.bookingId || /held|lock|escrow|paid|released|refund/i.test(String(current.escrowStatus || "")),
+      );
+      const workStarted = Boolean(current.acceptedBy || current.assignedToId || currentPayload.checkedInAt || current.proofUrl || currentPayload.proofStatus);
       if (req.method === "DELETE") {
+        // Paid or assigned missions hold client money and an advocate's commitment: cancel/refund through LC, never delete.
+        if (hasPayment || workStarted) {
+          sendJson(res, 409, { error: "This mission is paid or already assigned, so it can't be deleted. Ask Legal Connect to cancel and refund it." });
+          return;
+        }
+        await writeAuditLog(authUser, "task_deleted", "task", id, "Unpaid, unassigned mission deleted.", { byAdmin: canSeeAll(authUser) }).catch(() => undefined);
         await db.query("DELETE FROM tasks WHERE id = $1", [id]);
         sendJson(res, 204, {});
         return;
       }
-      const body = await readBody(req);
-      const escrowLocked = /held|lock|escrow/i.test(String(current.escrowStatus || ""));
+      const rawBody = await readBody(req);
+      const proofStage = String(currentPayload.proofStatus || current.proofStatus || "").toLowerCase();
+      if (["submitted", "lc_verified", "approved", "accepted", "completed", "released"].includes(proofStage) || /complete|released|closed/i.test(String(current.status || ""))) {
+        sendJson(res, 409, { error: "Proof is already filed for this mission, so its brief can no longer be edited." });
+        return;
+      }
+      // Only the brief can be edited. Money, workflow, proof and assignment fields move through their own audited actions.
+      const BRIEF_FIELDS = ["title", "taskDescription", "court", "location", "taskType", "task_type", "appearanceType", "cnr", "room", "roomNo", "itemNo", "hearingDate", "passoverScript", "passoverInstructions"];
+      const body = {};
+      for (const key of BRIEF_FIELDS) {
+        if (rawBody[key] !== undefined) body[key] = typeof rawBody[key] === "string" ? rawBody[key].slice(0, 4000) : rawBody[key];
+      }
+      const ignoredKeys = Object.keys(rawBody).filter((key) => !BRIEF_FIELDS.includes(key) && !["fee", "amount", "urgency"].includes(key));
+      if (ignoredKeys.length) {
+        await writeAuditLog(authUser, "task_update_fields_ignored", "task", id, "Protected mission fields were ignored.", { ignored: ignoredKeys.slice(0, 20) }).catch(() => undefined);
+      }
+      const escrowLocked = true; // amount never changes through this route
       const next = {
         ...current,
         ...body,
@@ -8136,7 +8414,7 @@ const server = http.createServer(async (req, res) => {
          SET title = $2, court = $3, task_type = $4, amount = $5, escrow_status = $6, status = $7, accepted_by = $8, proof_url = $9, payload = $10, updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, next.proofUrl || body.proof_url || current.proofUrl || null, JSON.stringify(payload)],
+        [id, next.title, next.court, next.taskType, next.amount, next.escrowStatus || "Not locked", next.status, next.acceptedBy || null, current.proofUrl || null, JSON.stringify(payload)],
       );
       const updatedTask = mapTask(result.rows[0]);
       const proofAdded = Boolean((body.proofUrl || body.proof_url) && !(current.proofUrl));
@@ -8262,7 +8540,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const bookingUserId = userIdForWrite(body, authUser);
-    const booking = { id: `booking-${Date.now()}`, userId: bookingUserId, status: "Pending", createdAt: new Date().toISOString(), ...body };
+    const isAdminBooking = canSeeAll(authUser);
+    // Only payments verified by Razorpay can make a booking paid. Strip every money/assignment/free flag
+    // from non-admin requests and price from the server catalogue.
+    const PROTECTED_BOOKING_KEYS = ["paymentStatus", "payment_status", "status", "workHoldStatus", "work_hold_status", "razorpayOrderId", "razorpay_order_id",
+      "razorpayPaymentId", "razorpay_payment_id", "failureReason", "failure_reason", "firstChatFree", "masterTestFree", "expected_amount_paise",
+      "assignedAdvocateId", "assigned_advocate_id", "assignedAdvocateName", "intakeStatus", "stageStatus", "verifiedAt", "amount", "price"];
+    const safeBody = { ...body };
+    if (!isAdminBooking) for (const key of PROTECTED_BOOKING_KEYS) delete safeBody[key];
+    let serverAmount = numericAmount(body.amount || body.price);
+    if (!isAdminBooking) {
+      try {
+        serverAmount = quoteProduct({ channel: body.consultationChannel || body.channel, productId: body.product_id || body.productId }).amountInr;
+      } catch {
+        serverAmount = 0;
+      }
+    } else {
+      await writeAuditLog(authUser, "booking_created_by_admin", "booking", "new", "Booking created directly by LC Admin.", { paymentStatus: body.paymentStatus || null }).catch(() => undefined);
+    }
+    const booking = { id: `booking-${Date.now()}`, userId: bookingUserId, status: "Pending", createdAt: new Date().toISOString(), ...safeBody };
     if (db.dbAvailable) {
       const result = await db.query(
         `INSERT INTO bookings (user_id, service_type, amount, payment_status, receipt_no, next_destination, razorpay_order_id, razorpay_payment_id, work_hold_status, failure_reason, payload)
@@ -8271,15 +8567,15 @@ const server = http.createServer(async (req, res) => {
         [
           bookingUserId,
           body.serviceType || body.service_type || body.legalIssueType || body.plan || "Legal Connect booking",
-          numericAmount(body.amount || body.price),
-          body.paymentStatus || body.payment_status || body.status || "Pending",
+          serverAmount,
+          isAdminBooking ? (body.paymentStatus || body.payment_status || body.status || "Pending") : "Pending",
           body.receiptNo || body.receipt_no || null,
           body.nextDestination || body.next_destination || body.route || null,
-          body.razorpayOrderId || body.razorpay_order_id || null,
-          body.razorpayPaymentId || body.razorpay_payment_id || null,
-          body.workHoldStatus || body.work_hold_status || "pending",
-          body.failureReason || body.failure_reason || null,
-          JSON.stringify({ ...body, user_id: bookingUserId, role: userRole(authUser) }),
+          isAdminBooking ? (body.razorpayOrderId || body.razorpay_order_id || null) : null,
+          isAdminBooking ? (body.razorpayPaymentId || body.razorpay_payment_id || null) : null,
+          isAdminBooking ? (body.workHoldStatus || body.work_hold_status || "pending") : "pending",
+          isAdminBooking ? (body.failureReason || body.failure_reason || null) : null,
+          JSON.stringify({ ...safeBody, amount: serverAmount, user_id: bookingUserId, role: userRole(authUser) }),
         ],
       );
       const savedBooking = mapBooking(result.rows[0]);
@@ -8479,29 +8775,63 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 403, { error: "Forbidden" });
         return;
       }
+      const paymentState = String(existing.rows[0].payment_status || "").toLowerCase();
+      const moneyMoved = ["paid", "order_created", "verification_pending", "refunded", "refund_pending", "amount_mismatch"].includes(paymentState)
+        || Boolean(existing.rows[0].razorpay_payment_id);
       if (req.method === "DELETE") {
-        if (!canSeeAll(authUser) && current.userId !== authUser.id) {
+        if (!canSeeAll(authUser) && String(current.userId) !== String(authUser.id)) {
           sendJson(res, 403, { error: "Only the booking owner or an admin can delete this booking." });
           return;
         }
+        // Paid or in-payment bookings are financial records: cancel/refund them, never delete.
+        if (moneyMoved) {
+          sendJson(res, 409, { error: "This booking has a payment record and cannot be deleted. Cancel or refund it instead." });
+          return;
+        }
+        await writeAuditLog(authUser, "booking_deleted", "booking", id, "Unpaid booking deleted.", { byAdmin: canSeeAll(authUser) }).catch(() => undefined);
         await db.query("DELETE FROM bookings WHERE id = $1", [id]);
         sendJson(res, 204, {});
         return;
       }
       const body = await readBody(req);
-      const next = {
-        ...current,
-        ...body,
-        legalIssueType: body.legalIssueType ?? body.serviceType ?? current.legalIssueType,
-        status: body.status ?? body.paymentStatus ?? current.status,
-      };
+      const isAdmin = canSeeAll(authUser);
+      // Only descriptive fields can change here. Money, assignment and free-chat flags never can.
+      const EDITABLE = ["caseTitle", "problemSummary", "particulars", "oppositeParty", "partyName", "clientName", "court", "caseType", "legalIssueType"];
+      const patch = {};
+      for (const key of EDITABLE) {
+        if (body[key] !== undefined) patch[key] = typeof body[key] === "string" ? body[key].slice(0, 4000) : body[key];
+      }
+      let nextStatus = null;
+      const requested = body.status !== undefined ? String(body.status) : null;
+      if (requested) {
+        const allowed = isAdmin ? ["Pending", "Confirmed", "Completed", "Cancelled"] : ["Cancelled"];
+        if (!allowed.includes(requested)) {
+          sendJson(res, 403, { error: isAdmin ? "Unknown booking status." : "You can only cancel your own booking. Status changes are made by Legal Connect." });
+          return;
+        }
+        if (!isAdmin && moneyMoved) {
+          sendJson(res, 409, { error: "This booking is paid. Raise a refund request or grievance instead of cancelling it here." });
+          return;
+        }
+        nextStatus = requested;
+      }
+      const ignored = Object.keys(body).filter((key) => !EDITABLE.includes(key) && key !== "status");
+      if (ignored.length) {
+        await writeAuditLog(authUser, "booking_update_fields_ignored", "booking", id, "Protected booking fields were ignored.", { ignored: ignored.slice(0, 20) }).catch(() => undefined);
+      }
+      const payloadPatch = { ...patch, ...(nextStatus ? { status: nextStatus, bookingStatus: nextStatus, statusChangedBy: authUser.role, statusChangedAt: new Date().toISOString() } : {}) };
       const result = await db.query(
         `UPDATE bookings
-         SET service_type = $2, amount = $3, payment_status = $4, payload = $5
+         SET service_type = COALESCE($2, service_type),
+             stage_status = COALESCE($3, stage_status),
+             payload = COALESCE(payload, '{}'::jsonb) || $4::jsonb
          WHERE id = $1
          RETURNING *`,
-        [id, next.legalIssueType, numericAmount(body.amount, numericAmount(current.amount)), next.status, JSON.stringify({ ...next, user_id: current.userId })],
+        [id, patch.legalIssueType || null, nextStatus ? nextStatus.toLowerCase() : null, JSON.stringify(payloadPatch)],
       );
+      if (nextStatus) {
+        await writeAuditLog(authUser, "booking_status_changed", "booking", id, `Booking status set to ${nextStatus}.`, { from: current.status || null, to: nextStatus }).catch(() => undefined);
+      }
       sendJson(res, 200, mapBooking(result.rows[0]));
       return;
     }
@@ -8682,6 +9012,15 @@ const server = http.createServer(async (req, res) => {
         message: "Google Play review court mission is synthetic and cannot release funds.",
       });
       return;
+    }
+    // Missions are posted through ProxyHub checkout (create-order + verify-payment), which proves payment.
+    // This raw route is only for LC Admin (and the developer account); others could otherwise fake a "held" escrow.
+    if (!canSeeAll(authUser) && !(await isMasterTestUser(authUser))) {
+      sendJson(res, 403, { ok: false, error: "Post missions through ProxyHub checkout so the payment is verified." });
+      return;
+    }
+    if (canSeeAll(authUser)) {
+      await writeAuditLog(authUser, "task_created_by_admin", "task", "new", "Mission created directly by LC Admin.", { title: body.title || null, escrowStatus: body.escrowStatus || null }).catch(() => undefined);
     }
     const PROXY_MIN_FEE = PROXY_URGENCY_TIERS.standard.fee;
     const feeAmount = numericAmount(body.amount || body.fee);
@@ -9131,15 +9470,10 @@ const MASTER_TEST_LOGIN = {
   label: "master",
 };
 
-/** Built-in master-free accounts (existing Users directory). Extend via MASTER_FREE_EMAILS. */
+/** Built-in master-free accounts: developer + support only. Family/tester emails belong in the MASTER_FREE_EMAILS env var, never in this public repo. */
 const BUILTIN_MASTER_FREE_EMAILS = [
   "karannagpal16@gmail.com",
-  "priyanagpal16@gmail.com",
-  "samayraina@gmail.com",
   "legalconnect0s@gmail.com",
-  "kartiknagpal16@gmail.com",
-  "nagpal.manoj1973@gmail.com",
-  "muktanagpal25@gmail.com",
 ];
 
 function masterFreeEmailSet() {
@@ -9678,7 +10012,7 @@ function strictPublicUser(row) {
 async function strictUserByEmail(email) {
   if (!db.dbAvailable) return null;
   const result = await db.query(`SELECT users.id, users.name, users.email, users.phone, users.password_hash,
-    COALESCE(roles.name, users.role) AS role, users.created_at,
+    COALESCE(roles.name, users.role) AS role, users.created_at, users.account_status,
     COALESCE((SELECT iv.status FROM identity_verifications iv WHERE iv.user_id = users.id ORDER BY iv.created_at DESC LIMIT 1), 'pending') AS verification_status
     FROM users LEFT JOIN roles ON roles.id = users.role_id WHERE lower(users.email) = lower($1) LIMIT 1`, [email]);
   const user = result.rows[0] || null;
@@ -10159,6 +10493,11 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 401, { ok: false, error: 'Invalid email or password.' });
       return true;
     }
+    if (String(user.account_status || 'active') === 'suspended') {
+      await writeAuditLog(user, 'login_blocked_suspended', 'user', user.id, 'Sign-in refused: account suspended.', {}).catch(() => undefined);
+      sendJson(res, 403, { ok: false, code: 'ACCOUNT_SUSPENDED', error: 'This account is suspended. Contact Legal Connect support.' });
+      return true;
+    }
     const token = strictSignJwt(user);
     await saveSessionToken(user, token);
     await writeAuditLog(user, 'jwt_login', 'user', user.id, 'Strict JWT login completed.', { role: user.role, emailMasked: maskEmail(user.email) });
@@ -10204,7 +10543,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const casesResult = await db.query('SELECT * FROM cases WHERE user_id = $1 ORDER BY updated_at DESC', [userId]);
     const bookingsResult = await db.query('SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
     const paymentsResult = await db.query('SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
-    const useDemo = /^Demo Client$/i.test(String(authUser.name || '')) && casesResult.rows.length === 0;
+    const useDemo = config.nodeEnv !== "production" && String(authUser.email || "").toLowerCase() === "client@demo.legal-connect.in" && casesResult.rows.length === 0;
     const cases = useDemo ? clientWorkspaceDemo(authUser.name) : await attachStoredCaseRecords(casesResult.rows.map(mapCase));
     const bookings = bookingsResult.rows.map(mapBooking);
     const bookingById = new Map(bookings.map((item) => [String(item.id), item]));
@@ -10440,7 +10779,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       LEFT JOIN users assignee ON assignee.id = h.assigned_to
       LEFT JOIN LATERAL (SELECT outcome, next_hearing_date, next_purpose, order_status FROM case_hearing_updates WHERE hearing_assignment_id = h.id ORDER BY created_at DESC LIMIT 1) hu ON true
       LEFT JOIN LATERAL (SELECT id, verification_status, file_name, uploaded_at FROM case_hearing_orders WHERE hearing_assignment_id = h.id AND verification_status <> 'upload_pending' ORDER BY created_at DESC LIMIT 1) ho ON true
-      WHERE (c.next_date = $2 OR EXISTS (SELECT 1 FROM case_hearing_assignments closed_today WHERE closed_today.case_id = c.id AND closed_today.chamber_id = $1 AND closed_today.hearing_date = $2::date))
+      WHERE (left(c.next_date, 10) = to_char($2::date, 'YYYY-MM-DD') OR EXISTS (SELECT 1 FROM case_hearing_assignments closed_today WHERE closed_today.case_id = c.id AND closed_today.chamber_id = $1 AND closed_today.hearing_date = $2::date))
         AND (
           EXISTS (SELECT 1 FROM case_hearing_assignments visible WHERE visible.case_id = c.id AND visible.chamber_id = $1 AND visible.hearing_date = $2::date)
           OR EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_id = c.id AND ca.status = 'active' AND ca.advocate_id IN (
@@ -10499,7 +10838,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
         SELECT c.id, c.title
         FROM cases c
         WHERE c.id = $1
-          AND c.next_date = $2::date
+          AND left(c.next_date, 10) = to_char($2::date, 'YYYY-MM-DD')
           AND (
             EXISTS (
               SELECT 1 FROM case_assignments ca
@@ -10814,7 +11153,7 @@ async function handleStrictJwtAuthRoute(req, res, url) {
     const orderId = body.order_id || body.razorpay_order_id;
     const paymentId = body.payment_id || body.razorpay_payment_id;
     const signature = body.signature || body.razorpay_signature;
-    const isDemo = String(orderId || '').startsWith('order_chamber_demo_');
+    const isDemo = config.nodeEnv !== 'production' && String(orderId || '').startsWith('order_chamber_demo_');
     const recordedOrder = await db.query(`SELECT subscription_order.* FROM chamber_subscription_orders subscription_order JOIN chambers chamber ON chamber.id = subscription_order.chamber_id WHERE subscription_order.provider_order_id = $1 AND chamber.owner_id = $2 LIMIT 1`, [orderId, userId]);
     const orderRecord = recordedOrder.rows[0];
     if (!orderRecord || orderRecord.status !== 'pending') { sendJson(res, 409, { ok: false, error: 'This subscription order is missing, already used, or does not belong to your chamber.' }); return true; }
@@ -10906,6 +11245,11 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       sendJson(res, 403, { ok: false, error: `Your ${subscription.planName} plan includes ${subscription.teamSeats} Team Member seats.` });
       return true;
     }
+    const duplicate = await db.query(`SELECT 1 FROM chamber_members WHERE chamber_id = $1 AND lower(email) = lower($2) AND status NOT IN ('removed', 'declined') LIMIT 1`, [chamber.id, email]);
+    if (duplicate.rows[0]) {
+      sendJson(res, 409, { ok: false, error: 'This person is already invited to or a member of your chamber.' });
+      return true;
+    }
     const created = await db.query(`INSERT INTO chamber_members (chamber_id, display_name, email, member_role, status)
       VALUES ($1, $2, $3, $4, 'invited') RETURNING *`, [chamber.id, displayName, email, memberRole]);
     await writeAuditLog(authUser, 'chamber_member_invited', 'chamber_member', created.rows[0].id, 'A chamber member was invited.', { emailMasked: maskEmail(email) });
@@ -10926,6 +11270,81 @@ async function handleStrictJwtAuthRoute(req, res, url) {
       });
     }
     sendJson(res, 201, { ok: true, member: created.rows[0] });
+    return true;
+  }
+
+  // Invitations addressed to the signed-in user. Joining a chamber needs the invitee's own consent.
+  if (url.pathname === '/api/chamber/invitations' && req.method === 'GET') {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: 'Login is required.' });
+      return true;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 200, { ok: true, invitations: [] });
+      return true;
+    }
+    await ensureChamberVaultSchema();
+    const myEmail = normalizeEmail(authUser.email);
+    if (!myEmail) {
+      sendJson(res, 200, { ok: true, invitations: [] });
+      return true;
+    }
+    const invites = await db.query(`SELECT cm.id, cm.member_role, cm.status, cm.created_at, c.id AS chamber_id, c.name AS chamber_name, owner.name AS owner_name
+      FROM chamber_members cm JOIN chambers c ON c.id = cm.chamber_id LEFT JOIN users owner ON owner.id = c.owner_id
+      WHERE lower(cm.email) = lower($1) AND cm.status = 'invited' ORDER BY cm.created_at DESC`, [myEmail]);
+    sendJson(res, 200, { ok: true, invitations: invites.rows });
+    return true;
+  }
+  const invitationMatch = url.pathname.match(/^\/api\/chamber\/invitations\/([^/]+)\/(accept|decline)$/);
+  if (invitationMatch && req.method === 'POST') {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      sendJson(res, 401, { ok: false, error: 'Login is required.' });
+      return true;
+    }
+    if (!db.dbAvailable) {
+      sendJson(res, 503, { ok: false, error: 'Chamber invitations need the database.' });
+      return true;
+    }
+    await ensureChamberVaultSchema();
+    const [, memberId, decision] = invitationMatch;
+    if (!isUuid(memberId)) {
+      sendJson(res, 404, { ok: false, error: 'Invitation not found.' });
+      return true;
+    }
+    const myUserId = await resolveDatabaseUserId(authUser);
+    const myEmail = normalizeEmail(authUser.email);
+    const found = await db.query(`SELECT cm.*, c.owner_id FROM chamber_members cm JOIN chambers c ON c.id = cm.chamber_id WHERE cm.id = $1 LIMIT 1`, [memberId]);
+    const invite = found.rows[0];
+    if (!invite || !myEmail || normalizeEmail(invite.email) !== myEmail) {
+      sendJson(res, 404, { ok: false, error: 'Invitation not found.' });
+      return true;
+    }
+    if (invite.status !== 'invited') {
+      sendJson(res, 409, { ok: false, error: `This invitation is already ${invite.status}.` });
+      return true;
+    }
+    if (String(invite.owner_id) === String(myUserId)) {
+      sendJson(res, 400, { ok: false, error: 'You already own this chamber.' });
+      return true;
+    }
+    const nextStatus = decision === 'accept' ? 'active' : 'declined';
+    const updated = await db.query(`UPDATE chamber_members SET status = $2, user_id = CASE WHEN $2 = 'active' THEN $3::uuid ELSE user_id END, updated_at = now()
+      WHERE id = $1 AND status = 'invited' RETURNING id, chamber_id, display_name, member_role, status`, [memberId, nextStatus, myUserId]);
+    await writeAuditLog(authUser, `chamber_invitation_${decision === 'accept' ? 'accepted' : 'declined'}`, 'chamber_member', memberId, `Chamber invitation ${nextStatus}.`, { chamberId: invite.chamber_id });
+    const ownerRecipients = await resolveRecipients([invite.owner_id].filter(Boolean));
+    await notify({
+      eventType: decision === 'accept' ? 'chamber_member_joined' : 'chamber_member_declined',
+      title: decision === 'accept' ? 'Chamber member joined' : 'Chamber invitation declined',
+      message: `${authUser.name || invite.display_name} ${decision === 'accept' ? 'joined your Chamber Vault' : 'declined your Chamber Vault invitation'}.`,
+      recipients: ownerRecipients,
+      payload: { chamberId: invite.chamber_id, memberId },
+      sendEmail: false,
+      ctaLabel: 'Open Chamber Vault',
+      ctaUrl: portalUrl('/advocate/chamber'),
+    }).catch(() => undefined);
+    sendJson(res, 200, { ok: true, member: updated.rows[0] });
     return true;
   }
 
@@ -11246,6 +11665,20 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
         } catch (error) {
           console.warn('bindAuthUser failed:', redactSecrets(error?.message || error));
         }
+        // LC supervision: suspended accounts, unverified advocates and unverified assignees are stopped here,
+        // before any route runs. Fails closed for gated actions if the check itself errors.
+        let blocked = null;
+        try {
+          blocked = await supervision.guard(req, url);
+        } catch (error) {
+          console.error('supervision guard failed:', redactSecrets(error?.message || error));
+          if (req.method !== 'GET') blocked = { status: 503, body: { ok: false, error: 'Safety checks are unavailable. Please retry shortly.' } };
+        }
+        if (blocked) {
+          sendJson(res, blocked.status, blocked.body);
+          return;
+        }
+        if (await supervision.handle(req, res, url)) return;
       }
       if (await handleStrictJwtAuthRoute(req, res, url)) return;
     } catch (error) {
@@ -11290,6 +11723,11 @@ server.on('request', async function strictRoleIsolatedRequest(req, res) {
     if (!res.headersSent) {
       if (isDemoStoreDisabledError(error)) {
         sendProductionDbUnavailable(res);
+        return;
+      }
+      // Postgres 22P02 = malformed id/number in the URL or body: a bad request, not a server crash.
+      if (error && error.code === '22P02') {
+        sendJson(res, 400, { ok: false, error: 'That record id is not valid.', requestId });
         return;
       }
       sendJson(res, 500, {

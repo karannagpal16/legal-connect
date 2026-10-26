@@ -30,6 +30,7 @@ import { DashboardIntro, DashboardPanel, EmptyState, MetricCard, StatusPill } fr
 import { HeroActionBanner, pickHeroAction } from "@/components/dashboard/HeroActionBanner";
 import { TaskDialog } from "@/components/forms/TaskDialog";
 import { workspaceRequest } from "@/lib/workspace";
+import { SupervisionPanel } from "@/components/admin/SupervisionPanel";
 
 type VerificationRow = {
   id: string;
@@ -172,6 +173,8 @@ export function Dashboard() {
         <MetricCard label="Intake queue" value={pendingBookings.length} detail="Bookings awaiting counsel assignment" icon={CalendarDays} tone="red" loading={bookingsLoading} />
         <MetricCard label="Proxy desk" value={openTasks.length} detail="Missions awaiting admin action" icon={BriefcaseBusiness} tone="green" loading={tasksLoading} />
       </div>
+
+      <SupervisionPanel />
 
       <section className="lc-workspace-metrics" aria-label="Operations spotlight">
         <div><ShieldCheck /><span><strong>{pendingVerifications.length}</strong><small>Pending credential reviews</small></span></div>
