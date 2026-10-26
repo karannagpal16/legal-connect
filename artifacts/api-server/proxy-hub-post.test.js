@@ -4,6 +4,11 @@ const {
   isComplimentaryProxyOrder,
   safeErrorDetail,
   clientSafeErrorDetail,
+  isDatabaseError,
+  proxyRequestRef,
+  proxyPaymentLogContext,
+  createPaymentInFlightGuard,
+  findProxyMissionByPaymentId,
   resolveMasterFreeUser,
   isUndefinedColumnError,
   buildProxyMissionRecord,
@@ -116,6 +121,44 @@ assert.strictEqual(isUndefinedColumnError({ code: "42703", message: 'column "pro
 assert.strictEqual(isUndefinedColumnError({ code: "23502", message: "not null" }), false);
 assert.ok(safeErrorDetail(new Error("column proof_status does not exist")).includes("proof_status"));
 
+// PostgreSQL / driver errors must never reach the browser; business errors still may.
+{
+  const pgError = Object.assign(new Error('duplicate key value violates unique constraint "users_email_key"'), {
+    code: "23505", severity: "ERROR", constraint: "users_email_key", detail: "Key (email)=(client@example.com) already exists.",
+  });
+  assert.strictEqual(isDatabaseError(pgError), true);
+  assert.strictEqual(clientSafeErrorDetail(pgError), null);
+  assert.strictEqual(clientSafeErrorDetail(Object.assign(new Error('relation "tasks" does not exist'), { code: "42P01" })), null);
+  assert.strictEqual(clientSafeErrorDetail(Object.assign(new Error("connect ECONNREFUSED 10.0.0.5:5432"), { code: "ECONNREFUSED" })), null);
+  assert.strictEqual(clientSafeErrorDetail(new Error("password authentication failed for user \"lc_app\"")), null);
+  assert.strictEqual(clientSafeErrorDetail(new Error("Database is not available.")), null);
+  assert.strictEqual(clientSafeErrorDetail(Object.assign(new Error("write EPIPE"), { code: "EPIPE" })), "write EPIPE");
+  assert.strictEqual(clientSafeErrorDetail(new Error("The amount must be at least INR 1.00")), "The amount must be at least INR 1.00");
+}
+
+// Reconciliation log context: ids only, never signatures; complimentary orders carry no payment ids.
+{
+  const ctx = proxyPaymentLogContext({ requestId: "abc", orderId: "order_1", paymentId: "pay_1", userId: 7, taskId: 9, stage: "insert_mission", signature: "SHOULD_NOT_APPEAR" });
+  assert.deepStrictEqual(ctx, { requestId: "abc", stage: "insert_mission", orderId: "order_1", paymentId: "pay_1", userId: "7", taskId: "9" });
+  const demoCtx = proxyPaymentLogContext({ requestId: "r", orderId: "order_proxy_demo_1", paymentId: "pay_demo", complimentary: true });
+  assert.strictEqual(demoCtx.orderId, null);
+  assert.strictEqual(demoCtx.paymentId, null);
+  assert.match(proxyRequestRef(require("crypto").randomBytes), /^[0-9a-f]{12}$/);
+}
+
+// In-flight guard: a payment id can be held once at a time and is released after.
+{
+  const guard = createPaymentInFlightGuard();
+  assert.strictEqual(guard.acquire("pay_1"), true);
+  assert.strictEqual(guard.acquire("pay_1"), false, "concurrent duplicate blocked");
+  assert.strictEqual(guard.acquire("pay_2"), true);
+  guard.release("pay_1");
+  assert.strictEqual(guard.acquire("pay_1"), true, "released key can be reacquired");
+  assert.strictEqual(guard.acquire(null), true, "no key = no guard");
+  guard.release(null);
+  assert.strictEqual(guard.size(), 2);
+}
+
 async function withMockDb(queryImpl) {
   const calls = [];
   const db = {
@@ -141,6 +184,21 @@ async function withMockDb(queryImpl) {
   const result = await insertProxyMission(db, complimentaryTask);
   assert.equal(result.rows[0].id, "task-row-1");
   assert.ok(calls.some((call) => /INSERT/.test(call.sql) && !/proof_status/.test(call.sql)), "retries insert without proof_status");
+
+  // Duplicate-payment lookup: DB path queries by payment id; demo path scans tasks.
+  {
+    const { db: lookupDb, calls: lookupCalls } = await withMockDb(async (_sql, params) => (
+      params[0] === "pay_SEEN" ? { rows: [{ id: "task-row-9", posted_by: "adv-1" }] } : { rows: [] }
+    ));
+    const found = await findProxyMissionByPaymentId({ db: lookupDb, paymentId: "pay_SEEN" });
+    assert.equal(found.row.id, "task-row-9");
+    assert.ok(/payload->>'razorpayPaymentId' = \$1/.test(lookupCalls[0].sql), "parameterised lookup by payment id");
+    assert.equal(await findProxyMissionByPaymentId({ db: lookupDb, paymentId: "pay_NEW" }), null);
+    assert.equal(await findProxyMissionByPaymentId({ db: lookupDb, paymentId: "" }), null);
+    assert.equal(lookupCalls.length, 2, "blank payment id never queries");
+    const demoFound = await findProxyMissionByPaymentId({ db: { dbAvailable: false }, demoTasks: [{ id: "t1", razorpayPaymentId: "pay_X" }], paymentId: "pay_X" });
+    assert.equal(demoFound.task.id, "t1");
+  }
 
   console.log("proxy-hub-post.test.js OK");
 })().catch((error) => {
